@@ -16,7 +16,6 @@
 package android.ext.services.notification;
 
 import static android.app.Notification.CATEGORY_MESSAGE;
-import static android.app.NotificationChannel.USER_LOCKED_IMPORTANCE;
 import static android.app.NotificationManager.IMPORTANCE_DEFAULT;
 import static android.app.NotificationManager.IMPORTANCE_HIGH;
 import static android.app.NotificationManager.IMPORTANCE_LOW;
@@ -27,17 +26,13 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.Person;
 import android.app.RemoteInput;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
-import android.content.pm.IPackageManager;
 import android.content.pm.PackageManager;
 import android.graphics.drawable.Icon;
 import android.media.AudioAttributes;
-import android.media.AudioSystem;
 import android.os.Build;
 import android.os.Parcelable;
-import android.os.RemoteException;
 import android.service.notification.StatusBarNotification;
 import android.util.Log;
 import android.util.SparseArray;
@@ -57,7 +52,7 @@ public class NotificationEntry {
 
     private final Context mContext;
     private final StatusBarNotification mSbn;
-    private final IPackageManager mPackageManager;
+    private final PackageManager mPackageManager;
     private int mTargetSdkVersion = Build.VERSION_CODES.N_MR1;
     private final boolean mPreChannelsNotification;
     private final AudioAttributes mAttributes;
@@ -69,7 +64,7 @@ public class NotificationEntry {
 
     private final Object mLock = new Object();
 
-    public NotificationEntry(Context applicationContext, IPackageManager packageManager,
+    public NotificationEntry(Context applicationContext, PackageManager packageManager,
             StatusBarNotification sbn, NotificationChannel channel, SmsHelper smsHelper) {
         mContext = applicationContext;
         mSbn = cloneStatusBarNotificationLight(sbn);
@@ -143,13 +138,13 @@ public class NotificationEntry {
 
     private boolean isPreChannelsNotification() {
         try {
-            ApplicationInfo info = mPackageManager.getApplicationInfo(
+            ApplicationInfo info = mPackageManager.getApplicationInfoAsUser(
                     mSbn.getPackageName(), PackageManager.MATCH_ALL,
-                    mSbn.getUserId());
+                    mSbn.getUser());
             if (info != null) {
                 mTargetSdkVersion = info.targetSdkVersion;
             }
-        } catch (RemoteException e) {
+        } catch (PackageManager.NameNotFoundException e) {
             Log.w(TAG, "Couldn't look up " + mSbn.getPackageName());
         }
         if (NotificationChannel.DEFAULT_CHANNEL_ID.equals(getChannel().getId())) {
@@ -167,19 +162,16 @@ public class NotificationEntry {
             attributes = Notification.AUDIO_ATTRIBUTES_DEFAULT;
         }
 
-        if (mPreChannelsNotification
-                && (getChannel().getUserLockedFields()
-                & NotificationChannel.USER_LOCKED_SOUND) == 0) {
+        if (mPreChannelsNotification && !getChannel().hasUserSetSound()) {
             if (n.audioAttributes != null) {
                 // prefer audio attributes to stream type
                 attributes = n.audioAttributes;
-            } else if (n.audioStreamType >= 0
-                    && n.audioStreamType < AudioSystem.getNumStreamTypes()) {
+            } else if (n.audioStreamType >= 0) {
                 // the stream type is valid, use it
                 attributes = new AudioAttributes.Builder()
-                        .setInternalLegacyStreamType(n.audioStreamType)
+                        .setLegacyStreamType(n.audioStreamType)
                         .build();
-            } else if (n.audioStreamType != AudioSystem.STREAM_DEFAULT) {
+            } else {
                 Log.w(TAG, String.format("Invalid stream type: %d", n.audioStreamType));
             }
         }
@@ -216,8 +208,7 @@ public class NotificationEntry {
 
         if (mPreChannelsNotification
                 && (importance == IMPORTANCE_UNSPECIFIED
-                || (getChannel().getUserLockedFields()
-                & USER_LOCKED_IMPORTANCE) == 0)) {
+                || (getChannel().hasUserSetImportance()))) {
             if (n.fullScreenIntent != null) {
                 requestedImportance = IMPORTANCE_HIGH;
             }
@@ -255,8 +246,8 @@ public class NotificationEntry {
     }
 
     protected boolean hasStyle(Class targetStyle) {
-        Class<? extends Notification.Style> style = getNotification().getNotificationStyle();
-        return targetStyle.equals(style);
+        String templateClass = getNotification().extras.getString(Notification.EXTRA_TEMPLATE);
+        return targetStyle.getName().equals(templateClass);
     }
 
     protected boolean isOngoing() {
@@ -271,11 +262,11 @@ public class NotificationEntry {
     }
 
     private boolean isDefaultSmsApp() {
-        ComponentName defaultSmsApp = mSmsHelper.getDefaultSmsApplication();
+        String defaultSmsApp = mSmsHelper.getDefaultSmsPackage();
         if (defaultSmsApp == null) {
             return false;
         }
-        return mSbn.getPackageName().equals(defaultSmsApp.getPackageName());
+        return mSbn.getPackageName().equals(defaultSmsApp);
     }
 
     protected boolean isMessaging() {

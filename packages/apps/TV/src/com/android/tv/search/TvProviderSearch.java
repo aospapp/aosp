@@ -308,7 +308,7 @@ public class TvProviderSearch implements SearchInterface {
             if (c != null && c.moveToNext() && !isRatingBlocked(c.getString(2))) {
                 String channelName = result.getTitle();
                 String channelNumber = result.getChannelNumber();
-                SearchResult.Builder builder = SearchResult.builder();
+                SearchResult.Builder builder = result.toBuilder();
                 long startUtcMillis = c.getLong(5);
                 long endUtcMillis = c.getLong(6);
                 builder.setTitle(c.getString(0));

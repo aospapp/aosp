@@ -70,6 +70,12 @@ LOCAL_CERTIFICATE := platform
 
 LOCAL_SDK_VERSION := current
 
+LOCAL_PRODUCT_MODULE := true
+
+LOCAL_MODULE_PATH := $(TARGET_OUT_PRODUCT_APPS)
+
+LOCAL_COMPATIBILITY_SUITE := general-tests
+
 include $(BUILD_PACKAGE)
 
 include $(call all-makefiles-under, $(LOCAL_PATH))

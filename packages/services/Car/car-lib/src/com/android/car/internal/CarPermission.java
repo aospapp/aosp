@@ -40,8 +40,8 @@ public class CarPermission {
     public boolean checkGranted() {
         if (mName != null) {
             if (Binder.getCallingUid() != Process.myUid()) {
-                return PackageManager.PERMISSION_GRANTED ==
-                        mContext.checkCallingOrSelfPermission(mName);
+                return PackageManager.PERMISSION_GRANTED
+                        == mContext.checkCallingOrSelfPermission(mName);
             }
         }
         return true;

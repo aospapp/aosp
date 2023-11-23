@@ -17,7 +17,9 @@
 package com.android.tv.settings.system;
 
 import android.app.Activity;
-import android.app.AlarmManager;
+import android.app.timezonedetector.ManualTimeZoneSuggestion;
+import android.app.timezonedetector.TimeZoneDetector;
+import android.app.tvsettings.TvSettingsEnums;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -34,6 +36,7 @@ import com.android.internal.logging.nano.MetricsProto;
 import com.android.settingslib.datetime.ZoneGetter;
 import com.android.tv.settings.R;
 import com.android.tv.settings.SettingsPreferenceFragment;
+import com.android.tv.twopanelsettings.TwoPanelSettingsFragment;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -93,10 +96,14 @@ public class TimeZoneFragment extends SettingsPreferenceFragment {
     public boolean onPreferenceTreeClick(Preference preference) {
         if (preference instanceof ZonePreference) {
             // Update the system timezone value
-            final AlarmManager alarm = (AlarmManager)
-                    getActivity().getSystemService(Context.ALARM_SERVICE);
-            alarm.setTimeZone(preference.getKey());
-            if (!getFragmentManager().popBackStackImmediate()) {
+            final TimeZoneDetector timeZoneDetector =
+                    getActivity().getSystemService(TimeZoneDetector.class);
+            ManualTimeZoneSuggestion suggestion = TimeZoneDetector.createManualTimeZoneSuggestion(
+                    preference.getKey(), "Settings: Set time zone");
+            timeZoneDetector.suggestManualTimeZone(suggestion);
+            if (getParentFragment() instanceof TwoPanelSettingsFragment) {
+                ((TwoPanelSettingsFragment) getParentFragment()).navigateBack();
+            } else if (!getFragmentManager().popBackStackImmediate()) {
                 getActivity().finish();
             }
         }
@@ -144,5 +151,10 @@ public class TimeZoneFragment extends SettingsPreferenceFragment {
     @Override
     public int getMetricsCategory() {
         return MetricsProto.MetricsEvent.ZONE_PICKER;
+    }
+
+    @Override
+    protected int getPageId() {
+        return TvSettingsEnums.SYSTEM_DATE_TIME_SET_TIME_ZONE;
     }
 }

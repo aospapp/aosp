@@ -29,24 +29,29 @@ import androidx.preference.PreferenceCategory;
 import androidx.preference.PreferenceManager;
 import androidx.preference.PreferenceScreen;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
+import com.android.car.settings.R;
 import com.android.car.settings.common.LogicalPreferenceGroup;
-import com.android.car.settingslib.R;
+import com.android.car.settings.testutils.ShadowLocaleStore;
 import com.android.internal.app.LocaleStore;
 import com.android.internal.app.SuggestedLocaleAdapter;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
+import org.robolectric.annotation.Config;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
+@Config(shadows = {ShadowLocaleStore.class})
 public class LocalePreferenceProviderTest {
 
     private static class Pair {
@@ -62,6 +67,7 @@ public class LocalePreferenceProviderTest {
     private Context mContext;
     private LocalePreferenceProvider mLocalePreferenceProvider;
     private LogicalPreferenceGroup mPreferenceGroup;
+    private HashSet mIgnorables = new HashSet();
     // This list includes the expected values that should be returned by the SuggestedLocaleAdapter.
     // The index i in this list represents position, the itemType represents the return value for
     // getItemViewType given the index i, and mLocaleInfo represents the return value for getItem
@@ -84,6 +90,11 @@ public class LocalePreferenceProviderTest {
         screen.addPreference(mPreferenceGroup);
     }
 
+    @After
+    public void tearDown() {
+        ShadowLocaleStore.reset();
+    }
+
     @Test
     public void testPopulateBasePreference_noSubSections() {
         mLocaleAdapterExpectedValues.add(new Pair(LocalePreferenceProvider.TYPE_LOCALE,
@@ -94,7 +105,7 @@ public class LocalePreferenceProviderTest {
                 LocaleStore.getLocaleInfo(Locale.CANADA)));
         prepareSuggestedLocaleAdapterMock();
 
-        mLocalePreferenceProvider.populateBasePreference(mPreferenceGroup, mock(
+        mLocalePreferenceProvider.populateBasePreference(mPreferenceGroup, mIgnorables, mock(
                 Preference.OnPreferenceClickListener.class));
         assertThat(mPreferenceGroup.getPreferenceCount()).isEqualTo(3);
     }
@@ -119,7 +130,7 @@ public class LocalePreferenceProviderTest {
                 LocaleStore.getLocaleInfo(Locale.CHINA)));
         prepareSuggestedLocaleAdapterMock();
 
-        mLocalePreferenceProvider.populateBasePreference(mPreferenceGroup, mock(
+        mLocalePreferenceProvider.populateBasePreference(mPreferenceGroup, mIgnorables, mock(
                 Preference.OnPreferenceClickListener.class));
         assertThat(mPreferenceGroup.getPreferenceCount()).isEqualTo(2);
 
@@ -146,7 +157,7 @@ public class LocalePreferenceProviderTest {
 
         Preference.OnPreferenceClickListener listener = mock(
                 Preference.OnPreferenceClickListener.class);
-        mLocalePreferenceProvider.populateBasePreference(mPreferenceGroup, listener);
+        mLocalePreferenceProvider.populateBasePreference(mPreferenceGroup, mIgnorables, listener);
 
         mPreferenceGroup.getPreference(0).performClick();
         verify(listener).onPreferenceClick(mPreferenceGroup.getPreference(0));

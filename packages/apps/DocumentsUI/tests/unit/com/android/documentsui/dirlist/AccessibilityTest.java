@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 The Android Open Source Project
+ * Copyright (C) 2019 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -83,8 +83,8 @@ public class AccessibilityTest extends AndroidTestCase {
         View item = Views.createTestView(true);
         AccessibilityNodeInfoCompat info = AccessibilityNodeInfoCompat.obtain();
         mAccessibilityDelegate.getItemDelegate().onInitializeAccessibilityNodeInfo(item, info);
-        mAccessibilityDelegate.getItemDelegate()
-            .performAccessibilityAction(item, AccessibilityNodeInfoCompat.ACTION_CLICK, null);
+        mAccessibilityDelegate.getItemDelegate().performAccessibilityAction(
+                item, AccessibilityNodeInfoCompat.ACTION_CLICK, null);
         assertTrue(mClickCallbackCalled);
     }
 
@@ -92,8 +92,8 @@ public class AccessibilityTest extends AndroidTestCase {
         View item = Views.createTestView(true);
         AccessibilityNodeInfoCompat info = AccessibilityNodeInfoCompat.obtain();
         mAccessibilityDelegate.getItemDelegate().onInitializeAccessibilityNodeInfo(item, info);
-        mAccessibilityDelegate.getItemDelegate()
-            .performAccessibilityAction(item, AccessibilityNodeInfoCompat.ACTION_LONG_CLICK, null);
+        mAccessibilityDelegate.getItemDelegate().performAccessibilityAction(
+                item, AccessibilityNodeInfoCompat.ACTION_LONG_CLICK, null);
         assertTrue(mLongClickCallbackCalled);
     }
 }

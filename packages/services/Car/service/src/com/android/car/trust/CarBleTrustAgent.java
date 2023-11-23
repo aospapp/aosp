@@ -48,7 +48,11 @@ import java.util.List;
  * The system {@link com.android.server.trust.TrustManagerService} binds to this agent and uses
  * the data it receives from this agent to authorize a user in lieu of the PIN/Pattern/Password
  * credentials.
+ *
+ * @deprecated Enrolling a trusted device through car service is no longer supported and these APIs
+ * will be removed in the next Android release.
  */
+@Deprecated
 public class CarBleTrustAgent extends TrustAgentService {
     private static final String TAG = CarBleTrustAgent.class.getSimpleName();
     private boolean mIsDeviceLocked;
@@ -103,12 +107,7 @@ public class CarBleTrustAgent extends TrustAgentService {
         }
         super.onDeviceLocked();
         mIsDeviceLocked = true;
-        if (BluetoothAdapter.getDefaultAdapter().getState() == BluetoothAdapter.STATE_OFF) {
-            if (Log.isLoggable(TAG, Log.DEBUG)) {
-                Log.d(TAG, "Not starting Unlock Advertising yet, since Bluetooth Adapter is off");
-            }
-            return;
-        }
+
         if (!hasTrustedDevice(uid)) {
             if (Log.isLoggable(TAG, Log.DEBUG)) {
                 Log.d(TAG, "Not starting Unlock Advertising yet, since current user: "
@@ -116,7 +115,7 @@ public class CarBleTrustAgent extends TrustAgentService {
             }
             return;
         }
-        if (mCarTrustAgentUnlockService != null) {
+        if (isBluetoothAvailable() && mCarTrustAgentUnlockService != null) {
             mCarTrustAgentUnlockService.startUnlockAdvertising();
         }
     }
@@ -128,16 +127,27 @@ public class CarBleTrustAgent extends TrustAgentService {
         }
         super.onDeviceUnlocked();
         mIsDeviceLocked = false;
-        if (BluetoothAdapter.getDefaultAdapter().getState() == BluetoothAdapter.STATE_OFF) {
-            if (Log.isLoggable(TAG, Log.DEBUG)) {
-                Log.d(TAG, "Not stopping Unlock Advertising, since Bluetooth Adapter is off");
-            }
-            return;
-        }
-        if (mCarTrustAgentUnlockService != null) {
-            mCarTrustAgentUnlockService.stopUnlockAdvertising();
 
+        if (isBluetoothAvailable() && mCarTrustAgentUnlockService != null) {
+            mCarTrustAgentUnlockService.stopUnlockAdvertising();
         }
+    }
+
+    private boolean isBluetoothAvailable() {
+        BluetoothAdapter defaultAdapter = BluetoothAdapter.getDefaultAdapter();
+        if (defaultAdapter == null) {
+            if (Log.isLoggable(TAG, Log.DEBUG)) {
+                Log.d(TAG, "Bluetooth Adapter null.");
+            }
+            return false;
+        }
+        if (defaultAdapter.getState() == BluetoothAdapter.STATE_OFF) {
+            if (Log.isLoggable(TAG, Log.DEBUG)) {
+                Log.d(TAG, "Bluetooth Adapter is off");
+            }
+            return false;
+        }
+        return true;
     }
 
     @Override
@@ -199,6 +209,9 @@ public class CarBleTrustAgent extends TrustAgentService {
      * @return if the user has trusted device
      */
     private boolean hasTrustedDevice(int uid) {
+        if (mCarTrustAgentEnrollmentService == null) {
+            return false;
+        }
         List<TrustedDeviceInfo> trustedDeviceInfos = mCarTrustAgentEnrollmentService
                 .getEnrolledDeviceInfosForUser(uid);
         return trustedDeviceInfos != null && trustedDeviceInfos.size() > 0;
@@ -231,7 +244,7 @@ public class CarBleTrustAgent extends TrustAgentService {
 
     private void onBluetoothStateChanged(int state) {
         if (Log.isLoggable(TAG, Log.DEBUG)) {
-            Log.d(TAG, "onBluetoothStateChanged: " + state);
+            Log.d(TAG, "onBluetoothStateChanged: " + BluetoothAdapter.nameForState(state));
         }
         if (!mIsDeviceLocked) {
             return;

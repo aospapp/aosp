@@ -23,13 +23,17 @@ import android.os.Build;
 import android.os.Bundle;
 import android.support.annotation.IntDef;
 import android.support.annotation.NonNull;
-import android.support.v17.leanback.widget.GuidanceStylist.Guidance;
-import android.support.v17.leanback.widget.GuidedAction;
+
+import androidx.leanback.widget.GuidanceStylist.Guidance;
+import androidx.leanback.widget.GuidedAction;
+
 import com.android.tv.R;
 import com.android.tv.TvSingletons;
+import com.android.tv.data.ProgramImpl;
 import com.android.tv.dvr.DvrDataManager;
 import com.android.tv.dvr.DvrDataManager.ScheduledRecordingListener;
 import com.android.tv.dvr.data.ScheduledRecording;
+
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.List;
@@ -44,7 +48,7 @@ import java.util.List;
 public class DvrStopRecordingFragment extends DvrGuidedStepFragment {
     /** The action ID for the stop action. */
     public static final int ACTION_STOP = 1;
-    /** Key for the program. Type: {@link com.android.tv.data.Program}. */
+    /** Key for the program. Type: {@link ProgramImpl}. */
     public static final String KEY_REASON = "DvrStopRecordingFragment.type";
 
     @Retention(RetentionPolicy.SOURCE)

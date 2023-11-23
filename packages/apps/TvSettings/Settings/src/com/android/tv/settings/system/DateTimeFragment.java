@@ -16,7 +16,11 @@
 
 package com.android.tv.settings.system;
 
+import static com.android.tv.settings.util.InstrumentationUtils.logEntrySelected;
+import static com.android.tv.settings.util.InstrumentationUtils.logToggleInteracted;
+
 import android.app.Activity;
+import android.app.tvsettings.TvSettingsEnums;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -164,12 +168,14 @@ public class DateTimeFragment extends SettingsPreferenceFragment implements
         if (TextUtils.equals(preference.getKey(), KEY_AUTO_DATE_TIME)) {
             String value = (String) newValue;
             if (TextUtils.equals(value, AUTO_DATE_TIME_NTP)) {
+                logEntrySelected(TvSettingsEnums.SYSTEM_DATE_TIME_AUTOMATIC_USE_NETWORK_TIME);
                 setAutoDateTime(true);
             } else if (TextUtils.equals(value, AUTO_DATE_TIME_TS)) {
                 throw new IllegalStateException("TS date is not yet implemented");
 //                mTvInputManager.syncTimefromBroadcast(true);
 //                setAutoDateTime(false);
             } else if (TextUtils.equals(value, AUTO_DATE_TIME_OFF)) {
+                logEntrySelected(TvSettingsEnums.SYSTEM_DATE_TIME_AUTOMATIC_OFF);
                 setAutoDateTime(false);
             } else {
                 throw new IllegalArgumentException("Unknown auto time value " + value);
@@ -177,10 +183,24 @@ public class DateTimeFragment extends SettingsPreferenceFragment implements
             updateTimeDateEnable();
         } else if (TextUtils.equals(preference.getKey(), KEY_USE_24_HOUR)) {
             final boolean use24Hour = (Boolean) newValue;
+            logToggleInteracted(TvSettingsEnums.SYSTEM_DATE_TIME_USE_24_HOUR_FORMAT, use24Hour);
             set24Hour(use24Hour);
             timeUpdated(use24Hour);
         }
         return true;
+    }
+
+    @Override
+    public boolean onPreferenceTreeClick(Preference preference) {
+        switch (preference.getKey()) {
+            case KEY_SET_DATE:
+                logEntrySelected(TvSettingsEnums.SYSTEM_DATE_TIME_SET_DATE);
+                break;
+            case KEY_SET_TIME:
+                logEntrySelected(TvSettingsEnums.SYSTEM_DATE_TIME_SET_TIME);
+                break;
+        }
+        return super.onPreferenceTreeClick(preference);
     }
 
     /*  Get & Set values from the system settings  */
@@ -226,5 +246,10 @@ public class DateTimeFragment extends SettingsPreferenceFragment implements
     @Override
     public int getMetricsCategory() {
         return MetricsProto.MetricsEvent.DATE_TIME;
+    }
+
+    @Override
+    protected int getPageId() {
+        return TvSettingsEnums.SYSTEM_DATE_TIME;
     }
 }

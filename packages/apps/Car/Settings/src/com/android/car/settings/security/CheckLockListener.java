@@ -16,6 +16,8 @@
 
 package com.android.car.settings.security;
 
+import com.android.internal.widget.LockscreenCredential;
+
 /**
  * Interface for handling when user-entered screen lock has been verified.
  */
@@ -25,5 +27,5 @@ public interface CheckLockListener {
      *
      * @param lock The verified credential
      */
-    void onLockVerified(byte[] lock);
+    void onLockVerified(LockscreenCredential lock);
 }

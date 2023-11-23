@@ -19,7 +19,6 @@ import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.app.Notification;
 import android.os.Bundle;
-import android.service.notification.StatusBarNotification;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -36,11 +35,11 @@ import java.util.List;
 public class NotificationGroup {
 
     private String mGroupKey;
-    private final List<StatusBarNotification> mNotifications = new ArrayList<>();
+    private final List<AlertEntry> mNotifications = new ArrayList<>();
     @Nullable
     private List<String> mChildTitles;
     @Nullable
-    private StatusBarNotification mGroupSummaryNotification;
+    private AlertEntry mGroupSummaryNotification;
 
     private boolean mIsHeader;
     private boolean mIsFooter;
@@ -48,17 +47,17 @@ public class NotificationGroup {
     public NotificationGroup() {
     }
 
-    public NotificationGroup(StatusBarNotification statusBarNotification) {
-        addNotification(statusBarNotification);
+    public NotificationGroup(AlertEntry alertEntry) {
+        addNotification(alertEntry);
     }
 
-    public void addNotification(StatusBarNotification statusBarNotification) {
-        assertSameGroupKey(statusBarNotification.getGroupKey());
-        mNotifications.add(statusBarNotification);
+    public void addNotification(AlertEntry alertEntry) {
+        assertSameGroupKey(alertEntry.getStatusBarNotification().getGroupKey());
+        mNotifications.add(alertEntry);
     }
 
-    void setGroupSummaryNotification(StatusBarNotification groupSummaryNotification) {
-        assertSameGroupKey(groupSummaryNotification.getGroupKey());
+    void setGroupSummaryNotification(AlertEntry groupSummaryNotification) {
+        assertSameGroupKey(groupSummaryNotification.getStatusBarNotification().getGroupKey());
         mGroupSummaryNotification = groupSummaryNotification;
     }
 
@@ -120,14 +119,20 @@ public class NotificationGroup {
     }
 
     /**
-     * Returns true if all of the notifications this group holds is dismissible by user action.
+     * Returns true if this group is not a header or footer and all of the notifications it holds
+     * are dismissible by user action.
      */
     public boolean isDismissible() {
-        for (StatusBarNotification notification : mNotifications) {
+
+        if (mIsHeader || mIsFooter) {
+            return false;
+        }
+
+        for (AlertEntry notification : mNotifications) {
             boolean isForeground =
                     (notification.getNotification().flags & Notification.FLAG_FOREGROUND_SERVICE)
                             != 0;
-            if (isForeground || notification.isOngoing()) {
+            if (isForeground || notification.getStatusBarNotification().isOngoing()) {
                 return false;
             }
         }
@@ -137,7 +142,7 @@ public class NotificationGroup {
     /**
      * Returns the list of the child notifications.
      */
-    public List<StatusBarNotification> getChildNotifications() {
+    public List<AlertEntry> getChildNotifications() {
         return mNotifications;
     }
 
@@ -145,7 +150,7 @@ public class NotificationGroup {
      * Returns the group summary notification.
      */
     @Nullable
-    public StatusBarNotification getGroupSummaryNotification() {
+    public AlertEntry getGroupSummaryNotification() {
         return mGroupSummaryNotification;
     }
 
@@ -170,7 +175,7 @@ public class NotificationGroup {
     public List<String> generateChildTitles() {
         List<String> titles = new ArrayList<>();
 
-        for (StatusBarNotification notification : mNotifications) {
+        for (AlertEntry notification : mNotifications) {
             Bundle extras = notification.getNotification().extras;
             if (extras.containsKey(Notification.EXTRA_TITLE)) {
                 titles.add(extras.getString(Notification.EXTRA_TITLE));
@@ -205,7 +210,7 @@ public class NotificationGroup {
      *
      * @return the notification that represents this NotificationGroup
      */
-    public StatusBarNotification getSingleNotification() {
+    public AlertEntry getSingleNotification() {
         if (isGroup() || getChildCount() == 0) {
             return getGroupSummaryNotification();
 
@@ -214,7 +219,7 @@ public class NotificationGroup {
         }
     }
 
-    StatusBarNotification getNotificationForSorting() {
+    AlertEntry getNotificationForSorting() {
         if (mGroupSummaryNotification != null) {
             return getGroupSummaryNotification();
         }

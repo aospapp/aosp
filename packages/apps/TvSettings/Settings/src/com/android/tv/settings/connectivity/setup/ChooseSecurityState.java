@@ -16,10 +16,8 @@
 
 package com.android.tv.settings.connectivity.setup;
 
-import android.content.Context;
 import android.os.Bundle;
 
-import androidx.annotation.VisibleForTesting;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentActivity;
 import androidx.leanback.widget.GuidanceStylist;
@@ -28,7 +26,7 @@ import androidx.lifecycle.ViewModelProviders;
 
 import com.android.settingslib.wifi.AccessPoint;
 import com.android.tv.settings.R;
-import com.android.tv.settings.connectivity.WifiConfigHelper;
+import com.android.tv.settings.connectivity.security.WifiSecurityHelper;
 import com.android.tv.settings.connectivity.util.State;
 import com.android.tv.settings.connectivity.util.StateMachine;
 
@@ -72,14 +70,6 @@ public class ChooseSecurityState implements State {
      * Fragment that needs user to select security type.
      */
     public static class ChooseSecurityFragment extends WifiConnectivityGuidedStepFragment {
-        @VisibleForTesting
-        static final long WIFI_SECURITY_TYPE_NONE = 100001;
-        @VisibleForTesting
-        static final long WIFI_SECURITY_TYPE_WEP = 100002;
-        @VisibleForTesting
-        static final long WIFI_SECURITY_TYPE_WPA = 100003;
-        @VisibleForTesting
-        static final long WIFI_SECURITY_TYPE_EAP = 100004;
         private StateMachine mStateMachine;
         private UserChoiceInfo mUserChoiceInfo;
 
@@ -105,43 +95,16 @@ public class ChooseSecurityState implements State {
 
         @Override
         public void onCreateActions(List<GuidedAction> actions, Bundle savedInstanceState) {
-            Context context = getActivity();
-            actions.add(new GuidedAction.Builder(context)
-                    .title(R.string.wifi_security_type_none)
-                    .id(WIFI_SECURITY_TYPE_NONE)
-                    .build());
-            actions.add(new GuidedAction.Builder(context)
-                    .title(R.string.wifi_security_type_wep)
-                    .id(WIFI_SECURITY_TYPE_WEP)
-                    .build());
-            actions.add(new GuidedAction.Builder(context)
-                    .title(R.string.wifi_security_type_wpa)
-                    .id(WIFI_SECURITY_TYPE_WPA)
-                    .build());
-            actions.add(new GuidedAction.Builder(context)
-                    .title(R.string.wifi_security_type_eap)
-                    .id(WIFI_SECURITY_TYPE_EAP)
-                    .build());
+            actions.addAll(WifiSecurityHelper.getSecurityTypes(getActivity()));
         }
 
         @Override
         public void onGuidedActionClicked(GuidedAction action) {
-            if (action.getId() == WIFI_SECURITY_TYPE_NONE) {
-                mUserChoiceInfo.setWifiSecurity(AccessPoint.SECURITY_NONE);
-            } else if (action.getId() == WIFI_SECURITY_TYPE_WEP) {
-                mUserChoiceInfo.setWifiSecurity(AccessPoint.SECURITY_WEP);
-            } else if (action.getId() == WIFI_SECURITY_TYPE_WPA) {
-                mUserChoiceInfo.setWifiSecurity(AccessPoint.SECURITY_PSK);
-            } else if (action.getId() == WIFI_SECURITY_TYPE_EAP) {
-                mUserChoiceInfo.setWifiSecurity(AccessPoint.SECURITY_EAP);
-            }
-            WifiConfigHelper.setConfigKeyManagementBySecurity(
-                    mUserChoiceInfo.getWifiConfiguration(),
-                    mUserChoiceInfo.getWifiSecurity());
-            if (action.getId() == WIFI_SECURITY_TYPE_NONE) {
+            mUserChoiceInfo.put(UserChoiceInfo.SECURITY, (int) action.getId());
+            if (action.getId() == AccessPoint.SECURITY_NONE) {
                 mStateMachine.getListener().onComplete(StateMachine.OPTIONS_OR_CONNECT);
             } else {
-                mStateMachine.getListener().onComplete(StateMachine.PASSWORD);
+                mStateMachine.getListener().onComplete(StateMachine.CONTINUE);
             }
         }
     }

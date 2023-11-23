@@ -16,65 +16,65 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="sip_settings" msgid="3768482698061677257">"Mga setting ng SIP"</string>
-    <string name="sip_accounts" msgid="85559497282185405">"Mga SIP account"</string>
-    <string name="sip_accounts_title" msgid="2082527045326874519">"Mga Account"</string>
-    <string name="sip_receive_calls" msgid="426678617137462173">"Tumanggap ng papasok na tawag"</string>
-    <string name="sip_receive_calls_summary" msgid="946161517528227523">"Gumagamit ng higit na baterya"</string>
-    <string name="sip_call_options_title" msgid="8421210494703869806">"Gamitin ang SIP calling"</string>
-    <string name="sip_call_options_wifi_only_title" msgid="5112579243580893890">"Gamitin ang SIP calling (Wi-Fi lang)"</string>
-    <string name="sip_call_options_entry_1" msgid="7217659161237099900">"Para sa lahat ng mga tawag kapag available ang data network"</string>
-    <string name="sip_call_options_entry_2" msgid="1815335903940609729">"Para lang sa mga tawag sa pamamagitan ng SIP"</string>
-    <string name="sip_call_options_wifi_only_entry_1" msgid="1358513095551847314">"Para sa lahat ng tawag"</string>
-    <string name="add_sip_account" msgid="800843669753980091">"Magdagdag ng account"</string>
-    <string name="remove_sip_account" msgid="1367664438506503690">"Alisin ang account"</string>
-    <string name="sip_account_list" msgid="5610858485304821480">"Mga SIP account"</string>
-    <string name="saving_account" msgid="5336529880235177448">"Sine-save ang account..."</string>
-    <string name="removing_account" msgid="5537351356808985756">"Inaalis ang account..."</string>
-    <string name="sip_menu_save" msgid="7882219814563869225">"I-save"</string>
-    <string name="sip_menu_discard" msgid="2350421645423888438">"I-discard"</string>
-    <string name="alert_dialog_close" msgid="1326011828713435134">"Isara ang profile"</string>
-    <string name="alert_dialog_ok" msgid="4752048404605388940">"Ayos"</string>
-    <string name="close_profile" msgid="3122414058856309881">"Isara"</string>
-    <string name="registration_status_checking_status" msgid="6136793741862200337">"Tinitingnan ang status..."</string>
-    <string name="registration_status_registering" msgid="2677183977796278749">"Inirerehistro..."</string>
-    <string name="registration_status_still_trying" msgid="7648151061205513458">"Sinusubukan pa rin..."</string>
-    <string name="registration_status_not_receiving" msgid="7620333886153361090">"Hindi tumatanggap ng mga tawag."</string>
-    <string name="registration_status_no_data" msgid="2541999976218192413">"Nahinto ang pagpaparehistro ng account dahil walang koneksyon sa Internet."</string>
-    <string name="registration_status_no_wifi_data" msgid="9154717387473039546">"Nahinto ang pagpaparehistro ng account dahil walang koneksyon sa Wi-Fi."</string>
-    <string name="registration_status_not_running" msgid="514205414303796800">"Hindi matagumpay ang pagpaparehistro ng account."</string>
-    <string name="registration_status_done" msgid="3264961069247314253">"Tumatanggap ng mga tawag."</string>
-    <string name="registration_status_failed_try_later" msgid="2199970021756384317">"Hindi matagumpay ang pagpaparehistro ng account: Susubukan ng (<xliff:g id="REGISTRATION_ERROR_MESSAGE">%s</xliff:g>); sa ibang pagkakataon"</string>
-    <string name="registration_status_invalid_credentials" msgid="8406872554323334182">"Hindi matagumpay ang pagpaparehistro ng account: Maling username o password."</string>
-    <string name="registration_status_server_unreachable" msgid="7710275557045148634">"Nabigo ang pagpaparehistro ng account: Tingnan ang pangalan ng server."</string>
-    <string name="third_party_account_summary" msgid="9041060473615403041">"Kasalukuyang ginagamit ang account na ito ng app ng <xliff:g id="ACCOUNT_OWNER">%s</xliff:g>."</string>
-    <string name="sip_edit_title" msgid="1967247832635750410">"Detalye ng SIP account"</string>
-    <string name="sip_edit_new_title" msgid="266414118302574305">"Detalye ng SIP account"</string>
-    <string name="domain_address_title" msgid="1968479941328225423">"Server"</string>
-    <string name="username_title" msgid="6770064611005663470">"Username"</string>
-    <string name="password_title" msgid="5289013731515564295">"Password"</string>
-    <string name="display_name_title" msgid="579241787583079773">"Display name"</string>
-    <string name="proxy_address_title" msgid="6890163365640631841">"Address ng papalabas na proxy"</string>
-    <string name="port_title" msgid="6693965912656593862">"Numero ng port"</string>
-    <string name="transport_title" msgid="889155457465372527">"Uri ng paglilipat"</string>
-    <string name="send_keepalive_title" msgid="599627072150501159">"Magpadala ng keep-alive"</string>
-    <string name="advanced_settings" msgid="6622996380747040711">"Mga opsyonal na setting"</string>
-    <string name="auth_username_title" msgid="8262491689004708265">"Username sa pagpapatunay"</string>
-    <string name="auth_username_summary" msgid="941160241371436473">"Ginamit ang username para sa pagpapatunay"</string>
-    <string name="default_preference_summary_username" msgid="8404717434312826082">"&lt;Hindi nakatakda&gt;"</string>
-    <string name="default_preference_summary_password" msgid="4464464672997027904">"&lt;Hindi nakatakda&gt;"</string>
-    <string name="default_preference_summary_domain_address" msgid="4871971710197441673">"&lt;Hindi nakatakda&gt;"</string>
-    <string name="display_name_summary" msgid="7155076491675565407">"&lt;Katulad ng username&gt;"</string>
-    <string name="optional_summary" msgid="2363105560396317624">"&lt;Opsyonal&gt;"</string>
-    <string name="advanced_settings_show" msgid="7838761602853998622">"▷ Pindutin upang ipakita lahat"</string>
-    <string name="advanced_settings_hide" msgid="3480554978705290228">"▽ Pindutin upang itago lahat"</string>
-    <string name="all_empty_alert" msgid="4087734950375192387">"Ilagay ang mga detalye ng bagong SIP account."</string>
-    <string name="empty_alert" msgid="6659484914371384024">"Kinakailangan ang <xliff:g id="INPUT_FIELD_NAME">%s</xliff:g> at hindi maaaring iwanang blangko."</string>
-    <string name="not_a_valid_port" msgid="7931422555587011830">"Dapat na nasa pagitan ng 1000 at 65534 ang numero ng port."</string>
-    <string name="no_internet_available" msgid="5523747991760017298">"Upang tumawag sa pamamagitan ng SIP, suriin muna ang iyong koneksyon sa Internet."</string>
-    <string name="no_wifi_available" msgid="1955023904229673488">"Kailangang nakakonekta ka sa isang Wi-Fi network para sa mga tawag sa pamamagitan ng SIP (gamitin ang mga setting ng Wireless at Network)."</string>
-    <string name="no_voip" msgid="3038021971231952704">"Hindi sinusuportahan ang pagtawag sa pamamagitan ng SIP"</string>
-    <string name="sip_system_decide" msgid="5577696249416700671">"Awtomatiko"</string>
-    <string name="sip_always_send_keepalive" msgid="4773022409239823318">"Palaging ipadala"</string>
-    <string name="sip_connection_service_label" msgid="6935325004265884453">"Built-in na pagtawag sa pamamagitan ng SIP"</string>
+    <string name="sip_settings" msgid="7452587325305604702">"Mga setting ng SIP"</string>
+    <string name="sip_accounts" msgid="7297896885665783239">"Mga SIP account"</string>
+    <string name="sip_accounts_title" msgid="3061686404598143943">"Mga Account"</string>
+    <string name="sip_receive_calls" msgid="3403644006618369349">"Tumanggap ng papasok na tawag"</string>
+    <string name="sip_receive_calls_summary" msgid="5306603671778761443">"Gumagamit ng higit na baterya"</string>
+    <string name="sip_call_options_title" msgid="5027066677561068192">"Gamitin ang SIP calling"</string>
+    <string name="sip_call_options_wifi_only_title" msgid="6663105297927456484">"Gamitin ang SIP calling (Wi-Fi lang)"</string>
+    <string name="sip_call_options_entry_1" msgid="4722647332760934261">"Para sa lahat ng mga tawag kapag available ang data network"</string>
+    <string name="sip_call_options_entry_2" msgid="7338504256051655013">"Para lang sa mga tawag sa pamamagitan ng SIP"</string>
+    <string name="sip_call_options_wifi_only_entry_1" msgid="922329055414010991">"Para sa lahat ng tawag"</string>
+    <string name="add_sip_account" msgid="5754758646745144384">"Magdagdag ng account"</string>
+    <string name="remove_sip_account" msgid="8272617403399636513">"Alisin ang account"</string>
+    <string name="sip_account_list" msgid="2596262496233721769">"Mga SIP account"</string>
+    <string name="saving_account" msgid="3390358043846687266">"Sine-save ang account..."</string>
+    <string name="removing_account" msgid="1544132880414780408">"Inaalis ang account..."</string>
+    <string name="sip_menu_save" msgid="4377112554203123060">"I-save"</string>
+    <string name="sip_menu_discard" msgid="1883166691772895243">"I-discard"</string>
+    <string name="alert_dialog_close" msgid="1734746505531110706">"Isara ang profile"</string>
+    <string name="alert_dialog_ok" msgid="7806760618798687406">"Ayos"</string>
+    <string name="close_profile" msgid="3756064641769751774">"Isara"</string>
+    <string name="registration_status_checking_status" msgid="884179594507591180">"Tinitingnan ang status..."</string>
+    <string name="registration_status_registering" msgid="7986331597809521791">"Inirerehistro..."</string>
+    <string name="registration_status_still_trying" msgid="7178623685868766282">"Sinusubukan pa rin..."</string>
+    <string name="registration_status_not_receiving" msgid="3873074208531938401">"Hindi tumatanggap ng mga tawag."</string>
+    <string name="registration_status_no_data" msgid="2987064560116584121">"Nahinto ang pagpaparehistro ng account dahil walang koneksyon sa Internet."</string>
+    <string name="registration_status_no_wifi_data" msgid="685470618241482948">"Nahinto ang pagpaparehistro ng account dahil walang koneksyon sa Wi-Fi."</string>
+    <string name="registration_status_not_running" msgid="6236403137652262659">"Hindi matagumpay ang pagpaparehistro ng account."</string>
+    <string name="registration_status_done" msgid="6787397199273357721">"Tumatanggap ng mga tawag."</string>
+    <string name="registration_status_failed_try_later" msgid="7855389184910312091">"Hindi matagumpay ang pagpaparehistro ng account: Susubukan ng (<xliff:g id="REGISTRATION_ERROR_MESSAGE">%s</xliff:g>); sa ibang pagkakataon"</string>
+    <string name="registration_status_invalid_credentials" msgid="8896714049938660777">"Hindi matagumpay ang pagpaparehistro ng account: Maling username o password."</string>
+    <string name="registration_status_server_unreachable" msgid="3832339558868965604">"Nabigo ang pagpaparehistro ng account: Tingnan ang pangalan ng server."</string>
+    <string name="third_party_account_summary" msgid="5918779106950859167">"Kasalukuyang ginagamit ang account na ito ng app ng <xliff:g id="ACCOUNT_OWNER">%s</xliff:g>."</string>
+    <string name="sip_edit_title" msgid="7438891546610820307">"Detalye ng SIP account"</string>
+    <string name="sip_edit_new_title" msgid="8394790068979636381">"Detalye ng SIP account"</string>
+    <string name="domain_address_title" msgid="8238078615181248579">"Server"</string>
+    <string name="username_title" msgid="298416796886107970">"Username"</string>
+    <string name="password_title" msgid="8035579335591959021">"Password"</string>
+    <string name="display_name_title" msgid="3730105783656830160">"Display name"</string>
+    <string name="proxy_address_title" msgid="4120361943254795287">"Address ng outbound proxy"</string>
+    <string name="port_title" msgid="1703586046264385110">"Numero ng port"</string>
+    <string name="transport_title" msgid="1661659138226029178">"Uri ng paglilipat"</string>
+    <string name="send_keepalive_title" msgid="5319788151608946049">"Magpadala ng keep-alive"</string>
+    <string name="advanced_settings" msgid="2704644977548662872">"Mga opsyonal na setting"</string>
+    <string name="auth_username_title" msgid="9002505242616662698">"Username sa pag-authenticate"</string>
+    <string name="auth_username_summary" msgid="6346313945275377230">"Ginamit ang username para sa pag-authenticate"</string>
+    <string name="default_preference_summary_username" msgid="8788114717555599222">"&lt;Hindi nakatakda&gt;"</string>
+    <string name="default_preference_summary_password" msgid="3695366978153175549">"&lt;Hindi nakatakda&gt;"</string>
+    <string name="default_preference_summary_domain_address" msgid="443247296785732364">"&lt;Hindi nakatakda&gt;"</string>
+    <string name="display_name_summary" msgid="6749135030093260358">"&lt;Katulad ng username&gt;"</string>
+    <string name="optional_summary" msgid="620379377865437488">"&lt;Opsyonal&gt;"</string>
+    <string name="advanced_settings_show" msgid="2318728080037568529">"▷ Pindutin upang ipakita lahat"</string>
+    <string name="advanced_settings_hide" msgid="6200816937370652083">"▽ Pindutin upang itago lahat"</string>
+    <string name="all_empty_alert" msgid="6085603517610199098">"Ilagay ang mga detalye ng bagong SIP account."</string>
+    <string name="empty_alert" msgid="3693655518612836718">"Kinakailangan ang <xliff:g id="INPUT_FIELD_NAME">%s</xliff:g> at hindi maaaring iwanang blangko."</string>
+    <string name="not_a_valid_port" msgid="3664668836663491376">"Dapat na nasa pagitan ng 1000 at 65534 ang numero ng port."</string>
+    <string name="no_internet_available" msgid="161720645084325479">"Upang tumawag sa pamamagitan ng SIP, suriin muna ang iyong koneksyon sa Internet."</string>
+    <string name="no_wifi_available" msgid="1179092018692306312">"Kailangang nakakonekta ka sa isang Wi-Fi network para sa mga tawag sa pamamagitan ng SIP (gamitin ang mga setting ng Wireless at Network)."</string>
+    <string name="no_voip" msgid="3366395789297981738">"Hindi sinusuportahan ang pagtawag sa pamamagitan ng SIP"</string>
+    <string name="sip_system_decide" msgid="197230378376326430">"Awtomatiko"</string>
+    <string name="sip_always_send_keepalive" msgid="4986533673960084769">"Palaging ipadala"</string>
+    <string name="sip_connection_service_label" msgid="8796284274240316006">"Built-in na pagtawag sa pamamagitan ng SIP"</string>
 </resources>

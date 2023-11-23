@@ -19,24 +19,24 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="application_name" msgid="4119979710394894209">"Kiteua Mandhari Yaliyohuishwa"</string>
-    <string name="live_wallpaper_picker_title" msgid="4811278937634144675">"Chagua mandhari hai"</string>
-    <string name="live_wallpaper_picker_label" msgid="3218000114890071946">"Mandhari Hai"</string>
-    <string name="live_wallpaper_preview_title" msgid="1130080613611954763">"Onyesho awali la taswira hai"</string>
-    <string name="configure_wallpaper" msgid="7396598925806288258">"Mipangilio…"</string>
-    <string name="delete_live_wallpaper" msgid="5127205073129449497">"Futa"</string>
-    <string name="preview" msgid="5553971347768345401">"Kagua kwanza"</string>
-    <string name="wallpaper_instructions" msgid="4215640646180727542">"Weka mandhari"</string>
-    <string name="live_wallpaper_empty" msgid="4278728108785853407">"Hakuna mandhari hai."</string>
-    <string name="set_live_wallpaper" msgid="2381437614949033266">"Weka mandhari"</string>
-    <string name="wallpaper_title_and_author" msgid="8891734217843935304">"<xliff:g id="TITLE">%1$s</xliff:g> kutoka kwa <xliff:g id="AUTHOR">%2$s</xliff:g>"</string>
-    <string name="live_wallpaper_loading" msgid="2488371303130330734">"Inapakia taswira hai..."</string>
-    <string name="which_wallpaper_option_home_screen" msgid="6592329803583957023">"Skrini ya kwanza"</string>
-    <string name="which_wallpaper_option_home_screen_and_lock_screen" msgid="6170359719231147447">"Skrini ya kwanza na skrini iliyofungwa"</string>
-    <string name="explore_further" msgid="2891466461738034935">"Gundua"</string>
-    <string name="tab_info" msgid="2612717074705274392">"Maelezo"</string>
-    <string name="tab_customize" msgid="5282247400178296263">"Weka mapendeleo"</string>
-    <string name="delete_wallpaper_confirmation" msgid="6449356646369781400">"Je, ungependa kufuta mandhari haya kutoka kwenye simu yako?"</string>
-    <string name="collapse_attribution_panel" msgid="4998500891743118630">"Kunja kidirisha cha maelezo ya mandhari"</string>
-    <string name="expand_attribution_panel" msgid="3151357815478885438">"Panua kidirisha cha maelezo ya mandhari"</string>
+    <string name="application_name" msgid="321870838342157591">"Kiteua Mandhari Yaliyohuishwa"</string>
+    <string name="live_wallpaper_picker_title" msgid="6152733341691314608">"Chagua mandhari hai"</string>
+    <string name="live_wallpaper_picker_label" msgid="295628316836042825">"Mandhari Hai"</string>
+    <string name="live_wallpaper_preview_title" msgid="908570871421455329">"Onyesho awali la taswira hai"</string>
+    <string name="configure_wallpaper" msgid="4308477548538487192">"Mipangilio…"</string>
+    <string name="delete_live_wallpaper" msgid="2401799265848069389">"Futa"</string>
+    <string name="preview" msgid="1067744492020029129">"Kagua kwanza"</string>
+    <string name="wallpaper_instructions" msgid="6112878742140691445">"Weka mandhari"</string>
+    <string name="live_wallpaper_empty" msgid="8057319062274870589">"Hakuna mandhari hai."</string>
+    <string name="set_live_wallpaper" msgid="764007409845174475">"Weka mandhari"</string>
+    <string name="wallpaper_title_and_author" msgid="7606029050779779421">"<xliff:g id="TITLE">%1$s</xliff:g> kutoka kwa <xliff:g id="AUTHOR">%2$s</xliff:g>"</string>
+    <string name="live_wallpaper_loading" msgid="7218845906181560315">"Inapakia taswira hai..."</string>
+    <string name="which_wallpaper_option_home_screen" msgid="3323619298489943624">"Skrini ya kwanza"</string>
+    <string name="which_wallpaper_option_home_screen_and_lock_screen" msgid="1650093303691767601">"Skrini ya kwanza na skrini iliyofungwa"</string>
+    <string name="explore_further" msgid="489032063223099244">"Gundua"</string>
+    <string name="tab_info" msgid="5501369870701932475">"Maelezo"</string>
+    <string name="tab_customize" msgid="9007237541087328909">"Weka mapendeleo"</string>
+    <string name="delete_wallpaper_confirmation" msgid="252765957117597457">"Je, ungependa kufuta mandhari haya kutoka kwenye simu yako?"</string>
+    <string name="collapse_attribution_panel" msgid="5368959884531941653">"Kunja kidirisha cha maelezo ya mandhari"</string>
+    <string name="expand_attribution_panel" msgid="6540929859713706255">"Panua kidirisha cha maelezo ya mandhari"</string>
 </resources>

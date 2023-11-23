@@ -36,6 +36,7 @@ import com.android.settings.password.ChooseLockSettingsHelper;
 
 import com.google.android.setupcompat.template.FooterBarMixin;
 import com.google.android.setupcompat.template.FooterButton;
+import com.google.android.setupcompat.util.WizardManagerHelper;
 import com.google.android.setupdesign.GlifLayout;
 
 /**
@@ -120,6 +121,19 @@ public abstract class BiometricEnrollBase extends InstrumentedActivity {
         initViews();
     }
 
+    @Override
+    protected void onStop() {
+        super.onStop();
+        if (!isChangingConfigurations() && shouldFinishWhenBackgrounded()) {
+            setResult(RESULT_TIMEOUT);
+            finish();
+        }
+    }
+
+    protected boolean shouldFinishWhenBackgrounded() {
+        return !WizardManagerHelper.isAnySetupWizard(getIntent());
+    }
+
     protected void initViews() {
         getWindow().setStatusBarColor(Color.TRANSPARENT);
     }
@@ -172,11 +186,11 @@ public abstract class BiometricEnrollBase extends InstrumentedActivity {
         if (mUserId == UserHandle.USER_NULL) {
             launchedConfirmationActivity = helper.launchConfirmationActivity(CONFIRM_REQUEST,
                     getString(titleResId),
-                    null, null, challenge);
+                    null, null, challenge, true /* foregroundOnly */);
         } else {
             launchedConfirmationActivity = helper.launchConfirmationActivity(CONFIRM_REQUEST,
                     getString(titleResId),
-                    null, null, challenge, mUserId);
+                    null, null, challenge, mUserId, true /* foregroundOnly */);
         }
         if (!launchedConfirmationActivity) {
             // This shouldn't happen, as we should only end up at this step if a lock thingy is

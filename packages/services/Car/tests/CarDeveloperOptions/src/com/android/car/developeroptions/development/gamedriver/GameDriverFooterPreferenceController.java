@@ -26,7 +26,6 @@ import android.os.Looper;
 import android.provider.Settings;
 
 import androidx.annotation.VisibleForTesting;
-import androidx.preference.Preference;
 import androidx.preference.PreferenceScreen;
 
 import com.android.car.developeroptions.core.BasePreferenceController;
@@ -48,8 +47,8 @@ public class GameDriverFooterPreferenceController extends BasePreferenceControll
 
     private FooterPreference mPreference;
 
-    public GameDriverFooterPreferenceController(Context context) {
-        super(context, FooterPreference.KEY_FOOTER);
+    public GameDriverFooterPreferenceController(Context context, String key) {
+        super(context, key);
         mContentResolver = context.getContentResolver();
         mGameDriverContentObserver =
                 new GameDriverContentObserver(new Handler(Looper.getMainLooper()), this);
@@ -78,11 +77,6 @@ public class GameDriverFooterPreferenceController extends BasePreferenceControll
     @Override
     public void onStop() {
         mGameDriverContentObserver.unregister(mContentResolver);
-    }
-
-    @Override
-    public void updateState(Preference preference) {
-        preference.setVisible(isAvailable());
     }
 
     @Override

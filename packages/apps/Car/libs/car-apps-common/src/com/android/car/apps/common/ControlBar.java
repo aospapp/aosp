@@ -38,9 +38,8 @@ import android.widget.Space;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
+import androidx.core.util.Preconditions;
 import androidx.interpolator.view.animation.FastOutSlowInInterpolator;
-
-import com.android.internal.util.Preconditions;
 
 import java.util.Locale;
 
@@ -292,8 +291,12 @@ public class ControlBar extends RelativeLayout implements ExpandableControlBar {
     }
 
     private void setView(@Nullable View view, FrameLayout container) {
-        container.removeAllViews();
         if (view != null) {
+            // Don't set the view if it stays the same.
+            if (container.getChildCount() == 1 && container.getChildAt(0) == view) {
+                return;
+            }
+
             ViewGroup parent = (ViewGroup) view.getParent();
             // As we are removing views (on BT disconnect, for example), some items will be
             // shifting from expanded to collapsed (like Queue item) - remove those from the
@@ -301,9 +304,13 @@ public class ControlBar extends RelativeLayout implements ExpandableControlBar {
             if (view.getParent() != null) {
                 parent.removeView(view);
             }
+            container.removeAllViews();
             container.addView(view);
             container.setVisibility(VISIBLE);
         } else {
+            if (container.getChildCount() != 0) {
+                container.removeAllViews();
+            }
             container.setVisibility(INVISIBLE);
         }
     }

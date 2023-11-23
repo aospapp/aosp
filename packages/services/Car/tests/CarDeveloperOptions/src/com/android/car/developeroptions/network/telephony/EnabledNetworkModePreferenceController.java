@@ -28,9 +28,9 @@ import androidx.annotation.VisibleForTesting;
 import androidx.preference.ListPreference;
 import androidx.preference.Preference;
 
+import com.android.car.developeroptions.R;
 import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneConstants;
-import com.android.car.developeroptions.R;
 
 /**
  * Preference controller for "Enabled network mode"
@@ -107,9 +107,7 @@ public class EnabledNetworkModePreferenceController extends
         final PersistableBundle carrierConfig = mCarrierConfigManager.getConfigForSubId(mSubId);
         mTelephonyManager = TelephonyManager.from(mContext).createForSubscriptionId(mSubId);
 
-        final boolean isLteOnCdma =
-                mTelephonyManager.getLteOnCdmaMode() == PhoneConstants.LTE_ON_CDMA_TRUE;
-        mIsGlobalCdma = isLteOnCdma
+        mIsGlobalCdma = mTelephonyManager.isLteCdmaEvdoGsmWcdmaEnabled()
                 && carrierConfig.getBoolean(CarrierConfigManager.KEY_SHOW_CDMA_CHOICES_BOOL);
         mShow4GForLTE = carrierConfig != null
                 ? carrierConfig.getBoolean(
@@ -131,13 +129,11 @@ public class EnabledNetworkModePreferenceController extends
                     mContext.getContentResolver(),
                     android.provider.Settings.Global.LTE_SERVICE_FORCED + mSubId,
                     0);
-            final boolean isLteOnCdma = mTelephonyManager.getLteOnCdmaMode()
-                    == PhoneConstants.LTE_ON_CDMA_TRUE;
             final int settingsNetworkMode = android.provider.Settings.Global.getInt(
                     mContext.getContentResolver(),
                     android.provider.Settings.Global.PREFERRED_NETWORK_MODE + mSubId,
                     Phone.PREFERRED_NT_MODE);
-            if (isLteOnCdma) {
+            if (mTelephonyManager.isLteCdmaEvdoGsmWcdmaEnabled()) {
                 if (lteForced == 0) {
                     preference.setEntries(
                             R.array.enabled_networks_cdma_choices);

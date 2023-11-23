@@ -22,4 +22,10 @@
 
     <dimen name="grid_tile_aspect_height">182dp</dimen>
     <dimen name="grid_tile_aspect_width">340dp</dimen>
+
+    <!-- Dimensions for PreviewPager and PageIndicator. -->
+    <dimen name="preview_page_gap">60dp</dimen>
+    <dimen name="preview_page_horizontal_margin">92dp</dimen>
+    <dimen name="preview_card_padding">8dp</dimen>
+    <dimen name="preview_pager_height">150dp</dimen>
 </resources>

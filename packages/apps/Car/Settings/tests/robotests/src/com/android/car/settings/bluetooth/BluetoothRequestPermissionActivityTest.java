@@ -24,25 +24,31 @@ import android.bluetooth.BluetoothAdapter;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.widget.Button;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.testutils.ShadowBluetoothAdapter;
 import com.android.car.settings.testutils.ShadowBluetoothPan;
 import com.android.car.settings.testutils.ShadowLocalBluetoothAdapter;
 import com.android.settingslib.bluetooth.LocalBluetoothAdapter;
 import com.android.settingslib.bluetooth.LocalBluetoothManager;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.Shadows;
 import org.robolectric.android.controller.ActivityController;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadow.api.Shadow;
+import org.robolectric.shadows.ShadowPackageManager;
+import org.robolectric.shadows.ShadowResolveInfo;
 
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 @Config(shadows = {ShadowLocalBluetoothAdapter.class, ShadowBluetoothAdapter.class,
         ShadowBluetoothPan.class})
 public class BluetoothRequestPermissionActivityTest {
@@ -51,20 +57,27 @@ public class BluetoothRequestPermissionActivityTest {
     private ActivityController<BluetoothRequestPermissionActivity> mActivityController;
     private BluetoothRequestPermissionActivity mActivity;
     private LocalBluetoothAdapter mAdapter;
+    private PackageManager mPackageManager;
 
     @Before
     public void setUp() throws Exception {
         mContext = RuntimeEnvironment.application;
         mActivityController = ActivityController.of(new BluetoothRequestPermissionActivity());
         mActivity = mActivityController.get();
+        mPackageManager = mContext.getPackageManager();
 
         mAdapter = LocalBluetoothManager.getInstance(mContext,
                 /* onInitCallback= */ null).getBluetoothAdapter();
 
         // Make sure controller is available.
-        Shadows.shadowOf(mContext.getPackageManager()).setSystemFeature(
+        getShadowPackageManager().setSystemFeature(
                 FEATURE_BLUETOOTH, /* supported= */ true);
         BluetoothAdapter.getDefaultAdapter().enable();
+    }
+
+    @After
+    public void tearDown() {
+        ShadowBluetoothAdapter.reset();
     }
 
     @Test
@@ -107,6 +120,51 @@ public class BluetoothRequestPermissionActivityTest {
 
         assertThat(mActivity.getTimeout()).isEqualTo(
                 BluetoothRequestPermissionActivity.MAX_DISCOVERABLE_TIMEOUT);
+    }
+
+    @Test
+    public void onCreate_requestDiscoverableIntent_bypassforSetup_startsDiscoverableScan() {
+        getShadowLocalBluetoothAdapter().setState(BluetoothAdapter.STATE_ON);
+        mAdapter.setScanMode(BluetoothAdapter.SCAN_MODE_NONE);
+
+        String callerPackageName = "system.suwapp";
+        Intent setupIntent = new Intent(Intent.ACTION_MAIN);
+        setupIntent.addCategory(Intent.CATEGORY_SETUP_WIZARD);
+        ResolveInfo suwInfo =
+                ShadowResolveInfo.newResolveInfo("SetupWizard app", callerPackageName);
+        Shadows.shadowOf(mActivity).setCallingPackage(callerPackageName);
+        suwInfo.activityInfo.applicationInfo.flags |= ApplicationInfo.FLAG_SYSTEM;
+
+        getShadowPackageManager().addResolveInfoForIntent(setupIntent, suwInfo);
+
+        Intent intent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
+        intent.putExtra(BluetoothRequestPermissionActivity.EXTRA_BYPASS_CONFIRM_DIALOG, true);
+        mActivity.setIntent(intent);
+        mActivityController.create();
+
+        assertThat(mAdapter.getScanMode()).isEqualTo(
+                BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE);
+    }
+
+    @Test
+    public void onCreate_requestDiscoverableIntent_bypassforGeneric_noScanModeChange() {
+        getShadowLocalBluetoothAdapter().setState(BluetoothAdapter.STATE_ON);
+        mAdapter.setScanMode(BluetoothAdapter.SCAN_MODE_NONE);
+
+        Intent launchIntent = new Intent(Intent.ACTION_MAIN);
+        launchIntent.addCategory(Intent.CATEGORY_LAUNCHER);
+        ResolveInfo launchInfo =
+                ShadowResolveInfo.newResolveInfo("System Launcher", "system.launcher");
+        launchInfo.activityInfo.applicationInfo.flags |= ApplicationInfo.FLAG_SYSTEM;
+
+        getShadowPackageManager().addResolveInfoForIntent(launchIntent, launchInfo);
+
+        Intent intent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
+        intent.putExtra(BluetoothRequestPermissionActivity.EXTRA_BYPASS_CONFIRM_DIALOG, true);
+        mActivity.setIntent(intent);
+        mActivityController.create();
+
+        assertThat(mAdapter.getScanMode()).isEqualTo(BluetoothAdapter.SCAN_MODE_NONE);
     }
 
     @Test
@@ -237,5 +295,9 @@ public class BluetoothRequestPermissionActivityTest {
 
     private ShadowLocalBluetoothAdapter getShadowLocalBluetoothAdapter() {
         return (ShadowLocalBluetoothAdapter) Shadow.extract(mAdapter);
+    }
+
+    private ShadowPackageManager getShadowPackageManager() {
+        return Shadow.extract(mPackageManager);
     }
 }

@@ -23,13 +23,18 @@ import static com.android.documentsui.base.State.MODE_GRID;
 import static com.android.documentsui.base.State.MODE_LIST;
 
 import android.app.ActivityManager;
+import android.content.BroadcastReceiver;
+import android.content.ContentProviderClient;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Looper;
 import android.os.Parcelable;
+import android.os.UserHandle;
 import android.provider.DocumentsContract;
 import android.provider.DocumentsContract.Document;
 import android.util.Log;
@@ -52,6 +57,7 @@ import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentActivity;
 import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentTransaction;
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import androidx.recyclerview.selection.ItemDetailsLookup.ItemDetails;
 import androidx.recyclerview.selection.MutableSelection;
 import androidx.recyclerview.selection.Selection;
@@ -79,8 +85,10 @@ import com.android.documentsui.Injector.Injected;
 import com.android.documentsui.MetricConsts;
 import com.android.documentsui.Metrics;
 import com.android.documentsui.Model;
+import com.android.documentsui.ProfileTabsController;
 import com.android.documentsui.R;
 import com.android.documentsui.ThumbnailCache;
+import com.android.documentsui.TimeoutTask;
 import com.android.documentsui.base.DocumentFilters;
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.DocumentStack;
@@ -90,6 +98,7 @@ import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.base.Shared;
 import com.android.documentsui.base.State;
 import com.android.documentsui.base.State.ViewMode;
+import com.android.documentsui.base.UserId;
 import com.android.documentsui.clipping.ClipStore;
 import com.android.documentsui.clipping.DocumentClipper;
 import com.android.documentsui.clipping.UrisSupplier;
@@ -101,6 +110,8 @@ import com.android.documentsui.services.FileOperationService.OpType;
 import com.android.documentsui.services.FileOperations;
 import com.android.documentsui.sorting.SortDimension;
 import com.android.documentsui.sorting.SortModel;
+
+import com.google.common.base.Objects;
 
 import java.io.IOException;
 import java.lang.annotation.Retention;
@@ -121,12 +132,18 @@ public class DirectoryFragment extends Fragment implements SwipeRefreshLayout.On
     })
     @Retention(RetentionPolicy.SOURCE)
     public @interface RequestCode {}
+
     public static final int REQUEST_COPY_DESTINATION = 1;
 
     static final String TAG = "DirectoryFragment";
 
     private static final int CACHE_EVICT_LIMIT = 100;
     private static final int REFRESH_SPINNER_TIMEOUT = 500;
+    private static final int PROVIDER_MAX_RETRIES = 10;
+    private static final long PROVIDER_TEST_DELAY = 4000;
+    private static final String ACTION_MEDIA_REMOVED = "android.intent.action.MEDIA_REMOVED";
+    private static final String ACTION_MEDIA_MOUNTED = "android.intent.action.MEDIA_MOUNTED";
+    private static final String ACTION_MEDIA_EJECT = "android.intent.action.MEDIA_EJECT";
 
     private BaseActivity mActivity;
 
@@ -155,6 +172,10 @@ public class DirectoryFragment extends Fragment implements SwipeRefreshLayout.On
     @ContentScoped
     private ActionModeController mActionModeController;
 
+    @Injected
+    @ContentScoped
+    private ProfileTabsController mProfileTabsController;
+
     private DocDetailsLookup mDetailsLookup;
     private SelectionMetadata mSelectionMetadata;
     private KeyInputHandler mKeyListener;
@@ -171,10 +192,14 @@ public class DirectoryFragment extends Fragment implements SwipeRefreshLayout.On
     private float mLiveScale = 1.0f;
     private @ViewMode int mMode;
     private int mAppBarHeight;
+    private int mSaveLayoutHeight;
 
     private View mProgressBar;
 
     private DirectoryState mLocalState;
+
+    private Handler mHandler;
+    private Runnable mProviderTestRunnable;
 
     // Note, we use !null to indicate that selection was restored (from rotation).
     // So don't fiddle with this field unless you've got the bigger picture in mind.
@@ -193,17 +218,135 @@ public class DirectoryFragment extends Fragment implements SwipeRefreshLayout.On
     private final Runnable mOnDisplayStateChanged = this::onDisplayStateChanged;
 
     private final ViewTreeObserver.OnPreDrawListener mToolbarPreDrawListener = () -> {
-        setPreDrawListener(false);
-        if (mAppBarHeight != getAppBarLayoutHeight()) {
+        final boolean appBarHeightChanged = mAppBarHeight != getAppBarLayoutHeight();
+        if (appBarHeightChanged || mSaveLayoutHeight != getSaveLayoutHeight()) {
             updateLayout(mState.derivedMode);
+
+            if (appBarHeightChanged) {
+                scrollToTop();
+            }
+            return false;
         }
         return true;
     };
+
+    private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            final String action = intent.getAction();
+            if (isManagedProfileAction(action)) {
+                UserHandle userHandle = intent.getParcelableExtra(Intent.EXTRA_USER);
+                UserId userId = UserId.of(userHandle);
+                if (Objects.equal(mActivity.getSelectedUser(), userId)) {
+                    // We only need to refresh the layout when the selected user is equal to the
+                    // received profile user.
+                    if (Intent.ACTION_MANAGED_PROFILE_UNAVAILABLE.equals(action)) {
+                        // If the managed profile is turned off, we need to refresh the directory
+                        // to update the UI to show an appropriate error message.
+                        if (mProviderTestRunnable != null) {
+                            mHandler.removeCallbacks(mProviderTestRunnable);
+                            mProviderTestRunnable = null;
+                        }
+                        onRefresh();
+                        return;
+                    }
+
+                    // When the managed profile becomes available, the provider may not be available
+                    // immediately, we need to check if it is ready before we reload the content.
+                    if (Intent.ACTION_MANAGED_PROFILE_UNLOCKED.equals(action)) {
+                        checkUriAndScheduleCheckIfNeeded(userId);
+                    }
+                }
+            }
+        }
+    };
+
+    private final BroadcastReceiver mSdCardBroadcastReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            onRefresh();
+        }
+    };
+
+    private IntentFilter getSdCardStateChangeFilter() {
+        IntentFilter sdCardStateChangeFilter = new IntentFilter();
+        sdCardStateChangeFilter.addAction(ACTION_MEDIA_REMOVED);
+        sdCardStateChangeFilter.addAction(ACTION_MEDIA_MOUNTED);
+        sdCardStateChangeFilter.addAction(ACTION_MEDIA_EJECT);
+        sdCardStateChangeFilter.addDataScheme("file");
+        return sdCardStateChangeFilter;
+    }
+
+    private void checkUriAndScheduleCheckIfNeeded(UserId userId) {
+        RootInfo currentRoot = mActivity.getCurrentRoot();
+        DocumentInfo currentDoc = mActivity.getDisplayState().stack.peek();
+        Uri uri = getCurrentUri(currentRoot, currentDoc);
+        if (isProviderAvailable(uri, userId) || mActivity.isInRecents()) {
+            if (mProviderTestRunnable != null) {
+                mHandler.removeCallbacks(mProviderTestRunnable);
+                mProviderTestRunnable = null;
+            }
+            mHandler.post(() -> onRefresh());
+        } else {
+            checkUriWithDelay(/* numOfRetries= */1, uri, userId);
+        }
+    }
+
+    private void checkUriWithDelay(int numOfRetries, Uri uri, UserId userId) {
+        mProviderTestRunnable = () -> {
+            RootInfo currentRoot = mActivity.getCurrentRoot();
+            DocumentInfo currentDoc = mActivity.getDisplayState().stack.peek();
+            if (mActivity.getSelectedUser().equals(userId)
+                    && uri.equals(getCurrentUri(currentRoot, currentDoc))) {
+                if (isProviderAvailable(uri, userId)
+                        || userId.isQuietModeEnabled(mActivity)
+                        || numOfRetries >= PROVIDER_MAX_RETRIES) {
+                    // We stop the recursive check when
+                    // 1. the provider is available
+                    // 2. the profile is in quiet mode, i.e. provider will not be available
+                    // 3. after maximum retries
+                    onRefresh();
+                    mProviderTestRunnable = null;
+                } else {
+                    Log.d(TAG, "Provider is not available. Retry after " + PROVIDER_TEST_DELAY);
+                    checkUriWithDelay(numOfRetries + 1, uri, userId);
+                }
+            }
+        };
+        mHandler.postDelayed(mProviderTestRunnable, PROVIDER_TEST_DELAY);
+    }
+
+    private Uri getCurrentUri(RootInfo root, @Nullable DocumentInfo doc) {
+        String authority = doc == null ? root.authority : doc.authority;
+        String documentId = doc == null ? root.documentId : doc.documentId;
+        return DocumentsContract.buildDocumentUri(authority, documentId);
+    }
+
+    private boolean isProviderAvailable(Uri uri, UserId userId) {
+        try (ContentProviderClient userClient =
+                DocumentsApplication.acquireUnstableProviderOrThrow(
+                        userId.getContentResolver(mActivity), uri.getAuthority())) {
+            Cursor testCursor = userClient.query(uri, /* projection= */ null,
+                    /* queryArgs= */null, /* cancellationSignal= */ null);
+            if (testCursor != null) {
+                return true;
+            }
+        } catch (Exception e) {
+            // Provider is not available. Ignore.
+        }
+        return false;
+    }
+
+    private static boolean isManagedProfileAction(String action) {
+        return Intent.ACTION_MANAGED_PROFILE_UNLOCKED.equals(action)
+                || Intent.ACTION_MANAGED_PROFILE_UNAVAILABLE.equals(action);
+    }
 
     @Override
     public View onCreateView(
             LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
 
+        mHandler = new Handler(Looper.getMainLooper());
         mActivity = (BaseActivity) getActivity();
         final View view = inflater.inflate(R.layout.fragment_directory, container, false);
 
@@ -253,12 +396,21 @@ public class DirectoryFragment extends Fragment implements SwipeRefreshLayout.On
         // Make the recycler and the empty views responsive to drop events when allowed.
         mRecView.setOnDragListener(mDragHoverListener);
 
+        setPreDrawListenerEnabled(true);
+
         return view;
     }
 
     @Override
     public void onDestroyView() {
         mInjector.actions.unregisterDisplayStateChangedListener(mOnDisplayStateChanged);
+        if (mState.supportsCrossProfile()) {
+            LocalBroadcastManager.getInstance(mActivity).unregisterReceiver(mReceiver);
+            if (mProviderTestRunnable != null) {
+                mHandler.removeCallbacks(mProviderTestRunnable);
+            }
+        }
+        getContext().unregisterReceiver(mSdCardBroadcastReceiver);
 
         // Cancel any outstanding thumbnail requests
         final int count = mRecView.getChildCount();
@@ -269,7 +421,7 @@ public class DirectoryFragment extends Fragment implements SwipeRefreshLayout.On
 
         mModel.removeUpdateListener(mModelUpdateListener);
         mModel.removeUpdateListener(mAdapter.getModelUpdateListener());
-        setPreDrawListener(false);
+        setPreDrawListenerEnabled(false);
 
         super.onDestroyView();
     }
@@ -291,7 +443,7 @@ public class DirectoryFragment extends Fragment implements SwipeRefreshLayout.On
             mLocalState.mSelectionId = Integer.toHexString(System.identityHashCode(mRecView));
         }
 
-        mIconHelper = new IconHelper(mActivity, MODE_GRID);
+        mIconHelper = new IconHelper(mActivity, MODE_GRID, mState.supportsCrossProfile());
 
         mAdapter = new DirectoryAddonsAdapter(
                 mAdapterEnv,
@@ -358,6 +510,8 @@ public class DirectoryFragment extends Fragment implements SwipeRefreshLayout.On
                             .withOnItemActivatedListener(this::onItemActivated)
                             .withOperationMonitor(mContentLock.getMonitor())
                             .withSelectionPredicate(selectionPredicate)
+                            .withGestureTooltypes(MotionEvent.TOOL_TYPE_FINGER,
+                                    MotionEvent.TOOL_TYPE_STYLUS)
                             .build();
             mInjector.updateSharedSelectionTracker(localTracker);
         }
@@ -392,6 +546,9 @@ public class DirectoryFragment extends Fragment implements SwipeRefreshLayout.On
 
         mSelectionMgr.addObserver(mActionModeController);
 
+        mProfileTabsController = mInjector.profileTabsController;
+        mSelectionMgr.addObserver(mProfileTabsController);
+
         final ActivityManager am = (ActivityManager) mActivity.getSystemService(
                 Context.ACTIVITY_SERVICE);
         boolean svelte = am.isLowRamDevice() && (mState.stack.isRecents());
@@ -400,7 +557,7 @@ public class DirectoryFragment extends Fragment implements SwipeRefreshLayout.On
         // If mDocument is null, we sort it by last modified by default because it's in Recents.
         final boolean prefersLastModified =
                 (mLocalState.mDocument == null)
-                || mLocalState.mDocument.prefersSortByLastModified();
+                        || mLocalState.mDocument.prefersSortByLastModified();
         // Call this before adding the listener to avoid restarting the loader one more time
         mState.sortModel.setDefaultDimension(
                 prefersLastModified
@@ -409,6 +566,17 @@ public class DirectoryFragment extends Fragment implements SwipeRefreshLayout.On
 
         // Kick off loader at least once
         mActions.loadDocumentsForCurrentStack();
+
+        if (mState.supportsCrossProfile()) {
+            final IntentFilter filter = new IntentFilter();
+            filter.addAction(Intent.ACTION_MANAGED_PROFILE_UNLOCKED);
+            filter.addAction(Intent.ACTION_MANAGED_PROFILE_UNAVAILABLE);
+            // DocumentsApplication will resend the broadcast locally after roots are updated.
+            // Register to a local broadcast manager to avoid this fragment from updating before
+            // roots are updated.
+            LocalBroadcastManager.getInstance(mActivity).registerReceiver(mReceiver, filter);
+        }
+        getContext().registerReceiver(mSdCardBroadcastReceiver, getSdCardStateChangeFilter());
     }
 
     @Override
@@ -451,7 +619,8 @@ public class DirectoryFragment extends Fragment implements SwipeRefreshLayout.On
             // TODO: inject DirectoryDetails into MenuManager constructor
             // Since both classes are supplied by Activity and created
             // at the same time.
-            mInjector.menuManager.inflateContextMenuForContainer(menu, inflater);
+            mInjector.menuManager.inflateContextMenuForContainer(
+                    menu, inflater, mSelectionMetadata);
         } else {
             mInjector.menuManager.inflateContextMenuForDocs(
                     menu, inflater, mSelectionMetadata);
@@ -525,6 +694,7 @@ public class DirectoryFragment extends Fragment implements SwipeRefreshLayout.On
 
     /**
      * Updates the layout after the view mode switches.
+     *
      * @param mode The new view mode.
      */
     private void updateLayout(@ViewMode int mode) {
@@ -536,7 +706,8 @@ public class DirectoryFragment extends Fragment implements SwipeRefreshLayout.On
 
         int pad = getDirectoryPadding(mode);
         mAppBarHeight = getAppBarLayoutHeight();
-        mRecView.setPadding(pad, mAppBarHeight, pad, getSaveLayoutHeight());
+        mSaveLayoutHeight = getSaveLayoutHeight();
+        mRecView.setPadding(pad, mAppBarHeight, pad, mSaveLayoutHeight);
         mRecView.requestLayout();
         mIconHelper.setViewMode(mode);
 
@@ -557,21 +728,26 @@ public class DirectoryFragment extends Fragment implements SwipeRefreshLayout.On
 
     /**
      * Updates the layout after the view mode switches.
+     *
      * @param mode The new view mode.
      */
     private void scaleLayout(float scale) {
         assert DEBUG;
 
-        if (VERBOSE) Log.v(
-                TAG, "Handling scale event: " + scale + ", existing scale: " + mLiveScale);
+        if (VERBOSE) {
+            Log.v(
+                    TAG, "Handling scale event: " + scale + ", existing scale: " + mLiveScale);
+        }
 
         if (mMode == MODE_GRID) {
             float minScale = getFraction(R.fraction.grid_scale_min);
             float maxScale = getFraction(R.fraction.grid_scale_max);
             float nextScale = mLiveScale * scale;
 
-            if (VERBOSE) Log.v(TAG,
-                    "Next scale " + nextScale + ", Min/max scale " + minScale + "/" + maxScale);
+            if (VERBOSE) {
+                Log.v(TAG,
+                        "Next scale " + nextScale + ", Min/max scale " + minScale + "/" + maxScale);
+            }
 
             if (nextScale > minScale && nextScale < maxScale) {
                 if (DEBUG) {
@@ -590,6 +766,12 @@ public class DirectoryFragment extends Fragment implements SwipeRefreshLayout.On
     }
 
     private int calculateColumnCount(@ViewMode int mode) {
+        // For fixing a11y issue b/141223688, if there's only "no items" displayed, we should set
+        // span column to 1 to avoid talkback speaking unnecessary information.
+        if (mModel != null && mModel.getItemCount() == 0) {
+            return 1;
+        }
+
         if (mode == MODE_LIST) {
             // List mode is a "grid" with 1 column.
             return 1;
@@ -668,7 +850,7 @@ public class DirectoryFragment extends Fragment implements SwipeRefreshLayout.On
             case R.id.dir_menu_delete:
                 // deleteDocuments will end action mode if the documents are deleted.
                 // It won't end action mode if user cancels the delete.
-                mActions.deleteSelectedDocuments();
+                mActions.showDeleteDialog();
                 return true;
 
             case R.id.action_menu_copy_to:
@@ -712,7 +894,7 @@ public class DirectoryFragment extends Fragment implements SwipeRefreshLayout.On
                         ? mActivity.getCurrentDirectory()
                         : mModel.getDocuments(selection).get(0);
 
-                        mActions.showInspector(doc);
+                mActions.showInspector(doc);
                 return true;
 
             case R.id.dir_menu_cut_to_clipboard:
@@ -736,11 +918,13 @@ public class DirectoryFragment extends Fragment implements SwipeRefreshLayout.On
                 mActions.selectAllFiles();
                 return true;
 
+            case R.id.action_menu_deselect_all:
+            case R.id.dir_menu_deselect_all:
+                mActions.deselectAllFiles();
+                return true;
+
             case R.id.action_menu_rename:
             case R.id.dir_menu_rename:
-                // Exit selection mode first, so we avoid deselecting deleted
-                // (renamed) documents.
-                mActionModeController.finishActionMode();
                 renameDocuments(selection);
                 return true;
 
@@ -770,7 +954,7 @@ public class DirectoryFragment extends Fragment implements SwipeRefreshLayout.On
         } else {
             DocumentHolder holder = getDocumentHolder(child);
             mActions.openItem(holder.getItemDetails(), ActionHandler.VIEW_TYPE_PREVIEW,
-                ActionHandler.VIEW_TYPE_REGULAR);
+                    ActionHandler.VIEW_TYPE_REGULAR);
         }
         return true;
     }
@@ -800,6 +984,10 @@ public class DirectoryFragment extends Fragment implements SwipeRefreshLayout.On
     private void openDocuments(final Selection selected) {
         Metrics.logUserAction(MetricConsts.USER_ACTION_OPEN);
 
+        if (selected.isEmpty()) {
+            return;
+        }
+
         // Model must be accessed in UI thread, since underlying cursor is not threadsafe.
         List<DocumentInfo> docs = mModel.getDocuments(selected);
         if (docs.size() > 1) {
@@ -812,6 +1000,10 @@ public class DirectoryFragment extends Fragment implements SwipeRefreshLayout.On
     private void showChooserForDoc(final Selection<String> selected) {
         Metrics.logUserAction(MetricConsts.USER_ACTION_OPEN);
 
+        if (selected.isEmpty()) {
+            return;
+        }
+
         assert selected.size() == 1;
         DocumentInfo doc =
                 DocumentInfo.fromDirectoryCursor(mModel.getItem(selected.iterator().next()));
@@ -821,6 +1013,10 @@ public class DirectoryFragment extends Fragment implements SwipeRefreshLayout.On
     private void transferDocuments(
             final Selection<String> selected, @Nullable DocumentStack destination,
             final @OpType int mode) {
+        if (selected.isEmpty()) {
+            return;
+        }
+
         switch (mode) {
             case FileOperationService.OPERATION_COPY:
                 Metrics.logUserAction(MetricConsts.USER_ACTION_COPY_TO);
@@ -893,7 +1089,7 @@ public class DirectoryFragment extends Fragment implements SwipeRefreshLayout.On
                 throw new UnsupportedOperationException("Unknown mode: " + mode);
         }
 
-        intent.putExtra(DocumentsContract.EXTRA_PROMPT, getResources().getString(drawerTitleId));
+        intent.putExtra(DocumentsContract.EXTRA_PROMPT, drawerTitleId);
 
         // Model must be accessed in UI thread, since underlying cursor is not threadsafe.
         List<DocumentInfo> docs = mModel.getDocuments(selected);
@@ -902,7 +1098,6 @@ public class DirectoryFragment extends Fragment implements SwipeRefreshLayout.On
         // to be copied? Why? Directory creation isn't supported by some roots
         // (like Downloads). This informs DocumentsActivity (the "picker")
         // to restrict available roots to just those with support.
-        intent.putExtra(Shared.EXTRA_DIRECTORY_COPY, hasDirectory(docs));
         intent.putExtra(FileOperationService.EXTRA_OPERATION_TYPE, mode);
 
         // This just identifies the type of request...we'll check it
@@ -921,17 +1116,12 @@ public class DirectoryFragment extends Fragment implements SwipeRefreshLayout.On
         }
     }
 
-    private static boolean hasDirectory(List<DocumentInfo> docs) {
-        for (DocumentInfo info : docs) {
-            if (Document.MIME_TYPE_DIR.equals(info.mimeType)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     private void renameDocuments(Selection selected) {
         Metrics.logUserAction(MetricConsts.USER_ACTION_RENAME);
+
+        if (selected.isEmpty()) {
+            return;
+        }
 
         // Batch renaming not supported
         // Rename option is only available in menu when 1 document selected
@@ -942,7 +1132,7 @@ public class DirectoryFragment extends Fragment implements SwipeRefreshLayout.On
         RenameDocumentFragment.show(getChildFragmentManager(), docs.get(0));
     }
 
-    Model getModel(){
+    Model getModel() {
         return mModel;
     }
 
@@ -960,6 +1150,9 @@ public class DirectoryFragment extends Fragment implements SwipeRefreshLayout.On
     }
 
     public void pasteIntoFolder() {
+        if (mSelectionMgr.getSelection().isEmpty()) {
+            return;
+        }
         assert (mSelectionMgr.getSelection().size() == 1);
 
         String modelId = mSelectionMgr.getSelection().iterator().next();
@@ -1005,9 +1198,10 @@ public class DirectoryFragment extends Fragment implements SwipeRefreshLayout.On
 
     /**
      * Gets the model ID for a given RecyclerView item.
+     *
      * @param view A View that is a document item view, or a child of a document item view.
      * @return The Model ID for the given document, or null if the given view is not associated with
-     *     a document item view.
+     * a document item view.
      */
     private @Nullable String getModelId(View view) {
         View itemView = mRecView.findContainingItemView(view);
@@ -1028,17 +1222,19 @@ public class DirectoryFragment extends Fragment implements SwipeRefreshLayout.On
         return null;
     }
 
-    private void setPreDrawListener(boolean enable) {
+    /**
+     * Add or remove mToolbarPreDrawListener implement on DirectoryFragment to ViewTreeObserver.
+     */
+    public void setPreDrawListenerEnabled(boolean enable) {
         if (mActivity == null) {
             return;
         }
 
         final View bar = mActivity.findViewById(R.id.collapsing_toolbar);
         if (bar != null) {
+            bar.getViewTreeObserver().removeOnPreDrawListener(mToolbarPreDrawListener);
             if (enable) {
                 bar.getViewTreeObserver().addOnPreDrawListener(mToolbarPreDrawListener);
-            } else {
-                bar.getViewTreeObserver().removeOnPreDrawListener(mToolbarPreDrawListener);
             }
         }
     }
@@ -1083,6 +1279,7 @@ public class DirectoryFragment extends Fragment implements SwipeRefreshLayout.On
         ft.commitAllowingStateLoss();
     }
 
+    /** Gets the fragment from the fragment manager. */
     public static @Nullable DirectoryFragment get(FragmentManager fm) {
         // TODO: deal with multiple directories shown at once
         Fragment fragment = fm.findFragmentById(getFragmentId());
@@ -1096,7 +1293,7 @@ public class DirectoryFragment extends Fragment implements SwipeRefreshLayout.On
     }
 
     /**
-     *  Scroll to top of recyclerView in fragment
+     * Scroll to top of recyclerView in fragment
      */
     public void scrollToTop() {
         if (mRecView != null) {
@@ -1105,7 +1302,7 @@ public class DirectoryFragment extends Fragment implements SwipeRefreshLayout.On
     }
 
     /**
-     *  Stop the scroll of recyclerView in fragment
+     * Stop the scroll of recyclerView in fragment
      */
     public void stopScroll() {
         if (mRecView != null) {
@@ -1122,10 +1319,16 @@ public class DirectoryFragment extends Fragment implements SwipeRefreshLayout.On
         String[] ids = mModel.getModelIds();
         int numOfEvicts = Math.min(ids.length, CACHE_EVICT_LIMIT);
         for (int i = 0; i < numOfEvicts; ++i) {
-            cache.removeUri(mModel.getItemUri(ids[i]));
+            cache.removeUri(mModel.getItemUri(ids[i]), mModel.getItemUserId(ids[i]));
         }
 
         final DocumentInfo doc = mActivity.getCurrentDirectory();
+        if (doc == null && !mActivity.getSelectedUser().isQuietModeEnabled(mActivity)) {
+            // If there is no root doc, try to reload the root doc from root info.
+            Log.w(TAG, "No root document. Try to get root document.");
+            getRootDocumentAndMaybeRefreshDocument();
+            return;
+        }
         mActions.refreshDocument(doc, (boolean refreshSupported) -> {
             if (refreshSupported) {
                 mRefreshLayout.setRefreshing(false);
@@ -1134,6 +1337,26 @@ public class DirectoryFragment extends Fragment implements SwipeRefreshLayout.On
                 mActions.loadDocumentsForCurrentStack();
             }
         });
+    }
+
+    private void getRootDocumentAndMaybeRefreshDocument() {
+        // If we can reload the root doc successfully, we will push it to the stack and load the
+        // stack.
+        final RootInfo emptyDocRoot = mActivity.getCurrentRoot();
+        mInjector.actions.getRootDocument(
+                emptyDocRoot,
+                TimeoutTask.DEFAULT_TIMEOUT,
+                rootDoc -> {
+                    mRefreshLayout.setRefreshing(false);
+                    if (rootDoc != null && mActivity.getCurrentDirectory() == null) {
+                        // Make sure the stack does not change during task was running.
+                        Log.d(TAG, "Root doc is retrieved. Pushing to the stack");
+                        mState.stack.push(rootDoc);
+                        mActivity.updateNavigator();
+                        mActions.loadDocumentsForCurrentStack();
+                    }
+                }
+        );
     }
 
     private final class ModelUpdateListener implements EventListener<Model.Update> {
@@ -1200,8 +1423,6 @@ public class DirectoryFragment extends Fragment implements SwipeRefreshLayout.On
                 mInjector.menuManager.updateOptionMenu();
 
                 mActivity.updateHeaderTitle();
-
-                setPreDrawListener(true);
             }
         }
     }
@@ -1262,6 +1483,11 @@ public class DirectoryFragment extends Fragment implements SwipeRefreshLayout.On
         @Override
         public ActionHandler getActionHandler() {
             return mActions;
+        }
+
+        @Override
+        public String getCallingAppName() {
+            return Shared.getCallingAppName(mActivity);
         }
     }
 }

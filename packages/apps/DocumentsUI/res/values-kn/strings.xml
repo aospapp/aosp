@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="files_label" msgid="771781190045103748">"ಫೈಲ್‌ಗಳು"</string>
+    <string name="files_label" msgid="771781190045103748">"Files"</string>
     <string name="downloads_label" msgid="5462789470049501103">"ಡೌನ್‌ಲೋಡ್‌ಗಳು"</string>
     <!-- no translation found for app_label (8089292432455111409) -->
     <skip />
@@ -36,24 +36,27 @@
     <string name="menu_share" msgid="4307140947108068356">"ಹಂಚಿಕೊಳ್ಳಿ"</string>
     <string name="menu_delete" msgid="1022254131543256626">"ಅಳಿಸಿ"</string>
     <string name="menu_select_all" msgid="7600576812185570403">"ಎಲ್ಲವನ್ನೂ ಆಯ್ಕೆಮಾಡಿ"</string>
+    <string name="menu_deselect_all" msgid="7729916068862742979">"ಎಲ್ಲಾ ಆಯ್ಕೆಯನ್ನು ರದ್ದುಮಾಡಿ"</string>
     <string name="menu_select" msgid="1366061076507142387">"ಆಯ್ಕೆಮಾಡಿ"</string>
     <string name="menu_sort" msgid="3362419226163725275">"ಹೀಗೆ ವಿಂಗಡಿಸಿ..."</string>
     <string name="menu_copy" msgid="7404820171352314754">"ಇದಕ್ಕೆ ನಕಲಿಸಿ…"</string>
-    <string name="menu_move" msgid="2310760789561129882">"ಇದಕ್ಕೆ ಸರಿಸು…"</string>
+    <string name="menu_move" msgid="2310760789561129882">"ಇದಕ್ಕೆ ಸರಿಸಿ…"</string>
     <string name="menu_compress" msgid="37539111904724188">"ಕುಗ್ಗಿಸಿ"</string>
     <string name="menu_extract" msgid="8171946945982532262">"ಇದಕ್ಕೆ ಬೇರ್ಪಡಿಸಲಾಗಿದೆ…"</string>
     <string name="menu_rename" msgid="1883113442688817554">"ಮರುಹೆಸರಿಸು"</string>
     <string name="menu_inspect" msgid="7279855349299446224">"ಮಾಹಿತಿಯನ್ನು ಪಡೆಯಿರಿ"</string>
+    <string name="menu_show_hidden_files" msgid="5140676344684492769">"ಮರೆಮಾಡಿದ ಫೈಲ್‌ಗಳನ್ನು ತೋರಿಸಿ"</string>
+    <string name="menu_hide_hidden_files" msgid="5654495713350153702">"ಮರೆಮಾಡಿದ ಫೈಲ್‌ ತೋರಿಸಬೇಡಿ"</string>
     <string name="menu_view_in_owner" msgid="7228948660557554770">"<xliff:g id="SOURCE">%1$s</xliff:g> ನಲ್ಲಿ ವೀಕ್ಷಿಸಿ"</string>
     <string name="menu_new_window" msgid="2947837751796109126">"ಹೊಸ ವಿಂಡೋ"</string>
     <string name="menu_cut_to_clipboard" msgid="2878752142015026229">"ಕತ್ತರಿಸು"</string>
-    <string name="menu_copy_to_clipboard" msgid="5064081159073330776">"ನಕಲಿಸು"</string>
+    <string name="menu_copy_to_clipboard" msgid="5064081159073330776">"ನಕಲಿಸಿ"</string>
     <string name="menu_paste_from_clipboard" msgid="360947260414135827">"ಅಂಟಿಸು"</string>
     <string name="menu_paste_into_folder" msgid="8000644546983240101">"ಫೋಲ್ಡರ್‌ಗೆ ನಕಲಿಸಿ"</string>
     <string name="menu_advanced_show" msgid="7558626506462906726">"ಆಂತರಿಕ ಸಂಗ್ರಹಣೆ ತೋರಿಸು"</string>
     <string name="menu_advanced_hide" msgid="6488381508009246334">"ಆಂತರಿಕ ಸಂಗ್ರಹಣೆಯನ್ನು ಮರೆಮಾಡಿ"</string>
     <string name="button_select" msgid="240863497069321364">"ಆಯ್ಕೆಮಾಡಿ"</string>
-    <string name="button_copy" msgid="8219059853840996027">"ನಕಲಿಸು"</string>
+    <string name="button_copy" msgid="8219059853840996027">"ನಕಲಿಸಿ"</string>
     <string name="button_compress" msgid="8951561310857223966">"ಕುಗ್ಗಿಸಿ"</string>
     <string name="button_extract" msgid="1038674453689912247">"ಬೇರ್ಪಡಿಸಿ"</string>
     <string name="button_move" msgid="8596460499325291272">"ಸರಿಸು"</string>
@@ -61,6 +64,7 @@
     <string name="button_retry" msgid="4011461781916631389">"ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ"</string>
     <string name="button_clear" msgid="5412304437764369441">"ತೆರವುಗೊಳಿಸಿ"</string>
     <string name="button_show_provider" msgid="6905880493806292753">"ಒದಗಿಸುವವರಲ್ಲಿ ತೋರಿಸಿ"</string>
+    <string name="button_back" msgid="1888621708934742182">"ಹಿಂದೆ"</string>
     <string name="not_sorted" msgid="7813496644889115530">"ವಿಂಗಡಿಸಲಾಗಿಲ್ಲ"</string>
     <string name="sort_dimension_name" msgid="6325591541414177579">"ಹೆಸರು"</string>
     <string name="sort_dimension_summary" msgid="7724534446881397860">"ಸಾರಾಂಶ"</string>
@@ -86,6 +90,18 @@
     <string name="save_error" msgid="8631128801982095782">"ಡಾಕ್ಯುಮೆಂಟ್ ಉಳಿಸಲು ವಿಫಲವಾಗಿದೆ"</string>
     <string name="create_error" msgid="3092144450044861994">"ಫೋಲ್ಡರ್ ರಚಿಸಲು ವಿಫಲವಾಗಿದೆ"</string>
     <string name="query_error" msgid="6625421453613879336">"ಈ ಕ್ಷಣದಲ್ಲಿ ವಿಷಯವನ್ನು ಲೋಡ್ ಮಾಡಲು ಸಾಧ್ಯವಿಲ್ಲ"</string>
+    <string name="quiet_mode_error_title" msgid="9126656325282792843">"ಉದ್ಯೋಗ ಪ್ರೊಫೈಲ್‌ ಅನ್ನು ವಿರಾಮಗೊಳಿಸಲಾಗಿದೆ"</string>
+    <string name="quiet_mode_button" msgid="6977115032320235420">"ಆನ್ ಮಾಡಿ"</string>
+    <string name="cant_select_work_files_error_title" msgid="6688716319549644354">"ಉದ್ಯೋಗದ ಫೈಲ್‌ಗಳನ್ನು ಆಯ್ಕೆ ಮಾಡಲು ಸಾಧ್ಯವಿಲ್ಲ"</string>
+    <string name="cant_select_work_files_error_message" msgid="683480676150690641">"ವೈಯಕ್ತಿಕ ಆ್ಯಪ್ ಒಂದರಿಂದ ಉದ್ಯೋಗದ ಫೈಲ್‌ಗಳನ್ನು ಪ್ರವೇಶಿಸಲು ನಿಮ್ಮ ಐಟಿ ನಿರ್ವಾಹಕರು ನಿಮಗೆ ಅನುಮತಿಸುವುದಿಲ್ಲ"</string>
+    <string name="cant_select_personal_files_error_title" msgid="3200697170148617742">"ವೈಯಕ್ತಿಕ ಫೈಲ್‌ಗಳನ್ನು ಆಯ್ಕೆ ಮಾಡಲು ಸಾಧ್ಯವಿಲ್ಲ"</string>
+    <string name="cant_select_personal_files_error_message" msgid="4105905035459118209">"ಕೆಲಸಕ್ಕೆ ಸಂಬಂಧಿಸಿದ ಆ್ಯಪ್‌ ಒಂದರಿಂದ ವೈಯಕ್ತಿಕ ಫೈಲ್‌ಗಳನ್ನು ಪ್ರವೇಶಿಸಲು ನಿಮ್ಮ ಐಟಿ ನಿರ್ವಾಹಕರು ನಿಮಗೆ ಅನುಮತಿಸುವುದಿಲ್ಲ"</string>
+    <string name="cant_save_to_work_error_title" msgid="1351323070040641358">"ಉದ್ಯೋಗ ಪ್ರೊಫೈಲ್‌ಗೆ ಉಳಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ"</string>
+    <string name="cant_save_to_work_error_message" msgid="4975583233814059890">"ನಿಮ್ಮ ಉದ್ಯೋಗ ಪ್ರೊಫೈಲ್‌ಗೆ ವೈಯಕ್ತಿಕ ಫೈಲ್‌ಗಳನ್ನು ಉಳಿಸಲು ನಿಮ್ಮ ಐಟಿ ನಿರ್ವಾಹಕರು ನಿಮಗೆ ಅನುಮತಿಸುವುದಿಲ್ಲ"</string>
+    <string name="cant_save_to_personal_error_title" msgid="858327493694069780">"ವೈಯಕ್ತಿಕ ಪ್ರೊಫೈಲ್‌ಗೆ ಉಳಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ"</string>
+    <string name="cant_save_to_personal_error_message" msgid="6991758723736381751">"ನಿಮ್ಮ ವೈಯಕ್ತಿಕ ಪ್ರೊಫೈಲ್‌ಗೆ ಉದ್ಯೋಗದ ಫೈಲ್‌ಗಳನ್ನು ಉಳಿಸಲು ನಿಮ್ಮ ಐಟಿ ನಿರ್ವಾಹಕರು ನಿಮಗೆ ಅನುಮತಿಸುವುದಿಲ್ಲ"</string>
+    <string name="cross_profile_action_not_allowed_title" msgid="6611281348716476478">"ಈ ಕ್ರಿಯೆಯನ್ನು ಅನುಮತಿಸಲಾಗುವುದಿಲ್ಲ"</string>
+    <string name="cross_profile_action_not_allowed_message" msgid="7331275433061690947">"ಇನ್ನಷ್ಟು ತಿಳಿಯಲು, ನಿಮ್ಮ IT ನಿರ್ವಾಹಕರನ್ನು ಸಂಪರ್ಕಿಸಿ"</string>
     <string name="root_recent" msgid="1080156975424341623">"ಇತ್ತೀಚಿನದು"</string>
     <string name="root_available_bytes" msgid="8269870862691408864">"<xliff:g id="SIZE">%1$s</xliff:g> ಮುಕ್ತವಾಗಿದೆ"</string>
     <string name="root_type_service" msgid="6521366147466512289">"ಸಂಗ್ರಹಣೆ ಸೇವೆಗಳು"</string>
@@ -93,10 +109,12 @@
     <string name="root_type_device" msgid="1713604128005476585">"ಸಾಧನಗಳು"</string>
     <string name="root_type_apps" msgid="8646073235029886342">"ಇನ್ನಷ್ಟು ಅಪ್ಲಿಕೇಶನ್‌ಗಳು"</string>
     <string name="empty" msgid="5300254272613103004">"ಯಾವುದೇ ಐಟಂಗಳಿಲ್ಲ"</string>
-    <string name="no_results" msgid="2371026325236359209">"%1$s ರಲ್ಲಿ ಹೊಂದಾಣಿಕೆಗಳಿಲ್ಲ"</string>
+    <string name="no_results" msgid="2371026325236359209">"%1$s ನಲ್ಲಿ ಹೊಂದಾಣಿಕೆಗಳಿಲ್ಲ"</string>
     <string name="toast_no_application" msgid="7555319548595113121">"ಫೈಲ್ ತೆರೆಯಲು ಸಾಧ್ಯವಾಗುತ್ತಿಲ್ಲ"</string>
     <string name="toast_view_in_archives_unsupported" msgid="1923221390170964845">"ಆರ್ಕೈವ್‌ಗಳಲ್ಲಿ ಫೈಲ್‌ಗಳನ್ನು ತೆರೆಯಲು ಸಾಧ್ಯವಿಲ್ಲ"</string>
     <string name="toast_failed_delete" msgid="3453846588205817591">"ಕೆಲವು ಡಾಕ್ಯುಮೆಂಟ್‌ಗಳನ್ನು ಅಳಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ"</string>
+    <string name="toast_share_over_limit" msgid="5805442886537093015">"<xliff:g id="COUNT">%1$d</xliff:g> ಗಿಂತ ಹೆಚ್ಚು ಫೈಲ್‌ಗಳನ್ನು ಹಂಚಿಕೊಳ್ಳಲು ಸಾಧ್ಯವಿಲ್ಲ"</string>
+    <string name="toast_action_not_allowed" msgid="1329382474450572415">"ಕ್ರಿಯೆಯನ್ನು ಅನುಮತಿಸಲಾಗುವುದಿಲ್ಲ"</string>
     <string name="share_via" msgid="8725082736005677161">"ಈ ಮೂಲಕ ಹಂಚಿಕೊಳ್ಳಿ"</string>
     <string name="copy_notification_title" msgid="52256435625098456">"ಫೈಲ್‌ಗಳನ್ನು ನಕಲಿಸಲಾಗುತ್ತಿದೆ"</string>
     <string name="compress_notification_title" msgid="6830195148113751021">"ಫೈಲ್‌ ಕುಗ್ಗಿಸಲಾಗುತ್ತಿದೆ"</string>
@@ -222,29 +240,42 @@
       <item quantity="one"><xliff:g id="COUNT_1">%1$d</xliff:g> ಆಯ್ಕೆಮಾಡಲಾಗಿದೆ</item>
       <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> ಆಯ್ಕೆಮಾಡಲಾಗಿದೆ</item>
     </plurals>
-    <string name="root_info_header_recent" msgid="8754386597210017725">"ಫೋನ್‌ನಲ್ಲಿನ ಇತ್ತೀಚಿನ ಫೈಲ್‌ಗಳು"</string>
-    <string name="root_info_header_global_search" msgid="9099308729787003373">"ಫೋನ್‌ನಲ್ಲಿನ ಫೈಲ್‌ಗಳು"</string>
-    <string name="root_info_header_media" msgid="2774453755906260852">"ಫೋನ್‌ನಲ್ಲಿನ <xliff:g id="LABEL">%1$s</xliff:g>"</string>
+    <string name="root_info_header_recent" msgid="5654901877295332262">"ಇತ್ತೀಚಿನ ಫೈಲ್‌ಗಳು"</string>
+    <string name="root_info_header_global_search" msgid="4904078222280496152">"ಫೈಲ್‌ಗಳು"</string>
+    <string name="root_info_header_downloads" msgid="8848161246921154115">"ಡೌನ್‌ಲೋಡ್‌ಗಳಲ್ಲಿರುವ ಫೈಲ್‌ಗಳು"</string>
     <string name="root_info_header_storage" msgid="2989014130584927442">"<xliff:g id="DEVICE">%1$s</xliff:g> ನಲ್ಲಿನ ಫೈಲ್‌ಗಳು"</string>
+    <string name="root_info_header_folder" msgid="5851172222368049864">"<xliff:g id="FOLDER">%1$s</xliff:g> ನಲ್ಲಿರುವ ಫೈಲ್‌ಗಳು"</string>
     <string name="root_info_header_app" msgid="2125422047558420885">"<xliff:g id="LABEL">%1$s</xliff:g> ನಿಂದ ಫೈಲ್‌ಗಳು"</string>
     <string name="root_info_header_app_with_summary" msgid="3223302581236069702">"<xliff:g id="LABEL">%1$s</xliff:g> / <xliff:g id="SUMMARY">%2$s</xliff:g> ನಿಂದ ಫೈಲ್‌ಗಳು"</string>
-    <string name="root_info_header_image_recent" msgid="6252335619444758201">"ಫೋನ್‌ನಲ್ಲಿ ಇತ್ತೀಚಿನ ಚಿತ್ರಗಳು"</string>
-    <string name="root_info_header_image_global_search" msgid="7945533325610533016">"ಫೋನ್‌ನಲ್ಲಿರುವ ಚಿತ್ರಗಳು"</string>
+    <string name="root_info_header_image_recent" msgid="7494373563753926014">"ಇತ್ತೀಚಿನ ಚಿತ್ರಗಳು"</string>
+    <string name="root_info_header_image_global_search" msgid="7307009823489854697">"ಚಿತ್ರಗಳು"</string>
+    <string name="root_info_header_image_downloads" msgid="7072252612657612307">"ಡೌನ್‌ಲೋಡ್‌ಗಳಲ್ಲಿರುವ ಚಿತ್ರಗಳು"</string>
     <string name="root_info_header_image_storage" msgid="5086740886360075930">"<xliff:g id="DEVICE">%1$s</xliff:g> ನಲ್ಲಿರುವ ಚಿತ್ರಗಳು"</string>
+    <string name="root_info_header_image_folder" msgid="5980430877636279667">"<xliff:g id="FOLDER">%1$s</xliff:g> ನಲ್ಲಿರುವ ಚಿತ್ರಗಳು"</string>
     <string name="root_info_header_image_app" msgid="4858114210851525359">"<xliff:g id="LABEL">%1$s</xliff:g>ನಿಂದ ಚಿತ್ರಗಳು"</string>
     <string name="root_info_header_image_app_with_summary" msgid="6404842960923224778">"<xliff:g id="LABEL">%1$s</xliff:g> / <xliff:g id="SUMMARY">%2$s</xliff:g> ನಿಂದ ಚಿತ್ರಗಳು"</string>
     <string name="chip_title_images" msgid="7838299046109841015">"ಚಿತ್ರಗಳು"</string>
     <string name="chip_title_audio" msgid="1032801828748235436">"ಆಡಿಯೊ"</string>
     <string name="chip_title_videos" msgid="7011260091979776447">"ವೀಡಿಯೊಗಳು"</string>
     <string name="chip_title_documents" msgid="7432457563000753983">"ಡಾಕ್ಯುಮೆಂಟ್‌ಗಳು"</string>
+    <string name="chip_title_large_files" msgid="7740269190493883980">"ದೊಡ್ಡ ಫೈಲ್‌ಗಳು"</string>
+    <string name="chip_title_from_this_week" msgid="4961536405220379672">"ಈ ವಾರ"</string>
     <string name="input_hint_new_folder" msgid="479672411219725677">"ಫೋಲ್ಡರ್ ಹೆಸರು"</string>
     <string name="input_hint_rename" msgid="8390711744270994452">"ಹೊಸ ಹೆಸರು"</string>
     <string name="preview_file" msgid="4056622696305432343">"<xliff:g id="FILENAME">%1$s</xliff:g> ಫೈಲ್‌ ಅನ್ನು ಪೂರ್ವವೀಕ್ಷಿಸಿ"</string>
+    <string name="preview_work_file" msgid="4495643735563487273">"<xliff:g id="FILENAME">%1$s</xliff:g> ಉದ್ಯೋಗದ ಫೈಲ್‌ ಅನ್ನು ಪೂರ್ವವೀಕ್ಷಣೆ ಮಾಡಿ"</string>
     <string name="apps_row_title" msgid="3340490016663092925">"ಇತರ ಆ್ಯಪ್‌ಗಳಲ್ಲಿರುವ ಫೈಲ್‌ಗಳನ್ನು ಬ್ರೌಸ್ ಮಾಡಿ"</string>
     <string name="anonymous_application" msgid="7633027057951625862">"ಅನಾಮಧೇಯ"</string>
-    <string name="open_tree_button" msgid="19992834788135845">"\"<xliff:g id="DIRECTORY">%1$s</xliff:g>\" ಗೆ ಪ್ರವೇಶವನ್ನು ಅನುಮತಿಸಿ"</string>
-    <string name="open_tree_dialog_title" msgid="8429465292253532274">"\"<xliff:g id="ROOT">%2$s</xliff:g>\" ನಲ್ಲಿರುವ \"<xliff:g id="DIRECTORY">%1$s</xliff:g> ಗೆ ಪ್ರವೇಶವನ್ನು ಅನುಮತಿಸುವುದೇ?"</string>
-    <string name="open_tree_dialog_message" msgid="8545093618524340168">"ಇದು ಈ ಸ್ಥಾನದಲ್ಲಿ ಪ್ರಸ್ತುತವಾಗಿ ಸಂಗ್ರಹವಾಗಿರುವ ಎಲ್ಲಾ ಫೈಲ್‌ಗಳಿಗೆ ಮತ್ತು ಭವಿಷ್ಯದಲ್ಲಿ ಸಂಗ್ರಹವಾಗುವ ಎಲ್ಲಾ ವಿಷಯಕ್ಕೆ \"<xliff:g id="APPNAME">%1$s</xliff:g>\" ಪೂರ್ಣ ಪ್ರವೇಶ ನೀಡುತ್ತದೆ."</string>
+    <string name="open_tree_button" msgid="6402871398424497776">"ಈ ಫೋಲ್ಡರ್ ಬಳಸಿ"</string>
+    <string name="open_tree_dialog_title" msgid="6339509533852318569">"<xliff:g id="DIRECTORY">%2$s</xliff:g> ನಲ್ಲಿರುವ ಫೈಲ್‌ಗಳಿಗೆ ಪ್ರವೇಶಿಸಲು <xliff:g id="APPNAME">%1$s</xliff:g> ಆ್ಯಪ್‌ಗೆ ಅನುಮತಿಸಬೇಕೆ?"</string>
+    <string name="open_tree_dialog_message" msgid="4120695398430659628">"ಇದು ಪ್ರಸ್ತುತ ಮತ್ತು ಭವಿಷ್ಯದಲ್ಲಿ <xliff:g id="DIRECTORY">%2$s</xliff:g> ನಲ್ಲಿ ಸಂಗ್ರಹವಾಗಿರುವ ವಿಷಯವನ್ನು ಪ್ರವೇಶಿಸಲು <xliff:g id="APPNAME">%1$s</xliff:g> ಆ್ಯಪ್‌ಗೆ ಅನುಮತಿಸುತ್ತದೆ."</string>
+    <string name="directory_blocked_header_title" msgid="1164584889578740066">"ಈ ಫೋಲ್ಡರ್ ಅನ್ನು ಬಳಸಲು ಸಾಧ್ಯವಿಲ್ಲ"</string>
+    <string name="directory_blocked_header_subtitle" msgid="2829150911849033408">"ನಿಮ್ಮ ಗೌಪ್ಯತೆಯನ್ನು ಕಾಪಾಡಲು, ಬೇರೊಂದು ಫೋಲ್ಡರ್ ಅನ್ನು ಆಯ್ಕೆಮಾಡಿ"</string>
+    <string name="create_new_folder_button" msgid="8859613309559794890">"ಹೊಸ ಫೋಲ್ಡರ್ ರಚಿಸಿ"</string>
     <string name="search_bar_hint" msgid="4517366509897977321">"ಈ ಫೋನ್‍ನಲ್ಲಿ ಹುಡುಕಿ"</string>
     <string name="delete_search_history" msgid="2202015025607694515">"ಹುಡುಕಾಟ ಇತಿಹಾಸವನ್ನು ಅಳಿಸಿ <xliff:g id="TEXT">%1$s</xliff:g>"</string>
+    <string name="personal_tab" msgid="3878576287868528503">"ವೈಯಕ್ತಿಕ"</string>
+    <string name="work_tab" msgid="7265359366883747413">"ಉದ್ಯೋಗ"</string>
+    <string name="a11y_work" msgid="7504431382825242153">"ಉದ್ಯೋಗ"</string>
+    <string name="drag_from_another_app" msgid="8310249276199969905">"ನೀವು ಬೇರೊಂದು ಆ್ಯಪ್‌ನಿಂದ ಫೈಲ್‌ಗಳನ್ನು ಸರಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ."</string>
 </resources>

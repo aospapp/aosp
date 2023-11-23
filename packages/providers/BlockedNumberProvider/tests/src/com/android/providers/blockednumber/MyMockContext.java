@@ -61,6 +61,7 @@ public class MyMockContext extends MockContext {
     private BlockedNumberProviderTestable mProvider;
     private Context mRealTestContext;
     final List<String> mIntentsBroadcasted = new ArrayList<>();
+    private final String packageName = "com.android.providers.blockednumber";
 
     public MyMockContext(Context realTestContext) {
         this.mRealTestContext = realTestContext;
@@ -142,6 +143,11 @@ public class MyMockContext extends MockContext {
         mSupportedServiceNamesByClass.put(TelephonyManager.class, Context.TELEPHONY_SERVICE);
         mSupportedServiceNamesByClass.put(
                 CarrierConfigManager.class, Context.CARRIER_CONFIG_SERVICE);
+    }
+
+    @Override
+    public String getOpPackageName() {
+        return packageName;
     }
 
     public void shutdown() {

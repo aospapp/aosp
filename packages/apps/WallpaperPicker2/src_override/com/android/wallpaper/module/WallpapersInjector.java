@@ -17,12 +17,12 @@ package com.android.wallpaper.module;
 
 import android.content.Context;
 
+import androidx.fragment.app.Fragment;
+
 import com.android.wallpaper.model.CategoryProvider;
 import com.android.wallpaper.model.WallpaperInfo;
 import com.android.wallpaper.monitor.PerformanceMonitor;
-import com.android.wallpaper.picker.PreviewFragment;
-
-import androidx.fragment.app.Fragment;
+import com.android.wallpaper.picker.ImagePreviewFragment;
 
 /**
  * A concrete, real implementation of the dependency provider.
@@ -69,7 +69,7 @@ public class WallpapersInjector extends BaseWallpaperInjector {
         WallpaperInfo wallpaperInfo,
         int mode,
         boolean testingModeEnabled) {
-        return PreviewFragment.newInstance(wallpaperInfo, mode, testingModeEnabled);
+        return ImagePreviewFragment.newInstance(wallpaperInfo, mode, testingModeEnabled);
     }
 
     @Override

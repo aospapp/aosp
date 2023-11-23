@@ -41,7 +41,7 @@
     <string name="printer_description" msgid="8580767673213837142">"%1$s – %2$s"</string>
     <string name="title_activity_add_printer" msgid="9119216095769228566">"Add printer"</string>
     <string name="add_printer_by_ip" msgid="562864787592910327">"Add printer by IP address"</string>
-    <string name="hostname_or_ip" msgid="3460546103553992915">"Hostname or IP address"</string>
+    <string name="hostname_or_ip" msgid="3460546103553992915">"Host name or IP address"</string>
     <string name="ip_hint" msgid="7939777481941979799">"192.168.0.4"</string>
     <string name="add" msgid="1950342261671100906">"Add"</string>
     <string name="add_named" msgid="9074106244018070583">"Add <xliff:g id="PRINTER">%1$s</xliff:g>"</string>
@@ -60,6 +60,11 @@
     <string name="forget" msgid="892068061425802502">"Forget"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"Connects via Wi-Fi Direct"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"Connects via current network at <xliff:g id="IP_ADDRESS">%1$s</xliff:g>"</string>
+    <string name="recommendation_summary" msgid="2979700524954307566">"The default print service provides basic options. Other options for this printer may be available from another print service."</string>
+    <string name="recommendations_heading" msgid="5086762263560605249">"Recommended services"</string>
+    <string name="recommendation_install_summary" msgid="374785283809791669">"Select to install"</string>
+    <string name="recommendation_enable_summary" msgid="3500907868251326224">"Select to enable"</string>
+    <string name="recommendation_manage" msgid="4683640588502866284">"Manage services"</string>
     <string name="security" msgid="2279008326210305401">"Security"</string>
     <string name="certificate_update_request" msgid="1314796413107139475">"This printer provided a new security certificate, or another device is impersonating it. Accept the new certificate?"</string>
     <string name="not_encrypted_request" msgid="4871472176807381642">"This printer no longer accepts encrypted jobs. Continue printing?"</string>
@@ -68,4 +73,5 @@
     <string name="connections" msgid="8895413761760117180">"Connections"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Default Print Service needs location permission to find nearby devices."</string>
     <string name="fix" msgid="7784394272611365393">"Review permission"</string>
+    <string name="print" msgid="7851318072404916362">"Print"</string>
 </resources>

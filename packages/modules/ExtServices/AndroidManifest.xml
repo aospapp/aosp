@@ -17,7 +17,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:androidprv="http://schemas.android.com/apk/prv/res/android"
     package="android.ext.services"
-    android:versionCode="290000000"
+    android:versionCode="300000000"
     android:versionName="2019-09"
     coreApp="true">
 
@@ -27,15 +27,22 @@
     <uses-permission android:name="android.permission.MONITOR_DEFAULT_SMS_PACKAGE" />
     <uses-permission android:name="android.permission.REQUEST_NOTIFICATION_ASSISTANT_SERVICE" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
 
-    <uses-sdk
+    <!-- TODO: Uncomment this when the R API level is fixed. b/148281152 -->
+    <!--uses-sdk
         android:minSdkVersion="29"
         android:targetSdkVersion="29"
     />
+    -->
 
     <application android:label="@string/app_name"
         android:defaultToDeviceProtectedStorage="true"
-        android:directBootAware="true">
+        android:forceQueryable="true"
+        android:directBootAware="true"
+        android:supportsRtl="true">
 
         <service android:name=".storage.CacheQuotaServiceImpl"
              android:permission="android.permission.BIND_CACHE_QUOTA_SERVICE">
@@ -73,13 +80,6 @@
                 android:resource="@array/autofill_field_classification_available_algorithms" />
         </service>
 
-        <service android:name=".sms.FinancialSmsServiceImpl"
-                 android:permission="android.permission.BIND_FINANCIAL_SMS_SERVICE">
-            <intent-filter>
-                <action android:name="android.service.sms.action.FINANCIAL_SERVICE_INTENT" />
-            </intent-filter>
-        </service>
-
         <service android:name=".watchdog.ExplicitHealthCheckServiceImpl"
                  android:permission="android.permission.BIND_EXPLICIT_HEALTH_CHECK_SERVICE">
             <intent-filter>
@@ -87,11 +87,26 @@
             </intent-filter>
         </service>
 
-        <activity android:name=".notification.CopyCodeActivity"
+        <activity android:name="com.android.textclassifier.notification.CopyCodeActivity"
                   android:exported="false"
                   android:theme="@android:style/Theme.NoDisplay"/>
 
-        <library android:name="android.ext.services"/>
+        <service
+            android:name="com.android.textclassifier.DefaultTextClassifierService"
+            android:exported="true"
+            android:permission="android.permission.BIND_TEXTCLASSIFIER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.textclassifier.TextClassifierService"/>
+            </intent-filter>
+        </service>
+
+        <service android:name=".autofill.InlineSuggestionRenderServiceImpl"
+                 android:permission="android.permission.BIND_INLINE_SUGGESTION_RENDER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.autofill.InlineSuggestionRenderService" />
+            </intent-filter>
+        </service>
+
     </application>
 
 </manifest>

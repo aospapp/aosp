@@ -92,7 +92,7 @@ public class A2dpSinkServiceTest {
      * @param priority - The priority value you want the device to have
      */
     private void mockDevicePriority(BluetoothDevice device, int priority) {
-        when(mDatabaseManager.getProfilePriority(device, BluetoothProfile.A2DP_SINK))
+        when(mDatabaseManager.getProfileConnectionPolicy(device, BluetoothProfile.A2DP_SINK))
                 .thenReturn(priority);
     }
 
@@ -107,7 +107,7 @@ public class A2dpSinkServiceTest {
     @Test
     public void testConnect() {
         BluetoothDevice device = makeBluetoothDevice("11:11:11:11:11:11");
-        mockDevicePriority(device, BluetoothProfile.PRIORITY_ON);
+        mockDevicePriority(device, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
         Assert.assertTrue(mService.connect(device));
     }
 
@@ -117,7 +117,7 @@ public class A2dpSinkServiceTest {
     @Test
     public void testConnectPriorityOffDevice() {
         BluetoothDevice device = makeBluetoothDevice("11:11:11:11:11:11");
-        mockDevicePriority(device, BluetoothProfile.PRIORITY_OFF);
+        mockDevicePriority(device, BluetoothProfile.CONNECTION_POLICY_FORBIDDEN);
         Assert.assertFalse(mService.connect(device));
     }
 }

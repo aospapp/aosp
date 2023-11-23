@@ -51,6 +51,9 @@ import java.util.Map;
 // TODO: investigate using SettingsLib Tiles.
 public class ExtraSettingsPreferenceController extends PreferenceController<PreferenceGroup> {
 
+    @VisibleForTesting
+    static final String META_DATA_DISTRACTION_OPTIMIZED = "distractionOptimized";
+
     private ExtraSettingsLoader mExtraSettingsLoader;
     private boolean mSettingsLoaded;
 
@@ -68,6 +71,26 @@ public class ExtraSettingsPreferenceController extends PreferenceController<Pref
     @Override
     protected Class<PreferenceGroup> getPreferenceType() {
         return PreferenceGroup.class;
+    }
+
+    @Override
+    protected void onApplyUxRestrictions(CarUxRestrictions uxRestrictions) {
+        super.onApplyUxRestrictions(uxRestrictions);
+
+        // If preference intents into an activity that's not distraction optimized, disable the
+        // preference. This will override the UXRE flags config_ignore_ux_restrictions and
+        // config_always_ignore_ux_restrictions because navigating to these non distraction
+        // optimized activities will cause the blocking activity to come up, which dead ends the
+        // user.
+        for (int i = 0; i < getPreference().getPreferenceCount(); i++) {
+            Preference preference = getPreference().getPreference(i);
+            if (uxRestrictions.isRequiresDistractionOptimization()
+                    && !preference.getExtras().getBoolean(META_DATA_DISTRACTION_OPTIMIZED)) {
+                preference.setEnabled(false);
+            } else {
+                preference.setEnabled(getAvailabilityStatus() != AVAILABLE_FOR_VIEWING);
+            }
+        }
     }
 
     @Override
@@ -90,6 +113,13 @@ public class ExtraSettingsPreferenceController extends PreferenceController<Pref
      */
     protected void addExtraSettings(Map<Preference, Bundle> preferenceBundleMap) {
         for (Preference setting : preferenceBundleMap.keySet()) {
+            Bundle metaData = preferenceBundleMap.get(setting);
+            boolean distractionOptimized = false;
+            if (metaData.containsKey(META_DATA_DISTRACTION_OPTIMIZED)) {
+                distractionOptimized =
+                        metaData.getBoolean(META_DATA_DISTRACTION_OPTIMIZED);
+            }
+            setting.getExtras().putBoolean(META_DATA_DISTRACTION_OPTIMIZED, distractionOptimized);
             getPreference().addPreference(setting);
         }
     }

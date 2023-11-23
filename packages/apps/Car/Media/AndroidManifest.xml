@@ -16,17 +16,26 @@
   -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.car.media"
-    android:sharedUserId="android.uid.system">
+    package="com.android.car.media">
 
     <uses-permission android:name="android.permission.MEDIA_CONTENT_CONTROL"/>
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+
+    <!-- To connect to media browser services in other apps, media browser clients
+    that target Android 11 need to add the following in their manifest -->
+    <queries>
+        <intent>
+            <action android:name="android.media.browse.MediaBrowserService" />
+        </intent>
+    </queries>
 
     <application
         android:label="Media Center"
         android:theme="@style/Theme.Media"
-        android:icon="@drawable/ic_music">
+        android:icon="@drawable/ic_music"
+        android:supportsRtl="true">
 
         <meta-data
             android:name="android.car.application"
@@ -35,7 +44,7 @@
         <activity
             android:name=".MediaActivity"
             android:resizeableActivity="true"
-            android:windowSoftInputMode="stateUnchanged|adjustPan"
+            android:windowSoftInputMode="stateHidden|adjustPan"
             android:launchMode="singleTop">
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
@@ -43,6 +52,7 @@
         <!-- The Media center entry point that trampolines into MediaActivity or the radio app. -->
         <activity
             android:name=".MediaDispatcherActivity"
+            android:theme="@android:style/Theme.NoDisplay"
             android:launchMode="singleTask">
             <meta-data android:name="distractionOptimized" android:value="true"/>
             <intent-filter>
@@ -54,5 +64,12 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+
+        <service
+            android:name=".service.MediaConnectorService">
+            <intent-filter>
+                <action android:name="com.android.car.media.MEDIA_CONNECTION"/>
+            </intent-filter>
+        </service>
     </application>
 </manifest>

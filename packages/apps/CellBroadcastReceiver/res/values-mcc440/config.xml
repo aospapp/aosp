@@ -15,12 +15,21 @@
 -->
 
 <resources>
-    <!-- Whether to enable CMAS settings (United States) -->
-    <!-- No need to show this for Japanese users -->
-    <bool name="show_cmas_settings">false</bool>
-    <!-- Whether to always sound CBS alerts at full volume -->
-    <!-- By default it's true for Japanese users -->
-    <bool name="use_full_volume">true</bool>
+    <!-- Whether to show extreme alert settings -->
+    <bool name="show_extreme_alert_settings">false</bool>
+    <!-- Whether to show severe alert settings -->
+    <bool name="show_severe_alert_settings">false</bool>
+    <!-- Whether to show amber alert settings -->
+    <bool name="show_amber_alert_settings">false</bool>
+
+    <!-- Whether to show override dnd settings -->
+    <bool name="show_override_dnd_settings">true</bool>
+    <!-- Play alert sound in full volume regardless Do Not Disturb is on -->
+    <bool name="override_dnd_default">true</bool>
     <!-- Whether to compare message body when performing message duplicate dection -->
     <bool name="duplicate_compare_body">true</bool>
+    <!-- Whether the emergency alert notification is non-swipeable -->
+    <bool name="non_swipeable_notification">true</bool>
+    <!-- Whether the user can mute the alert by physical button -->
+    <bool name="mute_by_physical_button">false</bool>
 </resources>

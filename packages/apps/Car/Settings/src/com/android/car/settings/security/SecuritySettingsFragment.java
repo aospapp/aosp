@@ -16,16 +16,25 @@
 
 package com.android.car.settings.security;
 
+import android.provider.Settings;
+
 import com.android.car.settings.R;
 import com.android.car.settings.common.SettingsFragment;
+import com.android.car.settings.search.CarBaseSearchIndexProvider;
+import com.android.settingslib.search.SearchIndexable;
 
 /**
- * Security home page which includes "choose lock type" and "trusted device"
+ * Security home page which includes "choose lock type" and "clear credentials".
  */
+@SearchIndexable
 public class SecuritySettingsFragment extends SettingsFragment {
 
     @Override
     protected int getPreferenceScreenResId() {
         return R.xml.security_settings_fragment;
     }
+
+    public static final CarBaseSearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
+            new CarBaseSearchIndexProvider(R.xml.security_settings_fragment,
+                    Settings.ACTION_SECURITY_SETTINGS);
 }

@@ -25,14 +25,9 @@ import static junit.framework.Assert.assertFalse;
 import static junit.framework.Assert.assertTrue;
 
 import static org.junit.Assert.assertEquals;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
+import static org.junit.Assert.assertNotNull;
 
-import android.content.ContentResolver;
-import android.os.Handler;
-import android.os.Looper;
 import android.provider.DeviceConfig;
-import android.provider.Settings;
 import android.support.test.uiautomator.UiDevice;
 import android.testing.TestableContext;
 
@@ -46,8 +41,6 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
 
 import java.io.IOException;
 
@@ -55,80 +48,91 @@ import java.io.IOException;
 public class AssistantSettingsTest {
     private static final String CLEAR_DEVICE_CONFIG_KEY_CMD =
             "device_config delete " + DeviceConfig.NAMESPACE_SYSTEMUI;
+    private static final String WRITE_DEVICE_CONFIG_PERMISSION =
+            "android.permission.WRITE_DEVICE_CONFIG";
 
-    private static final int USER_ID = 5;
+    private static final String READ_DEVICE_CONFIG_PERMISSION =
+            "android.permission.READ_DEVICE_CONFIG";
 
     @Rule
     public final TestableContext mContext =
             new TestableContext(InstrumentationRegistry.getContext(), null);
 
-    @Mock Runnable mOnUpdateRunnable;
-
-    private ContentResolver mResolver;
     private AssistantSettings mAssistantSettings;
 
     @Before
     public void setUp() {
-        MockitoAnnotations.initMocks(this);
-
-        mResolver = mContext.getContentResolver();
-        Handler handler = new Handler(Looper.getMainLooper());
-
-        // To bypass real calls to global settings values, set the Settings values here.
-        Settings.Global.putFloat(mResolver,
-                Settings.Global.BLOCKING_HELPER_DISMISS_TO_VIEW_RATIO_LIMIT, 0.8f);
-        Settings.Global.putInt(mResolver, Settings.Global.BLOCKING_HELPER_STREAK_LIMIT, 2);
-        Settings.Secure.putInt(mResolver, Settings.Secure.NOTIFICATION_NEW_INTERRUPTION_MODEL, 1);
-
-        mAssistantSettings = AssistantSettings.createForTesting(
-                handler, mResolver, USER_ID, mOnUpdateRunnable);
+        InstrumentationRegistry.getInstrumentation().getUiAutomation()
+                .adoptShellPermissionIdentity(
+                        WRITE_DEVICE_CONFIG_PERMISSION,
+                        READ_DEVICE_CONFIG_PERMISSION);
+        mAssistantSettings = new AssistantSettings();
     }
 
     @After
     public void tearDown() throws IOException {
         clearDeviceConfig();
+        InstrumentationRegistry
+                .getInstrumentation()
+                .getUiAutomation()
+                .dropShellPermissionIdentity();
+    }
+
+    @Test
+    public void testWrongNamespace() {
+        runWithShellPermissionIdentity(() -> setProperty(
+                "wrong",
+                SystemUiDeviceConfigFlags.NAS_GENERATE_REPLIES,
+                "false",
+                false /* makeDefault */));
+        mAssistantSettings.onDeviceConfigPropertiesChanged("wrong");
+
+        assertTrue(mAssistantSettings.mGenerateReplies);
+        assertTrue(mAssistantSettings.shouldGenerateReplies());
     }
 
     @Test
     public void testGenerateRepliesDisabled() {
-        runWithShellPermissionIdentity(() -> setProperty(
+        setProperty(
                 DeviceConfig.NAMESPACE_SYSTEMUI,
                 SystemUiDeviceConfigFlags.NAS_GENERATE_REPLIES,
                 "false",
-                false /* makeDefault */));
+                false /* makeDefault */);
         mAssistantSettings.onDeviceConfigPropertiesChanged(DeviceConfig.NAMESPACE_SYSTEMUI);
 
         assertFalse(mAssistantSettings.mGenerateReplies);
+        assertFalse(mAssistantSettings.shouldGenerateReplies());
     }
 
     @Test
     public void testGenerateRepliesEnabled() {
-        runWithShellPermissionIdentity(() -> setProperty(
+        setProperty(
                 DeviceConfig.NAMESPACE_SYSTEMUI,
                 SystemUiDeviceConfigFlags.NAS_GENERATE_REPLIES,
                 "true",
-                false /* makeDefault */));
+                false /* makeDefault */);
         mAssistantSettings.onDeviceConfigPropertiesChanged(DeviceConfig.NAMESPACE_SYSTEMUI);
 
         assertTrue(mAssistantSettings.mGenerateReplies);
+        assertTrue(mAssistantSettings.shouldGenerateReplies());
     }
 
     @Test
     public void testGenerateRepliesNullFlag() {
-        runWithShellPermissionIdentity(() -> setProperty(
+        setProperty(
                 DeviceConfig.NAMESPACE_SYSTEMUI,
                 SystemUiDeviceConfigFlags.NAS_GENERATE_REPLIES,
                 "false",
-                false /* makeDefault */));
+                false /* makeDefault */);
         mAssistantSettings.onDeviceConfigPropertiesChanged(DeviceConfig.NAMESPACE_SYSTEMUI);
 
         assertFalse(mAssistantSettings.mGenerateReplies);
 
-        runWithShellPermissionIdentity(() -> setProperty(
+        setProperty(
                 DeviceConfig.NAMESPACE_SYSTEMUI,
                 SystemUiDeviceConfigFlags.NAS_GENERATE_REPLIES,
                 null,
-                false /* makeDefault */));
+                false /* makeDefault */);
         mAssistantSettings.onDeviceConfigPropertiesChanged(DeviceConfig.NAMESPACE_SYSTEMUI);
 
         // Go back to the default value.
@@ -137,44 +141,46 @@ public class AssistantSettingsTest {
 
     @Test
     public void testGenerateActionsDisabled() {
-        runWithShellPermissionIdentity(() -> setProperty(
+        setProperty(
                 DeviceConfig.NAMESPACE_SYSTEMUI,
                 SystemUiDeviceConfigFlags.NAS_GENERATE_ACTIONS,
                 "false",
-                false /* makeDefault */));
+                false /* makeDefault */);
         mAssistantSettings.onDeviceConfigPropertiesChanged(DeviceConfig.NAMESPACE_SYSTEMUI);
 
         assertFalse(mAssistantSettings.mGenerateActions);
+        assertFalse(mAssistantSettings.shouldGenerateActions());
     }
 
     @Test
     public void testGenerateActionsEnabled() {
-        runWithShellPermissionIdentity(() -> setProperty(
+        setProperty(
                 DeviceConfig.NAMESPACE_SYSTEMUI,
                 SystemUiDeviceConfigFlags.NAS_GENERATE_ACTIONS,
                 "true",
-                false /* makeDefault */));
+                false /* makeDefault */);
         mAssistantSettings.onDeviceConfigPropertiesChanged(DeviceConfig.NAMESPACE_SYSTEMUI);
 
         assertTrue(mAssistantSettings.mGenerateActions);
+        assertTrue(mAssistantSettings.shouldGenerateActions());
     }
 
     @Test
     public void testGenerateActionsNullFlag() {
-        runWithShellPermissionIdentity(() -> setProperty(
+        setProperty(
                 DeviceConfig.NAMESPACE_SYSTEMUI,
                 SystemUiDeviceConfigFlags.NAS_GENERATE_ACTIONS,
                 "false",
-                false /* makeDefault */));
+                false /* makeDefault */);
         mAssistantSettings.onDeviceConfigPropertiesChanged(DeviceConfig.NAMESPACE_SYSTEMUI);
 
         assertFalse(mAssistantSettings.mGenerateActions);
 
-        runWithShellPermissionIdentity(() -> setProperty(
+        setProperty(
                 DeviceConfig.NAMESPACE_SYSTEMUI,
                 SystemUiDeviceConfigFlags.NAS_GENERATE_ACTIONS,
                 null,
-                false /* makeDefault */));
+                false /* makeDefault */);
         mAssistantSettings.onDeviceConfigPropertiesChanged(DeviceConfig.NAMESPACE_SYSTEMUI);
 
         // Go back to the default value.
@@ -183,26 +189,28 @@ public class AssistantSettingsTest {
 
     @Test
     public void testMaxMessagesToExtract() {
-        runWithShellPermissionIdentity(() -> setProperty(
+        setProperty(
                 DeviceConfig.NAMESPACE_SYSTEMUI,
                 SystemUiDeviceConfigFlags.NAS_MAX_MESSAGES_TO_EXTRACT,
                 "10",
-                false /* makeDefault */));
+                false /* makeDefault */);
         mAssistantSettings.onDeviceConfigPropertiesChanged(DeviceConfig.NAMESPACE_SYSTEMUI);
 
         assertEquals(10, mAssistantSettings.mMaxMessagesToExtract);
+        assertEquals(10, mAssistantSettings.getMaxMessagesToExtract());
     }
 
     @Test
     public void testMaxSuggestions() {
-        runWithShellPermissionIdentity(() -> setProperty(
+        setProperty(
                 DeviceConfig.NAMESPACE_SYSTEMUI,
                 SystemUiDeviceConfigFlags.NAS_MAX_SUGGESTIONS,
                 "5",
-                false /* makeDefault */));
+                false /* makeDefault */);
         mAssistantSettings.onDeviceConfigPropertiesChanged(DeviceConfig.NAMESPACE_SYSTEMUI);
 
         assertEquals(5, mAssistantSettings.mMaxSuggestions);
+        assertEquals(5, mAssistantSettings.getMaxSuggestions());
     }
 
     @Test
@@ -213,38 +221,14 @@ public class AssistantSettingsTest {
     }
 
     @Test
-    public void testStreakLimit() {
-        verify(mOnUpdateRunnable, never()).run();
+    public void testCreation() {
+        AssistantSettings.Factory factory = AssistantSettings.FACTORY;
+        AssistantSettings as = factory.createAndRegister();
 
-        // Update settings value.
-        int newStreakLimit = 4;
-        Settings.Global.putInt(mResolver,
-                Settings.Global.BLOCKING_HELPER_STREAK_LIMIT, newStreakLimit);
+        assertNotNull(as);
 
-        // Notify for the settings value we updated.
-        mAssistantSettings.onChange(false, Settings.Global.getUriFor(
-                Settings.Global.BLOCKING_HELPER_STREAK_LIMIT));
-
-        assertEquals(newStreakLimit, mAssistantSettings.mStreakLimit);
-        verify(mOnUpdateRunnable).run();
-    }
-
-    @Test
-    public void testDismissToViewRatioLimit() {
-        verify(mOnUpdateRunnable, never()).run();
-
-        // Update settings value.
-        float newDismissToViewRatioLimit = 3f;
-        Settings.Global.putFloat(mResolver,
-                Settings.Global.BLOCKING_HELPER_DISMISS_TO_VIEW_RATIO_LIMIT,
-                newDismissToViewRatioLimit);
-
-        // Notify for the settings value we updated.
-        mAssistantSettings.onChange(false, Settings.Global.getUriFor(
-                Settings.Global.BLOCKING_HELPER_DISMISS_TO_VIEW_RATIO_LIMIT));
-
-        assertEquals(newDismissToViewRatioLimit, mAssistantSettings.mDismissToViewRatioLimit, 1e-6);
-        verify(mOnUpdateRunnable).run();
+        // unregister listener to avoid onDeviceConfigPropertiesChanged is called after test done.
+        as.unregisterDeviceConfigs();
     }
 
     private static void clearDeviceConfig() throws IOException {

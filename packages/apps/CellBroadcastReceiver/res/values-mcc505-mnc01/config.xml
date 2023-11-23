@@ -15,7 +15,10 @@
 -->
 
 <resources>
-    <!-- Whether to enable CMAS settings (United States) -->
-    <!-- No need to show this for Telstra -->
-    <bool name="show_cmas_settings">false</bool>
+    <!-- Whether to show extreme alert settings -->
+    <bool name="show_extreme_alert_settings">false</bool>
+    <!-- Whether to show severe alert settings -->
+    <bool name="show_severe_alert_settings">false</bool>
+    <!-- Whether to show amber alert settings -->
+    <bool name="show_amber_alert_settings">false</bool>
 </resources>

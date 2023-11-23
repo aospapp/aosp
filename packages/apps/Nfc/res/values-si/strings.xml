@@ -49,4 +49,6 @@
     <string name="action_confirm_url_open" msgid="3458322738812921189">"සබැඳිය විවෘත කරන්න"</string>
     <string name="tag_read_error" msgid="2485274498885877547">"NFC කියවීමේ දෝෂයකි. නැවත උත්සාහ කරන්න."</string>
     <string name="tag_dispatch_failed" msgid="3562984995049738400">"මෙම NFC ටැගය සඳහා සහාය දක්වන යෙදුම් නැත"</string>
+    <string name="nfc_blocking_alert_title" msgid="1086172436984457085">"NFC ඇතැම් විට අවහිර කළ හැකිය"</string>
+    <string name="nfc_blocking_alert_message" msgid="7003156052570107490">"නිවැරදි කරන ආකාරය දැන ගැනීමට තට්ටු කරන්න."</string>
 </resources>

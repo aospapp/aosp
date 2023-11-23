@@ -19,8 +19,6 @@ package com.android.car.settings.common;
 import android.car.drivingstate.CarUxRestrictions;
 import android.car.drivingstate.CarUxRestrictionsManager.OnUxRestrictionsChangedListener;
 import android.content.Context;
-import android.content.Intent;
-import android.content.IntentSender;
 import android.os.Bundle;
 import android.view.View;
 import android.view.inputmethod.InputMethodManager;
@@ -42,7 +40,7 @@ import com.android.car.settings.R;
  * previous activity.
  */
 public abstract class BaseCarSettingsActivity extends FragmentActivity implements
-        FragmentController, OnUxRestrictionsChangedListener, UxRestrictionsProvider,
+        FragmentHost, OnUxRestrictionsChangedListener, UxRestrictionsProvider,
         OnBackStackChangedListener, PreferenceFragmentCompat.OnPreferenceStartFragmentCallback {
     private static final Logger LOG = new Logger(BaseCarSettingsActivity.class);
 
@@ -119,36 +117,6 @@ public abstract class BaseCarSettingsActivity extends FragmentActivity implement
     @Override
     public void showBlockingMessage() {
         Toast.makeText(this, R.string.restricted_while_driving, Toast.LENGTH_SHORT).show();
-    }
-
-    @Override
-    public void showDialog(DialogFragment dialogFragment, @Nullable String tag) {
-        dialogFragment.show(getSupportFragmentManager(), tag);
-    }
-
-    @Override
-    @Nullable
-    public DialogFragment findDialogByTag(String tag) {
-        Fragment fragment = getSupportFragmentManager().findFragmentByTag(tag);
-        if (fragment instanceof DialogFragment) {
-            return (DialogFragment) fragment;
-        }
-        return null;
-    }
-
-    @Override
-    public void startActivityForResult(Intent intent, int requestCode,
-            ActivityResultCallback callback) {
-        throw new UnsupportedOperationException(
-                "Unimplemented for activities that implement FragmentController");
-    }
-
-    @Override
-    public void startIntentSenderForResult(IntentSender intent, int requestCode,
-            @Nullable Intent fillInIntent, int flagsMask, int flagsValues, Bundle options,
-            ActivityResultCallback callback) {
-        throw new UnsupportedOperationException(
-                "Unimplemented for activities that implement FragmentController");
     }
 
     @Override

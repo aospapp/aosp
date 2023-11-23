@@ -27,10 +27,10 @@ import android.util.Log;
  * An activity to launch a new activity.
  *
  * <p>In the case when {@link MainActivity} starts a new activity using {@link
- * Activity#startActivity} or {@link Activity#startActivityForResult}, Live TV app is
- * terminated if the new activity crashes. That's because the {@link android.app.ActivityManager}
- * terminates the activity which is just below the crashed activity in the activity stack. To avoid
- * this, we need to locate an additional activity between these activities in the activity stack.
+ * Activity#startActivity} or {@link Activity#startActivityForResult}, TV app is terminated if the
+ * new activity crashes. That's because the {@link android.app.ActivityManager} terminates the
+ * activity which is just below the crashed activity in the activity stack. To avoid this, we need
+ * to locate an additional activity between these activities in the activity stack.
  */
 public class LauncherActivity extends Activity {
     private static final String TAG = "LauncherActivity";

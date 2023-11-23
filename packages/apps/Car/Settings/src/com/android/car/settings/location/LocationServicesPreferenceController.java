@@ -70,15 +70,6 @@ public class LocationServicesPreferenceController extends PreferenceController<P
         return PreferenceGroup.class;
     }
 
-    @Override
-    protected void onCreateInternal() {
-        int profileId = UserHandle.USER_CURRENT;
-        List<Preference> injectedSettings = getSortedInjectedPreferences(profileId);
-        for (Preference preference : injectedSettings) {
-            getPreference().addPreference(preference);
-        }
-    }
-
     /**
      * Called when the controller is started.
      */
@@ -97,6 +88,11 @@ public class LocationServicesPreferenceController extends PreferenceController<P
 
     @Override
     protected void updateState(PreferenceGroup preferenceGroup) {
+        getPreference().removeAll();
+        List<Preference> injectedSettings = getSortedInjectedPreferences(UserHandle.USER_CURRENT);
+        for (Preference preference : injectedSettings) {
+            getPreference().addPreference(preference);
+        }
 
         preferenceGroup.setVisible(preferenceGroup.getPreferenceCount() > 0);
     }

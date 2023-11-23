@@ -28,4 +28,20 @@
         <item name="android:textAppearance">@android:style/TextAppearance.Material.Subhead</item>
         <item name="android:textColor">?android:attr/textColorPrimary</item>
     </style>
+    <style name="dialog_title">
+        <item name="android:textColor">?android:attr/textColorPrimary</item>
+        <item name="android:textSize">20sp</item>
+        <item name="android:layout_marginBottom">16dp</item>
+    </style>
+    <style name="dialog_edit_text">
+        <item name="android:textColor">?android:attr/textColorPrimary</item>
+        <item name="android:backgroundTint">?android:attr/colorAccent</item>
+        <item name="android:singleLine">True</item>
+    </style>
+    <style name="dialog_button">
+        <item name="android:textColor">?android:attr/textColorPrimary</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:layout_marginBottom">12dp</item>
+        <item name="android:layout_marginLeft">4dp</item>
+    </style>
 </resources>

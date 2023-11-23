@@ -45,13 +45,15 @@
         android:ellipsize="end"
         android:gravity="center"/>
 
-    <ImageView
-        android:id="@+id/exit_icon"
-        android:layout_width="@dimen/apps_row_exit_icon_size"
-        android:layout_height="@dimen/apps_row_exit_icon_size"
-        android:layout_marginTop="@dimen/apps_row_exit_icon_margin_top"
-        android:scaleType="centerInside"
-        android:src="@drawable/ic_exit_to_app"
-        android:tint="?android:textColorSecondary"/>
+    <TextView
+        android:id="@+id/summary"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/apps_row_item_text_margin_horizontal"
+        android:layout_marginEnd="@dimen/apps_row_item_text_margin_horizontal"
+        android:textAppearance="@style/AppsItemSubText"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:gravity="center"/>
 
 </LinearLayout>

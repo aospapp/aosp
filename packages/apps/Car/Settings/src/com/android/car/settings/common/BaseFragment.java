@@ -16,6 +16,9 @@
 
 package com.android.car.settings.common;
 
+import static com.android.car.ui.core.CarUi.requireInsets;
+import static com.android.car.ui.core.CarUi.requireToolbar;
+
 import android.car.drivingstate.CarUxRestrictions;
 import android.car.drivingstate.CarUxRestrictionsManager;
 import android.content.Context;
@@ -23,8 +26,6 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.FrameLayout;
-import android.widget.TextView;
 
 import androidx.annotation.LayoutRes;
 import androidx.annotation.NonNull;
@@ -32,19 +33,25 @@ import androidx.annotation.StringRes;
 import androidx.fragment.app.Fragment;
 
 import com.android.car.settings.R;
+import com.android.car.ui.baselayout.Insets;
+import com.android.car.ui.baselayout.InsetsChangedListener;
+import com.android.car.ui.toolbar.MenuItem;
+import com.android.car.ui.toolbar.Toolbar;
+import com.android.car.ui.toolbar.ToolbarController;
+
+import java.util.List;
 
 /**
  * Base fragment for setting activity.
  */
 public abstract class BaseFragment extends Fragment implements
-        CarUxRestrictionsManager.OnUxRestrictionsChangedListener {
+        CarUxRestrictionsManager.OnUxRestrictionsChangedListener, InsetsChangedListener {
 
     /**
-     * Assume The activity holds this fragment also implements the FragmentController.
-     * This function should be called after onAttach()
+     * Return the {@link FragmentHost}.
      */
-    public final FragmentController getFragmentController() {
-        return (FragmentController) getActivity();
+    public final FragmentHost getFragmentHost() {
+        return (FragmentHost) requireActivity();
     }
 
     /**
@@ -68,16 +75,6 @@ public abstract class BaseFragment extends Fragment implements
     }
 
     /**
-     * Returns the layout id to use with the {@link ActionBar}. Subclasses should override this
-     * method to customize the action bar layout. The default action bar contains a back button
-     * and the title.
-     */
-    @LayoutRes
-    protected int getActionBarLayoutId() {
-        return R.layout.action_bar;
-    }
-
-    /**
      * Returns the layout id of the current Fragment.
      */
     @LayoutRes
@@ -85,8 +82,8 @@ public abstract class BaseFragment extends Fragment implements
 
     /**
      * Returns the string id for the current Fragment title. Subclasses should override this
-     * method to set the title to display. Use {@link #setTitle(CharSequence)} to update the
-     * displayed title while resumed. The default title is the Settings Activity label.
+     * method to set the title to display. Use {@link #getToolbar().setTitle(CharSequence)} to
+     * update the displayed title while resumed. The default title is the Settings Activity label.
      */
     @StringRes
     protected int getTitleId() {
@@ -94,23 +91,30 @@ public abstract class BaseFragment extends Fragment implements
     }
 
     /**
-     * Should be used to override fragment's title. This should only be called after
-     * {@link #onActivityCreated(Bundle)}.
-     *
-     * @param title CharSequence to set as the new title.
+     * Returns the MenuItems to display in the toolbar. Subclasses should override this to
+     * add additional buttons, switches, ect. to the toolbar.
      */
-    protected final void setTitle(CharSequence title) {
-        TextView titleView = requireActivity().findViewById(R.id.title);
-        if (titleView != null) {
-            titleView.setText(title);
-        }
+    protected List<MenuItem> getToolbarMenuItems() {
+        return null;
+    }
+
+    protected Toolbar.State getToolbarState() {
+        return Toolbar.State.SUBPAGE;
+    }
+
+    protected Toolbar.NavButtonMode getToolbarNavButtonStyle() {
+        return Toolbar.NavButtonMode.BACK;
+    }
+
+    protected final ToolbarController getToolbar() {
+        return requireToolbar(requireActivity());
     }
 
     @Override
     public void onAttach(Context context) {
         super.onAttach(context);
-        if (!(getActivity() instanceof FragmentController)) {
-            throw new IllegalStateException("Must attach to a FragmentController");
+        if (!(getActivity() instanceof FragmentHost)) {
+            throw new IllegalStateException("Must attach to a FragmentHost");
         }
         if (!(getActivity() instanceof UxRestrictionsProvider)) {
             throw new IllegalStateException("Must attach to a UxRestrictionsProvider");
@@ -127,29 +131,48 @@ public abstract class BaseFragment extends Fragment implements
     @Override
     public void onActivityCreated(Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
-        FrameLayout actionBarContainer = requireActivity().findViewById(R.id.action_bar);
-        if (actionBarContainer != null) {
-            actionBarContainer.removeAllViews();
-            getLayoutInflater().inflate(getActionBarLayoutId(), actionBarContainer);
-
-            TextView titleView = actionBarContainer.requireViewById(R.id.title);
-            titleView.setText(getTitleId());
-            actionBarContainer.requireViewById(R.id.action_bar_icon_container).setOnClickListener(
-                    v -> onBackPressed());
+        ToolbarController toolbar = getToolbar();
+        if (toolbar != null) {
+            List<MenuItem> items = getToolbarMenuItems();
+            if (items != null) {
+                if (items.size() == 1) {
+                    items.get(0).setId(R.id.toolbar_menu_item_0);
+                } else if (items.size() == 2) {
+                    items.get(0).setId(R.id.toolbar_menu_item_0);
+                    items.get(1).setId(R.id.toolbar_menu_item_1);
+                }
+            }
+            toolbar.setTitle(getTitleId());
+            toolbar.setMenuItems(items);
+            toolbar.setState(getToolbarState());
+            toolbar.setNavButtonMode(getToolbarNavButtonStyle());
         }
     }
 
+    @Override
+    public void onCarUiInsetsChanged(Insets insets) {
+        View view = requireView();
+        View recyclerView = view.findViewById(R.id.recycler_view);
+        if (recyclerView != null) {
+            recyclerView.setPadding(0, insets.getTop(), 0, insets.getBottom());
+            view.setPadding(insets.getLeft(), 0, insets.getRight(), 0);
+        } else {
+            view.setPadding(insets.getLeft(), insets.getTop(),
+                    insets.getRight(), insets.getBottom());
+        }
+    }
 
     @Override
     public void onStart() {
         super.onStart();
         onUxRestrictionsChanged(getCurrentRestrictions());
+        onCarUiInsetsChanged(requireInsets(requireActivity()));
     }
 
     /**
      * Allow fragment to intercept back press and customize behavior.
      */
     protected void onBackPressed() {
-        getFragmentController().goBack();
+        getFragmentHost().goBack();
     }
 }

@@ -16,6 +16,8 @@
 
 package com.android.car.settings.bluetooth;
 
+import static com.android.car.ui.core.CarUi.requireToolbar;
+
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -26,14 +28,15 @@ import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.content.Context;
-import android.widget.Button;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.R;
 import com.android.car.settings.testutils.BaseTestActivity;
 import com.android.car.settings.testutils.FragmentController;
 import com.android.car.settings.testutils.ShadowBluetoothAdapter;
 import com.android.car.settings.testutils.ShadowBluetoothPan;
+import com.android.car.ui.core.testsupport.CarUiInstallerRobolectric;
+import com.android.car.ui.toolbar.MenuItem;
+import com.android.car.ui.toolbar.ToolbarController;
 import com.android.settingslib.bluetooth.CachedBluetoothDevice;
 import com.android.settingslib.bluetooth.CachedBluetoothDeviceManager;
 import com.android.settingslib.bluetooth.LocalBluetoothManager;
@@ -45,12 +48,13 @@ import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 import org.robolectric.util.ReflectionHelpers;
 
 /** Unit test for {@link BluetoothDeviceDetailsFragment}. */
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 @Config(shadows = {ShadowBluetoothAdapter.class, ShadowBluetoothPan.class})
 public class BluetoothDeviceDetailsFragmentTest {
 
@@ -82,6 +86,9 @@ public class BluetoothDeviceDetailsFragmentTest {
 
         mFragment = BluetoothDeviceDetailsFragment.newInstance(mCachedDevice);
         mFragmentController = FragmentController.of(mFragment);
+
+        // Needed to install Install CarUiLib BaseLayouts Toolbar for test activity
+        CarUiInstallerRobolectric.install();
     }
 
     @After
@@ -135,7 +142,7 @@ public class BluetoothDeviceDetailsFragmentTest {
         when(mCachedDevice.isConnected()).thenReturn(true);
         mFragmentController.setup();
 
-        assertThat(findConnectionButton(mFragment.requireActivity()).getText()).isEqualTo(
+        assertThat(findConnectionButton(mFragment.requireActivity()).getTitle()).isEqualTo(
                 mContext.getString(R.string.disconnect));
     }
 
@@ -144,7 +151,7 @@ public class BluetoothDeviceDetailsFragmentTest {
         when(mCachedDevice.isConnected()).thenReturn(false);
         mFragmentController.setup();
 
-        assertThat(findConnectionButton(mFragment.requireActivity()).getText()).isEqualTo(
+        assertThat(findConnectionButton(mFragment.requireActivity()).getTitle()).isEqualTo(
                 mContext.getString(R.string.connect));
     }
 
@@ -198,11 +205,13 @@ public class BluetoothDeviceDetailsFragmentTest {
         assertThat(findConnectionButton(mFragment.requireActivity()).isEnabled()).isTrue();
     }
 
-    private Button findForgetButton(Activity activity) {
-        return activity.findViewById(R.id.action_button2);
+    private MenuItem findForgetButton(Activity activity) {
+        ToolbarController toolbar = requireToolbar(activity);
+        return toolbar.getMenuItems().get(1);
     }
 
-    private Button findConnectionButton(Activity activity) {
-        return activity.findViewById(R.id.action_button1);
+    private MenuItem findConnectionButton(Activity activity) {
+        ToolbarController toolbar = requireToolbar(activity);
+        return toolbar.getMenuItems().get(0);
     }
 }

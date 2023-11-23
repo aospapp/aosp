@@ -16,21 +16,31 @@
 
 package com.android.car.settings.accounts;
 
+import static com.android.car.ui.core.CarUi.requireToolbar;
+
 import static com.google.common.truth.Truth.assertThat;
 
-import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.when;
+import static org.robolectric.RuntimeEnvironment.application;
 
-import android.car.userlib.CarUserManagerHelper;
+import android.accounts.Account;
+import android.accounts.AccountManager;
+import android.accounts.AuthenticatorDescription;
+import android.content.Intent;
 import android.content.pm.UserInfo;
-import android.view.View;
-import android.widget.Button;
+import android.os.UserHandle;
+import android.os.UserManager;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.R;
-import com.android.car.settings.testutils.BaseTestActivity;
+import com.android.car.settings.common.CarSettingActivities;
+import com.android.car.settings.testutils.FragmentController;
 import com.android.car.settings.testutils.ShadowAccountManager;
-import com.android.car.settings.testutils.ShadowCarUserManagerHelper;
 import com.android.car.settings.testutils.ShadowContentResolver;
+import com.android.car.settings.testutils.ShadowUserHelper;
+import com.android.car.settings.users.UserHelper;
+import com.android.car.ui.core.testsupport.CarUiInstallerRobolectric;
+import com.android.car.ui.toolbar.MenuItem;
+import com.android.car.ui.toolbar.ToolbarController;
 
 import org.junit.After;
 import org.junit.Before;
@@ -38,71 +48,133 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.robolectric.Robolectric;
+import org.robolectric.RobolectricTestRunner;
+import org.robolectric.Shadows;
 import org.robolectric.annotation.Config;
+import org.robolectric.shadow.api.Shadow;
+import org.robolectric.shadows.ShadowIntent;
+import org.robolectric.shadows.ShadowUserManager;
 
 /**
  * Tests for AccountSettingsFragment class.
  */
-@RunWith(CarSettingsRobolectricTestRunner.class)
-@Config(shadows = {ShadowCarUserManagerHelper.class, ShadowAccountManager.class,
-        ShadowContentResolver.class})
+@RunWith(RobolectricTestRunner.class)
+@Config(shadows = {ShadowAccountManager.class, ShadowContentResolver.class, ShadowUserHelper.class})
 public class AccountSettingsFragmentTest {
-    private BaseTestActivity mActivity;
+    private final int mUserId = UserHandle.myUserId();
+
+    private FragmentController<AccountSettingsFragment> mFragmentController;
     private AccountSettingsFragment mFragment;
 
     @Mock
-    private CarUserManagerHelper mMockCarUserManagerHelper;
+    private UserHelper mMockUserHelper;
 
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
-
+        ShadowUserHelper.setInstance(mMockUserHelper);
         // Set up user info
-        ShadowCarUserManagerHelper.setMockInstance(mMockCarUserManagerHelper);
-        doReturn(new UserInfo()).when(
-                mMockCarUserManagerHelper).getCurrentProcessUserInfo();
+        when(mMockUserHelper.getCurrentProcessUserInfo())
+                .thenReturn(new UserInfo(mUserId, "USER", /* flags= */ 0));
 
-        mActivity = Robolectric.setupActivity(BaseTestActivity.class);
+        // Needed to install Install CarUiLib BaseLayouts Toolbar for test activity
+        CarUiInstallerRobolectric.install();
     }
 
     @After
     public void tearDown() {
-        ShadowCarUserManagerHelper.reset();
+        ShadowUserHelper.reset();
     }
 
     @Test
     public void cannotModifyUsers_addAccountButtonShouldNotBeVisible() {
-        doReturn(false).when(mMockCarUserManagerHelper).canCurrentProcessModifyAccounts();
+        when(mMockUserHelper.canCurrentProcessModifyAccounts()).thenReturn(false);
         initFragment();
 
-        Button addAccountButton = mFragment.requireActivity().findViewById(R.id.action_button1);
-        assertThat(addAccountButton.getVisibility()).isEqualTo(View.GONE);
+        assertThat(getToolbar().getMenuItems()).hasSize(1);
+        assertThat(getToolbar().getMenuItems().get(0).isVisible()).isFalse();
     }
 
     @Test
     public void canModifyUsers_addAccountButtonShouldBeVisible() {
-        doReturn(true).when(mMockCarUserManagerHelper).canCurrentProcessModifyAccounts();
+        when(mMockUserHelper.canCurrentProcessModifyAccounts()).thenReturn(true);
         initFragment();
 
-        Button addAccountButton = mFragment.requireActivity().findViewById(R.id.action_button1);
-        assertThat(addAccountButton.getVisibility()).isEqualTo(View.VISIBLE);
+        assertThat(getToolbar().getMenuItems()).hasSize(1);
+        assertThat(getToolbar().getMenuItems().get(0).isVisible()).isTrue();
     }
 
     @Test
     public void clickAddAccountButton_shouldOpenChooseAccountFragment() {
-        doReturn(true).when(mMockCarUserManagerHelper).canCurrentProcessModifyAccounts();
+        when(mMockUserHelper.canCurrentProcessModifyAccounts()).thenReturn(true);
         initFragment();
 
-        Button addAccountButton = mFragment.requireActivity().findViewById(R.id.action_button1);
+        MenuItem addAccountButton = getToolbar().getMenuItems().get(0);
         addAccountButton.performClick();
 
-        assertThat(mFragment.getFragmentManager().findFragmentById(
-                R.id.fragment_container)).isInstanceOf(ChooseAccountFragment.class);
+        Intent intent = Shadows.shadowOf(mFragment.getActivity()).getNextStartedActivity();
+        ShadowIntent shadowIntent = Shadows.shadowOf(intent);
+        assertThat(shadowIntent.getIntentClass()).isEqualTo(
+                CarSettingActivities.ChooseAccountActivity.class);
+    }
+
+    @Test
+    public void clickAddAccountButton_shouldNotOpenChooseAccountFragmentWhenOneType() {
+        when(mMockUserHelper.canCurrentProcessModifyAccounts()).thenReturn(true);
+        getShadowUserManager().addProfile(mUserId, mUserId,
+                String.valueOf(mUserId), /* profileFlags= */ 0);
+        addAccountAndDescription(mUserId, "accountName", R.string.account_type1_label);
+        initFragment();
+
+        MenuItem addAccountButton = getToolbar().getMenuItems().get(0);
+        addAccountButton.performClick();
+
+        Intent intent = Shadows.shadowOf(mFragment.getActivity()).getNextStartedActivity();
+        ShadowIntent shadowIntent = Shadows.shadowOf(intent);
+        assertThat(shadowIntent.getIntentClass()).isEqualTo(AddAccountActivity.class);
+    }
+
+    @Test
+    public void clickAddAccountButton_shouldOpenChooseAccountFragmentWhenTwoTypes() {
+        when(mMockUserHelper.canCurrentProcessModifyAccounts()).thenReturn(true);
+        getShadowUserManager().addProfile(mUserId, mUserId,
+                String.valueOf(mUserId), /* profileFlags= */ 0);
+        addAccountAndDescription(mUserId, "accountName1", R.string.account_type1_label);
+        addAccountAndDescription(mUserId, "accountName2", R.string.account_type2_label);
+        initFragment();
+
+        getToolbar().getMenuItems().get(0).performClick();
+
+        Intent intent = Shadows.shadowOf(mFragment.getActivity()).getNextStartedActivity();
+        ShadowIntent shadowIntent = Shadows.shadowOf(intent);
+        assertThat(shadowIntent.getIntentClass()).isEqualTo(
+                CarSettingActivities.ChooseAccountActivity.class);
     }
 
     private void initFragment() {
         mFragment = new AccountSettingsFragment();
-        mActivity.launchFragment(mFragment);
+        mFragmentController = FragmentController.of(mFragment);
+        mFragmentController.setup();
+    }
+
+    private void addAccountAndDescription(int profileId, String accountName, int labelId) {
+        String type = accountName + "_type";
+        getShadowAccountManager().addAccountAsUser(profileId, new Account(accountName, type));
+        getShadowAccountManager().addAuthenticatorAsUser(profileId,
+                new AuthenticatorDescription(type, "com.android.car.settings",
+                        labelId, /* iconId= */ R.drawable.ic_add, /* smallIconId= */
+                        0, /* prefId= */ 0));
+    }
+
+    private ShadowUserManager getShadowUserManager() {
+        return Shadows.shadowOf(UserManager.get(application));
+    }
+
+    private ShadowAccountManager getShadowAccountManager() {
+        return Shadow.extract(AccountManager.get(application));
+    }
+
+    private ToolbarController getToolbar() {
+        return requireToolbar(mFragment.requireActivity());
     }
 }

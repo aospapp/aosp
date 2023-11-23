@@ -16,18 +16,19 @@
 
 package com.android.car.settings.common;
 
-import android.app.AlertDialog;
 import android.app.Dialog;
 import android.os.Bundle;
 
 import androidx.annotation.StringRes;
-import androidx.fragment.app.DialogFragment;
 import androidx.fragment.app.Fragment;
+
+import com.android.car.ui.AlertDialogBuilder;
+import com.android.car.ui.preference.CarUiDialogFragment;
 
 /**
  * Dialog to inform that an action failed.
  */
-public class ErrorDialog extends DialogFragment {
+public class ErrorDialog extends CarUiDialogFragment {
     private static final String ERROR_DIALOG_TITLE_KEY = "error_dialog_title";
     private static final String DIALOG_TAG = "ErrorDialogTag";
 
@@ -58,9 +59,13 @@ public class ErrorDialog extends DialogFragment {
 
     @Override
     public Dialog onCreateDialog(Bundle savedInstanceState) {
-        return new AlertDialog.Builder(getContext())
+        return new AlertDialogBuilder(getContext())
                 .setTitle(getArguments().getInt(ERROR_DIALOG_TITLE_KEY))
-                .setPositiveButton(android.R.string.ok, /* listener =*/ null)
+                .setPositiveButton(android.R.string.ok, /* listener= */ null)
                 .create();
+    }
+
+    @Override
+    protected void onDialogClosed(boolean positiveResult) {
     }
 }

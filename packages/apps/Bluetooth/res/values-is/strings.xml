@@ -69,7 +69,6 @@
     <string name="upload_succ_ok" msgid="7705428476405478828">"Í lagi"</string>
     <string name="upload_fail_line1" msgid="7899394672421491701">"„<xliff:g id="RECIPIENT">%1$s</xliff:g>“ fékk skrána ekki senda."</string>
     <string name="upload_fail_line1_2" msgid="2108129204050841798">"Skrá: <xliff:g id="FILE">%1$s</xliff:g>"</string>
-    <string name="upload_fail_ok" msgid="5807702461606714296">"Reyna aftur"</string>
     <string name="upload_fail_cancel" msgid="9118496285835687125">"Loka"</string>
     <string name="bt_error_btn_ok" msgid="5965151173011534240">"Í lagi"</string>
     <string name="unknown_file" msgid="6092727753965095366">"Óþekkt skrá"</string>
@@ -134,4 +133,5 @@
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"Bluetooth-hljóð aftengt"</string>
     <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"Bluetooth-hljóð"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="8894450394309084519">"Ekki er hægt að flytja skrár sem eru stærri en 4 GB"</string>
+    <string name="bluetooth_connect_action" msgid="4009848433321657090">"Tengjast við Bluetooth"</string>
 </resources>

@@ -60,6 +60,11 @@
     <string name="forget" msgid="892068061425802502">"Kalimutan"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"Kumokonekta sa pamamagitan ng Wi-Fi Direct"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"Kumokonekta sa pamamagitan ng kasalukuyang network sa <xliff:g id="IP_ADDRESS">%1$s</xliff:g>"</string>
+    <string name="recommendation_summary" msgid="2979700524954307566">"Nagbibigay ng mga basic na opsyon ang Serbisyo sa Default na Pag-print. Puwedeng available ang ibang opsyon para sa printer na ito sa ibang serbisyo sa pag-print."</string>
+    <string name="recommendations_heading" msgid="5086762263560605249">"Mga inirerekomendang serbisyo"</string>
+    <string name="recommendation_install_summary" msgid="374785283809791669">"Piliin para ma-install"</string>
+    <string name="recommendation_enable_summary" msgid="3500907868251326224">"Piliin para ma-enable"</string>
+    <string name="recommendation_manage" msgid="4683640588502866284">"Pamahalaan ang mga serbisyo"</string>
     <string name="security" msgid="2279008326210305401">"Seguridad"</string>
     <string name="certificate_update_request" msgid="1314796413107139475">"Nagbigay ang printer na ito ng bagong certificate ng seguridad, o may ibang device na nagpapanggap bilang ito. Tanggapin ang bagong certificate?"</string>
     <string name="not_encrypted_request" msgid="4871472176807381642">"Hindi na tumatanggap ng mga naka-encrypt na gawa ang printer na ito. Ipagpatuloy ang pag-print?"</string>
@@ -68,4 +73,5 @@
     <string name="connections" msgid="8895413761760117180">"Mga Koneksyon"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Kailangan ng Default na Serbisyo sa Pag-print ng pahintulot sa lokayson para maghanap ng mga device sa malapit."</string>
     <string name="fix" msgid="7784394272611365393">"Pahintulot na sumuri"</string>
+    <string name="print" msgid="7851318072404916362">"I-print"</string>
 </resources>

@@ -20,6 +20,4 @@
     <dimen name="keypad_margin_x">48dp</dimen>
     <dimen name="keypad_margin_y">@*android:dimen/car_padding_4</dimen>
     <dimen name="keypad_margin">@*android:dimen/car_padding_6</dimen>
-
-    <dimen name="contact_details_title_margin_bottom">@*android:dimen/car_padding_5</dimen>
 </resources>

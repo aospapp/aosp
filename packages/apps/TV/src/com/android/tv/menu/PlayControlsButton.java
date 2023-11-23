@@ -22,6 +22,7 @@ import android.content.Context;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.view.View;
+import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -145,5 +146,12 @@ public class PlayControlsButton extends FrameLayout {
         mIcon.setEnabled(enabled);
         mIcon.setAlpha(enabled ? ALPHA_ENABLED : ALPHA_DISABLED);
         mLabel.setEnabled(enabled);
+    }
+
+    /** Request focus and accessibility focus to the button */
+    public boolean requestFocusWithAccessibility() {
+        return mButton.requestFocus() &&
+                mButton.performAccessibilityAction(
+                        AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS, null);
     }
 }

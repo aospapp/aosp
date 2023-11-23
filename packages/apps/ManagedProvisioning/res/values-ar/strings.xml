@@ -48,10 +48,10 @@
     <string name="sure_you_want_to_delete_profile" msgid="6927697984573575564">"سيتم حذف جميع التطبيقات والبيانات في هذا الملف الشخصي عند المتابعة."</string>
     <string name="delete_profile" msgid="2299218578684663459">"حذف"</string>
     <string name="cancel_delete_profile" msgid="5155447537894046036">"إلغاء"</string>
-    <string name="encrypt_device_text_for_profile_owner_setup" msgid="7828515754696057140">"لإعداد الملف الشخصي للعمل، يحتاج جهازك إلى تشفير، وقد يستغرق هذا بعض الوقت."</string>
+    <string name="encrypt_device_text_for_profile_owner_setup" msgid="7828515754696057140">"لإعداد الملف الشخصي للعمل، يحتاج جهازك إلى ترميز، وقد يستغرق هذا بعض الوقت."</string>
     <string name="encrypt_device_text_for_device_owner_setup" msgid="5194673142404735676">"لإعداد هذا الجهاز، يلزم تشفيره أولاً، وقد يستغرق هذا بعض الوقت."</string>
-    <string name="encrypt_this_device_question" msgid="8719916619866892601">"هل تريد تشفير هذا الجهاز؟"</string>
-    <string name="encrypt" msgid="1749320161747489212">"تشفير"</string>
+    <string name="encrypt_this_device_question" msgid="8719916619866892601">"هل تريد ترميز هذا الجهاز؟"</string>
+    <string name="encrypt" msgid="1749320161747489212">"ترميز"</string>
     <string name="continue_provisioning_notify_title" msgid="5191449100153186648">"اكتمل التشفير"</string>
     <string name="continue_provisioning_notify_text" msgid="1066841819786425980">"انقر لمتابعة إعداد الملف الشخصي للعمل"</string>
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"تعذر إعداد ملف العمل. يمكنك الاتصال بقسم تكنولوجيا المعلومات أو إعادة المحاولة لاحقًا."</string>
@@ -79,12 +79,14 @@
     <string name="this_will_reset_take_back_first_screen" msgid="4623290347188404725">"سيؤدي هذا إلى إعادة ضبط جهازك ورجوعك إلى الشاشة الأولى"</string>
     <string name="device_owner_cancel_message" msgid="2529288571742712065">"هل تريد إيقاف الإعداد ومحو بيانات جهازك؟"</string>
     <string name="device_owner_cancel_cancel" msgid="1052951540909389275">"إلغاء"</string>
-    <string name="device_owner_error_ok" msgid="2002250763093787051">"موافق"</string>
+    <string name="device_owner_error_ok" msgid="2002250763093787051">"حسنًا"</string>
     <string name="reset" msgid="6467204151306265796">"إعادة الضبط"</string>
     <string name="cant_set_up_profile" msgid="4341825293970158436">"يتعذر إعداد الملف الشخصي"</string>
     <string name="cant_set_up_device" msgid="4120090138983350714">"يتعذر إعداد الجهاز"</string>
+    <string name="something_went_wrong" msgid="3593223774041784329">"حدث خطأ."</string>
     <string name="couldnt_set_up_device" msgid="5137950404283642302">"تعذر إعداد الجهاز. يمكنك التواصل مع مشرف تكنولوجيا المعلومات للحصول على مساعدة."</string>
     <string name="contact_your_admin_for_help" msgid="2009904021552323731">"يُرجى التواصل مع مشرف تكنولوجيا المعلومات للحصول على مساعدة."</string>
+    <string name="reset_device" msgid="5483853913241939262">"يُرجى إعادة ضبط هذا الجهاز ثم إعادة محاولة إعداده."</string>
     <string name="device_already_set_up" msgid="507881934487140294">"سبق إعداد الجهاز"</string>
     <string name="error_wifi" msgid="1850288843966836571">"‏تعذّر الاتصال بشبكة Wi-Fi."</string>
     <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"تم تفعيل حماية إعادة الضبط في جهازك. يمكنك التواصل مع مشرف تكنولوجيا المعلومات للحصول على مساعدة."</string>
@@ -102,7 +104,7 @@
     <string name="work_profile_setup_later_message" msgid="122069011117225292">"يمكنك إعداد الملف الشخصي للعمل لاحقًا في تطبيق إدارة أجهزة مؤسستك"</string>
     <string name="continue_button" msgid="7177918589510964446">"متابعة"</string>
     <string name="work_profile_setup_stop" msgid="6772128629992514750">"إيقاف"</string>
-    <string name="dismiss" msgid="9009534756748565880">"إلغاء"</string>
+    <string name="dismiss" msgid="9009534756748565880">"إغلاق"</string>
     <string name="profile_owner_info" msgid="8975319972303812298">"أنت بصدد إنشاء ملف شخصي للعمل تتم إدارته ومراقبته بواسطة مؤسستك. تسري البنود."</string>
     <string name="profile_owner_info_with_terms_headers" msgid="7373591910245655373">"أنت بصدد إنشاء ملف شخصي للعمل يخضع لإدارة ومراقبة مؤسستك. تسري البنود المتبعة في <xliff:g id="TERMS_HEADERS">%1$s</xliff:g>."</string>
     <string name="profile_owner_info_comp" msgid="9190421701126119142">"سيتم إنشاء ملف شخصي لتطبيقات العمل، وسيخضع هذا الملف الشخصي وباقي محتوى الجهاز لإدارة ومراقبة مؤسستك. تسري البنود."</string>
@@ -147,8 +149,8 @@
     <string name="access_terms" msgid="1982500872249763745">"الوصول إلى البنود"</string>
     <string name="read_terms" msgid="1745011123626640728">"قراءة البنود"</string>
     <string name="close_list" msgid="9053538299788717597">"إغلاق القائمة"</string>
-    <string name="cancel_setup_and_factory_reset_dialog_title" msgid="5416045931532004811">"أتريد إنهاء الإعداد وإعادة تعيين بيانات المصنع؟"</string>
-    <string name="cancel_setup_and_factory_reset_dialog_msg" msgid="808442439937994485">"سيؤدي إنهاء هذا الإعداد إلى إعادة تعيين بيانات المصنع لجهازك ونقلك إلى الشاشة الأولى مرة أخرى."</string>
+    <string name="cancel_setup_and_factory_reset_dialog_title" msgid="5416045931532004811">"أتريد إنهاء الإعداد وإعادة الضبط على الإعدادت الأصليّة؟"</string>
+    <string name="cancel_setup_and_factory_reset_dialog_msg" msgid="808442439937994485">"سيؤدي إنهاء هذا الإعداد إلى إعادة ضبط جهازك على الإعدادات الأصليّة ونقلك إلى الشاشة الأولى مرة أخرى."</string>
     <string name="cancel_setup_and_factory_reset_dialog_cancel" msgid="2810966091829264727">"إلغاء"</string>
     <string name="cancel_setup_and_factory_reset_dialog_ok" msgid="7168008267496150529">"إعادة ضبط الجهاز"</string>
     <string name="join_two_items" msgid="6110273439759895837">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g> و<xliff:g id="SECOND_ITEM">%2$s</xliff:g>"</string>
@@ -161,25 +163,34 @@
     <string name="setup_provisioning_header" msgid="4282483198266806271">"جارٍ إعداد جهاز العمل…"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"إعداد تطبيق المشرف"</string>
     <string name="set_up_everything_else" msgid="4407706086957916501">"إعداد بقية التطبيقات"</string>
-    <string name="now_lets_set_up_everything_else" msgid="2905102208584231894">"حان الآن وقت إعداد بقية التطبيقات."</string>
+    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"إضافة حساب شخصي للاستفادة من جهازك بدرجة أكبر."</string>
+    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"‏الآن وبعد أن أصبح ملفك الشخصي للعمل جاهزًا، يمكنك أيضًا إضافة ملف شخصي على Google للوصول إلى المحتوى والتطبيقات الخاصة بك."</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"هذا الجهاز يخص مؤسستك."</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"سيتمّ استخدام التطبيق التالي لإدارة هذا الهاتف ومراقبته."</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"جارٍ إعداد الجهاز للاستخدام في العمل…"</string>
-    <string name="work_profile_provisioning_accept_header" msgid="462916780311392444">"يحين أولاً إعداد الملف الشخصي للعمل."</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"لنبدأ في إعداد الملف الشخصي للعمل."</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"يتم الاحتفاظ بتطبيقات العمل في ملفك الشخصي للعمل."</string>
     <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"إيقاف تطبيقات العمل مؤقتًا عند انتهاء مهام يوم العمل"</string>
-    <string name="work_profile_provisioning_step_3_header" msgid="7495564624887776704">"لن يظهر لمشرف تكنولوجيا المعلومات سوى بيانات ملفك الشخصي للعمل."</string>
+    <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"تكون البيانات في ملفك الشخصي للعمل مرئية لمشرف تكنولوجيا المعلومات في مؤسستك."</string>
     <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"جارٍ إعداد الملف الشخصي للعمل…"</string>
-    <string name="work_profile_provisioning_summary" msgid="3917907344897144246">"يتم الاحتفاظ بتطبيقات العمل في ملفك الشخصي للعمل. يمكنك إيقاف تطبيقات العمل مؤقتًا عند انتهاء مهام يوم العمل. وبذلك لن يظهر لمشرف تكنولوجيا المعلومات سوى بيانات ملفك الشخصي للعمل."</string>
+    <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"يتم الاحتفاظ بتطبيقات العمل في ملفك الشخصي للعمل. يمكنك إيقاف تطبيقات العمل مؤقتًا عند انتهاء مهام يوم العمل. إنّ بيانات ملفك الشخصي للعمل مرئية لمشرف تكنولوجيا المعلومات في مؤسستك."</string>
     <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"حان وقت إعداد جهاز العمل."</string>
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"التحكم بسهولة في تطبيقات العمل"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"هذا الجهاز ليس خاصًا."</string>
     <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"قد يتمكّن مشرف تكنولوجيا المعلومات من الاطّلاع على بياناتك وأنشطتك على هذا الجهاز."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"جارٍ إعداد جهازك…"</string>
     <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"يمكنك استخدام هذا الجهاز للوصول سريعًا إلى تطبيقات العمل. هذا الجهاز ليس خاصًا، ولذلك قد يتمكّن مشرف تكنولوجيا المعلومات من الاطّلاع على بياناتك وأنشطتك. لمعرفة مزيد من المعلومات، يمكنك التواصل مع مشرف تكنولوجيا المعلومات."</string>
+    <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"يُحتفظ بتطبيقات العمل بالملف الشخصي للعمل ويُديرها مشرف تقنية المعلومات"</string>
+    <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"التطبيقات الشخصية منفصلة عن تطبيقات العمل ومخفية عنها"</string>
+    <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"يستطيع مشرف تقنية المعلومات التحكم بالجهاز وحظر التطبيقات"</string>
+    <string name="cope_provisioning_summary" msgid="993014104601034878">"يتم الاحتفاظ بتطبيقات العمل في ملفك الشخصي للعمل ويديرها مشرف تكنولوجيا المعلومات في مؤسستك. تكون التطبيقات الشخصية منفصلة عن تطبيقات العمل ومخفية عنها. يستطيع مشرف تكنولوجيا المعلومات التحكّم في هذا الجهاز وحظر بعض التطبيقات."</string>
+    <string name="just_a_sec" msgid="6244676028626237220">"لحظة من فضلك…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"تذكير الخصوصية"</string>
     <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"قد يتمكّن مشرف تكنولوجيا المعلومات من الاطّلاع على بياناتك وأنشطتك على هذا الجهاز."</string>
     <string name="device_provisioning_finished" msgid="3981783240592092906">"تطبيقك جاهز."</string>
     <string name="done" msgid="7755227776955952318">"تمّ"</string>
+    <string name="financed_device_screen_header" msgid="7890706080917322376">"تم شراء هذا الجهاز بالائتمان من <xliff:g id="CREDITOR_NAME">%1$s</xliff:g>"</string>
+    <string name="creditor_capabilities_header" msgid="6217362648469323253">"بإمكان <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> تنفيذ ما يلي:"</string>
+    <string name="install_creditor_app_description" msgid="6159751782301108878">"تثبيت تطبيق <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> لتسديد الدفعات مقابل شراء هذا الجهاز."</string>
+    <string name="lock_device_description" msgid="2940362560732989166">"تقييد الوصول إلى هذا الجهاز إذا لم تسدد الدفعات"</string>
 </resources>

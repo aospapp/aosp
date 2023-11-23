@@ -17,6 +17,7 @@ package com.android.car.settings.wifi.details;
 
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
+import android.net.LinkProperties;
 import android.net.RouteInfo;
 
 import com.android.car.settings.common.FragmentController;
@@ -39,11 +40,14 @@ public class WifiGatewayPreferenceController extends
 
     @Override
     protected void updateState(WifiDetailsPreference preference) {
+        LinkProperties linkProperties = getWifiInfoProvider().getLinkProperties();
         String gateway = null;
-        for (RouteInfo routeInfo : getWifiInfoProvider().getLinkProperties().getRoutes()) {
-            if (routeInfo.isIPv4Default() && routeInfo.hasGateway()) {
-                gateway = routeInfo.getGateway().getHostAddress();
-                break;
+        if (linkProperties != null) {
+            for (RouteInfo routeInfo : linkProperties.getRoutes()) {
+                if (routeInfo.isIPv4Default() && routeInfo.hasGateway()) {
+                    gateway = routeInfo.getGateway().getHostAddress();
+                    break;
+                }
             }
         }
 

@@ -15,14 +15,14 @@
  */
 package com.android.car.audio;
 
+import static com.android.car.audio.CarAudioZonesHelper.LEGACY_CONTEXTS;
+
 import android.annotation.NonNull;
 import android.annotation.XmlRes;
 import android.car.media.CarAudioManager;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.content.res.XmlResourceParser;
-import android.hardware.automotive.audiocontrol.V1_0.IAudioControl;
-import android.os.RemoteException;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.util.SparseArray;
@@ -31,12 +31,14 @@ import android.util.Xml;
 
 import com.android.car.CarLog;
 import com.android.car.R;
+import com.android.car.audio.hal.AudioControlWrapperV1;
 
 import org.xmlpull.v1.XmlPullParserException;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * A helper class loads volume groups from car_volume_groups.xml configuration into one zone.
@@ -44,34 +46,83 @@ import java.util.List;
  * @deprecated This is replaced by {@link CarAudioZonesHelper}.
  */
 @Deprecated
-/* package */ class CarAudioZonesHelperLegacy {
-
+class CarAudioZonesHelperLegacy {
     private static final String TAG_VOLUME_GROUPS = "volumeGroups";
     private static final String TAG_GROUP = "group";
     private static final String TAG_CONTEXT = "context";
 
+    private static final int NO_BUS_FOR_CONTEXT = -1;
+
     private final Context mContext;
     private final @XmlRes int mXmlConfiguration;
-    private final SparseIntArray mContextToBus;
+    private final SparseIntArray mLegacyAudioContextToBus;
     private final SparseArray<CarAudioDeviceInfo> mBusToCarAudioDeviceInfo;
+    private final CarAudioSettings mCarAudioSettings;
 
-    CarAudioZonesHelperLegacy(Context context, @XmlRes int xmlConfiguration,
-            @NonNull SparseArray<CarAudioDeviceInfo> busToCarAudioDeviceInfo,
-            @NonNull IAudioControl audioControl) {
+    CarAudioZonesHelperLegacy(@NonNull  Context context, @XmlRes int xmlConfiguration,
+            @NonNull List<CarAudioDeviceInfo> carAudioDeviceInfos,
+            @NonNull AudioControlWrapperV1 audioControlWrapper,
+            @NonNull CarAudioSettings carAudioSettings) {
+        Objects.requireNonNull(context);
+        Objects.requireNonNull(carAudioDeviceInfos);
+        Objects.requireNonNull(audioControlWrapper);
+        mCarAudioSettings = Objects.requireNonNull(carAudioSettings);
         mContext = context;
         mXmlConfiguration = xmlConfiguration;
-        mBusToCarAudioDeviceInfo = busToCarAudioDeviceInfo;
+        mBusToCarAudioDeviceInfo =
+                generateBusToCarAudioDeviceInfo(carAudioDeviceInfos);
 
-        // Initialize context => bus mapping once.
-        mContextToBus = new SparseIntArray();
-        try {
-            for (int contextNumber : CarAudioDynamicRouting.CONTEXT_NUMBERS) {
-                mContextToBus.put(contextNumber, audioControl.getBusForContext(contextNumber));
-            }
-        } catch (RemoteException e) {
-            Log.e(CarLog.TAG_AUDIO, "Failed to query IAudioControl HAL", e);
-            e.rethrowAsRuntimeException();
+        mLegacyAudioContextToBus =
+                loadBusesForLegacyContexts(audioControlWrapper);
+    }
+
+    /* Loads mapping from {@link CarAudioContext} values to bus numbers
+     * <p>Queries {@code IAudioControl#getBusForContext} for all
+     * {@code CArAudioZoneHelper.LEGACY_CONTEXTS}. Legacy
+     * contexts are those defined as part of
+     * {@code android.hardware.automotive.audiocontrol.V1_0.ContextNumber}
+     *
+     * @param audioControl wrapper for IAudioControl HAL interface.
+     * @return SparseIntArray mapping from {@link CarAudioContext} to bus number.
+     */
+    private static SparseIntArray loadBusesForLegacyContexts(
+            @NonNull AudioControlWrapperV1 audioControlWrapper) {
+        SparseIntArray contextToBus = new SparseIntArray();
+
+        for (int legacyContext : LEGACY_CONTEXTS) {
+            int bus = audioControlWrapper.getBusForContext(legacyContext);
+            validateBusNumber(legacyContext, bus);
+            contextToBus.put(legacyContext, bus);
         }
+        return contextToBus;
+    }
+
+    private static void validateBusNumber(int legacyContext, int bus) {
+        if (bus == NO_BUS_FOR_CONTEXT) {
+            throw new IllegalArgumentException(
+                    String.format("Invalid bus %d was associated with context %s", bus,
+                            CarAudioContext.toString(legacyContext)));
+        }
+    }
+
+    private static SparseArray<CarAudioDeviceInfo> generateBusToCarAudioDeviceInfo(
+            List<CarAudioDeviceInfo> carAudioDeviceInfos) {
+        SparseArray<CarAudioDeviceInfo> busToCarAudioDeviceInfo = new SparseArray<>();
+
+        for (CarAudioDeviceInfo carAudioDeviceInfo : carAudioDeviceInfos) {
+            int busNumber = parseDeviceAddress(carAudioDeviceInfo.getAddress());
+            if (busNumber >= 0) {
+                if (busToCarAudioDeviceInfo.get(busNumber) != null) {
+                    throw new IllegalArgumentException("Two addresses map to same bus number: "
+                            + carAudioDeviceInfo.getAddress()
+                            + " and "
+                            + busToCarAudioDeviceInfo.get(busNumber).getAddress());
+                }
+                busToCarAudioDeviceInfo.put(busNumber, carAudioDeviceInfo);
+            }
+        }
+
+        return busToCarAudioDeviceInfo;
     }
 
     CarAudioZone[] loadAudioZones() {
@@ -79,13 +130,21 @@ import java.util.List;
                 "Primary zone");
         for (CarVolumeGroup group : loadVolumeGroups()) {
             zone.addVolumeGroup(group);
-            // Binding audio device to volume group.
-            for (int contextNumber : group.getContexts()) {
-                int busNumber = mContextToBus.get(contextNumber);
-                group.bind(contextNumber, busNumber, mBusToCarAudioDeviceInfo.get(busNumber));
+            bindContextsForVolumeGroup(group);
+        }
+        return new CarAudioZone[]{zone};
+    }
+
+    private void bindContextsForVolumeGroup(CarVolumeGroup group) {
+        for (int legacyAudioContext : group.getContexts()) {
+            int busNumber = mLegacyAudioContextToBus.get(legacyAudioContext);
+            CarAudioDeviceInfo info = mBusToCarAudioDeviceInfo.get(busNumber);
+            group.bind(legacyAudioContext, info);
+
+            if (legacyAudioContext == CarAudioService.DEFAULT_AUDIO_CONTEXT) {
+                CarAudioZonesHelper.bindNonLegacyContexts(group, info);
             }
         }
-        return new CarAudioZone[] { zone };
     }
 
     /**
@@ -103,7 +162,8 @@ import java.util.List;
             }
 
             if (!TAG_VOLUME_GROUPS.equals(parser.getName())) {
-                throw new RuntimeException("Meta-data does not start with volumeGroups tag");
+                throw new IllegalArgumentException(
+                        "Meta-data does not start with volumeGroups tag");
             }
             int outerDepth = parser.getDepth();
             int id = 0;
@@ -141,7 +201,28 @@ import java.util.List;
             }
         }
 
-        return new CarVolumeGroup(mContext, CarAudioManager.PRIMARY_AUDIO_ZONE, id,
+        return new CarVolumeGroup(mCarAudioSettings, CarAudioManager.PRIMARY_AUDIO_ZONE, id,
                 contexts.stream().mapToInt(i -> i).filter(i -> i >= 0).toArray());
+    }
+
+    /**
+     * Parse device address. Expected format is BUS%d_%s, address, usage hint
+     *
+     * @return valid address (from 0 to positive) or -1 for invalid address.
+     */
+    private static int parseDeviceAddress(String address) {
+        String[] words = address.split("_");
+        int addressParsed = -1;
+        if (words[0].toLowerCase().startsWith("bus")) {
+            try {
+                addressParsed = Integer.parseInt(words[0].substring(3));
+            } catch (NumberFormatException e) {
+                //ignore
+            }
+        }
+        if (addressParsed < 0) {
+            return -1;
+        }
+        return addressParsed;
     }
 }

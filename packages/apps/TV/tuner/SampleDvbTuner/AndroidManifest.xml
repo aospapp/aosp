@@ -15,11 +15,12 @@
   ~ limitations under the License.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     package="com.android.tv.tuner.sample.dvb" >
 
     <uses-sdk
         android:minSdkVersion="23"
-        android:targetSdkVersion="27" />
+        android:targetSdkVersion="29" />
 
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -29,6 +30,8 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="com.android.providers.tv.permission.READ_EPG_DATA" />
     <uses-permission android:name="com.android.providers.tv.permission.WRITE_EPG_DATA" />
+    <!-- Permission to modify Recorded Program -->
+    <uses-permission android:name="com.android.providers.tv.permission.ACCESS_ALL_EPG_DATA" />
 
     <!-- Permissions/feature for USB tuner -->
     <uses-permission android:name="android.permission.DVB_DEVICE" />
@@ -48,12 +51,11 @@
         android:name="android.hardware.touchscreen"
         android:required="false" />
 
-    <application
+    <application tools:replace="android:appComponentFactory"
         android:name="com.android.tv.tuner.sample.dvb.app.SampleDvbTuner"
         android:appComponentFactory="android.support.v4.app.CoreComponentFactory"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/sample_dvb_tuner_app_name" >
-
 
         <activity
             android:name="com.android.tv.tuner.sample.dvb.setup.SampleDvbTunerSetupActivity"

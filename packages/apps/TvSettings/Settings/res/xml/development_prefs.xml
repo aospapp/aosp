@@ -49,10 +49,12 @@
         android:entries="@array/hdcp_checking_titles"
         android:entryValues="@array/hdcp_checking_values" />
 
-    <SwitchPreference
+    <ListPreference
         android:key="bt_hci_snoop_log"
         android:title="@string/bt_hci_snoop_log"
-        android:summary="@string/bt_hci_snoop_log_summary"/>
+        android:dialogTitle="@string/bt_hci_snoop_log_summary"
+        android:entries="@array/bt_hci_snoop_log_entries"
+        android:entryValues="@array/bt_hci_snoop_log_values" />
 
     <SwitchPreference
         android:key="oem_unlock_enable"
@@ -81,7 +83,6 @@
         android:persistent="true" />
 
     <PreferenceCategory android:key="debug_debugging_category"
-                        android:layout="@layout/preference_category_compact_layout"
                         android:title="@string/debug_debugging_category">
 
         <SwitchPreference
@@ -136,7 +137,6 @@
     </PreferenceCategory>
 
     <PreferenceCategory android:key="debug_networking_category"
-                        android:layout="@layout/preference_category_compact_layout"
                         android:title="@string/debug_networking_category">
 
         <SwitchPreference
@@ -164,7 +164,6 @@
     </PreferenceCategory>
 
     <PreferenceCategory android:key="debug_input_category"
-                        android:layout="@layout/preference_category_compact_layout"
                         android:title="@string/debug_input_category">
 
         <SwitchPreference
@@ -180,7 +179,6 @@
     </PreferenceCategory>
 
     <PreferenceCategory android:key="debug_drawing_category"
-                        android:layout="@layout/preference_category_compact_layout"
                         android:title="@string/debug_drawing_category">
 
         <SwitchPreference
@@ -229,7 +227,6 @@
     </PreferenceCategory>
 
     <PreferenceCategory android:key="debug_hw_drawing_category"
-                        android:layout="@layout/preference_category_compact_layout"
                         android:title="@string/debug_hw_drawing_category">
         <SwitchPreference
             android:key="show_hw_screen_udpates"
@@ -276,7 +273,6 @@
     </PreferenceCategory>
 
     <PreferenceCategory android:key="media_category"
-                        android:layout="@layout/preference_category_compact_layout"
                         android:title="@string/media_category">
 
         <SwitchPreference
@@ -286,8 +282,31 @@
 
     </PreferenceCategory>
 
+    <PreferenceCategory android:key="audio_category"
+                        android:title="@string/audio_category">
+        <SwitchPreference
+            android:key="record_audio"
+            android:title="@string/record_audio"
+            android:summaryOn="@string/record_audio_summary_on"
+            android:summaryOff="@string/record_audio_summary_off"/>
+        <Preference
+            android:key="play_recorded_audio"
+            android:title="@string/play_recorded_audio_title"/>
+        <Preference
+            android:key="save_recorded_audio"
+            android:title="@string/save_recorded_audio_title"/>
+        <Preference
+            android:key="time_to_start_read"
+            android:title="@string/time_to_start_read_title"/>
+        <Preference
+            android:key="time_to_valid_audio"
+            android:title="@string/time_to_valid_audio_title"/>
+        <Preference
+            android:key="empty_audio_duration"
+            android:title="@string/empty_audio_duration_title"/>
+    </PreferenceCategory>
+
     <PreferenceCategory android:key="debug_monitoring_category"
-                        android:layout="@layout/preference_category_compact_layout"
                         android:title="@string/debug_monitoring_category">
 
         <SwitchPreference
@@ -312,7 +331,6 @@
     </PreferenceCategory>
 
     <PreferenceCategory android:key="debug_applications_category"
-                        android:layout="@layout/preference_category_compact_layout"
                         android:title="@string/debug_applications_category">
 
         <SwitchPreference

@@ -15,20 +15,12 @@
  */
 package com.android.documentsui;
 
-import com.android.documentsui.testing.TestConfirmationCallback;
-
 public class TestActionModeAddons implements ActionModeAddons {
 
     public boolean finishActionModeCalled;
-    public final TestConfirmationCallback finishOnConfirmed = new TestConfirmationCallback();
 
     @Override
     public void finishActionMode() {
         finishActionModeCalled = true;
-    }
-
-    @Override
-    public void finishOnConfirmed(int code) {
-        finishOnConfirmed.accept(code);
     }
 }

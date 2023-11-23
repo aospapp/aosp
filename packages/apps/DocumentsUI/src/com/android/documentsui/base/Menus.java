@@ -30,13 +30,20 @@ public final class Menus {
         for (int i = 0; i < menu.size(); i++) {
             MenuItem item = menu.getItem(i);
             if (item.isVisible()) {
-              continue;
+                item.setEnabled(true);
+                continue;
             }
             if (contains(exclusions, item)) {
                 continue;
             }
             item.setEnabled(false);
         }
+    }
+
+    /** Set enabled/disabled state of a menuItem, and updates its visibility. */
+    public static void setEnabledAndVisible(MenuItem item, boolean enabled) {
+        item.setEnabled(enabled);
+        item.setVisible(enabled);
     }
 
     private static boolean contains(MenuItem[] exclusions, MenuItem item) {

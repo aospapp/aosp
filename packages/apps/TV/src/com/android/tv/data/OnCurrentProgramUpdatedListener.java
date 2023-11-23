@@ -16,6 +16,8 @@
 
 package com.android.tv.data;
 
+import com.android.tv.data.api.Program;
+
 public interface OnCurrentProgramUpdatedListener {
     /** Called when the current program is updated. */
     void onCurrentProgramUpdated(long channelId, Program program);

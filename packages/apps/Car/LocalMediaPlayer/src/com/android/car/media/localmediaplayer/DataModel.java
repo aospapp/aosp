@@ -205,8 +205,7 @@ public class DataModel {
                 .setResolver(mResolver)
                 .setResult(result);
 
-        Uri[] uri = null;
-        if (lastCategory.equals(LocalMediaBrowserService.GENRES_ID)) {
+        if (LocalMediaBrowserService.GENRES_ID.equals(lastCategory)) {
             // Genres come from a different table and don't use the where clause from the
             // usual media table so we need to have this condition.
             try {

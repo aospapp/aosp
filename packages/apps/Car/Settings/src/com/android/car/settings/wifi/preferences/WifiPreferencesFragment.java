@@ -16,12 +16,17 @@
 
 package com.android.car.settings.wifi.preferences;
 
+import android.provider.Settings;
+
 import androidx.annotation.XmlRes;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.SettingsFragment;
+import com.android.car.settings.search.CarBaseSearchIndexProvider;
+import com.android.settingslib.search.SearchIndexable;
 
 /** Screen to control wifi specific configurations. */
+@SearchIndexable
 public class WifiPreferencesFragment extends SettingsFragment {
 
     @Override
@@ -29,4 +34,11 @@ public class WifiPreferencesFragment extends SettingsFragment {
     protected int getPreferenceScreenResId() {
         return R.xml.wifi_preferences_fragment;
     }
+
+    /**
+     * Data provider for Settings Search.
+     */
+    public static final CarBaseSearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
+            new CarBaseSearchIndexProvider(R.xml.wifi_preferences_fragment,
+                    Settings.ACTION_WIFI_IP_SETTINGS);
 }

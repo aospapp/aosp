@@ -16,8 +16,11 @@
 
 package com.android.tv.settings.device.apps;
 
+import static com.android.tv.settings.util.InstrumentationUtils.logToggleInteracted;
+
 import android.app.INotificationManager;
 import android.app.NotificationManager;
+import android.app.tvsettings.TvSettingsEnums;
 import android.content.Context;
 import android.os.RemoteException;
 import android.util.Log;
@@ -67,6 +70,7 @@ public class NotificationsPreference extends SwitchPreference {
 
     @Override
     public void setChecked(boolean checked) {
+        logToggleInteracted(TvSettingsEnums.APPS_ALL_APPS_APP_ENTRY_NOTIFICATIONS, checked);
         if (setNotificationsEnabled(checked)) {
             super.setChecked(checked);
         }

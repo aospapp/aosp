@@ -29,15 +29,26 @@ import java.util.List;
 @Implements(CarAssistUtils.class)
 public class ShadowCarAssistUtils {
 
-    private static List<String> mMessageNotificationSbnKeys = new ArrayList<>();
+    private static List<String> sMessageNotificationSbnKeys = new ArrayList<>();
+    private static int sRequestAssistantVoiceActionCount = 0;
 
     @Implementation
-    public static boolean isCarCompatibleMessagingNotification(StatusBarNotification sbn) {
-        return mMessageNotificationSbnKeys.contains(sbn.getKey());
+    protected static boolean isCarCompatibleMessagingNotification(StatusBarNotification sbn) {
+        return sMessageNotificationSbnKeys.contains(sbn.getKey());
+    }
+
+    @Implementation
+    protected void requestAssistantVoiceAction(StatusBarNotification sbn, String voiceAction,
+            CarAssistUtils.ActionRequestCallback callback) {
+        sRequestAssistantVoiceActionCount++;
     }
 
     public static void addMessageNotification(String messageSbnKey) {
-        mMessageNotificationSbnKeys.add(messageSbnKey);
+        sMessageNotificationSbnKeys.add(messageSbnKey);
+    }
+
+    public static int getRequestAssistantVoiceActionCount() {
+        return sRequestAssistantVoiceActionCount;
     }
 
     /**
@@ -45,6 +56,7 @@ public class ShadowCarAssistUtils {
      */
     @Resetter
     public static void reset() {
-        mMessageNotificationSbnKeys.clear();
+        sMessageNotificationSbnKeys.clear();
+        sRequestAssistantVoiceActionCount = 0;
     }
 }

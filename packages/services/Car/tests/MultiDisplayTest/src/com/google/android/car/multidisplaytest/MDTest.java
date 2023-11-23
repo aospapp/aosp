@@ -15,6 +15,7 @@
  */
 package com.google.android.car.multidisplaytest;
 
+import android.car.Car;
 import android.content.Context;
 import android.os.Bundle;
 import android.util.Log;
@@ -47,6 +48,7 @@ public class MDTest extends FragmentActivity {
     private Button mMenuButton;
     private RecyclerView mMenu;
     private View mMenuContent;
+    private Car mCar;
 
     private interface ClickHandler {
         void onClick();
@@ -129,6 +131,14 @@ public class MDTest extends FragmentActivity {
         Log.i(TAG, "Creating MDTest activity view");
         mFragmentManager = MDTest.this.getSupportFragmentManager();
         onNewIntent(getIntent());
+        mCar = Car.createCar(this, null, Car.CAR_WAIT_TIMEOUT_WAIT_FOREVER,
+                (Car car, boolean ready) -> {
+                    if (ready) {
+                        Log.i(TAG, "car ready");
+                    } else {
+                        Log.i(TAG, "car not ready");
+                    }
+                });
     }
 
     private void toggleMenuVisibility() {

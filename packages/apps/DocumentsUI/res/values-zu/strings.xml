@@ -36,6 +36,7 @@
     <string name="menu_share" msgid="4307140947108068356">"Yabelana"</string>
     <string name="menu_delete" msgid="1022254131543256626">"Susa"</string>
     <string name="menu_select_all" msgid="7600576812185570403">"Khetha konke"</string>
+    <string name="menu_deselect_all" msgid="7729916068862742979">"Susa ukukhetha konke"</string>
     <string name="menu_select" msgid="1366061076507142387">"Khetha"</string>
     <string name="menu_sort" msgid="3362419226163725275">"Hlunga nge..."</string>
     <string name="menu_copy" msgid="7404820171352314754">"Kopishela ku…"</string>
@@ -44,6 +45,8 @@
     <string name="menu_extract" msgid="8171946945982532262">"Khiphela ku…"</string>
     <string name="menu_rename" msgid="1883113442688817554">"Qamba kabusha"</string>
     <string name="menu_inspect" msgid="7279855349299446224">"Thola ulwazi"</string>
+    <string name="menu_show_hidden_files" msgid="5140676344684492769">"Bonisa amafayela afihliwe"</string>
+    <string name="menu_hide_hidden_files" msgid="5654495713350153702">"Ungabonisi amafayela afihliwe"</string>
     <string name="menu_view_in_owner" msgid="7228948660557554770">"Buka ku-<xliff:g id="SOURCE">%1$s</xliff:g>"</string>
     <string name="menu_new_window" msgid="2947837751796109126">"Iwindi elisha"</string>
     <string name="menu_cut_to_clipboard" msgid="2878752142015026229">"Sika"</string>
@@ -61,6 +64,7 @@
     <string name="button_retry" msgid="4011461781916631389">"Zama Futhi"</string>
     <string name="button_clear" msgid="5412304437764369441">"Sula"</string>
     <string name="button_show_provider" msgid="6905880493806292753">"Bonisa kumhlinzeki"</string>
+    <string name="button_back" msgid="1888621708934742182">"Emuva"</string>
     <string name="not_sorted" msgid="7813496644889115530">"Akuhlungiwe"</string>
     <string name="sort_dimension_name" msgid="6325591541414177579">"Igama"</string>
     <string name="sort_dimension_summary" msgid="7724534446881397860">"Isifinyezo"</string>
@@ -86,6 +90,18 @@
     <string name="save_error" msgid="8631128801982095782">"Yehlulekile ukulondoloza idokhumenti"</string>
     <string name="create_error" msgid="3092144450044861994">"Yehlulekile ukudala ifolda"</string>
     <string name="query_error" msgid="6625421453613879336">"Ayikwazanga ukulayisha okuqukethwe okwamanje"</string>
+    <string name="quiet_mode_error_title" msgid="9126656325282792843">"Iphrofayela yomsebenzi iphunyuziwe"</string>
+    <string name="quiet_mode_button" msgid="6977115032320235420">"Vula"</string>
+    <string name="cant_select_work_files_error_title" msgid="6688716319549644354">"Ayikwazi ukukhetha amafayela omsebenzi"</string>
+    <string name="cant_select_work_files_error_message" msgid="683480676150690641">"Umphathi wakho we-IT akakuvumeli ukuba ufinyelele amafayela omsebenzi avela kuhlelo lokusebenza lomuntu siqu"</string>
+    <string name="cant_select_personal_files_error_title" msgid="3200697170148617742">"Ayikwazi ukukhetha amafayela akho siqu"</string>
+    <string name="cant_select_personal_files_error_message" msgid="4105905035459118209">"Umphathi wakho we-IT akakuvumeli ukuba ufinyelele amafayela akho siqu avela ohlelweni lokusebenza lomsebenzi"</string>
+    <string name="cant_save_to_work_error_title" msgid="1351323070040641358">"Ayikwazi ukulondoloza kuphrofayela lomsebenzi"</string>
+    <string name="cant_save_to_work_error_message" msgid="4975583233814059890">"Umphathi wakho we-IT akakuvumeli ukuba ulondoloze amafayela akho siqu kwiphrofayela lakho lomsebenzi"</string>
+    <string name="cant_save_to_personal_error_title" msgid="858327493694069780">"Ayikwazi ukulondoloza kuphrofayela lakho siqu"</string>
+    <string name="cant_save_to_personal_error_message" msgid="6991758723736381751">"Umphathi wakho we-IT akakuvumeli ukuba ulondoloze amafayela akho omsebenzi kwiphrofayela lakho"</string>
+    <string name="cross_profile_action_not_allowed_title" msgid="6611281348716476478">"Lesi senzo asivunyelwe"</string>
+    <string name="cross_profile_action_not_allowed_message" msgid="7331275433061690947">"Ukuze ufunde kabanzi, xhumana nomphathi wakho we-IT"</string>
     <string name="root_recent" msgid="1080156975424341623">"Okwakamuva"</string>
     <string name="root_available_bytes" msgid="8269870862691408864">"<xliff:g id="SIZE">%1$s</xliff:g> okhululekile"</string>
     <string name="root_type_service" msgid="6521366147466512289">"Amasevisi wesitoreji"</string>
@@ -97,6 +113,8 @@
     <string name="toast_no_application" msgid="7555319548595113121">"Ayikwazanga ukuvula ifayela"</string>
     <string name="toast_view_in_archives_unsupported" msgid="1923221390170964845">"Ayikwazi ukuvula amafayela kuzingobo zomlando"</string>
     <string name="toast_failed_delete" msgid="3453846588205817591">"Ayikwazi ukususa amanye amadokhumenti"</string>
+    <string name="toast_share_over_limit" msgid="5805442886537093015">"Ayikwazi ukwabelana ngamafayela angaphezulu kwangu-<xliff:g id="COUNT">%1$d</xliff:g>"</string>
+    <string name="toast_action_not_allowed" msgid="1329382474450572415">"Isenzo asivunyelwe"</string>
     <string name="share_via" msgid="8725082736005677161">"Abelana nge-"</string>
     <string name="copy_notification_title" msgid="52256435625098456">"Ikopisha amafayela"</string>
     <string name="compress_notification_title" msgid="6830195148113751021">"Icindezela amafayela"</string>
@@ -222,29 +240,42 @@
       <item quantity="one"><xliff:g id="COUNT_1">%1$d</xliff:g> okukhethiwe</item>
       <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> okukhethiwe</item>
     </plurals>
-    <string name="root_info_header_recent" msgid="8754386597210017725">"Amafayela wakamuva efonini"</string>
-    <string name="root_info_header_global_search" msgid="9099308729787003373">"Amafayela efonini"</string>
-    <string name="root_info_header_media" msgid="2774453755906260852">"<xliff:g id="LABEL">%1$s</xliff:g> efonini"</string>
+    <string name="root_info_header_recent" msgid="5654901877295332262">"Amafayela akamuva"</string>
+    <string name="root_info_header_global_search" msgid="4904078222280496152">"Amafayela"</string>
+    <string name="root_info_header_downloads" msgid="8848161246921154115">"Amafayela ekulandweni"</string>
     <string name="root_info_header_storage" msgid="2989014130584927442">"Amafayela ku-<xliff:g id="DEVICE">%1$s</xliff:g>"</string>
+    <string name="root_info_header_folder" msgid="5851172222368049864">"Amafayela ku-<xliff:g id="FOLDER">%1$s</xliff:g>"</string>
     <string name="root_info_header_app" msgid="2125422047558420885">"Amafayela kusuka ku-<xliff:g id="LABEL">%1$s</xliff:g>"</string>
     <string name="root_info_header_app_with_summary" msgid="3223302581236069702">"Amafayela kusuka ku-<xliff:g id="LABEL">%1$s</xliff:g> / <xliff:g id="SUMMARY">%2$s</xliff:g>"</string>
-    <string name="root_info_header_image_recent" msgid="6252335619444758201">"Izithombe zakamuva kufoni"</string>
-    <string name="root_info_header_image_global_search" msgid="7945533325610533016">"Izithombe ezikufoni"</string>
+    <string name="root_info_header_image_recent" msgid="7494373563753926014">"Izithombe zakamuva"</string>
+    <string name="root_info_header_image_global_search" msgid="7307009823489854697">"Izithombe"</string>
+    <string name="root_info_header_image_downloads" msgid="7072252612657612307">"Izithombe ekulandweni"</string>
     <string name="root_info_header_image_storage" msgid="5086740886360075930">"Izithombe ku-<xliff:g id="DEVICE">%1$s</xliff:g>"</string>
+    <string name="root_info_header_image_folder" msgid="5980430877636279667">"Izithombe eziku-<xliff:g id="FOLDER">%1$s</xliff:g>"</string>
     <string name="root_info_header_image_app" msgid="4858114210851525359">"Izithombe kusukela ku-<xliff:g id="LABEL">%1$s</xliff:g>"</string>
     <string name="root_info_header_image_app_with_summary" msgid="6404842960923224778">"Izithombe kusukela ku-<xliff:g id="LABEL">%1$s</xliff:g> / <xliff:g id="SUMMARY">%2$s</xliff:g>"</string>
     <string name="chip_title_images" msgid="7838299046109841015">"Izithombe"</string>
     <string name="chip_title_audio" msgid="1032801828748235436">"Umsindo"</string>
     <string name="chip_title_videos" msgid="7011260091979776447">"Amavidiyo"</string>
     <string name="chip_title_documents" msgid="7432457563000753983">"Amadokhumenti"</string>
+    <string name="chip_title_large_files" msgid="7740269190493883980">"Amafayela amakhulu"</string>
+    <string name="chip_title_from_this_week" msgid="4961536405220379672">"Leli viki"</string>
     <string name="input_hint_new_folder" msgid="479672411219725677">"Igama lefolda"</string>
     <string name="input_hint_rename" msgid="8390711744270994452">"Igama elisha"</string>
     <string name="preview_file" msgid="4056622696305432343">"Buka kuqala ifayela le-<xliff:g id="FILENAME">%1$s</xliff:g>"</string>
+    <string name="preview_work_file" msgid="4495643735563487273">"Hlola kuqala ifayela lomsebenzi i-<xliff:g id="FILENAME">%1$s</xliff:g>"</string>
     <string name="apps_row_title" msgid="3340490016663092925">"Phequlula amafayela kwezinye izinhlelo zokusebenza"</string>
     <string name="anonymous_application" msgid="7633027057951625862">"Okungaziwa"</string>
-    <string name="open_tree_button" msgid="19992834788135845">"Vumela ukufinyelela ku-\"<xliff:g id="DIRECTORY">%1$s</xliff:g>\""</string>
-    <string name="open_tree_dialog_title" msgid="8429465292253532274">"Vumela ukufinyelela ku-\"<xliff:g id="DIRECTORY">%1$s</xliff:g>\" ku-\"<xliff:g id="ROOT">%2$s</xliff:g>\"?"</string>
-    <string name="open_tree_dialog_message" msgid="8545093618524340168">"Izovumela i-\"<xliff:g id="APPNAME">%1$s</xliff:g>\" ukuze inikeze ukufinyelela okugcwele kuwo wonke amafayela manje agcinwe ngaphansi kwale ndawo, futhi noma ikuphi okuqukethwe okuzayo kuzogcinwa lapha."</string>
+    <string name="open_tree_button" msgid="6402871398424497776">"Sebenzisa le folda"</string>
+    <string name="open_tree_dialog_title" msgid="6339509533852318569">"Vumela i-<xliff:g id="APPNAME">%1$s</xliff:g> ukuthi ifinyelele kumafayela aku-<xliff:g id="DIRECTORY">%2$s</xliff:g>?"</string>
+    <string name="open_tree_dialog_message" msgid="4120695398430659628">"Lokhu kuzovumela i-<xliff:g id="APPNAME">%1$s</xliff:g> ifinyelele kokuqukethwe kwakho kwamanje nokuzayo okugcinwe ku-<xliff:g id="DIRECTORY">%2$s</xliff:g>."</string>
+    <string name="directory_blocked_header_title" msgid="1164584889578740066">"Awukwazi ukusebenzisa le folda"</string>
+    <string name="directory_blocked_header_subtitle" msgid="2829150911849033408">"Ukuvikela ubumfihlo bakho, khetha enye ifolda"</string>
+    <string name="create_new_folder_button" msgid="8859613309559794890">"Dala ifolda entsha"</string>
     <string name="search_bar_hint" msgid="4517366509897977321">"Sesha le foni"</string>
     <string name="delete_search_history" msgid="2202015025607694515">"Susa umlando wokusesha <xliff:g id="TEXT">%1$s</xliff:g>"</string>
+    <string name="personal_tab" msgid="3878576287868528503">"Okomuntu siqu"</string>
+    <string name="work_tab" msgid="7265359366883747413">"Umsebenzi"</string>
+    <string name="a11y_work" msgid="7504431382825242153">"Umsebenzi"</string>
+    <string name="drag_from_another_app" msgid="8310249276199969905">"Awukwazi ukuhambisa amafayela kusuka kolunye uhlelo lokusebenza."</string>
 </resources>

@@ -36,9 +36,17 @@
             <enum name="assistance_navigation_guidance" value="12"/>
             <enum name="assistance_sonification" value="13"/>
             <enum name="game" value="14"/>
+
             <!-- hidden, do not use -->
             <!-- enum name="virtual_source" value="15"/ -->
             <enum name="assistant" value="16"/>
+
+            <!-- system usages -->
+            <enum name="call_assistant" value="17"/>
+            <enum name="emergency" value="1000"/>
+            <enum name="safety" value="1001"/>
+            <enum name="vehicle_status" value="1002"/>
+            <enum name="announcement" value="1003"/>
         </attr>
 
         <!-- Title and icon resource ids to render on UI -->
@@ -53,11 +61,6 @@
     <declare-styleable name="Preference">
         <!-- Classname of a PreferenceController corresponding to the preference -->
         <attr name="controller" format="string"/>
-    </declare-styleable>
-
-    <declare-styleable name="TwoActionPreference">
-        <!-- Determines if the secondary action is initially shown -->
-        <attr name="actionShown" format="boolean"/>
     </declare-styleable>
 
     <declare-styleable name="ProgressBarPreference">

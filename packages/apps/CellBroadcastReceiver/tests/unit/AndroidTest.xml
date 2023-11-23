@@ -16,6 +16,7 @@
 <configuration description="Run CellBroadcastReceiver Unit Test Cases.">
     <target_preparer class="com.android.tradefed.targetprep.TestAppInstallSetup">
         <option name="test-file-name" value="CellBroadcastReceiverUnitTests.apk" />
+        <option name="install-arg" value="-g"/>
     </target_preparer>
 
     <option name="test-suite-tag" value="apct" />

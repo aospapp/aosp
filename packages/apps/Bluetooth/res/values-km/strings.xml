@@ -69,7 +69,6 @@
     <string name="upload_succ_ok" msgid="7705428476405478828">"យល់​ព្រម​"</string>
     <string name="upload_fail_line1" msgid="7899394672421491701">"មិន​បាន​ផ្ញើ​ឯកសារ​ទៅ \"<xliff:g id="RECIPIENT">%1$s</xliff:g>\" ។"</string>
     <string name="upload_fail_line1_2" msgid="2108129204050841798">"ឯកសារ៖ <xliff:g id="FILE">%1$s</xliff:g>"</string>
-    <string name="upload_fail_ok" msgid="5807702461606714296">"ព្យាយាម​ម្ដង​ទៀត"</string>
     <string name="upload_fail_cancel" msgid="9118496285835687125">"បិទ​"</string>
     <string name="bt_error_btn_ok" msgid="5965151173011534240">"យល់​ព្រម​"</string>
     <string name="unknown_file" msgid="6092727753965095366">"មិន​ស្គាល់​ឯកសារ"</string>
@@ -122,7 +121,7 @@
     <string name="transfer_menu_open" msgid="3368984869083107200">"បើក"</string>
     <string name="transfer_menu_clear" msgid="5854038118831427492">"សម្អាត​ពី​បញ្ជី"</string>
     <string name="transfer_clear_dlg_title" msgid="2953444575556460386">"សម្អាត"</string>
-    <string name="bluetooth_a2dp_sink_queue_name" msgid="6864149958708669766">"Now Playing"</string>
+    <string name="bluetooth_a2dp_sink_queue_name" msgid="6864149958708669766">"ឥឡូវកំពុងចាក់"</string>
     <string name="bluetooth_map_settings_save" msgid="7635491847388074606">"រក្សាទុក"</string>
     <string name="bluetooth_map_settings_cancel" msgid="9205350798049865699">"បោះបង់"</string>
     <string name="bluetooth_map_settings_intro" msgid="6482369468223987562">"ជ្រើសគណនីដែលអ្នកចង់ចែករំលែកតាមរយៈប៊្លូធូស។ អ្នកនៅតែត្រូវទទួលយកលទ្ធភាពចូលដំណើរការទាំងឡាយទៅកាន់គណនីនេះដដែល នៅពេលភ្ជាប់។"</string>
@@ -134,4 +133,5 @@
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"សំឡេងប៊្លូធូសត្រូវបានផ្តាច់"</string>
     <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"សំឡេងប៊្លូធូស"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="8894450394309084519">"ឯកសារ​ដែល​មាន​ទំហំ​ធំ​ជាង 4 GB មិន​អាចផ្ទេរ​បាន​ទេ"</string>
+    <string name="bluetooth_connect_action" msgid="4009848433321657090">"ភ្ជាប់​ប៊្លូធូស"</string>
 </resources>

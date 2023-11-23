@@ -20,6 +20,7 @@ import android.hardware.radio.ProgramSelector;
 import android.os.Parcel;
 import android.os.Parcelable;
 
+import androidx.annotation.DrawableRes;
 import androidx.annotation.IntDef;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -94,6 +95,12 @@ public abstract class ProgramType implements Parcelable {
      */
     @StringRes
     public abstract int getLocalizedName();
+
+    /**
+     * Retrieves resourceId of this program type.
+     */
+    @DrawableRes
+    public abstract int getResourceId();
 
     /**
      * Tunes to a default channel from this band.

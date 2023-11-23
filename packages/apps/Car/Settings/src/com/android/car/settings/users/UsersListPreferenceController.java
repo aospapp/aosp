@@ -19,6 +19,7 @@ package com.android.car.settings.users;
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
 import android.content.pm.UserInfo;
+import android.os.UserManager;
 
 import com.android.car.settings.common.FragmentController;
 
@@ -32,7 +33,7 @@ public class UsersListPreferenceController extends UsersBasePreferenceController
 
     @Override
     protected void userClicked(UserInfo userInfo) {
-        if (UserUtils.isAdminViewingNonAdmin(getCarUserManagerHelper(), userInfo)) {
+        if (UserUtils.isAdminViewingNonAdmin(UserManager.get(getContext()), userInfo)) {
             // Admin viewing non admin.
             getFragmentController().launchFragment(
                     UserDetailsPermissionsFragment.newInstance(userInfo.id));

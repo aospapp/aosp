@@ -41,7 +41,7 @@
     <string name="deletion_helper_upsell_title" msgid="8512037674466762017">"ସ୍ଵଚାଳିତଭାବେ ଷ୍ଟୋରେଜ୍‌ ପରିଚାଳନା କରିବେ?"</string>
     <string name="deletion_helper_upsell_summary" msgid="2301597713694474407">"ଏବେ <xliff:g id="USED">%1$s</xliff:g> ଖାଲି ହୋଇଗଲା। ଷ୍ଟୋରେଜ୍‌ ମ୍ୟାନେଜର୍‌କୁ ଆପଣଙ୍କ ଡିଭାଇସ୍‌ରୁ ବ୍ୟାକଅପ୍‌ ନେଇଥିବା କଣ୍ଟେଣ୍ଟକୁ ସ୍ଵଚାଳିତଭାବେ ଡିଲିଟ୍‌ କରି ଜାଗା ଖାଲି କରିବାକୁ ଦେବେ?"</string>
     <string name="deletion_helper_upsell_cancel" msgid="7084167642850053889">"ନାହିଁ, ଥାଉ"</string>
-    <string name="deletion_helper_upsell_activate" msgid="7157360257760895976">"ଅନ୍ କରନ୍ତୁ"</string>
+    <string name="deletion_helper_upsell_activate" msgid="7157360257760895976">"ଚାଲୁ କରନ୍ତୁ"</string>
     <string name="deletion_helper_apps_group_title" msgid="2578309121350341258">"କ୍ଵଚିତ୍‌ ବ୍ୟବହାର ହୋଇଥିବା ଆପ୍‌"</string>
     <!-- no translation found for deletion_helper_apps_group_summary (360315517252452356) -->
     <skip />
@@ -53,7 +53,7 @@
     <string name="automatic_storage_manager_notification_title" product="tablet" msgid="3150907918531844467">"ଆପଣଙ୍କ ଟାବଲେଟ୍‌ରେ ଜାଗା କମ୍‌ ଅଛି"</string>
     <string name="automatic_storage_manager_notification_summary" msgid="2267399886362245822">"ଆପଣଙ୍କ ଫୋନ୍‌ର ଷ୍ଟୋରେଜ୍‌ ପୁଣି ଭର୍ତ୍ତି ହେବାକୁ ଯାଉଥିଲେ ଷ୍ଟୋରେଜ୍‌ ମ୍ୟାନେଜର୍‌କୁ ସ୍ଵଚାଳିତଭାବେ ପୁରୁଣା ଫଟୋ ଓ ଭିଡିଓକୁ ଡିଲିଟ୍‌ କରି ଜାଗା ଖାଲି କରିବାକୁ ଦିଅନ୍ତୁ।"</string>
     <string name="automatic_storage_manager_cancel_button" msgid="1826365037494962803">"ନାହିଁ, ଥାଉ"</string>
-    <string name="automatic_storage_manager_activate_button" msgid="6257070263061898041">"ଅନ୍ କରନ୍ତୁ"</string>
+    <string name="automatic_storage_manager_activate_button" msgid="6257070263061898041">"ଚାଲୁ କରନ୍ତୁ"</string>
     <string name="deletion_helper_photos_loading_title" msgid="2768067991066779772">"ବ୍ୟାକଅପ୍‌ ନିଆଯାଇଥିବା ଫଟୋ ଓ ଭିଡିଓ"</string>
     <string name="deletion_helper_photos_loading_summary" msgid="8203033249458245854">"ଆଇଟମ୍‌ ଖୋଜୁଛି…"</string>
     <string name="deletion_helper_no_threshold" msgid="6943179204098250444">"ସବୁ ଆଇଟମ୍‌କୁ ଦେଖାନ୍ତୁ"</string>

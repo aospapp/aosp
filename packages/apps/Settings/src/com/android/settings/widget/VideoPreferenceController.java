@@ -22,14 +22,13 @@ import androidx.preference.PreferenceScreen;
 
 import com.android.settings.core.BasePreferenceController;
 import com.android.settingslib.core.lifecycle.LifecycleObserver;
-import com.android.settingslib.core.lifecycle.events.OnPause;
-import com.android.settingslib.core.lifecycle.events.OnResume;
+import com.android.settingslib.core.lifecycle.events.OnStart;
+import com.android.settingslib.core.lifecycle.events.OnStop;
 
 public class VideoPreferenceController extends BasePreferenceController implements
-        LifecycleObserver, OnResume, OnPause {
+        LifecycleObserver, OnStart, OnStop {
 
     private VideoPreference mVideoPreference;
-    private boolean mVideoPaused;
 
     public VideoPreferenceController(Context context, String preferenceKey) {
         super(context, preferenceKey);
@@ -37,28 +36,27 @@ public class VideoPreferenceController extends BasePreferenceController implemen
 
     @Override
     public int getAvailabilityStatus() {
-        return AVAILABLE_UNSEARCHABLE;
+        return mVideoPreference != null && mVideoPreference.isAnimationAvailable() ?
+                AVAILABLE_UNSEARCHABLE : UNSUPPORTED_ON_DEVICE;
     }
 
     @Override
     public void displayPreference(PreferenceScreen screen) {
-        super.displayPreference(screen);
         mVideoPreference = screen.findPreference(getPreferenceKey());
+        super.displayPreference(screen);
     }
 
     @Override
-    public void onPause() {
+    public void onStart() {
         if (mVideoPreference != null) {
-            mVideoPaused = mVideoPreference.isVideoPaused();
+            mVideoPreference.onViewVisible();
+        }
+    }
+
+    @Override
+    public void onStop() {
+        if (mVideoPreference != null) {
             mVideoPreference.onViewInvisible();
         }
     }
-
-    @Override
-    public void onResume() {
-        if (mVideoPreference != null) {
-            mVideoPreference.onViewVisible(mVideoPaused);
-        }
-    }
-
 }

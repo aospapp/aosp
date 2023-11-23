@@ -21,8 +21,8 @@
     <string name="pkcs12_password_dialog_title" msgid="5997624645207427161">"Sertifikaadi ekstraktimine"</string>
     <string name="extracting_pkcs12" msgid="1881267738821799771">"Ekstraktimine ..."</string>
     <string name="pkcs12_file_password_dialog_title" msgid="8102721384767269510">"Ekstraktimine %s-st"</string>
-    <string name="name_credential_dialog_title" msgid="277729846491554437">"Lisage sertifikaadile nimi"</string>
-    <string name="credential_name" msgid="1974979771369744378">"Sertifikaadi nimi:"</string>
+    <string name="name_credential_dialog_title" msgid="1481964824549786927">"Pange sellele sertifikaadile nimi"</string>
+    <string name="certificate_name" msgid="8415893401368824792">"Sertifikaadi nimi"</string>
     <string name="credential_password" msgid="3520176519550993326">"Sertifikaatide ekstraktimiseks sisestage parool."</string>
     <string name="credential_info" msgid="2436768402308470397">"Pakett sisaldab:"</string>
     <string name="p12_description" msgid="4128352087331630024">"Sertifikaadid PKCS12 võtmete andmebaasis."</string>
@@ -41,10 +41,24 @@
     <string name="invalid_cert" msgid="7704228670980743590">"Sertifikaat on kehtetu."</string>
     <string name="action_missing_private_key" msgid="7543470057312920042">"Sertifikaadi installimiseks on vaja privaatvõtit"</string>
     <string name="action_missing_user_cert" msgid="3727411730202316771">"Privaatvõtme installimiseks on vaja sertifikaati"</string>
-    <string name="cert_is_added" msgid="6996557598167000500">"<xliff:g id="CREDENTIAL">%s</xliff:g> on installitud."</string>
+    <string name="select_certificate_usage_title" msgid="8853023485944920851">"Valige sertifikaadi tüüp"</string>
+    <string name="redirect_ca_certificate_title" msgid="3457516863949244510">"Installige CA-sertifikaadid menüüs Seaded"</string>
+    <string name="redirect_ca_certificate_with_app_info_message" msgid="934477720755323579">"See sertifikaat rakenduselt <xliff:g id="REQUESTING_APP">%1$s</xliff:g> tuleb installida menüüs Seaded. Installige CA-sertifikaate ainult usaldusväärsetelt ettevõtetelt."</string>
+    <string name="redirect_ca_certificate_close_button" msgid="4291301659747279488">"Sule"</string>
+    <string name="invalid_certificate_title" msgid="6500315398016809635">"Seda faili ei saa kasutada"</string>
+    <string name="invalid_certificate_close_button" msgid="350986774973653102">"Sule"</string>
+    <string name="invalid_certificate_message" msgid="3508065546083182733">"Seda faili ei saa kasutada sertifikaadina <xliff:g id="CERTIFICATE_USAGE">%1$s</xliff:g>"</string>
+    <string name="certificate" msgid="8790577925509962529">"Sertifikaat"</string>
+    <string name="ca_certificate" msgid="7397198551290322945">"CA-sertifikaat"</string>
+    <string name="user_certificate" msgid="514888069820553128">"VPN-i ja rakenduse kasutaja sertifikaat"</string>
+    <string name="wifi_certificate" msgid="5356595832360140989">"WiFi-sertifikaat"</string>
+    <string name="ca_cert_is_added" msgid="2847081843756291802">"CA-sertifikaat on installitud"</string>
+    <string name="user_cert_is_added" msgid="3088794616560630823">"Kasutajasertifikaat on installitud"</string>
+    <string name="wifi_cert_is_added" msgid="333220613655140428">"WiFi-sertifikaat on installitud"</string>
     <string name="cert_too_large_error" msgid="8715414972725646285">"Ei saanud installida, sest sertifikaadi maht on liiga suur."</string>
     <string name="cert_missing_error" msgid="7040527352278728220">"Ei saanud installida, sest sertifikaadi faili ei leitud."</string>
     <string name="cert_read_error" msgid="7353463360652419796">"Ei saanud installida, sest sertifikaadi fail pole loetav."</string>
+    <string name="cert_temp_error" msgid="617276803992714550">"Ajutine viga. Proovige hiljem uuesti."</string>
     <string name="only_primary_user_allowed" msgid="4005084935023047716">"Ainult seadme omanik võib installida sertifikaate."</string>
     <string name="credential_usage_label" msgid="1513892208033156805">"Mandaadi kasutus:"</string>
   <string-array name="credential_usage">

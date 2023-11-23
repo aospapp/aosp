@@ -33,7 +33,6 @@ import android.os.UserHandle;
 import android.os.UserManager;
 import android.util.ArraySet;
 import android.view.inputmethod.InputMethod;
-import android.view.inputmethod.InputMethodSystemProperty;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.managedprovisioning.analytics.MetricsWriterFactory;
@@ -48,6 +47,7 @@ import com.android.managedprovisioning.task.DisableInstallShortcutListenersTask;
 import com.android.managedprovisioning.task.DisallowAddUserTask;
 import com.android.managedprovisioning.task.InstallExistingPackageTask;
 import com.android.managedprovisioning.task.MigrateSystemAppsSnapshotTask;
+import com.android.managedprovisioning.task.UpdateInteractAcrossProfilesAppOpTask;
 
 import java.util.List;
 import java.util.function.IntFunction;
@@ -72,9 +72,7 @@ public class OtaController {
 
     public OtaController(Context context) {
         this(context, new TaskExecutor(), new CrossProfileIntentFiltersSetter(context),
-                InputMethodSystemProperty.PER_PROFILE_IME_ENABLED
-                        ? userId -> getMissingSystemImePackages(context, UserHandle.of(userId))
-                        : userId -> new ArraySet<>(),
+                userId -> getMissingSystemImePackages(context, UserHandle.of(userId)),
                 new ProvisioningAnalyticsTracker(
                         MetricsWriterFactory.getMetricsWriter(context, new SettingsFacade()),
                         new ManagedProvisioningSharedPreferences(context)));
@@ -123,6 +121,13 @@ public class OtaController {
                 mCrossProfileIntentFiltersSetter.resetFilters(userInfo.id);
             }
         }
+
+        mTaskExecutor.execute(mContext.getUserId(), new UpdateInteractAcrossProfilesAppOpTask(
+                mContext,
+                /* params= */ null,
+                mTaskExecutor,
+                mProvisioningAnalyticsTracker
+        ));
     }
 
     void addDeviceOwnerTasks(final int userId, Context context) {

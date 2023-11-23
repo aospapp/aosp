@@ -16,9 +16,9 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_label" msgid="6006277287245076524">"Neyðartilkynningar"</string>
-    <string name="sms_cb_settings" msgid="3795852619005211509">"Neyðartilkynningar"</string>
-    <string name="cell_broadcast_settings_not_available" msgid="2612364350745967915">"Stillingar endurvarpa eru ekki í boði fyrir þennan notanda"</string>
+    <string name="app_label" msgid="2008319089248760277">"Þráðlausar neyðartilkynningar"</string>
+    <string name="sms_cb_settings" msgid="9021266457863671070">"Þráðlausar neyðartilkynningar"</string>
+    <string name="cell_broadcast_settings_not_available" msgid="3908142962162375221">"Stillingar fyrir þráðlausar neyðartilkynningar eru ekki í boði fyrir þennan notanda"</string>
     <string name="button_dismiss" msgid="1234221657930516287">"Í lagi"</string>
     <string name="no_cell_broadcasts" msgid="7554779730107421769">"Engar fyrri viðvaranir"</string>
     <string name="menu_delete_all" msgid="3940997343921149800">"Eyða útsendingum"</string>
@@ -26,6 +26,7 @@
     <string name="menu_view_details" msgid="1040989019045280975">"Skoða upplýsingar"</string>
     <string name="menu_delete" msgid="128380070910799366">"Eyða útsendingu"</string>
     <string name="view_details_title" msgid="1780427629491781473">"Upplýsingar viðvörunar"</string>
+    <string name="view_details_debugging_title" msgid="5699927030805114173">"Upplýsingar viðvarana fyrir villuleit"</string>
     <string name="confirm_delete_broadcast" msgid="2540199303730232322">"Eyða þessum skilaboðum?"</string>
     <string name="confirm_delete_all_broadcasts" msgid="2924444089047280871">"Eyða öllum mótteknum skilaboðum frá endurvarpa?"</string>
     <string name="button_delete" msgid="4672451757925194350">"Eyða"</string>
@@ -51,11 +52,11 @@
     <string name="emergency_alerts_title" msgid="6605036374197485429">"Tilkynningar"</string>
     <string name="notification_channel_broadcast_messages" msgid="880704362482824524">"Útsendingarskilaboð"</string>
     <string name="notification_channel_emergency_alerts" msgid="5008287980979183617">"Neyðartilkynningar"</string>
+    <string name="notification_channel_broadcast_messages_in_voicecall" msgid="3291001780110813190">"Neyðartilkynningar í símtali"</string>
     <string name="enable_alerts_master_toggle_title" msgid="1457904343636699446">"Leyfa tilkynningar"</string>
-    <string name="enable_alerts_master_toggle_summary" msgid="699552922381916044">"Fá neyðartilkynningar"</string>
-    <string name="alert_reminder_interval_title" msgid="7466642011937564868">"Áminningarhljóð"</string>
-    <string name="enable_alert_speech_title" msgid="8052104771053526941">"Lesa upp viðvörunarskilaboð"</string>
-    <string name="enable_alert_speech_summary" msgid="356086178962268831">"Nota talgervil til að lesa skilaboð neyðarviðvarana upphátt"</string>
+    <string name="enable_alerts_master_toggle_summary" msgid="5583168548073938617">"Fá þráðlausar neyðartilkynningar"</string>
+    <string name="alert_reminder_interval_title" msgid="3283595202268218149">"Áminning"</string>
+    <string name="alert_reminder_dialog_title" msgid="2299010977651377315">"Áminningarhljóð er spilað með venjulegum hljóðstyrk"</string>
     <string name="emergency_alert_history_title" msgid="8310173569237268431">"Neyðarviðvörunarferill"</string>
     <string name="alert_preferences_title" msgid="6001469026393248468">"Tilkynningarstillingar"</string>
     <string name="enable_etws_test_alerts_title" msgid="3593533226735441539">"ETWS-prufuútsendingar"</string>
@@ -63,7 +64,7 @@
     <string name="enable_cmas_extreme_threat_alerts_title" msgid="5416260219062637770">"Mjög alvarlegar ógnir"</string>
     <string name="enable_cmas_extreme_threat_alerts_summary" msgid="5832146246627518123">"Þegar líf eða eignir eru í mjög alvarlegri hættu"</string>
     <string name="enable_cmas_severe_threat_alerts_title" msgid="1066172973703410042">"Alvarlegar ógnir"</string>
-    <string name="enable_cmas_severe_threat_alerts_summary" msgid="5292443310309039223">"Þegar líf eða eignir eru í alvarlegri hættu"</string>
+    <string name="enable_cmas_severe_threat_alerts_summary" msgid="5292443310309039223">"Líf eða eignir í alvarlegri hættu"</string>
     <string name="enable_cmas_amber_alerts_title" msgid="1475030503498979651">"AMBER-viðvaranir"</string>
     <string name="enable_cmas_amber_alerts_summary" msgid="4495233280416889667">"Neyðartilkynningar um brottnám barna"</string>
     <string name="enable_alert_message_title" msgid="2939830587633599352">"Viðvörunarskilaboð"</string>
@@ -74,14 +75,13 @@
     <string name="enable_state_local_test_alerts_summary" msgid="780298327377950187">"Fá prufuskilboð frá ríkis- og staðaryfirvöldum"</string>
     <string name="enable_emergency_alerts_message_title" msgid="661894007489847468">"Neyðartilkynningar"</string>
     <string name="enable_emergency_alerts_message_summary" msgid="7574617515441602546">"Vara við lífshættulegum atburðum"</string>
-    <string name="enable_cmas_test_alerts_title" msgid="1319231576046146463">"Áskilin mánaðarleg prófun"</string>
-    <string name="enable_cmas_test_alerts_summary" msgid="588517403520088484">"Fá prufuskilboð frá öryggisviðvörunarkerfinu"</string>
+    <string name="enable_cmas_test_alerts_title" msgid="7194966927004755266">"Prófa tilkynningar"</string>
+    <string name="enable_cmas_test_alerts_summary" msgid="2083089933271720217">"Fá prufuskilaboð frá símafyrirtæki og mánaðarlegar prófanir frá öryggisviðvörunarkerfinu"</string>
     <string name="enable_alert_vibrate_title" msgid="5421032189422312508">"Titringur"</string>
-    <string name="use_full_volume_title" msgid="8581439612945182255">"Nota fullan hljóðstyrk"</string>
-    <string name="use_full_volume_summary" msgid="3560764277281704697">"Hunsa aðrar stillingar fyrir hljóðstyrk og „Ónáðið ekki“"</string>
+    <string name="override_dnd_title" msgid="5120805993144214421">"Spila allar tilkynningar með fullum hljóðstyrk"</string>
+    <string name="override_dnd_summary" msgid="9026675822792800258">"Hunsa „Ónáðið ekki“ og aðrar hljóðstyrksstillingar"</string>
     <string name="enable_area_update_info_alerts_title" msgid="3442042268424617226">"Staðbundnar uppfærslur"</string>
     <string name="enable_area_update_info_alerts_summary" msgid="6437816607144264910">"Sýna uppfærsluupplýsingar í SIM-stöðu"</string>
-    <string name="category_dev_settings_title" msgid="6194393458398329994">"Forritunarkostir"</string>
     <string name="cmas_category_heading" msgid="3923503130776640717">"Flokkur viðvörunar:"</string>
     <string name="cmas_category_geo" msgid="4979494217069688527">"Jarðeðlisfræði"</string>
     <string name="cmas_category_met" msgid="7563732573851773537">"Veðurfræði"</string>
@@ -118,7 +118,7 @@
     <string name="notification_multiple_title" msgid="1523638925739947855">"Nýjar viðvaranir"</string>
     <string name="show_cmas_opt_out_summary" msgid="6926059266585295440">"Sýna glugga til að afþakka viðvaranir eftir að sú fyrsta birtist (nema viðvörun frá forseta)."</string>
     <string name="show_cmas_opt_out_title" msgid="9182104842820171132">"Sýna glugga til að afþakka"</string>
-    <string name="cmas_opt_out_dialog_text" msgid="7529010670998259128">"Þú færð núna neyðarviðvaranir. Viltu halda áfram að fá neyðarviðvaranir?"</string>
+    <string name="cmas_opt_out_dialog_text" msgid="4820577535626084938">"Þú færð núna þráðlausar neyðartilkynningar. Viltu halda áfram að fá þráðlausar neyðartilkynningar?"</string>
     <string name="cmas_opt_out_button_yes" msgid="7248930667195432936">"Já"</string>
     <string name="cmas_opt_out_button_no" msgid="3110484064328538553">"Nei"</string>
     <string name="cb_list_activity_title" msgid="1433502151877791724">"Neyðarviðvörunarferill"</string>
@@ -127,7 +127,26 @@
     <item msgid="9097229303902157183">"Á 2 mínútna fresti"</item>
     <item msgid="5718214950343391480">"Á 5 mínútna fresti"</item>
     <item msgid="3863339891188103437">"Á 15 mínútna fresti"</item>
-    <item msgid="6868848414437854609">"Slökkt"</item>
+    <item msgid="7388573183644474611">"Aldrei"</item>
   </string-array>
     <string name="emergency_alert_settings_title_watches" msgid="4477073412799894883">"Þráðlausar neyðartilkynningar"</string>
+    <string name="enable_cmas_presidential_alerts_title" msgid="7293800023375154256">"Viðvaranir frá forseta"</string>
+    <string name="enable_cmas_presidential_alerts_summary" msgid="7900094335808247024">"Þjóðarviðvörun frá forsetanum. Ekki er hægt að slökkva."</string>
+    <string name="receive_cmas_in_second_language_title" msgid="1223260365527361964"></string>
+    <string name="receive_cmas_in_second_language_summary" msgid="7704105502782770718"></string>
+    <string name="alerts_header_summary" msgid="4700985191868591788"></string>
+    <string name="testing_mode_enabled" msgid="8296556666392297467">"Kveikt er á prófunarstillingu endurvarpa."</string>
+    <string name="testing_mode_disabled" msgid="8381408377958182661">"Slökkt er á prófunarstillingu endurvarpa."</string>
+    <string name="show_all_messages" msgid="3780970968167139836">"Sýna öll skilaboð"</string>
+    <string name="show_regular_messages" msgid="7376885150513522515">"Sýna regluleg skilaboð"</string>
+    <string name="message_identifier" msgid="5558338496219327850">"Auðkenni:"</string>
+    <string name="message_serial_number" msgid="3386553658712978964">"Raðnúmer:"</string>
+    <string name="data_coding_scheme" msgid="4628901196730870577">"Gagnakóðunarskema:"</string>
+    <string name="message_content" msgid="6204502929879474632">"Innihald skilaboða:"</string>
+    <string name="location_check_time" msgid="4105326161240531207">"Athugunartími staðsetningar:"</string>
+    <string name="message_displayed" msgid="5091678195925617971">"Skilaboð birt:"</string>
+    <string name="message_coordinates" msgid="356333576818059052">"Hnit:"</string>
+    <string name="maximum_waiting_time" msgid="3504809124079381356">"Hámarksbiðtími:"</string>
+    <string name="seconds" msgid="141450721520515025">"sekúndur"</string>
+    <string name="message_copied" msgid="6922953753733166675">"Skilaboð afrituð"</string>
 </resources>

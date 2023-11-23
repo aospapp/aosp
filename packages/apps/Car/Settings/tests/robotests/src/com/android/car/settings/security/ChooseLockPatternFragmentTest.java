@@ -21,22 +21,26 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.testutils.FragmentController;
+import com.android.car.ui.core.testsupport.CarUiInstallerRobolectric;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestRunner;
 
 /**
  * Tests for ChooseLockPatternFragment class.
  */
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 public class ChooseLockPatternFragmentTest {
     private ChooseLockPatternFragment mFragment;
 
     @Before
     public void initFragment() {
+        // Needed to install Install CarUiLib BaseLayouts Toolbar for test activity
+        CarUiInstallerRobolectric.install();
+
         mFragment = FragmentController.of(new ChooseLockPatternFragment()).setup();
     }
 

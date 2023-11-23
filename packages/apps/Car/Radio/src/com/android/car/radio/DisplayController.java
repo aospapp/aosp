@@ -50,7 +50,7 @@ public class DisplayController {
 
     private final Context mContext;
 
-    private final View mTabs;
+    private final View mToolbar;
     private final View mViewpager;
     private final TextView mStatusMessage;
     private final TextView mChannel;
@@ -60,7 +60,6 @@ public class DisplayController {
     private final ImageView mBackwardSeekButton;
     private final ImageView mForwardSeekButton;
     private final PlayPauseButton mPlayButton;
-    private final View mBandButton;
 
     private boolean mIsFavorite = false;
     private final ImageView mFavoriteButton;
@@ -86,7 +85,7 @@ public class DisplayController {
             @NonNull RadioController radioController) {
         mContext = Objects.requireNonNull(activity);
 
-        mTabs = activity.findViewById(R.id.tabs);
+        mToolbar = activity.findViewById(R.id.toolbar);
         mViewpager = activity.findViewById(R.id.viewpager);
         mStatusMessage = activity.findViewById(R.id.status_message);
         mChannel = activity.findViewById(R.id.station_channel);
@@ -95,7 +94,6 @@ public class DisplayController {
         mBackwardSeekButton = activity.findViewById(R.id.back_button);
         mForwardSeekButton = activity.findViewById(R.id.forward_button);
         mPlayButton = activity.findViewById(R.id.play_button);
-        mBandButton = activity.findViewById(R.id.band_toggle_button);
         mFavoriteButton = activity.findViewById(R.id.add_presets_button);
 
         radioController.getPlaybackState().observe(activity, this::onPlaybackStateChanged);
@@ -142,14 +140,12 @@ public class DisplayController {
             mBackwardSeekButton.setEnabled(enabled);
             mBackwardSeekButton.setColorFilter(tint);
         }
-        if (mBandButton != null) {
-            mBandButton.setVisibility(enabled ? View.VISIBLE : View.GONE);
-        }
+
         if (mFavoriteButton != null) {
             mFavoriteButton.setVisibility(enabled ? View.VISIBLE : View.GONE);
         }
-        if (mTabs != null) {
-            mTabs.setVisibility(enabled ? View.VISIBLE : View.INVISIBLE);
+        if (mToolbar != null) {
+            mToolbar.setVisibility(enabled ? View.VISIBLE : View.INVISIBLE);
         }
         if (mViewpager != null) {
             mViewpager.setVisibility(enabled ? View.VISIBLE : View.GONE);

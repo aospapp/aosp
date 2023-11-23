@@ -15,11 +15,13 @@
 -->
 
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
-                  xmlns:settings="http://schemas.android.com/apk/res-auto">
-    <Preference
+                  xmlns:settings="http://schemas.android.com/apk/res-auto"
+                  android:key="@string/psk_account_details">
+    <com.android.car.ui.preference.CarUiPreference
         android:key="@string/pk_account_details"
         android:selectable="false"
-        settings:controller="com.android.car.settings.accounts.AccountDetailsPreferenceController"/>
+        settings:controller="com.android.car.settings.accounts.AccountDetailsPreferenceController"
+        settings:showChevron="false"/>
     <com.android.car.settings.common.LogicalPreferenceGroup
         android:key="@string/pk_account_settings"
         settings:controller="com.android.car.settings.accounts.AccountDetailsSettingController">

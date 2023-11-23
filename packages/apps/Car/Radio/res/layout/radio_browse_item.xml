@@ -50,15 +50,16 @@ limitations under the License.
         android:layout_gravity="center_vertical"
         android:layout_marginEnd="@dimen/browse_item_spacing"
         android:textColor="@color/browse_item_text_color"
-        android:textAppearance="?android:attr/textAppearanceLarge" />
+        android:textAppearance="?android:attr/textAppearanceLarge"
+        android:textAlignment="viewStart"/>
 
     <ImageButton
         android:id="@+id/browse_button"
         android:layout_marginEnd="@dimen/browse_item_spacing"
-        android:layout_gravity="center_vertical|right"
+        android:layout_gravity="center_vertical|end"
         android:layout_width="@dimen/control_button_size"
         android:layout_height="@dimen/control_button_size"
-        android:gravity="right"
+        android:gravity="end"
         android:src="@drawable/ic_star_filled"
         style="@style/RadioButton" />
 

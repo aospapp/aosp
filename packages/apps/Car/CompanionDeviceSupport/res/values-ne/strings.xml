@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 
+  ~ Copyright (C) 2019 The Android Open Source Project
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~
+  ~      http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+   -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="default_device_name" msgid="405493967512651629">"सम्बद्ध यन्त्र"</string>
+    <string name="add_device_title" msgid="6166003577845888151">"सम्बद्ध यन्त्र थप्नुहोस्"</string>
+    <string name="add_associated_device_title" msgid="3275596124326477381">"सहयोगी यन्त्र कनेक्ट गर्नुहोस्"</string>
+    <string name="add_associated_device_instruction" msgid="1015406964657139291">"तपाईं आफ्नो ड्राइभिङ अनुभव व्यवस्थापन गर्न आफ्नो फोनलाई सहयोगी यन्त्रका रूपमा प्रयोग गर्न सक्नुहुन्छ"</string>
+    <string name="associated_device_install_app" msgid="981663561198924864">"आफ्नो फोनमा "<b>"सहयोगी एप"</b>" इन्स्टल गरिएको छ भन्ने कुरा सुनिश्चित गर्नुहोस्"</string>
+    <string name="associated_device_pairing_code_title" msgid="5118861901337336309">"फोनमा देखाइएको कोड पुष्टि गर्नुहोस्"</string>
+    <string name="associated_device_pairing_message" msgid="7319249426394299109">"यो कोड तपाईंको फोनमा देखाइएको कोडसँग मिल्छ भन्ने कुरा पुष्टि गर्नुहोस्"</string>
+    <string name="associated_device_success" msgid="584760065696870256">"यन्त्र सम्बद्ध गर्ने कार्य सफल भएको छ"</string>
+    <string name="associated_device_select_device" msgid="1931869046289060602">"एप खोल्नुहोस् र &lt;b&gt;<xliff:g id="CAR_NAME">%1$s</xliff:g>&lt;b&gt; सँग कनेक्ट गर्नुहोस्"</string>
+    <string name="remove_associated_device_title" msgid="4060806982019423895">"&lt;b&gt;<xliff:g id="CAR_NAME">%1$s</xliff:g>&lt;/b&gt; हटाउने हो?"</string>
+    <string name="remove_associated_device_message" msgid="3991333597951462900">"यो कारलाई अब उप्रान्त यस यन्त्रसँग जोडा बनाइने छैन। तपाईंले यो कारलाई सहयोगी एपबाट पनि हटाउनु पर्ने हुन्छ।"</string>
+    <string name="device_removed_success_toast_text" msgid="3242832156490823936">"<xliff:g id="PHONE_NAME">%1$s</xliff:g> हटाइयो"</string>
+    <string name="device_removed_failure_toast_text" msgid="3756625943664982395">"<xliff:g id="PHONE_NAME">%1$s</xliff:g> हटाउन सकिएन"</string>
+    <string name="continue_setup_toast_text" msgid="8487187853051037413">"आफ्नो फोनमा सेटअप जारी राख्नुहोस्"</string>
+    <string name="error_screen_title" msgid="3977744142045194903">"केही चिज गडबड भयो"</string>
+    <string name="error_screen_message" msgid="1217200461704367056">"दुर्भाग्यवश, यो स्क्रिनले राम्ररी देखाउन सकेन। कृपया फेरि प्रयास गर्नुहोस्।"</string>
+    <string name="turn_on_bluetooth_title" msgid="2877749869113938263">"ब्लुटुथ अन गर्नुहोस्"</string>
+    <string name="turn_on_bluetooth_message" msgid="5087006108685547788">"फोनलाई सहयोगी यन्त्रका रूपमा सेटअप गर्न तपाईंले आफ्नो कारको ब्लुटुथ अन गर्नु पर्ने हुन्छ।"</string>
+    <string name="turn_on_bluetooth_dialog_title" msgid="8693712073791430461">"ब्लुटुथ अन गर्ने हो?"</string>
+    <string name="turn_on_bluetooth_dialog_message" msgid="5347157597209022072">"सहयोगी यन्त्रसँग कनेक्ट गर्न तपाईंले आफ्नो कारको ब्लुटुथ अन गर्नु पर्ने हुन्छ।"</string>
+    <string name="accept" msgid="1454710793329618813">"स्वीकार गर्नुहोस्"</string>
+    <string name="reject" msgid="4315432282758892890">"अस्वीकार गर्नुहोस्"</string>
+    <string name="confirm" msgid="3748997214719276945">"पुष्टि गर्नुहोस्"</string>
+    <string name="cancel" msgid="4306609731174629323">"रद्द गर्नुहोस्"</string>
+    <string name="remove" msgid="5513398257088729188">"हटाउनुहोस्"</string>
+    <string name="ok" msgid="2825038997730899083">"ठिक छ"</string>
+    <string name="connection" msgid="2798490936433656846">"कनेक्सन"</string>
+    <string name="forget_title" msgid="3027608547243824729">"यो यन्त्र हटाउनुहोस्"</string>
+    <string name="forget" msgid="2069897665699141222">"हटाउनुहोस्"</string>
+    <string name="disable" msgid="4619854429066283970">"असक्षम पार्नुहोस्"</string>
+    <string name="enable" msgid="7656386199154111316">"सक्षम पार्नुहोस्"</string>
+    <string name="continue_button" msgid="2748318968566159950">"जारी राख्नुहोस्"</string>
+    <string name="retry" msgid="3783419451480721367">"फेरि प्रयास गर्नुहोस्"</string>
+    <string name="turn_on" msgid="4288754850470994812">"अन गर्नुहोस्"</string>
+    <string name="not_now" msgid="8764692269093707622">"अहिले होइन"</string>
+    <string name="connected" msgid="8051190714042020471">"कनेक्ट गरियो"</string>
+    <string name="notDetected" msgid="4115229772085594506">"पत्ता लागेन"</string>
+    <string name="disconnected" msgid="8526513868622591894">"डिस्कनेक्ट गरियो"</string>
+    <string name="unknown" msgid="555736316465118024">"अज्ञात"</string>
+    <string name="app_running_msg_channel_name" msgid="87011783084544733">"फोनबाट पाठ सन्देश पठाउने सेवा चालु छ"</string>
+    <string name="app_running_msg_notification_title" msgid="388907180286994900">"फोनबाट पाठ सन्देश पठाउने सेवा सक्रिय छ"</string>
+    <string name="app_running_msg_notification_content" msgid="4602261901969140233">"सहयोगी यन्त्रमार्फत पाठ सन्देशहरू प्राप्त गरिँदै"</string>
+    <string name="trusted_device_feature_title" msgid="2690568414493283969">"फोन प्रयोग गरेर प्रोफाइल अनलक गर्नुहोस्"</string>
+    <string name="trusted_device_feature_instruction" msgid="2546439818978826962">"अनलक गर्ने विकल्पहरू सेट गर्न आफ्नो सहयोगी एपमा जानुहोस्"</string>
+    <string name="trusted_device_item_title" msgid="4390572381407233745">"&lt;b&gt;<xliff:g id="PHONE_NAME">%1$s</xliff:g>&lt;/b&gt; लाई मेरो प्रोफाइल अनलक गर्न दिनुहोस्"</string>
+    <string name="device_not_connected_dialog_title" msgid="1157155922752758658">"तपाईंको फोन सक्रिय रूपमा कनेक्ट भएको हुनु पर्छ"</string>
+    <string name="device_not_connected_dialog_message" msgid="4987412656697205324">"यो सुविधा सक्रिय गर्नुअघि तपाईंका कार र फोनमा ब्लुटुथ अन गरिएको छ र ती एकअर्काका नजिक छन् भन्ने कुरा सुनिश्चित गर्नुहोस्"</string>
+    <string name="trusted_device_enrollment_success_message" msgid="2080578779942302923">"&lt;b&gt;<xliff:g id="PHONE_NAME">%1$s</xliff:g>&lt;/b&gt; ले अब तपाईंको प्रोफाइल अनलक गर्न सक्छ"</string>
+    <string name="create_profile_lock_dialog_title" msgid="7865225698595414341">"प्राथमिक प्रोफाइल लक सिर्जना गर्नुहोस्"</string>
+    <string name="create_profile_lock_dialog_message" msgid="5078929325894045416">"फोन प्रयोग गरेर प्रोफाइल अनलक गर्न तपाईंले ब्याकअपका रूपमा प्राथमिक प्रोफाइल लक सिर्जना गर्नु पर्ने हुन्छ"</string>
+    <string name="unlock_profile_to_finish_title" msgid="6542028315996392302">"यो कार्य सम्पन्न गर्न आफ्नो प्रोफाइल अनलक गर्नुहोस्"</string>
+    <string name="unlock_profile_to_finish_message" msgid="8616094218201557262">"तपाईंले नयाँ प्रोफाइल लक सिर्जना गर्नुभएको छ। अब, तपाईंको फोनले तपाईंको प्रोफाइल स्वतः अनलक गर्न सक्छ भन्ने कुरा पक्का गर्न प्रोफाइल लक फेरि प्रविष्टि गर्नुहोस्"</string>
+    <string name="disable_device_connection_text" msgid="4361795552013963732">"यो यन्त्र डिस्कनेक्ट गर्नुहोस्"</string>
+    <string name="enable_device_connection_text" msgid="7742550392552935783">"यो यन्त्र रिकनेक्ट गर्नुहोस्"</string>
+    <string name="trusted_device_notification_channel_name" msgid="6717174570621750321">"फोन प्रयोग गरेर अनलक गर्नुहोस्"</string>
+    <string name="trusted_device_notification_title" msgid="249913439061543209">"तपाईंको फोनलाई प्रोफाइल अनलक गर्ने अनुमति दिनुहोस्"</string>
+    <string name="trusted_device_notification_content" msgid="7536321078698712456">"यो सुविधा प्रयोग गर्ने अधिकार दिन यहाँ ट्याप गर्नुहोस्"</string>
+    <string name="trusted_device_enrollment_error_dialog_title" msgid="8120284275374458606">"केही चिज गडबड भयो"</string>
+    <string name="trusted_device_enrollment_error_dialog_message" msgid="7205036748277720461">"दुर्भाग्यवश, यतिबेला यो सुविधा अन गर्न सकिएन। कृपया फेरि प्रयास गर्नुहोस्।"</string>
+    <string name="create_phone_lock_dialog_title" msgid="9160142569534569820">"आफ्नो फोनमा स्क्रिन लक सिर्जना गर्नुहोस्"</string>
+    <string name="create_phone_lock_dialog_message" msgid="8209460622086922427">"तपाईंको फोनमा स्क्रिन लक सेट गरिएको छैन। फोन प्रयोग गरेर आफ्नो कारको प्रोफाइल अनलक गर्न सबैभन्दा पहिले फोनको सेटिङमा गएर स्क्रिन लक (जसलाई पासकोड पनि भनिन्छ) सिर्जना गर्नुहोस्।"</string>
+</resources>

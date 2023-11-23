@@ -27,6 +27,7 @@
     <string name="trace_is_being_recorded" msgid="5947378146009337469">"המעקב מתועד"</string>
     <string name="tap_to_stop_tracing" msgid="6533282719573871806">"יש להקיש כדי להפסיק את המעקב"</string>
     <string name="clear_saved_traces" msgid="4809195654452260944">"ניקוי נתוני מעקב שנשמרו"</string>
+    <string name="clear_saved_traces_summary" msgid="6035923138201219577">"נתוני המעקב נמחקים כעבור חודש"</string>
     <string name="clear_saved_traces_question" msgid="2184026613055303818">"לנקות נתוני מעקב שנשמרו?"</string>
     <string name="all_traces_will_be_deleted" msgid="6646545462206955920">"‏כל נתוני המעקב יימחקו מ-‎/data/local/traces"</string>
     <string name="clear" msgid="5484761795406948056">"ניקוי"</string>

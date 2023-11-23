@@ -28,8 +28,8 @@ import android.widget.ImageButton;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 
+import com.android.car.notification.NotificationUtils;
 import com.android.car.notification.R;
-import com.android.car.notification.ThemesUtil;
 
 /**
  * Common notification body that consists of a title line, a content text line, and an image icon on
@@ -70,9 +70,9 @@ public class CarNotificationBodyView extends RelativeLayout {
 
     {
         mDefaultPrimaryTextColor =
-                ThemesUtil.getAttrColor(getContext(), android.R.attr.textColorPrimary);
+                NotificationUtils.getAttrColor(getContext(), android.R.attr.textColorPrimary);
         mDefaultSecondaryTextColor =
-                ThemesUtil.getAttrColor(getContext(), android.R.attr.textColorSecondary);
+                NotificationUtils.getAttrColor(getContext(), android.R.attr.textColorSecondary);
         inflate(getContext(), R.layout.car_notification_body_view, /* root= */ this);
     }
 

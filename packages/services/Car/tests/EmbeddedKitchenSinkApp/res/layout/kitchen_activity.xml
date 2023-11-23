@@ -26,7 +26,6 @@
         android:layout_height="wrap_content"
         android:layout_centerHorizontal="true"
         android:layout_marginBottom="10dp"
-        android:background="@android:color/background_light"
         android:text="Hide KitchenSink Menu"
         android:textSize="30sp"
         android:padding="15dp"/>

@@ -50,7 +50,7 @@
     <string name="roaming_title" msgid="6218635014519017734">"റോമിംഗ്"</string>
     <string name="roaming_summary" msgid="7476127740259728901">"റോമിംഗിൽ ഡാറ്റാ സേവനങ്ങളിലേക്ക് കണ‌ക്റ്റ് ചെയ്യുക"</string>
     <string name="roaming_alert_title" msgid="4433901635766775763">"ഡാറ്റാ റോമിംഗ് അനുവദിക്കണോ?"</string>
-    <string name="roaming_warning" msgid="5313281900566657209">"നിങ്ങളിൽ നിന്ന് നിശ്ചിത നിരക്കുകൾ ഈടാക്കിയേക്കാം."</string>
+    <string name="roaming_warning" msgid="4908184914868720704">"റോമിംഗ് നിരക്കുകൾ ബാധകമായേക്കാം."</string>
     <string name="data_usage_settings" msgid="7877132994777987848">"ഡാറ്റ ഉപയോഗം"</string>
     <string name="data_usage_title" msgid="2923515974389203812">"പ്രാഥമിക ഡാറ്റ"</string>
     <string name="data_used_formatted" msgid="6684557577780068339">"<xliff:g id="ID_1">^1</xliff:g> <xliff:g id="ID_2">^2</xliff:g> ഉപയോഗിച്ചു"</string>
@@ -147,7 +147,7 @@
     <string name="wifi_ap_choose_auto" msgid="3779526909841604566">"സ്വയമേവ"</string>
     <string name="wifi_ap_choose_2G" msgid="6356913773766753502">"2.4 GHz ബാൻഡ്"</string>
     <string name="wifi_ap_choose_5G" msgid="8561440488455528673">"5.0 GHz ബാൻഡ്"</string>
-    <string name="wifi_ap_prefer_5G" msgid="8252845223773871750">"5.0 GHz ബാൻഡ് തിരഞ്ഞെടുത്തു"</string>
+    <string name="wifi_ap_prefer_5G" msgid="8252845223773871750">"5.0 GHz ബാൻഡിന് മുൻഗണന"</string>
     <string name="wifi_ap_2G" msgid="5364135697314262014">"2.4 GHz"</string>
     <string name="wifi_ap_5G" msgid="4945574428537860279">"5.0 GHz"</string>
     <string name="wifi_ap_band_select_one" msgid="615578175244067396">"വൈഫൈ ഹോട്ട്‌സ്‌പോട്ടിനായി ഒരു ബാൻഡ് എങ്കിലും തിരഞ്ഞെടുക്കൂ:"</string>
@@ -199,6 +199,8 @@
     <string name="bluetooth_device_picker" msgid="673238198452345475">"Bluetooth ഉപകരണം തിരഞ്ഞെടുക്കുക"</string>
     <string name="language_settings" msgid="2079258598337245546">"ഭാഷകൾ"</string>
     <string name="languages_and_input_settings" msgid="3672322610529408248">"ഭാഷകളും ഇൻപുട്ടും"</string>
+    <string name="language_picker_list_suggested_header" msgid="7593893806003415948">"നിർദ്ദേശിച്ചത്"</string>
+    <string name="language_picker_list_all_header" msgid="1577387973934368428">"എല്ലാ ഭാഷകളും"</string>
     <string name="keyboard_settings" msgid="1959697870618278081">"കീബോർഡ്"</string>
     <string name="manage_keyboard" msgid="4045394766282200132">"കീബോർഡുകൾ മാനേജ് ചെയ്യുക"</string>
     <string name="text_to_speech_settings" msgid="811985746199507343">"ടെക്‌സ്‌റ്റ് ടു സ്‌പീച്ച് ഔട്ട്‌പുട്ട്"</string>
@@ -283,9 +285,11 @@
     <string name="not_installed" msgid="4218816013370552746">"ഈ ഉപയോക്താവിനായി ഇൻസ്‌റ്റാൾ ചെയ്‌തിട്ടില്ല"</string>
     <string name="permissions_label" msgid="2701446753515612685">"അനുമതികൾ"</string>
     <string name="notifications_label" msgid="6586089149665170731">"അറിയിപ്പുകൾ"</string>
+    <string name="storage_application_label" msgid="5911779903670978586">"സ്‌റ്റോറേജും കാഷെയും"</string>
     <string name="application_version_label" msgid="8556889839783311649">"പതിപ്പ്: %1$s"</string>
     <string name="runtime_permissions_summary_no_permissions_granted" msgid="6001439205270250021">"അനുമതികളൊന്നും അനുവദിച്ചില്ല"</string>
     <string name="runtime_permissions_summary_no_permissions_requested" msgid="4074220596273432442">"അനുമതികളൊന്നും അഭ്യർത്ഥിച്ചില്ല"</string>
+    <string name="storage_type_internal" msgid="8918688427078709570">"ഉള്ളിലെ മെമ്മറിയിൽ %s"</string>
     <string name="data_usage_summary_title" msgid="4368024763485916986">"ഡാറ്റ ഉപയോഗം"</string>
     <string name="data_usage_app_summary_title" msgid="5012851696585421420">"ആപ്പ് ഡാറ്റ ഉപയോഗം"</string>
     <string name="computing_size" msgid="5791407621793083965">"കണക്കാക്കുന്നു…"</string>
@@ -307,7 +311,7 @@
     <string name="assistant_security_warning" msgid="1844807956967428012">"നിങ്ങളുടെ സ്ക്രീനിൽ ദൃശ്യമാകുന്നതോ ആപ്പുകൾക്കുള്ളിൽ ആക്‌സസ് ചെയ്യാവുന്നതോ ആയ വിവരങ്ങൾ ഉൾപ്പെടെ, നിങ്ങളുടെ സിസ്‌റ്റത്തിൽ ഉപയോഗത്തിലുള്ള ആപ്പുകളെ കുറിച്ചുള്ള വിവരങ്ങൾ വായിക്കാൻ അസിസ്‌റ്റൻന്റിനാവും."</string>
     <string name="autofill_confirmation_message" msgid="1832984461556991378">"&lt;b&gt;നിങ്ങൾ ഈ ആപ്പിനെ വിശ്വസിക്കുന്നുണ്ടെന്ന് ഉറപ്പുവരുത്തുക&lt;/b&gt; &lt;br/&gt; &lt;br/&gt; &lt;xliff:g id=app_name example=Google Autofill&gt;%1$s&lt;/xliff:g&gt; സ്വയമേവ പൂരിപ്പിക്കേണ്ടത് എന്താണെന്ന് നിർണ്ണയിക്കുന്നതിന് നിങ്ങളുടെ സ്‌ക്രീനിൽ ഉള്ളത് ഉപയോഗിക്കുന്നു."</string>
     <string name="autofill_add_service" msgid="6413893366443609951">"സേവനം ചേർക്കുക"</string>
-    <string name="app_launch_domain_links_title" msgid="774480184927726651">"ലിങ്കുകൾ തുറക്കുന്നു"</string>
+    <string name="app_launch_domain_links_title" msgid="774480184927726651">"ലിങ്കുകൾ തുറക്കൽ"</string>
     <string name="domain_url_section_title" msgid="9070403140947787214">"ഇൻസ്‌റ്റാൾ ചെയ്‌ത ആപ്പുകൾ"</string>
     <string name="domain_urls_summary_none" msgid="3077803215088293183">"പിന്തുണയ്‌ക്കുന്ന ലിങ്കുകൾ തുറക്കരുത്"</string>
     <string name="domain_urls_summary_one" msgid="5072257421806034237">"<xliff:g id="DOMAIN">%s</xliff:g> തുറക്കുക"</string>
@@ -344,17 +348,13 @@
     <string name="location_settings_recent_requests_title" msgid="6345634382240930628">"അടുത്തിടെയുള്ള ലൊക്കേഷൻ അഭ്യർത്ഥനകൾ"</string>
     <string name="location_settings_recent_requests_empty_message" msgid="7789667070033674910">"അടുത്തിടെയുള്ള ലൊക്കേഷൻ അഭ്യർത്ഥനകളൊന്നുമില്ല"</string>
     <string name="location_settings_app_permissions_title" msgid="6446735313354321564">"ആപ്പ്-തല അനുമതികൾ"</string>
-    <string name="location_settings_scanning_title" msgid="4253945869911300740">"സ്‌കാൻ ചെയ്യുന്നു"</string>
     <string name="location_settings_services_title" msgid="1186133632690970468">"ലൊക്കേഷൻ സേവനങ്ങൾ"</string>
-    <string name="location_settings_wifi_scanning_title" msgid="8021558840074023719">"വൈഫൈ സ്‌കാനിംഗ്"</string>
-    <string name="location_settings_wifi_scanning_summary" msgid="2116283960258671324">"വൈഫൈ ഓഫാണെങ്കിൽ പോലും, ഏതുസമയത്തും വൈഫൈ നെറ്റ്‌വർക്കുകൾ സ്‌കാൻ ചെയ്യാൻ ആപ്പുകളെയും സേവനങ്ങളെയും അനുവദിക്കുക. ഉദാഹരണത്തിന്, ലൊക്കേഷൻ‌ അടിസ്ഥാനമാക്കിയുള്ള ഫീച്ചറുകളും സേവനങ്ങളും മെച്ചപ്പെടുത്താൻ ഇത് ഉപയോഗിക്കാം."</string>
-    <string name="location_settings_bluetooth_scanning_title" msgid="2969682902241932059">"Bluetooth സ്‌കാനിംഗ്"</string>
-    <string name="location_settings_bluetooth_scanning_summary" msgid="9158101751700727062">"Bluetooth ഓഫാണെങ്കിൽ പോലും, ഏതുസമയത്തും അടുത്തുള്ള ഉപകരണങ്ങൾ സ്‌കാൻ ചെയ്യാൻ ആപ്പുകളെയും സേവനങ്ങളെയും അനുവദിക്കുക. ഉദാഹരണത്തിന്, ലൊക്കേഷൻ‌ അടിസ്ഥാനമാക്കിയുള്ള ഫീച്ചറുകളും സേവനങ്ങളും മെച്ചപ്പെടുത്താൻ ഇത് ഉപയോഗിക്കാം."</string>
     <string name="system_setting_title" msgid="6864599341809463440">"സിസ്റ്റം"</string>
     <string name="system_update_settings_title" msgid="8448588267784138855">"സി‌സ്‌റ്റം അപ്‌ഡേറ്റുകൾ"</string>
     <string name="firmware_version" msgid="8491753744549309333">"Android പതിപ്പ്"</string>
     <string name="security_patch" msgid="4794276590178386903">"Android സുരക്ഷാ പാച്ച് നില"</string>
-    <string name="model_info" msgid="4966408071657934452">"മോഡല്‍"</string>
+    <string name="hardware_info" msgid="3973165746261507658">"മോഡലും ഹാർഡ്‌വെയറും"</string>
+    <string name="hardware_info_summary" msgid="8262576443254075921">"മോഡൽ: <xliff:g id="MODEL">%1$s</xliff:g>"</string>
     <string name="baseband_version" msgid="2370088062235041897">"ബെയ്‌സ്‌ബാൻഡ് പതിപ്പ്"</string>
     <string name="kernel_version" msgid="7327212934187011508">"പ്രധാന പതിപ്പ്"</string>
     <string name="build_number" msgid="3997326631001009102">"ബിൽഡ് നമ്പർ"</string>
@@ -378,6 +378,9 @@
     <string name="webview_license_title" msgid="6442372337052056463">"സിസ്‌റ്റം WebView ലൈസൻസുകൾ"</string>
     <string name="wallpaper_attributions" msgid="9201272150014500697">"വാൾപേപ്പറുകൾ"</string>
     <string name="wallpaper_attributions_values" msgid="4292446851583307603">"ഉപഗ്രഹ ഇമേജറി ദാതാക്കൾ:\n©2014 CNES / Astrium, DigitalGlobe, Bluesky"</string>
+    <string name="model_info" msgid="4966408071657934452">"മോഡല്‍"</string>
+    <string name="status_serial_number" msgid="9158889113131907656">"സീരിയൽ നമ്പർ"</string>
+    <string name="hardware_revision" msgid="5713759927934872874">"ഹാർഡ്‌വെയർ പതിപ്പ്"</string>
     <string name="regulatory_info_text" msgid="8890339124198005428"></string>
     <string name="settings_license_activity_title" msgid="8499293744313077709">"മൂന്നാം കക്ഷി ലൈസൻസുകൾ"</string>
     <string name="settings_license_activity_unavailable" msgid="6104592821991010350">"ലൈസൻസുകൾ ലോഡ് ചെയ്യുന്നതിൽ ഒരു പ്രശ്നമുണ്ട്."</string>
@@ -478,12 +481,14 @@
     <string name="user_name_label" msgid="3210832645046206845">"പേര്"</string>
     <string name="user_summary_not_set_up" msgid="1473688119241224145">"സജ്ജീകരിച്ചിട്ടില്ല"</string>
     <string name="edit_user_name_title" msgid="6890782937520262478">"ഉപയോക്തൃ നാമം എഡിറ്റ് ചെയ്യുക"</string>
+    <string name="name_input_blank_error" msgid="2088850865880984123">"ഫീൽഡ് ശൂന്യമായിടരുത്."</string>
+    <string name="name_input_invalid_error" msgid="3523545780580744273">"നൽകിയ ഉപയോക്തൃനാമം അസാധുവാണ്."</string>
     <string name="users_list_title" msgid="770764290290240909">"ഉപയോക്താക്കള്‍"</string>
     <string name="user_details_admin_title" msgid="3530292857178371891">"%1$s-ന് അനുമതികൾ നൽകി"</string>
     <string name="storage_settings_title" msgid="8957054192781341797">"സ്‌റ്റോറേജ്"</string>
     <string name="storage_music_audio" msgid="7827147379976134040">"സംഗീതവും ഓഡിയോയും"</string>
     <string name="storage_other_apps" msgid="945509804756782640">"മറ്റ് ആപ്പുകൾ"</string>
-    <string name="storage_files" msgid="6382081694781340364">"ഫയലുകൾ"</string>
+    <string name="storage_files" msgid="6382081694781340364">"Files"</string>
     <string name="storage_system" msgid="1271345630248014010">"സിസ്‌റ്റം"</string>
     <string name="storage_detail_dialog_system" msgid="796365720531622361">"സിസ്‌റ്റത്തിൽ Android പതിപ്പ് <xliff:g id="VERSION">%s</xliff:g> റൺ ചെയ്യാൻ ഉപയോഗിച്ച ഫയലുകളും ഉൾപ്പെടുന്നു"</string>
     <string name="storage_audio_files_title" msgid="5183170457027181700">"ഓഡിയോ ഫയലുകൾ"</string>
@@ -497,10 +502,12 @@
     <string name="storage_clear_data_dlg_title" msgid="5863775997588969879">"ആപ്പ് ഡാറ്റ ഇല്ലാതാക്കണോ?"</string>
     <string name="storage_clear_data_dlg_text" msgid="795055288575727801">"ഈ ആപ്പിന്‍റെ എല്ലാ ഡാറ്റയും ശാശ്വതമായി ഇല്ലാതാക്കും. ഫയലുകൾ, ക്രമീകരണം, അക്കൗണ്ടുകൾ, ഡാറ്റാബേസുകൾ മുതലായവ ഇതിൽ ഉൾപ്പെടും."</string>
     <string name="storage_clear_failed_dlg_text" msgid="6710485971686866306">"ആപ്പിനായി സ്‌റ്റോറേജ് മായ്‌ക്കാൻ കഴിഞ്ഞില്ല."</string>
+    <string name="storage_unmount_success" msgid="1553591517580407021">"<xliff:g id="NAME">%1$s</xliff:g> സുരക്ഷിതമായി ഇജക്റ്റ് ചെയ്‌തു"</string>
+    <string name="storage_unmount_failure" msgid="4591934911541762883">"<xliff:g id="NAME">%1$s</xliff:g> സുരക്ഷിതമായി ഇജക്റ്റ് ചെയ്യാനായില്ല"</string>
     <string name="accounts_settings_title" msgid="436190037084293471">"അക്കൗണ്ടുകൾ"</string>
     <string name="user_add_account_menu" msgid="6625351983590713721">"അക്കൗണ്ട് ചേർക്കുക"</string>
     <string name="no_accounts_added" msgid="5148163140691096055">"അക്കൗണ്ടുകളൊന്നും ചേർത്തില്ല"</string>
-    <string name="account_list_title" msgid="7631588514613843065">"<xliff:g id="CURRENT_USER_NAME">%1$s</xliff:g> എന്ന ഉപയോക്താവിന്റെ അക്കൗണ്ടുകൾ"</string>
+    <string name="account_list_title" msgid="7631588514613843065">"<xliff:g id="CURRENT_USER_NAME">%1$s</xliff:g> എന്നയാളുടെ അക്കൗണ്ടുകൾ"</string>
     <string name="account_auto_sync_title" msgid="3238816995364191432">"ഡാറ്റ സ്വയമേവ സമന്വയിപ്പിക്കുക"</string>
     <string name="account_auto_sync_summary" msgid="6963837893148304128">"ഡാറ്റ സ്വയമേവ പുതുക്കിയെടുക്കാൻ ആപ്പുകളെ അനുവദിക്കുക"</string>
     <string name="data_usage_auto_sync_on_dialog_title" msgid="6027487764261344033">"ഡാറ്റാ സ്വയം സമന്വയം ഓണാക്കണോ?"</string>
@@ -528,6 +535,7 @@
     <string name="sync_button_sync_now" msgid="5767643057970371315">"ഇപ്പോൾ സമന്വയിപ്പിക്കുക"</string>
     <string name="sync_button_sync_cancel" msgid="7739510554513641393">"സമന്വയിപ്പിക്കൽ റദ്ദാക്കുക"</string>
     <string name="sync_is_failing" msgid="5766255460901806206">"സമന്വയം നിലവിൽ പ്രശ്‌നങ്ങൾ നേരിടുകയാണ്. ഇത് ഉടൻ ശരിയാകും."</string>
+    <string name="privacy_settings_title" msgid="3150145262029229572">"സ്വകാര്യത"</string>
     <string name="security_settings_title" msgid="6955331714774709746">"സുരക്ഷ"</string>
     <string name="security_settings_subtitle" msgid="2244635550239273229">"സ്ക്രീൻ ലോക്ക്"</string>
     <string name="security_lock_none" msgid="1054645093754839638">"ഒന്നുമില്ല"</string>
@@ -618,26 +626,11 @@
     <string name="lockpassword_pin_no_sequential_digits" msgid="38813552228809240">"അക്കങ്ങൾ ആരോഹണ ക്രമത്തിലോ അവരോഹണ ക്രമത്തിലോ അനുക്രമമായോ നൽകുന്നത് അനുവദനീയമല്ല."</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"സ്‌ക്രീൻ ലോക്ക് ഓപ്ഷനുകള്‍"</string>
     <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g> : <xliff:g id="NUM_DAYS">%3$s</xliff:g> ദിവസം മുമ്പ്"</string>
-    <string name="add_device_title" msgid="8452168024017866232">"വിശ്വസ്‌ത ഉപകരണം ചേർക്കുക"</string>
-    <string name="add_device_summary" msgid="5368217520710573302">"വിശ്വസ്‌ത ഉപകരണങ്ങൾ ചേർക്കാൻ Bluetooth ഓണാകും"</string>
-    <string name="trusted_device" msgid="5637378361866787603">"വിശ്വസ്‌ത ഉപകരണങ്ങൾ"</string>
-    <plurals name="trusted_device_subtitle" formatted="false" msgid="462041049834264945">
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g>ഉപകരണങ്ങൾ</item>
-      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> ഉപകരണം</item>
-    </plurals>
-    <string name="remove_device_message" msgid="6447820559674148349">"നിങ്ങളുടെ <xliff:g id="CONNECTED_DEVICE_NAME_0">%1$s</xliff:g> കണക്റ്റ് ചെയ്‌തിരിക്കുമ്പോൾ അത് ഈ കാർ അൺലോക്ക് ചെയ്യും. ആരെങ്കിലും നിങ്ങളുടെ <xliff:g id="CONNECTED_DEVICE_NAME_1">%1$s</xliff:g> എടുക്കുകയാണെങ്കിൽ അവർക്ക് ഈ ഉപകരണം ആക്‌സസ് ചെയ്യാനായേക്കും"</string>
-    <string name="trusted_device_confirm_button" msgid="102354635014627996">"സ്ഥിരീകരിക്കുക"</string>
-    <string name="trusted_device_remove_button" msgid="6140476996063415420">"വിശ്വസ്‌ത ഉപകരണം നീക്കം ചെയ്യുക"</string>
-    <string name="trusted_device_done_button" msgid="8481956533222625296">"ചെയ്‌തു"</string>
-    <string name="add_trusted_device_instruction" msgid="2280382609884918033">"വിശ്വസ്‌ത ഉപകരണം സജ്ജീകരിക്കാൻ സഹകാരി ആപ്പ് ഉപയോഗിക്കുക. ഒരിക്കൽ സജ്ജീകരിച്ചാൽ, വാഹനത്തിനടുത്ത് നിങ്ങളുടെ ഫോൺ കണ്ടെത്തുമ്പോൾ നിങ്ങളുടെ ഉപയോക്തൃ പ്രൊഫൈൽ സ്വയമേവ അൺലോക്ക് ചെയ്യും."</string>
-    <string name="trusted_device_download_app" msgid="6971096140154499983">"1. നിങ്ങളുടെ ഫോണിൽ സഹകാരി ആപ്പ് ഡൗൺലോഡ് ചെയ്യുക"</string>
-    <string name="trusted_device_select_device" msgid="198902765179270739">"2. ഉപകരണങ്ങൾ ജോഡിയാക്കാൻ നിങ്ങളുടെ ഫോണിൽ <xliff:g id="CAR_NAME">%1$s</xliff:g> തിരഞ്ഞെടുക്കുക"</string>
-    <string name="trusted_device_safety_alert" msgid="3834898922112046769">"മറ്റൊരാളുടെ കൈവശം ഉപകരണമുണ്ടെങ്കിൽപ്പോലും നിങ്ങളുടെ കാറിന് സമീപമുള്ള വിശ്വസ്‌ത ഉപകരണം കാർ ഇഗ്‌നിഷനിലാകുമ്പോൾ ഉപയോക്തൃ പ്രൊഫൈൽ അൺലോക്ക് ചെയ്യും."</string>
-    <string name="trusted_device_pairing_code_dialog_title" msgid="8173792468216796873">"ജോടിയാക്കൽ കോഡുകൾ തമ്മിൽ പൊരുത്തമുണ്ടെന്ന് ഉറപ്പാക്കുക"</string>
-    <string name="trusted_device_success_enrollment_toast" msgid="1238468775285575827">"ഫോൺ എൻറോൾ ചെയ്‌തു"</string>
-    <string name="trusted_device_fail_enrollment_toast" msgid="6801324174861209092">"<xliff:g id="DEVICE_NAME">%1$s</xliff:g> എൻറോൾമെന്റ് പരാജയപ്പെട്ടു"</string>
-    <string name="trusted_device_set_authentication_reminder" msgid="5947077589994822305">"ഒരു വിശ്വസ്‌ത ഉപകരണം ചേർക്കുന്നതിന്, അടുത്തതായി ഒരു പരിശോധിച്ചുറപ്പിക്കൽ രീതി നിങ്ങൾ സജ്ജീകരിക്കേണ്ടതുണ്ട്. വിശ്വസ്‌ത ഉപകരണം നിങ്ങളുടെ കൈവശമില്ലെങ്കിൽ, നിങ്ങളുടെ പ്രൊഫൈൽ ആക്‌സസ് ചെയ്യാൻ പരിശോധിച്ചുറപ്പിക്കൽ ആവശ്യമാണ്."</string>
-    <string name="trusted_device_disconnected_toast" msgid="2541862946536880255">"ഉപകരണം വിച്ഛേദിച്ചു."</string>
+    <string name="credentials_reset" msgid="873900550885788639">"ക്രെഡൻഷ്യലുകൾ മായ്ക്കുക"</string>
+    <string name="credentials_reset_summary" msgid="6067911547500459637">"എല്ലാ സർട്ടിഫിക്കറ്റുകളും നീക്കം ചെയ്യുക"</string>
+    <string name="credentials_reset_hint" msgid="3459271621754137661">"എല്ലാ ഉള്ളടക്കങ്ങളും നീക്കം ചെയ്യണോ?"</string>
+    <string name="credentials_erased" msgid="2515915439705550379">"ക്രെഡൻഷ്യൽ സ്റ്റോറേജ് മായ്ച്ചു."</string>
+    <string name="credentials_not_erased" msgid="6118567459076742720">"ക്രെഡൻഷ്യൽ സ്റ്റോറേജ് മായ്ക്കാനായില്ല."</string>
     <string name="forget" msgid="3971143908183848527">"മറക്കുക"</string>
     <string name="connect" msgid="5861699594602380150">"കണക്റ്റ് ചെയ്യുക"</string>
     <string name="disconnect" msgid="6140789953324820336">"വിച്ഛേദിക്കുക"</string>
@@ -653,6 +646,7 @@
     <string name="exit_retail_mode_dialog_body" msgid="8314316171782527301">"ഇത് ഡെമോ അക്കൗണ്ട് ഇല്ലാതാക്കുകയും സിസ്‌റ്റം ഫാക്‌ടറി ഡാറ്റ പുനഃക്രമീകരിക്കുകയും ചെയ്യും. എല്ലാ ഉപയോക്തൃ ഡാറ്റയും നഷ്‌ടമാവും."</string>
     <string name="exit_retail_mode_dialog_confirmation_button_text" msgid="3147249675355968649">"ഡെമോയിൽ നിന്ന് പുറത്തുകടക്കുക"</string>
     <string name="suggestion_dismiss_button" msgid="4539412646977050641">"ഡിസ്‌മിസ് ചെയ്യുക"</string>
-    <string name="restricted_while_driving" msgid="6217369093121968299">"ഡ്രൈവ് ചെയ്യുമ്പോൾ ഫീച്ചർ ലഭ്യമല്ല."</string>
-    <string name="add_user_restricted_while_driving" msgid="6384004350628271556">"ഡ്രൈവ് ചെയ്യുമ്പോൾ ഉപയോക്താവിനെ ചേർക്കാനാവില്ല."</string>
+    <string name="restricted_while_driving" msgid="6587569249519274524">"ഡ്രൈവ് ചെയ്യുമ്പോൾ ഫീച്ചർ ലഭ്യമല്ല"</string>
+    <string name="add_user_restricted_while_driving" msgid="4754946754222453656">"ഡ്രൈവ് ചെയ്യുമ്പോൾ ഉപയോക്താവിനെ ചേർക്കാനാവില്ല"</string>
+    <string name="default_search_query" msgid="3137420627428857068">"തിരയുക"</string>
 </resources>

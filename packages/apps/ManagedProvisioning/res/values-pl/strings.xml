@@ -83,8 +83,10 @@
     <string name="reset" msgid="6467204151306265796">"Zresetuj"</string>
     <string name="cant_set_up_profile" msgid="4341825293970158436">"Nie można skonfigurować profilu"</string>
     <string name="cant_set_up_device" msgid="4120090138983350714">"Nie można skonfigurować urządzenia"</string>
+    <string name="something_went_wrong" msgid="3593223774041784329">"Coś poszło nie tak"</string>
     <string name="couldnt_set_up_device" msgid="5137950404283642302">"Nie można skonfigurować urządzenia. Skontaktuj się z administratorem IT, by uzyskać pomoc."</string>
     <string name="contact_your_admin_for_help" msgid="2009904021552323731">"Jeśli potrzebujesz pomocy, skontaktuj się z administratorem IT"</string>
+    <string name="reset_device" msgid="5483853913241939262">"Zresetuj urządzenie i ponownie spróbuj skonfigurować"</string>
     <string name="device_already_set_up" msgid="507881934487140294">"Urządzenie jest już skonfigurowane"</string>
     <string name="error_wifi" msgid="1850288843966836571">"Nie udało się połączyć z Wi-Fi"</string>
     <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"Na urządzeniu jest włączona ochrona przed zresetowaniem. Skontaktuj się z administratorem IT, aby uzyskać pomoc."</string>
@@ -111,7 +113,7 @@
     <string name="device_owner_info_with_terms_headers" msgid="1254243288669282977">"Organizacja <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> będzie zarządzać tym urządzeniem, monitorować je i dbać o jego bezpieczeństwo. Obowiązują warunki podane na stronach <xliff:g id="TERMS_HEADERS">%2$s</xliff:g>. <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
     <string name="link_isnt_secure_and_cant_be_opened_until_device_setup_finished" msgid="1604497932637832657">"Ten link nie jest bezpieczny i nie można go otworzyć do czasu ukończenia konfiguracji urządzenia: <xliff:g id="LINK_RAW_TEST">%1$s</xliff:g>"</string>
     <string name="contact_device_provider" msgid="2843488903902493030">"Aby dowiedzieć się więcej, skontaktuj się z: <xliff:g id="IT_ADMIN">%1$s</xliff:g>."</string>
-    <string name="if_questions_contact_admin" msgid="3509427015901582047">"Jeśli masz pytania, skontaktuj się z administratorem"</string>
+    <string name="if_questions_contact_admin" msgid="3509427015901582047">"Jeśli masz pytania, skontaktuj się z administratorem IT"</string>
     <string name="setup_isnt_finished_contact_admin" msgid="8849644190723875952">"Nie ukończono konfiguracji. Skontaktuj się z administratorem IT, aby uzyskać pomoc."</string>
     <string name="for_help_contact_admin" msgid="5922538077702487859">"Aby uzyskać pomoc, skontaktuj się z administratorem IT"</string>
     <string name="organization_admin" msgid="5975914478148511290">"Administrator IT"</string>
@@ -161,25 +163,34 @@
     <string name="setup_provisioning_header" msgid="4282483198266806271">"Przygotowuję się do konfiguracji urządzenia służbowego…"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"Konfiguracja aplikacji administratora"</string>
     <string name="set_up_everything_else" msgid="4407706086957916501">"Skonfiguruj resztę"</string>
-    <string name="now_lets_set_up_everything_else" msgid="2905102208584231894">"Skonfigurujmy resztę"</string>
+    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"Dodaj konto osobiste, aby w pełni korzystać ze swojego urządzenia"</string>
+    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"Twój profil do pracy jest już gotowy. Możesz dodać osobiste konto Google, by mieć dostęp do swoich aplikacji i materiałów."</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"To urządzenie należy do Twojej organizacji"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"Do zarządzania tym telefonem i monitorowania go posłuży poniższa aplikacja"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"Przygotowuję się do konfiguracji profilu do pracy…"</string>
-    <string name="work_profile_provisioning_accept_header" msgid="462916780311392444">"Najpierw skonfigurujmy Twój profil do pracy"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Skonfiguruj profil do pracy"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"Aplikacje służbowe znajdują się w profilu do pracy"</string>
     <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"Wstrzymuj aplikacje służbowe, gdy skończysz pracę"</string>
-    <string name="work_profile_provisioning_step_3_header" msgid="7495564624887776704">"Tylko dane z profilu do pracy są widoczne dla Twojego administratora IT"</string>
+    <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"Dane z profilu do pracy są widoczne dla Twojego administratora IT"</string>
     <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"Konfiguruję profil do pracy…"</string>
-    <string name="work_profile_provisioning_summary" msgid="3917907344897144246">"Aplikacje służbowe znajdują się w profilu do pracy. Możesz wstrzymać działanie aplikacji służbowych, gdy skończysz pracę. Tylko dane z profilu do pracy są widoczne dla Twojego administratora IT."</string>
+    <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"Aplikacje do pracy znajdują się w profilu do pracy. Możesz wstrzymać ich działanie, gdy skończysz pracę. Dane z profilu do pracy są widoczne dla Twojego administratora IT."</string>
     <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"Skonfiguruj urządzenie służbowe"</string>
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"Miej aplikacje służbowe zawsze pod ręką"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"To urządzenie nie jest prywatne"</string>
     <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"Twój administrator IT może mieć podgląd Twoich danych i aktywności na tym urządzeniu."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"Konfiguruję urządzenie…"</string>
     <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"Użyj tego urządzenia, by łatwo korzystać z aplikacji służbowych. To urządzenie nie jest prywatne, więc Twój administrator IT może mieć podgląd Twoich danych i aktywności. Aby dowiedzieć się więcej, skontaktuj się z administratorem IT."</string>
+    <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"Aplikacje służbowe znajdują się w profilu służbowym i zarządza nimi administrator"</string>
+    <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"Aplikacje osobiste znajdują się w innym miejscu i są niewidoczne dla aplikacji służbowych"</string>
+    <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"Administrator może zarządzać tym urządzeniem i blokować niektóre aplikacje"</string>
+    <string name="cope_provisioning_summary" msgid="993014104601034878">"Aplikacje do pracy znajdują się w profilu do pracy, a zarządza nimi administrator IT. Aplikacje osobiste znajdują się w innym miejscu i są niewidoczne dla aplikacji do pracy. Administrator IT może zarządzać tym urządzeniem i blokować niektóre aplikacje."</string>
+    <string name="just_a_sec" msgid="6244676028626237220">"Chwileczkę…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"Przypomnienie o prywatności"</string>
     <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"Twój administrator IT może mieć podgląd Twoich danych i aktywności na tym urządzeniu"</string>
     <string name="device_provisioning_finished" msgid="3981783240592092906">"Urządzenie gotowe"</string>
     <string name="done" msgid="7755227776955952318">"Gotowe"</string>
+    <string name="financed_device_screen_header" msgid="7890706080917322376">"To urządzenie zostało zakupione na kredyt od firmy <xliff:g id="CREDITOR_NAME">%1$s</xliff:g>"</string>
+    <string name="creditor_capabilities_header" msgid="6217362648469323253">"Firma <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> może:"</string>
+    <string name="install_creditor_app_description" msgid="6159751782301108878">"zainstalować aplikację <xliff:g id="CREDITOR_NAME">%1$s</xliff:g>, która umożliwia dokonywanie płatności za korzystanie z tego urządzenia;"</string>
+    <string name="lock_device_description" msgid="2940362560732989166">"ograniczyć dostęp do tego urządzenia, jeśli nie dokonasz płatności."</string>
 </resources>

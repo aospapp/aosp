@@ -23,15 +23,16 @@ import android.content.SyncAdapterType;
 import android.content.SyncStatusObserver;
 import android.os.Bundle;
 import android.os.UserHandle;
-import android.widget.Button;
 
-import androidx.annotation.LayoutRes;
 import androidx.annotation.XmlRes;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.SettingsFragment;
+import com.android.car.ui.toolbar.MenuItem;
 import com.android.settingslib.utils.ThreadUtils;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -42,6 +43,7 @@ public class AccountSyncDetailsFragment extends SettingsFragment {
     private static final String EXTRA_USER_HANDLE = "extra_user_handle";
     private boolean mIsStarted = false;
     private Object mStatusChangeListenerHandle;
+    private MenuItem mSyncButton;
     private SyncStatusObserver mSyncStatusObserver =
             which -> ThreadUtils.postOnMainThread(() -> {
                 // The observer call may occur even if the fragment hasn't been started, so
@@ -72,9 +74,16 @@ public class AccountSyncDetailsFragment extends SettingsFragment {
     }
 
     @Override
-    @LayoutRes
-    protected int getActionBarLayoutId() {
-        return R.layout.action_bar_with_button;
+    public List<MenuItem> getToolbarMenuItems() {
+        return Collections.singletonList(mSyncButton);
+    }
+
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        mSyncButton = new MenuItem.Builder(getContext()).build();
+        updateSyncButton();
     }
 
     @Override
@@ -123,24 +132,18 @@ public class AccountSyncDetailsFragment extends SettingsFragment {
     }
 
     private void updateSyncButton() {
-        // Set the action button to either request or cancel sync, depending on the current state
-        Button syncButton = requireActivity().findViewById(R.id.action_button1);
-
+        // Set the button to either request or cancel sync, depending on the current state
         UserHandle userHandle = getArguments().getParcelable(EXTRA_USER_HANDLE);
         boolean hasActiveSyncs = !ContentResolver.getCurrentSyncsAsUser(
                 userHandle.getIdentifier()).isEmpty();
 
         // If there are active syncs, clicking the button with cancel them. Otherwise, clicking the
         // button will start them.
-        syncButton.setText(
+        mSyncButton.setTitle(
                 hasActiveSyncs ? R.string.sync_button_sync_cancel : R.string.sync_button_sync_now);
-        syncButton.setOnClickListener(v -> {
-            if (hasActiveSyncs) {
-                cancelSyncForEnabledProviders();
-            } else {
-                requestSyncForEnabledProviders();
-            }
-        });
+        mSyncButton.setOnClickListener(hasActiveSyncs
+                ? i -> cancelSyncForEnabledProviders()
+                : i -> requestSyncForEnabledProviders());
     }
 
     private void requestSyncForEnabledProviders() {

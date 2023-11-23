@@ -30,6 +30,7 @@ public class PickResult implements android.os.Parcelable {
     private @MetricConsts.Root int mRoot;
     private @MetricConsts.Mime int mMimeType;
     private int mRepeatedPickTimes;
+    private boolean mHasCrossProfileUri;
 
     // only used for single-select case to get the mRepeatedPickTimes and mMimeType
     private Uri mFileUri;
@@ -185,6 +186,14 @@ public class PickResult implements android.os.Parcelable {
      */
     public void setFileUri(Uri fileUri) {
         this.mFileUri = fileUri;
+    }
+
+    public boolean hasCrossProfileUri() {
+        return mHasCrossProfileUri;
+    }
+
+    public void setHasCrossProfileUri(boolean hasCrossProfileUri) {
+        mHasCrossProfileUri = hasCrossProfileUri;
     }
 
     @Override

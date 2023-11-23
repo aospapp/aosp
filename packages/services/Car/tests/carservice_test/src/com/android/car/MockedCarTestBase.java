@@ -15,17 +15,22 @@
  */
 package com.android.car;
 
-import static com.android.dx.mockito.inline.extended.ExtendedMockito.spyOn;
+import static com.android.dx.mockito.inline.extended.ExtendedMockito.mockitoSession;
 
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.fail;
-import static org.mockito.Mockito.doReturn;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
 
 import android.car.Car;
 import android.car.test.CarTestManager;
 import android.car.test.CarTestManagerBinderWrapper;
+import android.car.user.CarUserManager.UserLifecycleListener;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.ContextWrapper;
+import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.res.Resources;
 import android.hardware.automotive.vehicle.V2_0.VehiclePropValue;
@@ -35,13 +40,15 @@ import android.os.Binder;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.os.UserHandle;
 import android.util.Log;
 import android.util.SparseArray;
 
-import androidx.test.InstrumentationRegistry;
 import androidx.test.annotation.UiThreadTest;
+import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.android.car.pm.CarPackageManagerService;
+import com.android.car.systeminterface.ActivityManagerInterface;
 import com.android.car.systeminterface.DisplayInterface;
 import com.android.car.systeminterface.IOInterface;
 import com.android.car.systeminterface.StorageMonitoringInterface;
@@ -51,19 +58,25 @@ import com.android.car.systeminterface.SystemStateInterface;
 import com.android.car.systeminterface.TimeInterface;
 import com.android.car.systeminterface.WakeLockInterface;
 import com.android.car.test.utils.TemporaryDirectory;
+import com.android.car.user.CarUserService;
 import com.android.car.vehiclehal.test.MockedVehicleHal;
 import com.android.car.vehiclehal.test.MockedVehicleHal.DefaultPropertyHandler;
 import com.android.car.vehiclehal.test.MockedVehicleHal.StaticPropertyHandler;
 import com.android.car.vehiclehal.test.MockedVehicleHal.VehicleHalPropertyHandler;
 import com.android.car.vehiclehal.test.VehiclePropConfigBuilder;
+import com.android.car.watchdog.CarWatchdogService;
 
 import org.junit.After;
 import org.junit.Before;
+import org.mockito.MockitoSession;
+import org.mockito.quality.Strictness;
 
 import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -72,25 +85,29 @@ import java.util.Map;
  * per test set up that should be done before starting.
  */
 public class MockedCarTestBase {
-    private static final String TAG = MockedCarTestBase.class.getSimpleName();
     static final long DEFAULT_WAIT_TIMEOUT_MS = 3000;
     static final long SHORT_WAIT_TIMEOUT_MS = 500;
+    private static final String TAG = MockedCarTestBase.class.getSimpleName();
+    private static final IBinder sCarServiceToken = new Binder();
+    private static boolean sRealCarServiceReleased;
 
     private Car mCar;
     private ICarImpl mCarImpl;
     private MockedVehicleHal mMockedVehicleHal;
     private SystemInterface mFakeSystemInterface;
     private MockResources mResources;
+    private MockedCarTestContext mMockedCarTestContext;
+
+    private final List<UserLifecycleListener> mUserLifecycleListeners = new ArrayList<>();
+    private final CarUserService mCarUserService = mock(CarUserService.class);
     private final MockIOInterface mMockIOInterface = new MockIOInterface();
-
     private final Handler mMainHandler = new Handler(Looper.getMainLooper());
-
     private final Map<VehiclePropConfigBuilder, VehicleHalPropertyHandler> mHalConfig =
             new HashMap<>();
     private final SparseArray<VehiclePropConfigBuilder> mPropToConfigBuilder = new SparseArray<>();
+    private final CarWatchdogService mCarWatchdogService = mock(CarWatchdogService.class);
 
-    private static final IBinder mCarServiceToken = new Binder();
-    private static boolean mRealCarServiceReleased = false;
+    private MockitoSession mSession;
 
     protected synchronized MockedVehicleHal createMockedVehicleHal() {
         return new MockedVehicleHal();
@@ -107,9 +124,13 @@ public class MockedCarTestBase {
     protected synchronized void configureMockedHal() {
     }
 
+    protected synchronized void spyOnBeforeCarImplInit() {
+    }
+
     protected synchronized SystemInterface.Builder getSystemInterfaceBuilder() {
         return Builder.newSystemInterface()
                 .withSystemStateInterface(new MockSystemStateInterface())
+                .withActivityManagerInterface(new MockActivityManagerInterface())
                 .withDisplayInterface(new MockDisplayInterface())
                 .withIOInterface(mMockIOInterface)
                 .withStorageMonitoringInterface(new MockStorageMonitoringInterface())
@@ -122,14 +143,24 @@ public class MockedCarTestBase {
     protected synchronized void configureResourceOverrides(MockResources resources) {
         resources.overrideResource(com.android.car.R.string.instrumentClusterRendererService, "");
         resources.overrideResource(com.android.car.R.bool.audioUseDynamicRouting, false);
+        resources.overrideResource(com.android.car.R.array.config_earlyStartupServices,
+                new String[0]);
     }
 
-    protected Context getContext() {
-        return InstrumentationRegistry.getTargetContext();
+    protected synchronized Context getContext() {
+        if (mMockedCarTestContext == null) {
+            mMockedCarTestContext = createMockedCarTestContext(
+                    InstrumentationRegistry.getInstrumentation().getTargetContext());
+        }
+        return mMockedCarTestContext;
+    }
+
+    protected MockedCarTestContext createMockedCarTestContext(Context context) {
+        return new MockedCarTestContext(context);
     }
 
     protected Context getTestContext() {
-        return InstrumentationRegistry.getContext();
+        return InstrumentationRegistry.getInstrumentation().getContext();
     }
 
     protected String getFlattenComponent(Class cls) {
@@ -137,10 +168,21 @@ public class MockedCarTestBase {
         return cn.flattenToString();
     }
 
+    /** Child class should override this to configure mocking in different way */
+    protected MockitoSession createMockingSession() {
+        return mockitoSession()
+                .initMocks(this)
+                .strictness(Strictness.LENIENT)
+                .startMocking();
+    }
+
     @Before
     @UiThreadTest
     public void setUp() throws Exception {
         Log.i(TAG, "setUp");
+
+        mSession = createMockingSession();
+
         releaseRealCarService(getContext());
 
         mMockedVehicleHal = createMockedVehicleHal();
@@ -149,61 +191,94 @@ public class MockedCarTestBase {
         mFakeSystemInterface = getSystemInterfaceBuilder().build();
         configureFakeSystemInterface();
 
-        Context context = getCarServiceContext();
-        spyOn(context);
-        mResources = new MockResources(context.getResources());
-        configureResourceOverrides(mResources);
-        doReturn(mResources).when(context).getResources();
+        mMockedCarTestContext = (MockedCarTestContext) getContext();
+        configureResourceOverrides((MockResources) mMockedCarTestContext.getResources());
+
+        doAnswer((invocation) -> {
+            UserLifecycleListener listener = invocation.getArgument(0);
+            Log.d(TAG, "Adding UserLifecycleListener: " + listener);
+            mUserLifecycleListeners.add(listener);
+            return null;
+        }).when(mCarUserService).addUserLifecycleListener(any());
+
+        doAnswer((invocation) -> {
+            UserLifecycleListener listener = invocation.getArgument(0);
+            Log.d(TAG, "Removing UserLifecycleListener: " + listener);
+            mUserLifecycleListeners.remove(listener);
+            return null;
+        }).when(mCarUserService).removeUserLifecycleListener(any());
 
         // ICarImpl will register new CarLocalServices services.
         // This prevents one test failure in tearDown from triggering assertion failure for single
         // CarLocalServices service.
         CarLocalServices.removeAllServices();
-        ICarImpl carImpl = new ICarImpl(context, mMockedVehicleHal, mFakeSystemInterface,
-                null /* error notifier */, "MockedCar");
 
-        initMockedHal(carImpl, false /* no need to release */);
-        mCarImpl = carImpl;
+        // This should be done here as feature property is accessed inside the constructor.
+        initMockedHal();
+        mCarImpl = new ICarImpl(mMockedCarTestContext, mMockedVehicleHal, mFakeSystemInterface,
+                /* errorNotifier= */ null , "MockedCar", mCarUserService, mCarWatchdogService);
 
-        mCar = new Car(context, mCarImpl, null /* handler */);
+        spyOnBeforeCarImplInit();
+        mCarImpl.init();
+        mCar = new Car(mMockedCarTestContext, mCarImpl, null /* handler */);
     }
 
     @After
+    @UiThreadTest
     public void tearDown() throws Exception {
-        if (mCar != null) {
-            mCar.disconnect();
+        Log.i(TAG, "tearDown");
+
+        try {
+            if (mCar != null) {
+                mCar.disconnect();
+                mCar = null;
+            }
+            if (mCarImpl != null) {
+                mCarImpl.release();
+                mCarImpl = null;
+            }
+            CarServiceUtils.finishAllHandlerTasks();
+            if (mMockIOInterface != null) {
+                mMockIOInterface.tearDown();
+            }
+            mMockedVehicleHal = null;
+        } finally {
+            if (mSession != null) {
+                mSession.finishMocking();
+            }
         }
-        if (mCarImpl != null) {
-            mCarImpl.release();
-        }
-        if (mMockIOInterface != null) {
-            mMockIOInterface.tearDown();
-        }
+    }
+
+    public CarPropertyService getCarPropertyService() {
+        return (CarPropertyService) mCarImpl.getCarService(Car.PROPERTY_SERVICE);
+    }
+
+    public void injectErrorEvent(int propId, int areaId, int errorCode) {
+        mMockedVehicleHal.injectError(errorCode, propId, areaId);
+    }
+
+    /**
+     * Creates new Car instance for testing.
+     */
+    public Car createNewCar() {
+        return new Car(mMockedCarTestContext, mCarImpl, null /* handler */);
     }
 
     public CarPackageManagerService getPackageManagerService() {
         return (CarPackageManagerService) mCarImpl.getCarService(Car.PACKAGE_SERVICE);
     }
 
-    protected Context getCarServiceContext() {
-        return getContext();
-    }
-
     protected synchronized void reinitializeMockedHal() throws Exception {
-        initMockedHal(mCarImpl, true /* release */);
+        mCarImpl.release();
+        initMockedHal();
     }
 
-    private synchronized void initMockedHal(ICarImpl carImpl, boolean release) throws Exception {
-        if (release) {
-            carImpl.release();
-        }
-
+    private synchronized void initMockedHal() throws Exception {
         for (Map.Entry<VehiclePropConfigBuilder, VehicleHalPropertyHandler> entry
                 : mHalConfig.entrySet()) {
             mMockedVehicleHal.addProperty(entry.getKey().build(), entry.getValue());
         }
         mHalConfig.clear();
-        carImpl.init();
     }
 
     protected synchronized VehiclePropConfigBuilder addProperty(int propertyId,
@@ -255,17 +330,16 @@ public class MockedCarTestBase {
 
     /*
      * In order to eliminate interfering with real car service we will disable it. It will be
-     * enabled back in CarTestService when mCarServiceToken will go away (tests finish).
+     * enabled back in CarTestService when sCarServiceToken will go away (tests finish).
      */
     private synchronized static void releaseRealCarService(Context context) throws Exception {
-        if (mRealCarServiceReleased) {
+        if (sRealCarServiceReleased) {
             return;  // We just want to release it once.
         }
-
-        mRealCarServiceReleased = true;  // To make sure it was called once.
+        sRealCarServiceReleased = true;  // To make sure it was called once.
 
         Object waitForConnection = new Object();
-        android.car.Car car = android.car.Car.createCar(context, new ServiceConnection() {
+        Car car = android.car.Car.createCar(context, new ServiceConnection() {
             @Override
             public void onServiceConnected(ComponentName name, IBinder service) {
                 synchronized (waitForConnection) {
@@ -287,11 +361,18 @@ public class MockedCarTestBase {
         if (car.isConnected()) {
             Log.i(TAG, "Connected to real car service");
             CarTestManagerBinderWrapper binderWrapper =
-                    (CarTestManagerBinderWrapper) car.getCarManager(android.car.Car.TEST_SERVICE);
+                    (CarTestManagerBinderWrapper) car.getCarManager(Car.TEST_SERVICE);
             assertNotNull(binderWrapper);
 
-            CarTestManager mgr = new CarTestManager(binderWrapper.binder);
-            mgr.stopCarService(mCarServiceToken);
+            CarTestManager mgr = new CarTestManager(car, binderWrapper.binder);
+            mgr.stopCarService(sCarServiceToken);
+        }
+    }
+
+    static final class MockActivityManagerInterface implements ActivityManagerInterface {
+        @Override
+        public void sendBroadcastAsUser(Intent intent, UserHandle user) {
+            Log.d(TAG, "Broadcast intent: " + intent.getAction() + " as user: " + user);
         }
     }
 
@@ -311,9 +392,6 @@ public class MockedCarTestBase {
 
         @Override
         public void refreshDisplayBrightness() {}
-
-        @Override
-        public void reconfigureSecondaryDisplays() {}
     }
 
     static final class MockIOInterface implements IOInterface {
@@ -340,6 +418,29 @@ public class MockedCarTestBase {
                     Log.w(TAG, "could not remove temporary directory", e);
                 }
             }
+        }
+    }
+
+    /**
+     * Special version of {@link ContextWrapper} that overrides {@method getResources} by returning
+     * a {@link MockResources}, so tests are free to set resources. This class represents an
+     * alternative of using Mockito spy (see b/148240178).
+     *
+     * Tests may specialize this class. If they decide so, then they are required to override
+     * {@method newMockedCarContext} to provide their own context.
+     */
+    protected static class MockedCarTestContext extends ContextWrapper {
+
+        private final Resources mMockedResources;
+
+        MockedCarTestContext(Context base) {
+            super(base);
+            mMockedResources = new MockResources(base.getResources());
+        }
+
+        @Override
+        public Resources getResources() {
+            return mMockedResources;
         }
     }
 
@@ -435,5 +536,4 @@ public class MockedCarTestBase {
         @Override
         public void switchToFullWakeLock() {}
     }
-
 }

@@ -37,7 +37,6 @@ import androidx.preference.Preference;
 import androidx.preference.PreferenceGroup;
 import androidx.preference.SwitchPreference;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.common.ConfirmationDialogFragment;
 import com.android.car.settings.common.LogicalPreferenceGroup;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
@@ -48,6 +47,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadow.api.Shadow;
@@ -56,7 +56,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 @Config(shadows = {ShadowInputMethodManager.class, ShadowDevicePolicyManager.class})
 public class KeyboardManagementPreferenceControllerTest {
     private static final String DUMMY_LABEL = "dummy label";
@@ -185,6 +185,17 @@ public class KeyboardManagementPreferenceControllerTest {
     }
 
     @Test
+    public void refreshUi_skipVoiceTyping() {
+        List<InputMethodInfo> infos =
+                createInputMethodInfoList(InputMethodUtil.GOOGLE_VOICE_TYPING);
+        getShadowInputMethodManager(mContext).setInputMethodList(infos);
+
+        mControllerHelper.getController().refreshUi();
+
+        assertThat(mPreferenceGroup.getPreferenceCount()).isEqualTo(0);
+    }
+
+    @Test
     public void refreshUi_verifyPreferenceIcon() {
         getShadowDevicePolicyManager(mContext).setPermittedInputMethodsForCurrentUser(null);
         List<InputMethodInfo> infos = createInputMethodInfoList(ALLOWED_PACKAGE_NAME,
@@ -272,6 +283,18 @@ public class KeyboardManagementPreferenceControllerTest {
 
         assertThat(((SwitchPreference) mPreferenceGroup.getPreference(0)).isChecked())
                 .isFalse();
+    }
+
+    @Test
+    public void refreshUi_oneInputMethod_defaultable_notChecked_preferenceEnabled() {
+        getShadowDevicePolicyManager(mContext).setPermittedInputMethodsForCurrentUser(null);
+        getShadowInputMethodManager(mContext).setInputMethodList(createInputMethodInfoList(
+                ALLOWED_PACKAGE_NAME, DUMMY_ID_DEFAULTABLE_NOT_DIRECT_BOOT_AWARE));
+        getShadowInputMethodManager(mContext).setEnabledInputMethodList(new ArrayList<>());
+
+        mControllerHelper.getController().refreshUi();
+
+        assertThat(mPreferenceGroup.getPreference(0).isEnabled()).isTrue();
     }
 
     @Test

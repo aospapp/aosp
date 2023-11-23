@@ -20,7 +20,9 @@ import android.content.Context;
 import android.support.annotation.VisibleForTesting;
 import android.util.Log;
 import android.util.Pair;
+
 import com.android.tv.data.api.Channel;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -127,7 +129,7 @@ public class Recommender implements RecommendationDataManager.Listener {
                 }
             }
             if (!mIncludeRecommendedOnly || maxScore != Evaluator.NOT_RECOMMENDED) {
-                records.add(new Pair<>(cr.getChannel(), maxScore));
+                records.add(Pair.create(cr.getChannel(), maxScore));
             }
         }
         if (size > records.size()) {

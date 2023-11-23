@@ -19,14 +19,18 @@ import static junit.framework.TestCase.fail;
 
 import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import android.content.ContentResolver;
 import android.provider.Settings.Secure;
+
 import androidx.annotation.Nullable;
 
 import com.android.customization.model.CustomizationManager.Callback;
-
 import com.android.customization.module.ThemesUserEventLogger;
+
+import org.json.JSONException;
+import org.json.JSONObject;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -39,11 +43,15 @@ import org.robolectric.RuntimeEnvironment;
 public class ClockManagerTest {
 
     private static final String CLOCK_ID = "id";
+    private static final String CLOCK_FIELD = "clock";
+    private static final String CLOCK_FACE_SETTING = "fake_clock_face_setting";
 
     @Mock ClockProvider mProvider;
     @Mock ThemesUserEventLogger mLogger;
     private ContentResolver mContentResolver;
     private ClockManager mManager;
+    @Mock private Clockface mMockClockface;
+    @Mock private Callback mMockCallback;
 
     @Before
     public void setUp() {
@@ -53,7 +61,7 @@ public class ClockManagerTest {
     }
 
     @Test
-    public void testApply() {
+    public void testApply() throws JSONException {
         Clockface clock = new Clockface.Builder().setId(CLOCK_ID).build();
 
         mManager.apply(clock, new Callback() {
@@ -69,16 +77,56 @@ public class ClockManagerTest {
         });
 
         // THEN the clock id is written to secure settings.
-        assertEquals(CLOCK_ID, Secure.getString(mContentResolver, ClockManager.CLOCK_FACE_SETTING));
+        JSONObject json =
+                new JSONObject(Secure.getString(mContentResolver, ClockManager.CLOCK_FACE_SETTING));
+        assertEquals(CLOCK_ID, json.getString(CLOCK_FIELD));
         // AND the event is logged
         verify(mLogger).logClockApplied(clock);
     }
 
     @Test
-    public void testGetCurrentClock() {
-        // GIVEN that secure settings contains a clock id
-        Secure.putString(mContentResolver, ClockManager.CLOCK_FACE_SETTING, CLOCK_ID);
-        // THEN the current clock is that id
+    public void testApply_whenJSONExceptionOccurs_callsOnError() {
+        when(mMockClockface.getId()).thenThrow(JSONException.class);
+
+        mManager.apply(mMockClockface, mMockCallback);
+
+        verify(mMockCallback).onError(null);
+    }
+
+    @Test
+    public void testGetCurrentClock_returnsClockId() throws JSONException {
+        // Secure settings contains a clock id
+        JSONObject json = new JSONObject().put(CLOCK_FIELD, CLOCK_ID);
+        Secure.putString(mContentResolver, ClockManager.CLOCK_FACE_SETTING, json.toString());
+
+        // The current clock is that id
         assertEquals(CLOCK_ID, mManager.getCurrentClock());
+    }
+
+    @Test
+    public void testGetCurrentClock_whenJSONExceptionOccurs_returnsClockFaceSetting() {
+        // Secure settings contains a clock face setting with invalid format to cause JSONException.
+        Secure.putString(mContentResolver, ClockManager.CLOCK_FACE_SETTING, CLOCK_FACE_SETTING);
+
+        // The current clock is the clock face setting which is saved in secure settings.
+        assertEquals(CLOCK_FACE_SETTING, mManager.getCurrentClock());
+    }
+
+    @Test
+    public void testGetCurrentClock_withNullIdInSecureSettings_returnsNullId() {
+        // Secure settings contains a null clock id
+        Secure.putString(mContentResolver, ClockManager.CLOCK_FACE_SETTING, /* value= */ null);
+
+        // The current clock is null
+        assertEquals(null, mManager.getCurrentClock());
+    }
+
+    @Test
+    public void testGetCurrentClock_withEmptyIdInSecureSettings_returnsEmptyId() {
+        // Secure settings contains an empty clock id
+        Secure.putString(mContentResolver, ClockManager.CLOCK_FACE_SETTING, /* value= */ "");
+
+        // The current clock is empty
+        assertEquals("", mManager.getCurrentClock());
     }
 }

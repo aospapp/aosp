@@ -20,10 +20,11 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <com.android.car.apps.common.widget.PagedRecyclerView
+    <com.android.car.ui.recyclerview.CarUiRecyclerView
         android:id="@+id/list"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:layout_alignParentTop="true"
         android:layout_above="@+id/build_info"/>
 
     <TextView

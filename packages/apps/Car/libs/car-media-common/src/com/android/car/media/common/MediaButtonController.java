@@ -35,6 +35,7 @@ import androidx.annotation.Nullable;
 import androidx.lifecycle.LifecycleOwner;
 
 import com.android.car.apps.common.CarControlBar;
+import com.android.car.apps.common.CommonFlags;
 import com.android.car.apps.common.ControlBar;
 import com.android.car.media.common.playback.PlaybackViewModel;
 import com.android.car.media.common.source.MediaSourceColors;
@@ -52,18 +53,17 @@ import java.util.stream.Collectors;
 public class MediaButtonController {
 
     private static final String TAG = "MediaButton";
-    private static final float ALPHA_ENABLED = 1.0F;
-    private static final float ALPHA_DISABLED = 0.5F;
 
     private Context mContext;
     private PlayPauseStopImageView mPlayPauseStopImageView;
     private View mPlayPauseStopImageContainer;
-    private ProgressBar mSpinner;
+    private ProgressBar mCircularProgressBar;
     private ImageButton mSkipPrevButton;
     private ImageButton mSkipNextButton;
     private ColorStateList mIconsColor;
     private boolean mSkipNextAdded;
     private boolean mSkipPrevAdded;
+    private boolean mShowCircularProgressBar;
 
     private PlaybackViewModel mModel;
     private PlaybackViewModel.PlaybackController mController;
@@ -80,11 +80,14 @@ public class MediaButtonController {
         mPlayPauseStopImageContainer.setOnClickListener(this::onPlayPauseStopClicked);
         mPlayPauseStopImageView = mPlayPauseStopImageContainer.findViewById(R.id.play_pause_stop);
         mPlayPauseStopImageView.setVisibility(View.INVISIBLE);
-        mSpinner = mPlayPauseStopImageContainer.findViewById(R.id.spinner);
-        mSpinner.setVisibility(View.INVISIBLE);
+        mPlayPauseStopImageView.setFocusedByDefault(true);
+        mCircularProgressBar = mPlayPauseStopImageContainer.findViewById(
+                R.id.circular_progress_bar);
         mPlayPauseStopImageView.setAction(PlayPauseStopImageView.ACTION_DISABLED);
         mPlayPauseStopImageView.setOnClickListener(this::onPlayPauseStopClicked);
 
+        mShowCircularProgressBar = context.getResources().getBoolean(
+                R.bool.show_circular_progress_bar);
         mIconsColor = context.getResources().getColorStateList(iconColorsId, null);
 
         mSkipPrevButton = createIconButton(context.getDrawable(skipPrevButtonId));
@@ -135,7 +138,7 @@ public class MediaButtonController {
 
     private ImageButton createIconButton(Drawable icon) {
         ImageButton button = mControlBar.createIconButton(icon);
-        boolean flagInvalidArt = MediaItemMetadata.flagInvalidMediaArt(mContext);
+        boolean flagInvalidArt = CommonFlags.getInstance(mContext).shouldFlagImproperImageRefs();
         if (flagInvalidArt && !(icon instanceof VectorDrawable)) {
             button.setImageTintList(
                     ColorStateList.valueOf(MediaItemMetadata.INVALID_MEDIA_ART_TINT_COLOR));
@@ -150,7 +153,10 @@ public class MediaButtonController {
 
         boolean hasState = (state != null);
         mPlayPauseStopImageView.setAction(convertMainAction(state));
-        mSpinner.setVisibility(hasState && state.isLoading() ? View.VISIBLE : View.INVISIBLE);
+        boolean isLoading = hasState && state.isLoading();
+        mCircularProgressBar.setVisibility(
+                isLoading || mShowCircularProgressBar ? View.VISIBLE : View.INVISIBLE);
+        mCircularProgressBar.setIndeterminate(isLoading);
 
         // If prev/next is reserved, but not enabled, the icon is displayed as disabled (inactive
         // or grayed out). For example some apps only allow a certain number of skips in a given
@@ -168,12 +174,6 @@ public class MediaButtonController {
             mControlBar.setView(null, ControlBar.SLOT_LEFT);
             mSkipPrevAdded = false;
         }
-
-        if (skipPreviousEnabled) {
-            mSkipPrevButton.setAlpha(ALPHA_ENABLED);
-        } else {
-            mSkipPrevButton.setAlpha(ALPHA_DISABLED);
-        }
         mSkipPrevButton.setEnabled(skipPreviousEnabled);
 
         boolean skipNextReserved = hasState && state.isSkipNextReserved();
@@ -187,12 +187,6 @@ public class MediaButtonController {
         } else {
             mControlBar.setView(null, ControlBar.SLOT_RIGHT);
             mSkipNextAdded = false;
-        }
-
-        if (skipNextEnabled) {
-            mSkipNextButton.setAlpha(ALPHA_ENABLED);
-        } else {
-            mSkipNextButton.setAlpha(ALPHA_DISABLED);
         }
         mSkipNextButton.setEnabled(skipNextEnabled);
 
@@ -219,7 +213,7 @@ public class MediaButtonController {
 
     private void updateSpinerColors(MediaSourceColors colors) {
         int color = getMediaSourceColor(colors);
-        mSpinner.setIndeterminateTintList(ColorStateList.valueOf(color));
+        mCircularProgressBar.setIndeterminateTintList(ColorStateList.valueOf(color));
     }
 
     private int getMediaSourceColor(@Nullable MediaSourceColors colors) {

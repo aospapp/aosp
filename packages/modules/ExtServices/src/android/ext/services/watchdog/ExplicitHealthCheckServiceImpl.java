@@ -20,16 +20,20 @@ import static android.service.watchdog.ExplicitHealthCheckService.PackageConfig;
 
 import android.content.ComponentName;
 import android.content.Intent;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.provider.DeviceConfig;
 import android.service.watchdog.ExplicitHealthCheckService;
 import android.util.Log;
+
+import androidx.annotation.VisibleForTesting;
 
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Routes explicit health check requests to the appropriate {@link ExplicitHealthChecker}.
@@ -41,10 +45,11 @@ public final class ExplicitHealthCheckServiceImpl extends ExplicitHealthCheckSer
             "android.net.INetworkStackConnector";
     public static final String PROPERTY_WATCHDOG_REQUEST_TIMEOUT_MILLIS =
             "watchdog_request_timeout_millis";
-    public static final long DEFAULT_REQUEST_TIMEOUT_MILLIS =
-            TimeUnit.HOURS.toMillis(1);
+    // TODO(b/153701690): Use TimeUnit class to get time information instead of using constant.
+    public static final long DEFAULT_REQUEST_TIMEOUT_MILLIS = 24 * 60 * 60 * 1000; // 1 day
     // Modified only #onCreate, using concurrent collection to ensure thread visibility
-    private final Map<String, ExplicitHealthChecker> mSupportedCheckers = new ConcurrentHashMap<>();
+    @VisibleForTesting
+    final Map<String, ExplicitHealthChecker> mSupportedCheckers = new ConcurrentHashMap<>();
 
     @Override
     public void onCreate() {
@@ -110,8 +115,8 @@ public final class ExplicitHealthCheckServiceImpl extends ExplicitHealthCheckSer
     }
 
     private void initHealthCheckers() {
-        Intent intent = new Intent(NETWORK_STACK_CONNECTOR_CLASS);
-        ComponentName comp = intent.resolveSystemService(getPackageManager(), 0);
+        ComponentName comp = resolveSystemService(new Intent(NETWORK_STACK_CONNECTOR_CLASS),
+                getPackageManager(), 0);
         if (comp != null) {
             String networkStackPackageName = comp.getPackageName();
             mSupportedCheckers.put(networkStackPackageName,
@@ -121,5 +126,27 @@ public final class ExplicitHealthCheckServiceImpl extends ExplicitHealthCheckSer
             // The network stack will live in system_server process, so no need to monitor.
             Log.i(TAG, "Network stack module not found");
         }
+    }
+
+    private ComponentName resolveSystemService(Intent intent, PackageManager pm, int flags) {
+        List<ResolveInfo> results =  pm.queryIntentServices(intent, flags);
+        if (results == null) {
+            return null;
+        }
+        ComponentName comp = null;
+        for (int i=0; i<results.size(); i++) {
+            ResolveInfo ri = results.get(i);
+            if ((ri.serviceInfo.applicationInfo.flags & ApplicationInfo.FLAG_SYSTEM) == 0) {
+                continue;
+            }
+            ComponentName foundComp = new ComponentName(ri.serviceInfo.applicationInfo.packageName,
+                    ri.serviceInfo.name);
+            if (comp != null) {
+                throw new IllegalStateException("Multiple system services handle " + this
+                        + ": " + comp + ", " + foundComp);
+            }
+            comp = foundComp;
+        }
+        return comp;
     }
 }

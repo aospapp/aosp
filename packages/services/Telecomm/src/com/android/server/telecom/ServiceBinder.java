@@ -120,7 +120,8 @@ public abstract class ServiceBinder {
         public void binderDied() {
             try {
                 synchronized (mLock) {
-                    Log.startSession("SDR.bD");
+                    Log.startSession("SDR.bD",
+                            Log.getPackageAbbreviation(mComponentName));
                     Log.i(this, "binderDied: ConnectionService %s died.", mComponentName);
                     logServiceDisconnected("binderDied");
                     handleDisconnect();
@@ -144,7 +145,7 @@ public abstract class ServiceBinder {
         @Override
         public void onServiceConnected(ComponentName componentName, IBinder binder) {
             try {
-                Log.startSession("SBC.oSC");
+                Log.startSession("SBC.oSC", Log.getPackageAbbreviation(componentName));
                 synchronized (mLock) {
                     Log.i(this, "Service bound %s", componentName);
 
@@ -182,7 +183,7 @@ public abstract class ServiceBinder {
         @Override
         public void onServiceDisconnected(ComponentName componentName) {
             try {
-                Log.startSession("SBC.oSD");
+                Log.startSession("SBC.oSD", Log.getPackageAbbreviation(componentName));
                 synchronized (mLock) {
                     logServiceDisconnected("onServiceDisconnected");
                     handleDisconnect();
@@ -211,6 +212,11 @@ public abstract class ServiceBinder {
 
     /** The component name of the service to bind to. */
     protected final ComponentName mComponentName;
+
+    /**
+     * Abbreviated form of the package name from {@link #mComponentName}; used for session logging.
+     */
+    protected final String mPackageAbbreviation;
 
     /** The set of callbacks waiting for notification of the binding's success or failure. */
     private final Set<BindCallback> mCallbacks = new ArraySet<>();
@@ -261,6 +267,7 @@ public abstract class ServiceBinder {
         mLock = lock;
         mServiceAction = serviceAction;
         mComponentName = componentName;
+        mPackageAbbreviation = Log.getPackageAbbreviation(componentName);
         mUserHandle = userHandle;
     }
 

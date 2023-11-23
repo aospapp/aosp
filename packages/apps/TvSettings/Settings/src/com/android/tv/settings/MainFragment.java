@@ -16,8 +16,12 @@
 
 package com.android.tv.settings;
 
+import static com.android.tv.settings.util.InstrumentationUtils.logEntrySelected;
+import static com.android.tv.settings.util.InstrumentationUtils.logPageFocused;
+
 import android.accounts.Account;
 import android.accounts.AccountManager;
+import android.app.tvsettings.TvSettingsEnums;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.content.ActivityNotFoundException;
@@ -29,9 +33,12 @@ import android.content.IntentFilter;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.content.res.Resources;
+import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.service.settings.suggestions.Suggestion;
 import android.telephony.SignalStrength;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -49,8 +56,12 @@ import com.android.settingslib.utils.IconCache;
 import com.android.tv.settings.HotwordSwitchController.HotwordStateListener;
 import com.android.tv.settings.accounts.AccountsFragment;
 import com.android.tv.settings.connectivity.ConnectivityListener;
+import com.android.tv.settings.overlay.FeatureFactory;
 import com.android.tv.settings.suggestions.SuggestionPreference;
 import com.android.tv.settings.system.SecurityFragment;
+import com.android.tv.settings.util.SliceUtils;
+import com.android.tv.twopanelsettings.TwoPanelSettingsFragment;
+import com.android.tv.twopanelsettings.slices.SlicePreference;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -68,15 +79,30 @@ public class MainFragment extends PreferenceControllerFragment implements
     private static final String KEY_SUGGESTIONS_LIST = "suggestions";
     @VisibleForTesting
     static final String KEY_ACCOUNTS_AND_SIGN_IN = "accounts_and_sign_in";
+    @VisibleForTesting
+    static final String KEY_ACCOUNTS_AND_SIGN_IN_SLICE = "accounts_and_sign_in_slice";
     private static final String KEY_APPLICATIONS = "applications";
     @VisibleForTesting
     static final String KEY_ACCESSORIES = "remotes_and_accessories";
     @VisibleForTesting
+    static final String KEY_CONNECTED_DEVICES = "connected_devices";
+    private static final String KEY_CONNECTED_DEVICES_SLICE = "connected_devices_slice";
+    @VisibleForTesting
     static final String KEY_NETWORK = "network";
-
+    @VisibleForTesting
+    static final String KEY_SOUND = "sound";
+    public static final String ACTION_SOUND = "com.android.tv.settings.SOUND";
+    @VisibleForTesting
+    static final String ACTION_CONNECTED_DEVICES = "com.android.tv.settings.CONNECTED_DEVICES";
+    @VisibleForTesting
+    static final String KEY_PRIVACY = "privacy";
+    @VisibleForTesting
+    static final String KEY_DISPLAY_AND_SOUND = "display_and_sound";
     @VisibleForTesting
     static final String KEY_QUICK_SETTINGS = "quick_settings";
+    private static final String KEY_CHANNELS_AND_INPUTS = "channels_and_inputs";
 
+    private static final String ACTION_ACCOUNTS = "com.android.tv.settings.ACCOUNTS";
     @VisibleForTesting
     ConnectivityListener mConnectivityListener;
     @VisibleForTesting
@@ -94,8 +120,10 @@ public class MainFragment extends PreferenceControllerFragment implements
     /** Controllers for the Quick Settings section. */
     private List<AbstractPreferenceController> mPreferenceControllers;
     private HotwordSwitchController mHotwordSwitchController;
+    private TakeBugReportController mTakeBugReportController;
     private PreferenceCategory mQuickSettingsList;
     private SwitchPreference mHotwordSwitch;
+    private Preference mTakeBugReportPreference;
 
     private final BroadcastReceiver mBCMReceiver = new BroadcastReceiver() {
         @Override
@@ -123,9 +151,16 @@ public class MainFragment extends PreferenceControllerFragment implements
     public void onCreate(Bundle savedInstanceState) {
         mIconCache = new IconCache(getContext());
         mConnectivityListener =
-                new ConnectivityListener(getContext(), this::updateWifi, getLifecycle());
+                new ConnectivityListener(getContext(), this::updateConnectivity, getLifecycle());
         mBtAdapter = BluetoothAdapter.getDefaultAdapter();
         super.onCreate(savedInstanceState);
+        // This is to record the initial start of Settings root in two panel settings case, as the
+        // MainFragment is the left-most pane and will not be slided in from preview pane. For
+        // classic settings case, the event will be recorded in onResume() as this is an instance
+        // of SettingsPreferenceFragment.
+        if (getCallbackFragment() instanceof TwoPanelSettingsFragment) {
+            logPageFocused(getPageId(), true);
+        }
     }
 
     @Override
@@ -158,6 +193,9 @@ public class MainFragment extends PreferenceControllerFragment implements
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
             Bundle savedInstanceState) {
         showOrHideQuickSettings();
+        updateAccountPref();
+        updateAccessoryPref();
+        updateConnectivity();
         return super.onCreateView(inflater, container, savedInstanceState);
     }
 
@@ -169,13 +207,32 @@ public class MainFragment extends PreferenceControllerFragment implements
         mQuickSettingsList = new PreferenceCategory(this.getPreferenceManager().getContext());
         mQuickSettingsList.setKey(KEY_QUICK_SETTINGS);
         mQuickSettingsList.setTitle(R.string.header_category_quick_settings);
-        mQuickSettingsList.setLayoutResource(R.layout.preference_category_compact_layout);
         mQuickSettingsList.setOrder(1); // at top, but below suggested settings
         getPreferenceScreen().addPreference(mQuickSettingsList);
-        mHotwordSwitch = new SwitchPreference(this.getPreferenceManager().getContext());
-        mHotwordSwitch.setKey(HotwordSwitchController.KEY_HOTWORD_SWITCH);
-        mHotwordSwitchController.updateState(mHotwordSwitch);
-        mQuickSettingsList.addPreference(mHotwordSwitch);
+        if (mHotwordSwitchController.isAvailable()) {
+            mHotwordSwitch = new SwitchPreference(this.getPreferenceManager().getContext());
+            mHotwordSwitch.setKey(HotwordSwitchController.KEY_HOTWORD_SWITCH);
+            mHotwordSwitch.setOnPreferenceClickListener(
+                    preference -> {
+                        logEntrySelected(TvSettingsEnums.QUICK_SETTINGS);
+                        return false;
+                    }
+            );
+            mHotwordSwitchController.updateState(mHotwordSwitch);
+            mQuickSettingsList.addPreference(mHotwordSwitch);
+        }
+        if (mTakeBugReportController.isAvailable()) {
+            mTakeBugReportPreference = new Preference(this.getPreferenceManager().getContext());
+            mTakeBugReportPreference.setKey(TakeBugReportController.KEY_TAKE_BUG_REPORT);
+            mTakeBugReportPreference.setOnPreferenceClickListener(
+                    preference -> {
+                        logEntrySelected(TvSettingsEnums.QUICK_SETTINGS);
+                        return false;
+                    }
+            );
+            mTakeBugReportController.updateState(mTakeBugReportPreference);
+            mQuickSettingsList.addPreference(mTakeBugReportPreference);
+        }
     }
 
     /** Removes the quick settings category and all its children. */
@@ -238,19 +295,32 @@ public class MainFragment extends PreferenceControllerFragment implements
                 accessoryPreference.setVisible(false);
             }
         }
+        if (FeatureFactory.getFactory(getContext()).isTwoPanelLayout()) {
+            Preference displaySoundPref = findPreference(KEY_DISPLAY_AND_SOUND);
+            if (displaySoundPref != null) {
+                displaySoundPref.setVisible(true);
+            }
+            Preference privacyPref = findPreference(KEY_PRIVACY);
+            if (privacyPref != null) {
+                privacyPref.setVisible(true);
+            }
+        }
         mHotwordSwitchController.init(this);
+        updateSoundSettings();
     }
 
     @Override
     protected List<AbstractPreferenceController> onCreatePreferenceControllers(Context context) {
-        mPreferenceControllers = new ArrayList<>(1);
+        mPreferenceControllers = new ArrayList<>(2);
         mHotwordSwitchController = new HotwordSwitchController(context);
+        mTakeBugReportController = new TakeBugReportController(context);
         mPreferenceControllers.add(mHotwordSwitchController);
+        mPreferenceControllers.add(mTakeBugReportController);
         return mPreferenceControllers;
     }
 
     @VisibleForTesting
-    void updateWifi() {
+    void updateConnectivity() {
         final Preference networkPref = findPreference(KEY_NETWORK);
         if (networkPref == null) {
             return;
@@ -311,6 +381,73 @@ public class MainFragment extends PreferenceControllerFragment implements
         }
     }
 
+    @VisibleForTesting
+    void updateSoundSettings() {
+        final Preference soundPref = findPreference(KEY_SOUND);
+        if (soundPref != null) {
+            Intent soundIntent = new Intent(ACTION_SOUND);
+            final ResolveInfo info = systemIntentIsHandled(getContext(), soundIntent);
+            soundPref.setVisible(info != null);
+            if (info != null && info.activityInfo != null) {
+                String pkgName = info.activityInfo.packageName;
+                Drawable icon = getDrawableResource(pkgName, "sound_icon");
+                if (icon != null) {
+                    soundPref.setIcon(icon);
+                }
+                String title = getStringResource(pkgName, "sound_pref_title");
+                if (!TextUtils.isEmpty(title)) {
+                    soundPref.setTitle(title);
+                }
+                String summary = getStringResource(pkgName, "sound_pref_summary");
+                if (!TextUtils.isEmpty(summary)) {
+                    soundPref.setSummary(summary);
+                }
+            }
+        }
+    }
+
+    /**
+     * Extracts a string resource from a given package.
+     *
+     * @param pkgName the package name
+     * @param resource name, e.g. "my_string_name"
+     */
+    private String getStringResource(String pkgName, String resourceName) {
+        try {
+            Context targetContext = getContext().createPackageContext(pkgName, 0);
+            int resId = targetContext.getResources().getIdentifier(
+                    pkgName + ":string/" + resourceName, null, null);
+            if (resId != 0) {
+                return targetContext.getResources().getString(resId);
+            }
+        } catch (Resources.NotFoundException | PackageManager.NameNotFoundException
+                | SecurityException e) {
+            Log.w(TAG, "Unable to get string resource " + resourceName, e);
+        }
+        return null;
+    }
+
+    /**
+     * Extracts an drawable resource from a given package.
+     *
+     * @param pkgName the package name
+     * @param resource name, e.g. "my_icon_name"
+     */
+    private Drawable getDrawableResource(String pkgName, String resourceName) {
+        try {
+            Context targetContext = getContext().createPackageContext(pkgName, 0);
+            int resId = targetContext.getResources().getIdentifier(
+                    pkgName + ":drawable/" + resourceName, null, null);
+            if (resId != 0) {
+                return targetContext.getResources().getDrawable(resId);
+            }
+        } catch (Resources.NotFoundException | PackageManager.NameNotFoundException
+                | SecurityException e) {
+            Log.w(TAG, "Unable to get drawable resource " + resourceName, e);
+        }
+        return null;
+    }
+
     /**
      * Returns the ResolveInfo for the system activity that matches given intent filter or null if
      * no such activity exists.
@@ -349,7 +486,6 @@ public class MainFragment extends PreferenceControllerFragment implements
             mSuggestionsList = new PreferenceCategory(this.getPreferenceManager().getContext());
             mSuggestionsList.setKey(KEY_SUGGESTIONS_LIST);
             mSuggestionsList.setTitle(R.string.header_category_suggestions);
-            mSuggestionsList.setLayoutResource(R.layout.preference_category_compact_layout);
             mSuggestionsList.setOrder(0); // always at top
             getPreferenceScreen().addPreference(mSuggestionsList);
         }
@@ -395,20 +531,57 @@ public class MainFragment extends PreferenceControllerFragment implements
         }
     }
 
-    @Override
-    public void onResume() {
-        super.onResume();
-        updateAccountPref();
-        updateAccessoryPref();
-    }
-
     private boolean isRestricted() {
         return SecurityFragment.isRestrictedProfileInEffect(getContext());
     }
 
     @VisibleForTesting
     void updateAccessoryPref() {
+        SlicePreference connectedDevicesSlicePreference =
+                (SlicePreference) findPreference(KEY_CONNECTED_DEVICES_SLICE);
         Preference accessoryPreference = findPreference(KEY_ACCESSORIES);
+        Preference connectedDevicesPreference = findPreference(KEY_CONNECTED_DEVICES);
+        if (connectedDevicesSlicePreference != null
+                && FeatureFactory.getFactory(getContext()).isTwoPanelLayout()
+                && SliceUtils.isSliceProviderValid(
+                        getContext(), connectedDevicesSlicePreference.getUri())) {
+            connectedDevicesSlicePreference.setVisible(true);
+            connectedDevicesPreference.setVisible(false);
+            accessoryPreference.setVisible(false);
+            return;
+        }
+
+        if (connectedDevicesSlicePreference != null) {
+            connectedDevicesSlicePreference.setVisible(false);
+        }
+
+        if (connectedDevicesPreference != null) {
+            Intent intent = new Intent(ACTION_CONNECTED_DEVICES);
+            ResolveInfo info = systemIntentIsHandled(getContext(), intent);
+            connectedDevicesPreference.setVisible(info != null);
+            connectedDevicesPreference.setOnPreferenceClickListener(
+                    preference -> {
+                        logEntrySelected(TvSettingsEnums.CONNECTED_CLASSIC);
+                        return false;
+                    });
+            accessoryPreference.setVisible(info == null);
+            if (info != null) {
+                String pkgName = info.activityInfo.packageName;
+                Drawable icon = getDrawableResource(pkgName, "connected_devices_pref_icon");
+                if (icon != null) {
+                    connectedDevicesPreference.setIcon(icon);
+                }
+                String title = getStringResource(pkgName, "connected_devices_pref_title");
+                if (!TextUtils.isEmpty(title)) {
+                    connectedDevicesPreference.setTitle(title);
+                }
+                String summary = getStringResource(pkgName, "connected_devices_pref_summary");
+                if (!TextUtils.isEmpty(summary)) {
+                    connectedDevicesPreference.setSummary(summary);
+                }
+                return;
+            }
+        }
         if (mBtAdapter == null || accessoryPreference == null) {
             return;
         }
@@ -423,7 +596,36 @@ public class MainFragment extends PreferenceControllerFragment implements
 
     @VisibleForTesting
     void updateAccountPref() {
-        final Preference accountsPref = findPreference(KEY_ACCOUNTS_AND_SIGN_IN);
+        Preference accountsPref = findPreference(KEY_ACCOUNTS_AND_SIGN_IN);
+        SlicePreference acccountsSlicePref =
+                (SlicePreference) findPreference(KEY_ACCOUNTS_AND_SIGN_IN_SLICE);
+        Intent intent = new Intent(ACTION_ACCOUNTS);
+
+        // If the intent can be handled, use it.
+        if (systemIntentIsHandled(getContext(), intent) != null) {
+            accountsPref.setVisible(true);
+            accountsPref.setFragment(null);
+            accountsPref.setIntent(intent);
+            acccountsSlicePref.setVisible(false);
+            return;
+        }
+
+        // If a slice is available, use it to display the accounts settings, otherwise fall back to
+        // use AccountsFragment.
+        String uri = acccountsSlicePref.getUri();
+        if (SliceUtils.isSliceProviderValid(getContext(), uri)) {
+            accountsPref.setVisible(false);
+            acccountsSlicePref.setVisible(true);
+        } else {
+            accountsPref.setVisible(true);
+            acccountsSlicePref.setVisible(false);
+            updateAccountPrefInfo();
+        }
+    }
+
+    @VisibleForTesting
+    void updateAccountPrefInfo() {
+        Preference accountsPref = findPreference(KEY_ACCOUNTS_AND_SIGN_IN);
         if (accountsPref != null && accountsPref.isVisible()) {
             final AccountManager am = AccountManager.get(getContext());
             Account[] accounts = am.getAccounts();
@@ -467,14 +669,20 @@ public class MainFragment extends PreferenceControllerFragment implements
         ComponentName componentName = new ComponentName(
                 "com.android.settings.intelligence",
                 "com.android.settings.intelligence.suggestions.SuggestionService");
-        mSuggestionControllerMixin = new SuggestionControllerMixin(
-                                            context, this, getLifecycle(), componentName);
+        if (!isRestricted()) {
+            mSuggestionControllerMixin = new SuggestionControllerMixin(
+                    context, this, getLifecycle(), componentName);
+        }
     }
 
     @Override
     public boolean onPreferenceTreeClick(Preference preference) {
         if (preference.getKey().equals(KEY_ACCOUNTS_AND_SIGN_IN) && !mHasAccounts
-                || (preference.getKey().equals(KEY_ACCESSORIES) && !mHasBtAccessories)) {
+                || (preference.getKey().equals(KEY_ACCESSORIES) && !mHasBtAccessories)
+                || (preference.getKey().equals(KEY_DISPLAY_AND_SOUND)
+                        && preference.getIntent() != null)
+                || (preference.getKey().equals(KEY_CHANNELS_AND_INPUTS)
+                        && preference.getIntent() != null)) {
             getContext().startActivity(preference.getIntent());
             return true;
         } else {
@@ -497,5 +705,10 @@ public class MainFragment extends PreferenceControllerFragment implements
         return getActivity().getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH)
                 ? true
                 : false;
+    }
+
+    @Override
+    protected int getPageId() {
+        return TvSettingsEnums.TV_SETTINGS_ROOT;
     }
 }

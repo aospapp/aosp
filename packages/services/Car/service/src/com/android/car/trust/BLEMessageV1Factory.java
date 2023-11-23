@@ -41,14 +41,6 @@ class BLEMessageV1Factory {
      */
     private static final int FIXED_32_SIZE = 4;
 
-    /**
-     * Additional bytes that are needed during the encoding of the {@code payload} field.
-     *
-     * <p>The {@code payload} field is defined as {@code bytes}, and thus, needs 2 extra bytes to
-     * encode: one to encode the field number and another for length delimiting.
-     */
-    private static final int ADDITIONAL_PAYLOAD_ENCODING_SIZE = 2;
-
     // The size needed to encode a boolean proto field
     private static final int BOOLEAN_FIELD_ENCODING_SIZE = 1;
 
@@ -121,7 +113,8 @@ class BLEMessageV1Factory {
      * @param operation The operation this message represents
      * @return The generated {@link com.android.car.trust.BLEStream.BLEMessage}
      */
-    private static BLEMessage makeBLEMessage(byte[] payload, OperationType operation,
+    @VisibleForTesting
+    static BLEMessage makeBLEMessage(byte[] payload, OperationType operation,
             boolean isPayloadEncrypted) {
         return BLEMessage.newBuilder()
                 .setVersion(PROTOCOL_VERSION)
@@ -145,13 +138,14 @@ class BLEMessageV1Factory {
     public static List<BLEMessage> makeBLEMessages(byte[] payload, OperationType operation,
             int maxSize, boolean isPayloadEncrypted) {
         List<BLEMessage> bleMessages = new ArrayList();
-        int maxPayloadSize = maxSize - getProtoHeaderSize(operation, isPayloadEncrypted);
-        int payloadLength = payload.length;
-        if (payloadLength <= maxPayloadSize) {
+        int payloadSize = payload.length;
+        int maxPayloadSize =
+                maxSize - getProtoHeaderSize(operation, payloadSize, isPayloadEncrypted);
+        if (payloadSize <= maxPayloadSize) {
             bleMessages.add(makeBLEMessage(payload, operation, isPayloadEncrypted));
             return bleMessages;
         }
-        int totalPackets = (int) Math.ceil((double) payloadLength / maxPayloadSize);
+        int totalPackets = (int) Math.ceil((double) payloadSize / maxPayloadSize);
         int start = 0;
         int end = maxPayloadSize;
         for (int i = 0; i < totalPackets; i++) {
@@ -164,7 +158,7 @@ class BLEMessageV1Factory {
                     .setPayload(ByteString.copyFrom(Arrays.copyOfRange(payload, start, end)))
                     .build());
             start = end;
-            end = Math.min(start + maxPayloadSize, payloadLength);
+            end = Math.min(start + maxPayloadSize, payloadSize);
         }
         return bleMessages;
     }
@@ -174,12 +168,18 @@ class BLEMessageV1Factory {
      * contain a payload.
      */
     @VisibleForTesting
-    static int getProtoHeaderSize(OperationType operation, boolean isPayloadEncrypted) {
-        int isPayloadEncryptedFieldSize =
-                isPayloadEncrypted ? (BOOLEAN_FIELD_ENCODING_SIZE + FIELD_NUMBER_ENCODING_SIZE) : 0;
+    static int getProtoHeaderSize(OperationType operation, int payloadSize,
+            boolean isPayloadEncrypted) {
+        int isPayloadEncryptedFieldSize = isPayloadEncrypted
+                ? BOOLEAN_FIELD_ENCODING_SIZE + FIELD_NUMBER_ENCODING_SIZE
+                : 0;
         int operationSize = getEncodedSize(operation.getNumber()) + FIELD_NUMBER_ENCODING_SIZE;
+
+        // The payload size is a varint.
+        int payloadEncodingSize = FIELD_NUMBER_ENCODING_SIZE + getEncodedSize(payloadSize);
+
         return CONSTANT_HEADER_FIELD_SIZE + operationSize + isPayloadEncryptedFieldSize
-                + ADDITIONAL_PAYLOAD_ENCODING_SIZE;
+                + payloadEncodingSize;
     }
 
     /**

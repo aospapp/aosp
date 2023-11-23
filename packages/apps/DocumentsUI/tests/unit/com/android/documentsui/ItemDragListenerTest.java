@@ -161,18 +161,6 @@ public class ItemDragListenerTest {
     }
 
     @Test
-    public void testDoNotHandleDragEvent() {
-        mTestDragHost.mLastEnteredView = null;
-
-        mTestDragHost.mCanHandleDragEvent = false;
-        final boolean handled = triggerDragEvent(DragEvent.ACTION_DRAG_ENTERED);
-        mTestDragHost.mCanHandleDragEvent = true;
-
-        assertFalse(handled);
-        assertNull(mTestDragHost.mLastEnteredView);
-    }
-
-    @Test
     public void testNoDropWithoutClipData() {
         triggerDragEvent(DragEvent.ACTION_DRAG_ENTERED);
 

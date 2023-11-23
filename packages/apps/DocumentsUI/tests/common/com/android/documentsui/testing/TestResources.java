@@ -16,13 +16,14 @@
 
 package com.android.documentsui.testing;
 
+import android.content.res.Resources;
+import android.util.SparseArray;
+import android.util.SparseBooleanArray;
+
 import androidx.annotation.BoolRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.PluralsRes;
 import androidx.annotation.StringRes;
-import android.content.res.Resources;
-import android.util.SparseArray;
-import android.util.SparseBooleanArray;
 
 import com.android.documentsui.R;
 import com.android.documentsui.files.QuickViewIntentBuilder;
@@ -52,8 +53,6 @@ public abstract class TestResources extends Resources {
         res.strings = new SparseArray<>();
         res.plurals = new SparseArray<>();
 
-        res.setProductivityDeviceEnabled(false);
-
         // quick view package can be set via system property on debug builds.
         // unfortunately that interfers with testing. For that reason we have
         // this little hack....QuickViewIntentBuilder will check for this value
@@ -69,10 +68,6 @@ public abstract class TestResources extends Resources {
 
     public void setDefaultDocumentsUri(String uri) {
         strings.put(R.string.default_root_uri, uri);
-    }
-
-    public void setProductivityDeviceEnabled(boolean enabled) {
-        bools.put(R.bool.show_documents_root, enabled);
     }
 
     @Override

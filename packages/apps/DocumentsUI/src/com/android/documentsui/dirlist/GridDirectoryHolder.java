@@ -39,6 +39,7 @@ final class GridDirectoryHolder extends DocumentHolder {
 
     private final ImageView mIconCheck;
     private final ImageView mIconMime;
+    private final ImageView mIconBriefcase;
     private final View mIconLayout;
 
     public GridDirectoryHolder(Context context, ViewGroup parent) {
@@ -48,6 +49,7 @@ final class GridDirectoryHolder extends DocumentHolder {
         mTitle = (TextView) itemView.findViewById(android.R.id.title);
         mIconMime = (ImageView) itemView.findViewById(R.id.icon_mime_sm);
         mIconCheck = (ImageView) itemView.findViewById(R.id.icon_check);
+        mIconBriefcase = (ImageView) itemView.findViewById(R.id.icon_briefcase);
         mIconMime.setImageDrawable(
                 IconUtils.loadMimeIcon(context, DocumentsContract.Document.MIME_TYPE_DIR));
     }
@@ -64,6 +66,11 @@ final class GridDirectoryHolder extends DocumentHolder {
             mIconCheck.setAlpha(checkAlpha);
             mIconMime.setAlpha(1f - checkAlpha);
         }
+    }
+
+    @Override
+    public void bindBriefcaseIcon(boolean show) {
+        mIconBriefcase.setVisibility(show ? View.VISIBLE : View.GONE);
     }
 
     @Override

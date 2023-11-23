@@ -23,11 +23,13 @@ import static com.android.documentsui.base.State.ACTION_OPEN_TREE;
 import static com.android.documentsui.base.State.ACTION_PICK_COPY_DESTINATION;
 
 import android.content.Intent;
+import android.content.res.Resources;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.provider.DocumentsContract;
+import android.util.Log;
 import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -45,6 +47,7 @@ import com.android.documentsui.FocusManager;
 import com.android.documentsui.Injector;
 import com.android.documentsui.MenuManager.DirectoryDetails;
 import com.android.documentsui.Metrics;
+import com.android.documentsui.ProfileTabsController;
 import com.android.documentsui.ProviderExecutor;
 import com.android.documentsui.R;
 import com.android.documentsui.SharedInputHandler;
@@ -54,15 +57,18 @@ import com.android.documentsui.base.MimeTypes;
 import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.base.Shared;
 import com.android.documentsui.base.State;
+import com.android.documentsui.base.UserId;
 import com.android.documentsui.dirlist.AppsRowManager;
 import com.android.documentsui.dirlist.DirectoryFragment;
-import com.android.documentsui.prefs.ScopedPreferences;
 import com.android.documentsui.services.FileOperationService;
 import com.android.documentsui.sidebar.RootsFragment;
 import com.android.documentsui.ui.DialogController;
 import com.android.documentsui.ui.MessageBuilder;
+import com.android.documentsui.util.CrossProfileUtils;
+import com.android.documentsui.util.VersionUtils;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 
 public class PickActivity extends BaseActivity implements ActionHandler.Addons {
@@ -84,16 +90,14 @@ public class PickActivity extends BaseActivity implements ActionHandler.Addons {
 
     @Override
     public void onCreate(Bundle icicle) {
-
+        setTheme(R.style.DocumentsTheme);
         Features features = Features.create(this);
-        ScopedPreferences prefs = ScopedPreferences.create(this, PREFERENCES_SCOPE);
 
         mInjector = new Injector<>(
                 features,
                 new Config(),
-                prefs,
                 new MessageBuilder(this),
-                DialogController.create(features, this, null),
+                DialogController.create(features, this),
                 DocumentsApplication.getFileTypeLookup(this),
                 (Collection<RootInfo> roots) -> {});
 
@@ -108,13 +112,21 @@ public class PickActivity extends BaseActivity implements ActionHandler.Addons {
                 this::focusSidebar,
                 getColor(R.color.primary));
 
-        mInjector.menuManager = new MenuManager(mSearchManager, mState, new DirectoryDetails(this));
+        mInjector.menuManager = new MenuManager(
+                mSearchManager,
+                mState,
+                new DirectoryDetails(this),
+                mInjector.getModel()::getItemCount);
 
         mInjector.actionModeController = new ActionModeController(
                 this,
                 mInjector.selectionMgr,
                 mInjector.menuManager,
                 mInjector.messages);
+
+        mInjector.profileTabsController = new ProfileTabsController(
+                mInjector.selectionMgr,
+                getProfileTabsAddon());
 
         mInjector.pickResult = getPickResult(icicle);
         mInjector.actions = new ActionHandler<>(
@@ -125,13 +137,15 @@ public class PickActivity extends BaseActivity implements ActionHandler.Addons {
                 mSearchManager,
                 ProviderExecutor::forAuthority,
                 mInjector,
-                LastAccessedStorage.create());
+                LastAccessedStorage.create(),
+                mUserIdManager);
 
         mInjector.searchManager = mSearchManager;
 
         Intent intent = getIntent();
 
-        mAppsRowManager = new AppsRowManager(mInjector.actions);
+        mAppsRowManager = new AppsRowManager(mInjector.actions, mState.supportsCrossProfile(),
+                mUserIdManager);
         mInjector.appsRowManager = mAppsRowManager;
 
         mSharedInputHandler =
@@ -141,7 +155,8 @@ public class PickActivity extends BaseActivity implements ActionHandler.Addons {
                         mInjector.searchManager::cancelSearch,
                         this::popDir,
                         mInjector.features,
-                        mDrawer);
+                        mDrawer,
+                        mInjector.searchManager::onSearchBarClicked);
         setupLayout(intent);
         mInjector.actions.initLocation(intent);
         Metrics.logPickerLaunchedFrom(Shared.getCallingPackageName(this));
@@ -151,7 +166,7 @@ public class PickActivity extends BaseActivity implements ActionHandler.Addons {
     public void onBackPressed() {
         super.onBackPressed();
         // log the case of user picking nothing.
-        mInjector.actions.getUpdatePickResultTask().execute();
+        mInjector.actions.getUpdatePickResultTask().safeExecute();
     }
 
     @Override
@@ -196,16 +211,23 @@ public class PickActivity extends BaseActivity implements ActionHandler.Addons {
             saveContainer.setBackgroundColor(Color.TRANSPARENT);
         }
 
-        if (mState.action == ACTION_GET_CONTENT) {
-            final Intent moreApps = new Intent(intent);
-            moreApps.setComponent(null);
-            moreApps.setPackage(null);
-            RootsFragment.show(getSupportFragmentManager(), moreApps);
-        } else if (mState.action == ACTION_OPEN ||
-                   mState.action == ACTION_CREATE ||
-                   mState.action == ACTION_OPEN_TREE ||
-                   mState.action == ACTION_PICK_COPY_DESTINATION) {
-            RootsFragment.show(getSupportFragmentManager(), (Intent) null);
+        final Intent moreApps = new Intent(intent);
+        moreApps.setComponent(null);
+        moreApps.setPackage(null);
+        if (mState.supportsCrossProfile()
+                && CrossProfileUtils.getCrossProfileResolveInfo(
+                        getPackageManager(), moreApps) != null) {
+            mState.canShareAcrossProfile = true;
+        }
+
+        if (mState.action == ACTION_GET_CONTENT
+                || mState.action == ACTION_OPEN
+                || mState.action == ACTION_CREATE
+                || mState.action == ACTION_OPEN_TREE
+                || mState.action == ACTION_PICK_COPY_DESTINATION) {
+            RootsFragment.show(getSupportFragmentManager(),
+                    /* includeApps= */ mState.action == ACTION_GET_CONTENT,
+                    /* intent= */ moreApps);
         }
     }
 
@@ -240,14 +262,13 @@ public class PickActivity extends BaseActivity implements ActionHandler.Addons {
         }
 
         if (state.action == ACTION_PICK_COPY_DESTINATION) {
-            // Indicates that a copy operation (or move) includes a directory.
-            // Why? Directory creation isn't supported by some roots (like Downloads).
-            // This allows us to restrict available roots to just those with support.
-            state.directoryCopy = intent.getBooleanExtra(
-                    Shared.EXTRA_DIRECTORY_COPY, false);
             state.copyOperationSubType = intent.getIntExtra(
                     FileOperationService.EXTRA_OPERATION_TYPE,
                     FileOperationService.OPERATION_COPY);
+        } else if (Features.CROSS_PROFILE_TABS && VersionUtils.isAtLeastR()) {
+            // We show tabs on PickActivity except copying/moving, which does not support
+            // cross-profile action.
+            state.supportsCrossProfile = true;
         }
     }
 
@@ -260,21 +281,28 @@ public class PickActivity extends BaseActivity implements ActionHandler.Addons {
 
     @Override
     public String getDrawerTitle() {
-        String title = getIntent().getStringExtra(DocumentsContract.EXTRA_PROMPT);
-        if (title == null) {
-            if (mState.action == ACTION_OPEN ||
-                mState.action == ACTION_GET_CONTENT ||
-                mState.action == ACTION_OPEN_TREE) {
-                title = getResources().getString(R.string.title_open);
-            } else if (mState.action == ACTION_CREATE ||
-                       mState.action == ACTION_PICK_COPY_DESTINATION) {
-                title = getResources().getString(R.string.title_save);
-            } else {
-                // If all else fails, just call it "Documents".
-                title = getResources().getString(R.string.app_label);
+        String title;
+        try {
+            // Internal use case, we will send string id instead of string text.
+            title = getResources().getString(
+                    getIntent().getIntExtra(DocumentsContract.EXTRA_PROMPT, -1));
+        } catch (Resources.NotFoundException e) {
+            // 3rd party use case, it should send string text.
+            title = getIntent().getStringExtra(DocumentsContract.EXTRA_PROMPT);
+            if (title == null) {
+                if (mState.action == ACTION_OPEN
+                        || mState.action == ACTION_GET_CONTENT
+                        || mState.action == ACTION_OPEN_TREE) {
+                    title = getResources().getString(R.string.title_open);
+                } else if (mState.action == ACTION_CREATE
+                        || mState.action == ACTION_PICK_COPY_DESTINATION) {
+                    title = getResources().getString(R.string.title_save);
+                } else {
+                    // If all else fails, just call it "Documents".
+                    title = getResources().getString(R.string.app_label);
+                }
             }
         }
-
         return title;
     }
 
@@ -332,7 +360,8 @@ public class PickActivity extends BaseActivity implements ActionHandler.Addons {
             mState.action == ACTION_PICK_COPY_DESTINATION) {
             final PickFragment pick = PickFragment.get(fm);
             if (pick != null) {
-                pick.setPickTarget(mState.action, mState.copyOperationSubType, cwd);
+                pick.setPickTarget(mState.action,
+                        mState.copyOperationSubType, mState.restrictScopeStorage, cwd);
             }
         }
     }
@@ -353,7 +382,14 @@ public class PickActivity extends BaseActivity implements ActionHandler.Addons {
             mSearchManager.recordHistory();
         } else if (mState.action == ACTION_OPEN || mState.action == ACTION_GET_CONTENT) {
             // Explicit file picked, return
-            mInjector.actions.finishPicking(doc.derivedUri);
+            if (!canShare(Collections.singletonList(doc))) {
+                // A final check to make sure we can share the uri before returning it.
+                Log.e(TAG, "The document cannot be shared");
+                mInjector.dialogs.showActionNotAllowed();
+                return;
+            }
+            mInjector.pickResult.setHasCrossProfileUri(!UserId.CURRENT_USER.equals(doc.userId));
+            mInjector.actions.finishPicking(doc.getDocumentUri());
             mSearchManager.recordHistory();
         } else if (mState.action == ACTION_CREATE) {
             // Replace selected file
@@ -364,22 +400,41 @@ public class PickActivity extends BaseActivity implements ActionHandler.Addons {
     @Override
     public void onDocumentsPicked(List<DocumentInfo> docs) {
         if (mState.action == ACTION_OPEN || mState.action == ACTION_GET_CONTENT) {
+            if (!canShare(docs)) {
+                // A final check to make sure we can share these uris before returning them.
+                Log.e(TAG, "One or more document cannot be shared");
+                mInjector.dialogs.showActionNotAllowed();
+                return;
+            }
             final int size = docs.size();
             final Uri[] uris = new Uri[size];
-            for (int i = 0; i < size; i++) {
-                uris[i] = docs.get(i).derivedUri;
+            boolean hasCrossProfileUri = false;
+            for (int i = 0; i < docs.size(); i++) {
+                DocumentInfo doc = docs.get(i);
+                uris[i] = doc.getDocumentUri();
+                if (!UserId.CURRENT_USER.equals(doc.userId)) {
+                    hasCrossProfileUri = true;
+                }
             }
+            mInjector.pickResult.setHasCrossProfileUri(hasCrossProfileUri);
             mInjector.actions.finishPicking(uris);
             mSearchManager.recordHistory();
         }
     }
 
+    private boolean canShare(List<DocumentInfo> docs) {
+        for (DocumentInfo doc : docs) {
+            if (!mState.canInteractWith(doc.userId)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     @CallSuper
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
-        return mSharedInputHandler.onKeyDown(
-                keyCode,
-                event)
+        return mSharedInputHandler.onKeyDown(keyCode, event)
                 || super.onKeyDown(keyCode, event);
     }
 

@@ -21,7 +21,6 @@ import android.provider.DocumentsContract;
 
 import androidx.test.filters.LargeTest;
 
-import com.android.documentsui.bots.UiBot;
 import com.android.documentsui.inspector.InspectorActivity;
 
 @LargeTest
@@ -43,11 +42,9 @@ public class InspectorUiTest extends ActivityTest<InspectorActivity> {
         if (!features.isInspectorEnabled()) {
             return;
         }
-        final Intent intent = context.getPackageManager().getLaunchIntentForPackage(
-                UiBot.targetPackageName);
-        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK);
         Uri uri = DocumentsContract.buildDocumentUri(InspectorProvider.AUTHORITY, TEST_DOC_NAME);
-        intent.setData(uri);
+        final Intent intent = InspectorActivity.createIntent(context, uri, userId);
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK);
         setActivityIntent(intent);
         getActivity();
     }

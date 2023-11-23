@@ -47,11 +47,10 @@ public final class WearEstimate implements Parcelable {
     public static final WearEstimate UNKNOWN_ESTIMATE = new WearEstimate(UNKNOWN, UNKNOWN);
 
     public static final Parcelable.Creator<WearEstimate> CREATOR =
-        new Parcelable.Creator<WearEstimate>() {
-            public WearEstimate createFromParcel(Parcel in) {
+            new Parcelable.Creator<WearEstimate>() {
+        public WearEstimate createFromParcel(Parcel in) {
                 return new WearEstimate(in);
             }
-
             public WearEstimate[] newArray(int size) {
                 return new WearEstimate[size];
             }
@@ -60,16 +59,16 @@ public final class WearEstimate implements Parcelable {
     /**
      * Wear estimate data for "type A" storage.
      */
-    @IntRange(from=-1, to=100)
+    @IntRange(from = -1, to = 100)
     public final int typeA;
 
     /**
      * Wear estimate data for "type B" storage.
      */
-    @IntRange(from=-1, to=100)
+    @IntRange(from = -1, to = 100)
     public final int typeB;
 
-    private static final int validateWearValue(int value) {
+    private static int validateWearValue(int value) {
         if (value == UNKNOWN) return value;
         if ((value >= 0) && (value <= 100)) return value;
         throw new IllegalArgumentException(value + " is not a valid wear estimate");
@@ -137,7 +136,7 @@ public final class WearEstimate implements Parcelable {
     @Override
     public boolean equals(Object other) {
         if (other instanceof WearEstimate) {
-            WearEstimate wo = (WearEstimate)other;
+            WearEstimate wo = (WearEstimate) other;
             return wo.typeA == typeA && wo.typeB == typeB;
         }
         return false;
@@ -148,7 +147,7 @@ public final class WearEstimate implements Parcelable {
         return Objects.hash(typeA, typeB);
     }
 
-    private static final String wearValueToString(int value) {
+    private static String wearValueToString(int value) {
         if (value == UNKNOWN) return "unknown";
         return value + "%";
     }

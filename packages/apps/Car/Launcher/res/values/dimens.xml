@@ -20,15 +20,15 @@
     <item name="maps_screen_percentage" type="dimen" format="float">0.6</item>
     <!-- Vertical percentage of screen (not occupied by maps to devote to the contextual space
       (Ex: date time temp) -->
-    <item name="contextual_screen_percentage" type="dimen" format="float">.3</item>
+    <item name="contextual_screen_percentage" type="dimen" format="float">.6</item>
+    <!-- Padding on the edges of the contextual card -->
+    <dimen name="contextual_padding">@*android:dimen/car_padding_4</dimen>
      <!--Used for the space between the top, and bottom of the screen and the content -->
     <dimen name="vertical_border_size">@*android:dimen/car_padding_1</dimen>
     <!-- Used for the space between the start, and end of the screen and the content -->
     <dimen name="horizontal_border_size">@*android:dimen/car_padding_1</dimen>
     <!-- Margin surrounding fragments on the main activity -->
     <dimen name="main_screen_widget_margin">@*android:dimen/car_padding_1</dimen>
-    <!-- Margin between the edge of the card and start of the icon -->
-    <dimen name="icon_start_margin">@*android:dimen/car_padding_4</dimen>
     <!-- Gap between the end of the icon and the start of the text -->
     <dimen name="icon_end_margin">@*android:dimen/car_padding_3</dimen>
     <!-- Gap between text lines -->

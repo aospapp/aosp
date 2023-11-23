@@ -19,7 +19,7 @@ import android.support.test.uiautomator.UiDevice;
 import com.android.tv.testing.uihelper.UiDeviceUtils;
 
 public final class Utils {
-    /** Live TV process name */
+    /** TV app process name */
     public static final String LIVE_CHANNELS_PROCESS_NAME = "com.android.tv";
 
     private Utils() {}

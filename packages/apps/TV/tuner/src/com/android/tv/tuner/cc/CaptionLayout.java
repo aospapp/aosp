@@ -18,7 +18,7 @@ package com.android.tv.tuner.cc;
 
 import android.content.Context;
 import android.util.AttributeSet;
-import com.android.tv.tuner.data.nano.Track.AtscCaptionTrack;
+import com.android.tv.tuner.data.Track.AtscCaptionTrack;
 import com.android.tv.tuner.layout.ScaledLayout;
 
 /**

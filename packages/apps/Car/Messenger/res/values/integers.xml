@@ -17,4 +17,5 @@
 
 <resources>
     <integer name="anim_time">1000</integer>
+    <integer name="notification_conversation_title_length">30</integer>
 </resources>

@@ -28,11 +28,11 @@ import com.android.car.developeroptions.bluetooth.BluetoothSwitchPreferenceContr
 import com.android.car.developeroptions.core.TogglePreferenceController;
 import com.android.car.developeroptions.dashboard.DashboardFragment;
 import com.android.car.developeroptions.search.BaseSearchIndexProvider;
-import com.android.car.developeroptions.search.SearchIndexableRaw;
 import com.android.car.developeroptions.widget.SwitchBar;
 import com.android.car.developeroptions.widget.SwitchBarController;
 import com.android.settingslib.core.lifecycle.Lifecycle;
 import com.android.settingslib.search.SearchIndexable;
+import com.android.settingslib.search.SearchIndexableRaw;
 import com.android.settingslib.widget.FooterPreference;
 
 import java.util.ArrayList;
@@ -46,6 +46,7 @@ import java.util.List;
 public class BluetoothDashboardFragment extends DashboardFragment {
 
     private static final String TAG = "BluetoothDashboardFrag";
+    private static final String KEY_BLUETOOTH_SCREEN_FOOTER = "bluetooth_screen_footer";
     public static final String KEY_BLUETOOTH_SCREEN = "bluetooth_switchbar_screen";
 
     private FooterPreference mFooterPreference;
@@ -75,7 +76,7 @@ public class BluetoothDashboardFragment extends DashboardFragment {
     @Override
     public void onCreate(Bundle icicle) {
         super.onCreate(icicle);
-        mFooterPreference = mFooterPreferenceMixin.createFooterPreference();
+        mFooterPreference = findPreference(KEY_BLUETOOTH_SCREEN_FOOTER);
     }
 
     @Override

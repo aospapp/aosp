@@ -35,7 +35,7 @@ import androidx.test.InstrumentationRegistry;
  */
 public final class Bots {
 
-    private static final int TIMEOUT = 5000;
+    private static final int TIMEOUT = 15000;
 
     public final BreadBot breadcrumb;
     public final DirectoryListBot directory;
@@ -51,7 +51,7 @@ public final class Bots {
 
     public Bots(UiDevice device, UiAutomation automation, Context context, int timeout) {
         main = new UiBot(device, context, TIMEOUT);
-        breadcrumb = new BreadBot(device, context, TIMEOUT, main);
+        breadcrumb = new BreadBot(device, context, TIMEOUT);
         roots = new SidebarBot(device, context, TIMEOUT);
         directory = new DirectoryListBot(device, automation, context, TIMEOUT);
         sort = new SortBot(device, context, TIMEOUT, main);

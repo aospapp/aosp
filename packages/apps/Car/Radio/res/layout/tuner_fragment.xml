@@ -20,6 +20,9 @@ limitations under the License.
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
+    <!-- Using LTR text direction since this textView displays bidi strings that should always have
+         LTR direction. Otherwise, the period character in "123." would be interpreted as end of
+         the sentence. This results in ".123" in RTL text direction which is not what we want. -->
     <TextView
         android:id="@+id/manual_tuner_channel"
         android:layout_width="wrap_content"
@@ -27,6 +30,7 @@ limitations under the License.
         android:gravity="center"
         android:textAppearance="@android:style/TextAppearance.DeviceDefault.Large"
         android:textColor="@color/manual_tuner_button_text_color"
+        android:textDirection="ltr"
         app:layout_constraintBottom_toTopOf="@+id/dialpad_layout"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"

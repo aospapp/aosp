@@ -20,5 +20,5 @@ limitations under the License.
     <string name="radio_fm_text" msgid="1973045042281933494">"FM"</string>
     <string name="radio_dab_text" msgid="8456449462266648979">"DAB"</string>
     <string name="program_list_text" msgid="4414150317304422313">"ଷ୍ଟେଶନ୍"</string>
-    <string name="favorites_list_text" msgid="7829827713977109155">"ପସନ୍ଦଦାର୍"</string>
+    <string name="favorites_list_text" msgid="7829827713977109155">"ପସନ୍ଦର"</string>
 </resources>

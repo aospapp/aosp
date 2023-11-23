@@ -30,6 +30,7 @@ import android.content.Context;
 import com.android.car.dialer.CarDialerRobolectricTestRunner;
 import com.android.car.dialer.R;
 import com.android.car.dialer.TestDialerApplication;
+import com.android.car.dialer.livedata.BluetoothErrorStringLiveData;
 import com.android.car.dialer.livedata.BluetoothHfpStateLiveData;
 import com.android.car.dialer.livedata.BluetoothPairListLiveData;
 import com.android.car.dialer.livedata.BluetoothStateLiveData;
@@ -76,8 +77,6 @@ public class TelecomActivityViewModelTest {
 
         assertThat(mTelecomActivityViewModel.getErrorMessage().getValue()).isEqualTo(
                 mContext.getString(R.string.bluetooth_unavailable));
-        assertThat(mTelecomActivityViewModel.getDialerAppState().getValue()).isEqualTo(
-                TelecomActivityViewModel.DialerAppState.BLUETOOTH_ERROR);
     }
 
     @Test
@@ -92,8 +91,6 @@ public class TelecomActivityViewModelTest {
                 BluetoothStateLiveData.BluetoothState.DISABLED);
         assertThat(mTelecomActivityViewModel.getErrorMessage().getValue()).isEqualTo(
                 mContext.getString(R.string.bluetooth_disabled));
-        assertThat(mTelecomActivityViewModel.getDialerAppState().getValue()).isEqualTo(
-                TelecomActivityViewModel.DialerAppState.BLUETOOTH_ERROR);
     }
 
     @Test
@@ -111,8 +108,6 @@ public class TelecomActivityViewModelTest {
         assertThat(mPairedListLiveData.getValue().isEmpty()).isTrue();
         assertThat(mTelecomActivityViewModel.getErrorMessage().getValue()).isEqualTo(
                 mContext.getString(R.string.bluetooth_unpaired));
-        assertThat(mTelecomActivityViewModel.getDialerAppState().getValue()).isEqualTo(
-                TelecomActivityViewModel.DialerAppState.BLUETOOTH_ERROR);
     }
 
     @Test
@@ -134,8 +129,6 @@ public class TelecomActivityViewModelTest {
         assertThat(mHfpStateLiveData.getValue() == BluetoothProfile.STATE_DISCONNECTED).isTrue();
         assertThat(mTelecomActivityViewModel.getErrorMessage().getValue()).isEqualTo(
                 mContext.getString(R.string.no_hfp));
-        assertThat(mTelecomActivityViewModel.getDialerAppState().getValue()).isEqualTo(
-                TelecomActivityViewModel.DialerAppState.BLUETOOTH_ERROR);
     }
 
     @Test
@@ -151,9 +144,7 @@ public class TelecomActivityViewModelTest {
         initializeViewModel();
 
         assertThat(mTelecomActivityViewModel.getErrorMessage().getValue()).isEqualTo(
-                TelecomActivityViewModel.NO_BT_ERROR);
-        assertThat(mTelecomActivityViewModel.getDialerAppState().getValue()).isEqualTo(
-                TelecomActivityViewModel.DialerAppState.DEFAULT);
+                BluetoothErrorStringLiveData.NO_BT_ERROR);
     }
 
     private void initializeBluetoothMonitor(boolean availability) {
@@ -169,8 +160,6 @@ public class TelecomActivityViewModelTest {
         mTelecomActivityViewModel = new TelecomActivityViewModel((Application) mContext);
         // Observers needed so that the liveData's internal initialization is triggered
         mTelecomActivityViewModel.getErrorMessage().observeForever(s -> {
-        });
-        mTelecomActivityViewModel.getDialerAppState().observeForever(s -> {
         });
     }
 }

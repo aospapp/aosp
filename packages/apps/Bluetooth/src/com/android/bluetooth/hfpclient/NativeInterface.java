@@ -24,7 +24,14 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.util.Log;
 
-class NativeInterface {
+import com.android.internal.annotations.VisibleForTesting;
+
+/**
+ * Defines native calls that are used by state machine/service to either send or receive
+ * messages to/from the native stack. This file is registered for the native methods in
+ * corresponding CPP file.
+ */
+public class NativeInterface {
     private static final String TAG = "NativeInterface";
     private static final boolean DBG = false;
 
@@ -32,46 +39,265 @@ class NativeInterface {
         classInitNative();
     }
 
-    NativeInterface() {}
+    private NativeInterface() {}
+    private static NativeInterface sInterface;
+    private static final Object INSTANCE_LOCK = new Object();
+
+    /**
+     * This class is a singleton because native library should only be loaded once
+     *
+     * @return default instance
+     */
+    public static NativeInterface getInstance() {
+        synchronized (INSTANCE_LOCK) {
+            if (sInterface == null) {
+                sInterface = new NativeInterface();
+            }
+        }
+        return sInterface;
+    }
+
+    // Native wrappers to help unit testing
+    /**
+     * Initialize native stack
+     */
+    @VisibleForTesting
+    public void initialize() {
+        initializeNative();
+    }
+
+    /**
+     * Close and clean up native stack
+     */
+    @VisibleForTesting
+    public void cleanup() {
+        cleanupNative();
+    }
+
+    /**
+     * Connect to the specified paired device
+     *
+     * @param address target device's address
+     * @return True on success, False on failure
+     */
+    @VisibleForTesting
+    public boolean connect(byte[] address) {
+        return connectNative(address);
+    }
+
+    /**
+     * Disconnect from the specified paired device
+     *
+     * @param address target device's address
+     * @return True on success, False on failure
+     */
+    @VisibleForTesting
+    public boolean disconnect(byte[] address) {
+        return disconnectNative(address);
+    }
+
+    /**
+     * Initiate audio connection to the specified paired device
+     *
+     * @param address target device's address
+     * @return True on success, False on failure
+     */
+    @VisibleForTesting
+    public boolean connectAudio(byte[] address) {
+        return connectAudioNative(address);
+    }
+
+    /**
+     * Close audio connection from the specified paired device
+     *
+     * @param address target device's address
+     * @return True on success, False on failure
+     */
+    public boolean disconnectAudio(byte[] address) {
+        return disconnectAudioNative(address);
+    }
+
+    /**
+     * Initiate voice recognition to the specified paired device
+     *
+     * @param address target device's address
+     * @return True on success, False on failure
+     */
+    @VisibleForTesting
+    public boolean startVoiceRecognition(byte[] address) {
+        return startVoiceRecognitionNative(address);
+    }
+
+    /**
+     * Close voice recognition to the specified paired device
+     *
+     * @param address target device's address
+     * @return True on success, False on failure
+     */
+    @VisibleForTesting
+    public boolean stopVoiceRecognition(byte[] address) {
+        return stopVoiceRecognitionNative(address);
+    }
+
+    /**
+     * Set volume to the specified paired device
+     *
+     * @param volumeType type of volume as in
+     *                  HeadsetClientHalConstants.VOLUME_TYPE_xxxx
+     * @param volume  volume level
+     * @param address target device's address
+     * @return True on success, False on failure
+     */
+    @VisibleForTesting
+    public boolean setVolume(byte[] address, int volumeType, int volume) {
+        return setVolumeNative(address, volumeType, volume);
+    }
+
+    /**
+     * dial number from the specified paired device
+     *
+     * @param number  phone number to be dialed
+     * @param address target device's address
+     * @return True on success, False on failure
+     */
+    @VisibleForTesting
+    public boolean dial(byte[] address, String number) {
+        return dialNative(address, number);
+    }
+
+    /**
+     * Memory dialing from the specified paired device
+     *
+     * @param location  memory location
+     * @param address target device's address
+     * @return True on success, False on failure
+     */
+    @VisibleForTesting
+    public boolean dialMemory(byte[] address, int location) {
+        return dialMemoryNative(address, location);
+    }
+
+    /**
+     * Apply action to call
+     *
+     * @action action (e.g. hold, terminate etc)
+     * @index call index
+     * @param address target device's address
+     * @return True on success, False on failure
+     */
+    @VisibleForTesting
+    public boolean handleCallAction(byte[] address, int action, int index) {
+        return handleCallActionNative(address, action, index);
+    }
+
+    /**
+     * Query current call status from the specified paired device
+     *
+     * @param address target device's address
+     * @return True on success, False on failure
+     */
+    @VisibleForTesting
+    public boolean queryCurrentCalls(byte[] address) {
+        return queryCurrentCallsNative(address);
+    }
+
+    /**
+     * Query operator name from the specified paired device
+     *
+     * @param address target device's address
+     * @return True on success, False on failure
+     */
+    @VisibleForTesting
+    public boolean queryCurrentOperatorName(byte[] address) {
+        return queryCurrentOperatorNameNative(address);
+    }
+
+    /**
+     * Retrieve subscriber number from the specified paired device
+     *
+     * @param address target device's address
+     * @return True on success, False on failure
+     */
+    @VisibleForTesting
+    public  boolean retrieveSubscriberInfo(byte[] address) {
+        return retrieveSubscriberInfoNative(address);
+    }
+
+    /**
+     * Transmit DTMF code
+     *
+     * @param code DTMF code
+     * @param address target device's address
+     * @return True on success, False on failure
+     */
+    @VisibleForTesting
+    public boolean sendDtmf(byte[] address, byte code) {
+        return sendDtmfNative(address, code);
+    }
+
+    /**
+     * Request last voice tag
+     *
+     * @param address target device's address
+     * @return True on success, False on failure
+     */
+    @VisibleForTesting
+    public boolean requestLastVoiceTagNumber(byte[] address) {
+        return requestLastVoiceTagNumberNative(address);
+    }
+
+    /**
+     * Send an AT command
+     *
+     * @param atCmd command code
+     * @param val1 command specific argurment1
+     * @param val2 command specific argurment2
+     * @param arg other command specific argurments
+     * @return True on success, False on failure
+     */
+    @VisibleForTesting
+    public boolean sendATCmd(byte[] address, int atCmd, int val1, int val2, String arg) {
+        return sendATCmdNative(address, atCmd, val1, val2, arg);
+    }
 
     // Native methods that call into the JNI interface
-    static native void classInitNative();
+    private static native void classInitNative();
 
-    native void initializeNative();
+    private native void initializeNative();
 
-    native void cleanupNative();
+    private native void cleanupNative();
 
-    static native boolean connectNative(byte[] address);
+    private static native boolean connectNative(byte[] address);
 
-    static native boolean disconnectNative(byte[] address);
+    private static native boolean disconnectNative(byte[] address);
 
-    static native boolean connectAudioNative(byte[] address);
+    private static native boolean connectAudioNative(byte[] address);
 
-    static native boolean disconnectAudioNative(byte[] address);
+    private static native boolean disconnectAudioNative(byte[] address);
 
-    static native boolean startVoiceRecognitionNative(byte[] address);
+    private static native boolean startVoiceRecognitionNative(byte[] address);
 
-    static native boolean stopVoiceRecognitionNative(byte[] address);
+    private static native boolean stopVoiceRecognitionNative(byte[] address);
 
-    static native boolean setVolumeNative(byte[] address, int volumeType, int volume);
+    private static native boolean setVolumeNative(byte[] address, int volumeType, int volume);
 
-    static native boolean dialNative(byte[] address, String number);
+    private static native boolean dialNative(byte[] address, String number);
 
-    static native boolean dialMemoryNative(byte[] address, int location);
+    private static native boolean dialMemoryNative(byte[] address, int location);
 
-    static native boolean handleCallActionNative(byte[] address, int action, int index);
+    private static native boolean handleCallActionNative(byte[] address, int action, int index);
 
-    static native boolean queryCurrentCallsNative(byte[] address);
+    private static native boolean queryCurrentCallsNative(byte[] address);
 
-    static native boolean queryCurrentOperatorNameNative(byte[] address);
+    private static native boolean queryCurrentOperatorNameNative(byte[] address);
 
-    static native boolean retrieveSubscriberInfoNative(byte[] address);
+    private static native boolean retrieveSubscriberInfoNative(byte[] address);
 
-    static native boolean sendDtmfNative(byte[] address, byte code);
+    private static native boolean sendDtmfNative(byte[] address, byte code);
 
-    static native boolean requestLastVoiceTagNumberNative(byte[] address);
+    private static native boolean requestLastVoiceTagNumberNative(byte[] address);
 
-    static native boolean sendATCmdNative(byte[] address, int atCmd, int val1, int val2,
+    private static native boolean sendATCmdNative(byte[] address, int atCmd, int val1, int val2,
             String arg);
 
     private BluetoothDevice getDevice(byte[] address) {
@@ -424,4 +650,21 @@ class NativeInterface {
                     "onRingIndication: Ignoring message because service not available: " + event);
         }
     }
+
+    private void onUnknownEvent(String eventString, byte[] address) {
+        StackEvent event = new StackEvent(StackEvent.EVENT_TYPE_UNKNOWN_EVENT);
+        event.device = getDevice(address);
+        event.valueString = eventString;
+        if (DBG) {
+            Log.d(TAG, "onUnknownEvent: address " + address + " event " + event);
+        }
+        HeadsetClientService service = HeadsetClientService.getHeadsetClientService();
+        if (service != null) {
+            service.messageFromNative(event);
+        } else {
+            Log.w(TAG,
+                    "onUnknowEvent: Ignoring message because service not available: " + event);
+        }
+    }
+
 }

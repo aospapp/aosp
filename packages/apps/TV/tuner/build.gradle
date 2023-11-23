@@ -21,39 +21,28 @@
 
 apply plugin: 'com.android.library'
 apply plugin: 'com.google.protobuf'
-buildscript {
-    repositories {
-        mavenCentral()
-        google()
-        jcenter()
-    }
-    dependencies {
-        classpath 'com.android.tools.build:gradle:3.1.4'
-        classpath 'com.google.protobuf:protobuf-gradle-plugin:0.8.5'
-    }
-}
+
 android {
-    compileSdkVersion 26
-    buildToolsVersion '28.0.2'
+    compileSdkVersion 29
+    buildToolsVersion '29.0.2'
 
-    dexOptions {
-        preDexLibraries = false
-        additionalParameters = ['--core-library']
-        javaMaxHeapSize "6g"
+    compileOptions() {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
     }
 
-    android {
-        defaultConfig {
-            resConfigs "en"
-        }
+    lintOptions {
+        abortOnError false
     }
 
     defaultConfig {
         minSdkVersion 23
-        targetSdkVersion 26
+        resConfigs "en"
+        targetSdkVersion 28
         versionCode 1
         versionName "1.0"
     }
+
     buildTypes {
         debug {
             minifyEnabled false
@@ -62,10 +51,6 @@ android {
             minifyEnabled true
         }
     }
-    compileOptions() {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
-    }
 
     sourceSets {
         main {
@@ -73,41 +58,44 @@ android {
             java.srcDirs = ['src']
             manifest.srcFile 'AndroidManifest.xml'
             proto {
-                srcDir 'proto/'
+                srcDir 'proto'
             }
         }
     }
 }
 
-repositories {
-    mavenCentral()
-    google()
-    jcenter()
-}
-
-final String SUPPORT_LIBS_VERSION = '26.1.0'
 dependencies {
-    implementation 'com.google.android.exoplayer:exoplayer-core:2.9.0'
-    implementation 'com.google.android.exoplayer:exoplayer:r1.5.16'
-    implementation "com.android.support:support-tv-provider:${SUPPORT_LIBS_VERSION}"
-    implementation "com.android.support:appcompat-v7:${SUPPORT_LIBS_VERSION}"
-    implementation "com.android.support:leanback-v17:${SUPPORT_LIBS_VERSION}"
-    implementation 'com.google.guava:guava:26.0-android'
-    implementation 'com.google.protobuf.nano:protobuf-javanano:3.2.0rc2'
-    implementation project(':common')
-}
-protobuf {
-    // Configure the protoc executable
-    protoc {
-        artifact = 'com.google.protobuf:protoc:3.1.0'
+    implementation      'androidx.annotation:annotation:1.1.0'
+    implementation      'androidx.appcompat:appcompat:1.1.0'
+    implementation      'androidx.leanback:leanback:1.1.0-alpha02'
+    implementation      'androidx.recyclerview:recyclerview:1.1.0'
+    implementation      'androidx.recyclerview:recyclerview-selection:1.0.0'
+    implementation      'androidx.tvprovider:tvprovider:1.0.0'
 
-        generateProtoTasks {
-            all().each {
-                task -> task.builtins {
-                    remove java
-                    javanano {
-                        option "enum_style=java"
-                    }
+    implementation      'com.google.android.exoplayer:exoplayer:r1.5.16'
+    api                 'com.google.android.exoplayer:exoplayer-core:2.10.1'
+    implementation      'com.google.android.exoplayer:exoplayer-ui:2.10.1'
+    annotationProcessor 'com.google.auto.factory:auto-factory:1.0-beta7'
+    implementation      'com.google.auto.factory:auto-factory:1.0-beta7'
+    implementation      'com.google.dagger:dagger:2.23'
+    implementation      'com.google.dagger:dagger-android:2.23'
+    annotationProcessor 'com.google.dagger:dagger-android-processor:2.23'
+    annotationProcessor 'com.google.dagger:dagger-compiler:2.23'
+    implementation      'com.google.guava:guava:28.1-jre'
+    implementation      'com.google.protobuf:protobuf-javalite:3.11.0'
+
+    implementation      project(':common')
+}
+
+protobuf {
+    protoc {
+        artifact = 'com.google.protobuf:protoc:3.11.0'
+    }
+    generateProtoTasks {
+        all().each { task ->
+            task.builtins {
+                java {
+                    option "lite"
                 }
             }
         }

@@ -25,71 +25,63 @@ import static com.android.car.settings.common.PreferenceController.UNSUPPORTED_O
 
 import static com.google.common.truth.Truth.assertThat;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.when;
+import android.content.Context;
+import android.os.UserHandle;
+import android.os.UserManager;
 
-import android.car.userlib.CarUserManagerHelper;
-
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
-import com.android.car.settings.testutils.ShadowCarUserManagerHelper;
 
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.Shadows;
-import org.robolectric.annotation.Config;
+import org.robolectric.shadow.api.Shadow;
+import org.robolectric.shadows.ShadowUserManager;
 
 /** Unit test for {@link BluetoothEntryPreferenceController}. */
-@RunWith(CarSettingsRobolectricTestRunner.class)
-@Config(shadows = {ShadowCarUserManagerHelper.class})
+@RunWith(RobolectricTestRunner.class)
 public class BluetoothEntryPreferenceControllerTest {
 
-    @Mock
-    private CarUserManagerHelper mCarUserManagerHelper;
+    private Context mContext;
     private BluetoothEntryPreferenceController mController;
+    private UserHandle mMyUserHandle;
 
     @Before
     public void setUp() {
-        MockitoAnnotations.initMocks(this);
-        ShadowCarUserManagerHelper.setMockInstance(mCarUserManagerHelper);
+        mContext = RuntimeEnvironment.application;
+        mMyUserHandle = UserHandle.of(UserHandle.myUserId());
         mController = new PreferenceControllerTestHelper<>(RuntimeEnvironment.application,
                 BluetoothEntryPreferenceController.class).getController();
     }
 
-    @After
-    public void tearDown() {
-        ShadowCarUserManagerHelper.reset();
-    }
-
     @Test
     public void getAvailabilityStatus_bluetoothAvailable_available() {
-        Shadows.shadowOf(RuntimeEnvironment.application.getPackageManager()).setSystemFeature(
+        Shadows.shadowOf(mContext.getPackageManager()).setSystemFeature(
                 FEATURE_BLUETOOTH, /* supported= */ true);
-        when(mCarUserManagerHelper.isCurrentProcessUserHasRestriction(any())).thenReturn(false);
 
         assertThat(mController.getAvailabilityStatus()).isEqualTo(AVAILABLE);
     }
 
     @Test
     public void getAvailabilityStatus_bluetoothAvailable_disallowBluetooth_disabledForUser() {
-        Shadows.shadowOf(RuntimeEnvironment.application.getPackageManager()).setSystemFeature(
+        Shadows.shadowOf(mContext.getPackageManager()).setSystemFeature(
                 FEATURE_BLUETOOTH, /* supported= */ true);
-        when(mCarUserManagerHelper.isCurrentProcessUserHasRestriction(
-                DISALLOW_BLUETOOTH)).thenReturn(true);
+        getShadowUserManager().setUserRestriction(mMyUserHandle, DISALLOW_BLUETOOTH, true);
 
         assertThat(mController.getAvailabilityStatus()).isEqualTo(DISABLED_FOR_USER);
     }
 
     @Test
     public void getAvailabilityStatus_bluetoothNotAvailable_unsupportedOnDevice() {
-        Shadows.shadowOf(RuntimeEnvironment.application.getPackageManager()).setSystemFeature(
+        Shadows.shadowOf(mContext.getPackageManager()).setSystemFeature(
                 FEATURE_BLUETOOTH, /* supported= */ false);
 
         assertThat(mController.getAvailabilityStatus()).isEqualTo(UNSUPPORTED_ON_DEVICE);
+    }
+
+    private ShadowUserManager getShadowUserManager() {
+        return Shadow.extract(UserManager.get(mContext));
     }
 }

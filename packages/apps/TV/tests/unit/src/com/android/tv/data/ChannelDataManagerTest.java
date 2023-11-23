@@ -56,7 +56,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.Matchers;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 
 /**
@@ -92,35 +92,29 @@ public class ChannelDataManagerTest {
         mContentResolver = new FakeContentResolver();
         mContentResolver.addProvider(TvContract.AUTHORITY, mContentProvider);
         mListener = new TestChannelDataManagerListener();
-        getInstrumentation()
-                .runOnMainSync(
-                        new Runnable() {
-                            @Override
-                            public void run() {
-                                TvInputManagerHelper mockHelper =
-                                        Mockito.mock(TvInputManagerHelper.class);
-                                Mockito.when(mockHelper.hasTvInputInfo(Matchers.anyString()))
-                                        .thenReturn(true);
-                                Context mockContext = Mockito.mock(Context.class);
-                                Mockito.when(mockContext.getContentResolver())
-                                        .thenReturn(mContentResolver);
-                                Mockito.when(mockContext.checkSelfPermission(Matchers.anyString()))
-                                  .thenAnswer(
-                                          invocation -> {
-                                              Object[] args = invocation.getArguments();
-                                              return getTargetContext()
-                                                      .checkSelfPermission(((String) args[0]));
-                                          });
-
-                                mChannelDataManager =
-                                        new ChannelDataManager(
-                                                mockContext,
-                                                mockHelper,
-                                                AsyncTask.SERIAL_EXECUTOR,
-                                                mContentResolver);
-                                mChannelDataManager.addListener(mListener);
-                            }
+    getInstrumentation()
+        .runOnMainSync(
+            new Runnable() {
+              @Override
+              public void run() {
+                TvInputManagerHelper mockHelper = Mockito.mock(TvInputManagerHelper.class);
+                Mockito.when(mockHelper.hasTvInputInfo(ArgumentMatchers.anyString()))
+                    .thenReturn(true);
+                Context mockContext = Mockito.mock(Context.class);
+                Mockito.when(mockContext.getContentResolver()).thenReturn(mContentResolver);
+                Mockito.when(mockContext.checkSelfPermission(ArgumentMatchers.anyString()))
+                    .thenAnswer(
+                        invocation -> {
+                          Object[] args = invocation.getArguments();
+                          return getTargetContext().checkSelfPermission(((String) args[0]));
                         });
+
+                mChannelDataManager =
+                    new ChannelDataManager(
+                        mockContext, mockHelper, AsyncTask.SERIAL_EXECUTOR, mContentResolver);
+                mChannelDataManager.addListener(mListener);
+              }
+            });
     }
 
     @After

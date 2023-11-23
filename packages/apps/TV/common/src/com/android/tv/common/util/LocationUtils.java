@@ -16,9 +16,7 @@
 
 package com.android.tv.common.util;
 
-import android.Manifest;
 import android.content.Context;
-import android.content.pm.PackageManager;
 import android.location.Address;
 import android.location.Geocoder;
 import android.location.Location;
@@ -26,12 +24,11 @@ import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.text.TextUtils;
 import android.util.Log;
+
 import com.android.tv.common.BuildConfig;
-
-
-
 
 import java.io.IOException;
 import java.util.Collections;
@@ -65,7 +62,29 @@ public class LocationUtils {
         if (sApplicationContext == null) {
             sApplicationContext = context.getApplicationContext();
         }
+        /* Begin_AOSP_Comment_Out
+        if (!BuildConfig.AOSP) {
+            com.google.android.tv.livechannels.util.GoogleLocationUtilsHelper.startLocationUpdates(
+                    context, LocationUtils::updateAddress);
+            return null;
+        }
+        End_AOSP_Comment_Out */
         LocationUtilsHelper.startLocationUpdates();
+        return null;
+    }
+
+    @Nullable
+    static String getCurrentPostalCode(Context context) throws IOException {
+        Address address = getCurrentAddress(context);
+        if (address != null) {
+            Log.i(
+                    TAG,
+                    "Current country and postal code is "
+                            + address.getCountryName()
+                            + ", "
+                            + address.getPostalCode());
+            return address.getPostalCode();
+        }
         return null;
     }
 
@@ -74,10 +93,10 @@ public class LocationUtils {
         /**
          * Called when address is updated.
          *
-         * This listener is removed when this method returns true.
+         * <p>This listener is removed when this method returns true.
          *
          * @return {@code true} if the job has been finished and the listener needs to be removed;
-         *         {@code false} otherwise.
+         *     {@code false} otherwise.
          */
         boolean onUpdateAddress(Address address);
     }
@@ -85,8 +104,8 @@ public class LocationUtils {
     /**
      * Add an {@link OnUpdateAddressListener} instance.
      *
-     * Note that the listener is removed automatically when
-     * {@link OnUpdateAddressListener#onUpdateAddress(Address)} is called and returns {@code true}.
+     * <p>Note that the listener is removed automatically when {@link
+     * OnUpdateAddressListener#onUpdateAddress(Address)} is called and returns {@code true}.
      */
     public static void addOnUpdateAddressListener(OnUpdateAddressListener listener) {
         sOnUpdateAddressListeners.add(listener);
@@ -95,8 +114,8 @@ public class LocationUtils {
     /**
      * Remove an {@link OnUpdateAddressListener} instance if it exists.
      *
-     * Note that the listener will be removed automatically when
-     * {@link OnUpdateAddressListener#onUpdateAddress(Address)} is called and returns {@code true}.
+     * <p>Note that the listener will be removed automatically when {@link
+     * OnUpdateAddressListener#onUpdateAddress(Address)} is called and returns {@code true}.
      */
     public static void removeOnUpdateAddressListener(OnUpdateAddressListener listener) {
         sOnUpdateAddressListeners.remove(listener);
@@ -108,6 +127,13 @@ public class LocationUtils {
         if (sCountry != null) {
             return sCountry;
         }
+        /* Begin_AOSP_Comment_Out
+        if (!BuildConfig.AOSP) {
+            sCountry =
+                    com.google.android.tv.livechannels.util.GoogleLocationUtilsHelper
+                            .getDeviceCountry(context);
+        }
+        End_AOSP_Comment_Out */
         if (TextUtils.isEmpty(sCountry)) {
             sCountry = context.getResources().getConfiguration().locale.getCountry();
         }

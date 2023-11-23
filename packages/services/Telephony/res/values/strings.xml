@@ -42,6 +42,10 @@
     <string name="payphone">Payphone</string>
     <!-- In-call screen: status label for a call that's on hold -->
     <string name="onHold">On hold</string>
+    <!-- Title for carrier MMI message -->
+    <string name="carrier_mmi_msg_title"><xliff:g id="mmicarrier" example="T-Mobile">%s</xliff:g> Message</string>
+    <!-- Default title for carrier MMI message -->
+    <string name="default_carrier_mmi_msg_title">Carrier Message</string>
     <!-- Possible error messages with outgoing calls --><skip/>
     <string name="mmiStarted">MMI code started</string>
     <!-- Dialog label when a USSD code starts running -->
@@ -434,6 +438,17 @@
         <item>LTE/TDSCDMA/GSM/WCDMA</item>
         <item>TDSCDMA/CDMA/EVDO/GSM/WCDMA </item>
         <item>LTE/TDSCDMA/CDMA/EVDO/GSM/WCDMA</item>
+        <item>NR only</item>
+        <item>NR/LTE</item>
+        <item>NR/LTE/CDMA/EvDo</item>
+        <item>NR/LTE/GSM/WCDMA</item>
+        <item>NR/LTE/CDMA/EvDo/GSM/WCDMA</item>
+        <item>NR/LTE/WCDMA</item>
+        <item>NR/LTE/TDSCDMA</item>
+        <item>NR/LTE/TDSCDMA/GSM</item>
+        <item>NR/LTE/TDSCDMA/WCDMA</item>
+        <item>NR/LTE/TDSCDMA/GSM/WCDMA</item>
+        <item>NR/LTE/TDSCDMA/CDMA/EvDo/GSM/WCDMA</item>
     </string-array>
     <!-- The preferred network modes RIL constants, in order of the modes above,
          e.g. the choice "GSM/WCDMA preferred" has the corresponding value "0" -->
@@ -461,6 +476,17 @@
         <item>"20"</item>
         <item>"21"</item>
         <item>"22"</item>
+        <item>"23"</item>
+        <item>"24"</item>
+        <item>"25"</item>
+        <item>"26"</item>
+        <item>"27"</item>
+        <item>"28"</item>
+        <item>"29"</item>
+        <item>"30"</item>
+        <item>"31"</item>
+        <item>"32"</item>
+        <item>"33"</item>
     </string-array>
 
     <!-- The following strings are summaries for preferred network modes in Mobile network settings,
@@ -489,6 +515,8 @@
     <string name="preferred_network_mode_lte_gsm_wcdma_summary">Preferred network mode: GSM/WCDMA/LTE</string>
     <!-- CDMA+LTE/EVDO -->
     <string name="preferred_network_mode_lte_cdma_evdo_summary">Preferred network mode: CDMA+LTE/EVDO</string>
+    <!-- LTE/CDMA/EvDo/GSM/WCDMA [CHAR LIMIT=NONE] -->
+    <string name="preferred_network_mode_lte_cdma_evdo_gsm_wcdma_summary">Preferred network mode: LTE/CDMA/EvDo/GSM/WCDMA</string>
     <!-- Global -->
     <string name="preferred_network_mode_global_summary">Preferred network mode: Global</string>
     <!-- LTE / WCDMA -->
@@ -517,6 +545,28 @@
     <string name="preferred_network_mode_tdscdma_cdma_evdo_gsm_wcdma_summary">Preferred network mode: TDSCDMA/CDMA/EvDo/GSM/WCDMA</string>
     <!-- LTE/TDSCDMA/CDMA/EvDo/GSM/WCDMA -->
     <string name="preferred_network_mode_lte_tdscdma_cdma_evdo_gsm_wcdma_summary">Preferred network mode: LTE/TDSCDMA/CDMA/EvDo/GSM/WCDMA</string>
+    <!-- NR only [CHAR LIMIT=NONE] -->
+    <string name="preferred_network_mode_nr_only_summary">Preferred network mode: NR only</string>
+    <!-- NR / LTE [CHAR LIMIT=NONE] -->
+    <string name="preferred_network_mode_nr_lte_summary">Preferred network mode: NR / LTE</string>
+    <!-- NR/LTE/CDMA/EvDo [CHAR LIMIT=NONE] -->
+    <string name="preferred_network_mode_nr_lte_cdma_evdo_summary">Preferred network mode: NR/LTE/CDMA/EvDo</string>
+    <!-- NR/LTE/GSM/WCDMA [CHAR LIMIT=NONE] -->
+    <string name="preferred_network_mode_nr_lte_gsm_wcdma_summary">Preferred network mode: NR/LTE/GSM/WCDMA</string>
+    <!-- NR/LTE/TDSCDMA/CDMA/EvDo/GSM/WCDMA [CHAR LIMIT=NONE] -->
+    <string name="preferred_network_mode_nr_lte_cdma_evdo_gsm_wcdma_summary">Preferred network mode: NR/LTE/CDMA/EvDo/GSM/WCDMA</string>
+    <!-- NR/LTE/WCDMA [CHAR LIMIT=NONE] -->
+    <string name="preferred_network_mode_nr_lte_wcdma_summary">Preferred network mode: NR/LTE/WCDMA</string>
+    <!-- NR/LTE/TDSCDMA [CHAR LIMIT=NONE] -->
+    <string name="preferred_network_mode_nr_lte_tdscdma_summary">Preferred network mode: NR/LTE/TDSCDMA</string>
+    <!-- NR/LTE/TDSCDMA/GSM [CHAR LIMIT=NONE] -->
+    <string name="preferred_network_mode_nr_lte_tdscdma_gsm_summary">Preferred network mode: NR/LTE/TDSCDMA/GSM</string>
+    <!-- NR/LTE/TDSCDMA/WCDMA [CHAR LIMIT=NONE] -->
+    <string name="preferred_network_mode_nr_lte_tdscdma_wcdma_summary">Preferred network mode: NR/LTE/TDSCDMA/WCDMA</string>
+    <!-- NR/LTE/TDSCDMA/GSM/WCDMA [CHAR LIMIT=NONE] -->
+    <string name="preferred_network_mode_nr_lte_tdscdma_gsm_wcdma_summary">Preferred network mode: NR/LTE/TDSCDMA/GSM/WCDMA</string>
+    <!-- NR/LTE/TDSCDMA/CDMA/EvDo/GSM/WCDMA [CHAR LIMIT=NONE] -->
+    <string name="preferred_network_mode_nr_lte_tdscdma_cdma_evdo_gsm_wcdma_summary">Preferred network mode: NR/LTE/TDSCDMA/CDMA/EvDo/GSM/WCDMA</string>
 
     <!-- Mobile network settings screen, name for call settings category -->
     <string name="call_category">Calling</string>
@@ -564,14 +614,25 @@
          lose data connectivity because you're roaming and you have the
          "data roaming" feature turned off. -->
     <string name="roaming_reenable_message">Data roaming is turned off. Tap to turn on.</string>
+    <!-- Mobile network settings UI: notification message shown when you
+         are roaming and you have the "data roaming" feature turned on. -->
+    <string name="roaming_enabled_message">Roaming charges may apply. Tap to modify.</string>
     <!-- Roaming notification tile, notifying lost of roaming data connection -->
     <string name="roaming_notification_title">Lost mobile data connection</string>
+    <!-- Roaming notification tile, notifying continued roaming data connection -->
+    <string name="roaming_on_notification_title">Data roaming is on</string>
     <!-- Mobile network settings screen, dialog message when user selects the Data roaming check box -->
     <string name="roaming_warning">You may incur significant charges.</string>
     <!-- Mobile network settings screen, message asking the user to check their pricing with their Carrier, when enabling Data roaming. -->
     <string name="roaming_check_price_warning">Check with your network provider for pricing.</string>
     <!-- Mobile network settings screen, dialog message title when user selects the Data roaming check box -->
     <string name="roaming_alert_title">Allow data roaming?</string>
+    <!-- Notification title for limited sim function during dual sim -->
+    <string name="limited_sim_function_notification_title">Limited SIM functionality</string>
+    <!-- Notification message for limited sim function during dual sim [CHAR LIMIT=80]-->
+    <string name="limited_sim_function_with_phone_num_notification_message"><xliff:g id="carrier_name">%1$s</xliff:g> calls and data services may be blocked while using <xliff:g id="phone_number">%2$s</xliff:g>.</string>
+    <!-- Notification message for limited sim function during dual sim [CHAR LIMIT=80]-->
+    <string name="limited_sim_function_notification_message"><xliff:g id="carrier_name">%1$s</xliff:g> calls and data services may be blocked while using another SIM.</string>
     <!-- Mobile network settings screen, data usage setting check box name -->
     <string name="data_usage_title">App data usage</string>
     <!-- Summary about how much data has been used in a date range [CHAR LIMIT=100] -->
@@ -742,6 +803,10 @@
     <string name="multi_category_enable">Multi-category enabled</string>
     <string name="multi_category_disable">Multi-category disabled</string>
 
+    <string name="network_recommended">\u0020(recommended)</string>
+    <string name="network_5G" translatable="false">5G</string>
+    <string name="network_lte_pure" translatable="false">LTE</string>
+    <string name="network_4G_pure" translatable="false">4G</string>
     <string name="network_lte">LTE (recommended)</string>
     <string name="network_4G">4G (recommended)</string>
     <string name="network_3G" translatable="false">3G</string>
@@ -962,7 +1027,7 @@
     <!-- FDN settings: error message displayed in a popup (toast) -->
     <string name="pin2_invalid">FDN wasn\'t updated because you typed an incorrect PIN.</string>
     <!-- FDN settings: error message displayed in a popup (toast) -->
-    <string name="fdn_invalid_number">FDN wasn\'t updated because the number exceeds 20 digits.</string>
+    <string name="fdn_invalid_number">FDN wasn\'t updated because the number exceeds <xliff:g id="FDN_NUMBER_LIMIT_LENGTH">%d</xliff:g> digits.</string>
     <!-- FDN settings: error message displayed in a popup (toast), when the entered
          FDN number was inappropriate, OR, PIN2 the user entered was incorrect.
          Because of API restriction, there's no way to determine which is the exact
@@ -1181,6 +1246,9 @@
          emergency calling is not currently available. -->
     <string name="dial_emergency_calling_not_available">Emergency calling not available</string>
 
+    <!-- Only handle pin entry when phone user is system-->
+    <string name="pin_puk_system_user_only">Only the owner of the device can enter PIN/PUK codes.</string>
+
     <!-- Text for description of police calling type -->
     <string name="police_type_description">Police</string>
     <!-- Text for description of ambulance calling type -->
@@ -1251,6 +1319,8 @@
        &lt;a href="<xliff:g example="http://www.google.com" id="url">http://support.google.com/mobile?p=telephony_rtt</xliff:g>">Learn more&lt;/a>
        &lt;br>&lt;br> - RTT calls are saved as a message transcript
        &lt;br> - RTT is not available for video calls</string>
+
+    <string name="no_rtt_when_roaming">Note: RTT is not available while roaming</string>
 
     <!-- Service option entries.  -->
     <string-array name="tty_mode_entries">
@@ -1377,6 +1447,17 @@
     <string name="alert_dialog_no">No</string>
     <!-- ECM: ECM exit dialog choice -->
     <string name="alert_dialog_dismiss">Dismiss</string>
+    <!-- ECM: Notification body wihout data restriction hint -->
+    <string name="phone_in_ecm_call_notification_text_without_data_restriction_hint">The phone is in emergency callback mode</string>
+    <!-- ECM: Displays the time when ECM will end without data restriction hint, Example: "Until 10:45 AM" -->
+    <string name="phone_in_ecm_notification_complete_time_without_data_restriction_hint">Until <xliff:g id="completeTime">%s</xliff:g></string>
+    <!-- ECM: Dialog box message without data restriction hint for exiting from the notifications screen -->
+    <plurals name="alert_dialog_exit_ecm_without_data_restriction_hint">
+        <!-- number of minutes is one -->
+        <item quantity="one">The phone will be in emergency callback mode for <xliff:g id="count">%s</xliff:g> minute.\nDo you want to exit now?</item>
+        <!-- number of minutes is not equal to one -->
+        <item quantity="other">The phone will be in emergency callback mode for <xliff:g id="count">%s</xliff:g> minutes.\nDo you want to exit now?</item>
+    </plurals>
 
     <!-- For incoming calls, this is a string we can get from a CDMA network instead of
          the actual phone number, to indicate there's no number present.  DO NOT TRANSLATE. -->
@@ -1535,6 +1616,15 @@
     <!-- Call failure reason displayed when the user's call is ended due to a low battery. This
          message is shown when an in-progress call is ended due to the battery being low. -->
     <string name="callFailed_low_battery">Video call ended due to low battery.</string>
+
+    <!-- In-call screen: error message shown when the user attempts to place an emergency call
+         over wifi calling (WFC), but emergency services are not available in the current
+         location. -->
+    <string name="callFailed_emergency_call_over_wfc_not_available">Emergency calls over Wi-Fi calling not available in this location.</string>
+
+    <!-- In-call screen: error message shown when the user attempts to place a call over wifi
+         calling (WFC), but wifi calling is not available in the current location. -->
+    <string name="callFailed_wfc_service_not_available_in_this_location">Wi-Fi calling is not available in this location.</string>
 
     <!-- The title for the change voicemail PIN activity -->
     <string name="change_pin_title">Change Voicemail PIN</string>
@@ -1747,7 +1837,7 @@
     <!-- Call barring settings screen, change password -->
     <string name="call_barring_change_pwd_description">Change call barring password</string>
     <!-- Call barring settings screen, not possible to change call barring password -->
-    <string name="call_barring_change_pwd_description_disabled">Cannot change call barring password.</string>
+    <string name="call_barring_change_pwd_description_disabled">Cannot change call barring password</string>
     <!-- Call barring settings screen, change password -->
     <string name="call_barring_pwd_not_match">Passwords do not match</string>
     <!-- Call barring settings screen, change password -->
@@ -1764,8 +1854,6 @@
     <string name="messageCallBarring">Enter password</string>
     <!-- Call barring settings screen, section heading -->
     <string name="call_barring_settings">Call barring settings</string>
-    <!-- Call barring settings screen, deactivate all call barring settings -->
-    <string name="call_barring_deactivate_all_no_password">Deactivate all call barring settings?</string>
     <!-- In-call screen: error message shown when the user attempts to place a call, but the network
          does not have enough resources (e.g. it is busy) and the call cannot be placed. -->
     <string name="callFailed_NetworkBusy">Network is busy.  Please try your call again later.</string>
@@ -1861,4 +1949,209 @@
     <string name="supp_service_over_ut_precautions_roaming_dual_sim">To use <xliff:g id="supp service">%1$s</xliff:g>, make sure mobile data and data roaming are turned on for SIM <xliff:g id="sim number">%2$d</xliff:g>. You can change these in mobile network settings.</string>
     <!-- supplementary services over ut precaution exit dialog choice -->
     <string name="supp_service_over_ut_precautions_dialog_dismiss">Dismiss</string>
+
+    <!-- Data Connection Enable. Only shown in diagnostic screen, so precise translation is not needed. -->
+    <string name="radio_info_data_connection_enable">Enable Data Connection</string>
+    <!-- Data Connection Disable. Only shown in diagnostic screen, so precise translation is not needed. -->
+    <string name="radio_info_data_connection_disable">Disable Data Connection</string>
+
+    <!-- VoLTE provisioning flag on. Only shown in diagnostic screen, so precise translation is not needed. -->
+    <string name="volte_provisioned_switch_string">VoLTE Provisioned</string>
+
+    <!-- Video calling provisioning flag on. Only shown in diagnostic screen, so precise translation is not needed. -->
+    <string name="vt_provisioned_switch_string">Video Calling Provisioned</string>
+
+    <!-- Wifi Calling provisioning flag on. Only shown in diagnostic screen, so precise translation is not needed. -->
+    <string name="wfc_provisioned_switch_string">Wifi Calling Provisioned</string>
+
+    <!-- EAB provisioning flag on. Only shown in diagnostic screen, so precise translation is not needed. -->
+    <string name="eab_provisioned_switch_string">EAB/Presence Provisioned</string>
+
+    <!-- Cbrs enable disable flag. Only shown in diagnostic screen, so precise translation is not needed -->
+    <string name="cbrs_data_switch_string">Cbrs Data</string>
+
+    <!-- Dsds enable/disable flag. Only shown in diagnostic screen, so precise translation is not needed, [CHAR LIMIT=none] -->
+    <string name="dsds_switch_string">Enable DSDS</string>
+
+    <!-- UI debug setting: Enable/Disable DSDS [CHAR LIMIT=none] -->
+    <string name="dsds_dialog_title">Restart Device?</string>
+
+    <!-- UI debug setting: Enable/Disable DSDS [CHAR LIMIT=none] -->
+    <string name="dsds_dialog_message">You need to restart your device to change this setting.</string>
+
+    <!-- UI debug setting: Enable/Disable DSDS [CHAR LIMIT=none] -->
+    <string name="dsds_dialog_confirm">Restart</string>
+
+    <!-- UI debug setting: Enable/Disable DSDS [CHAR LIMIT=none] -->
+    <string name="dsds_dialog_cancel">Cancel</string>
+
+    <!-- Title for controlling on/off for Mobile phone's radio power. Only shown in diagnostic screen, so precise translation is not needed. -->
+    <string name="radio_info_radio_power">Mobile Radio Power</string>
+
+    <!-- Phone Info screen. Menu item label.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radioInfo_menu_viewADN">View SIM Address Book</string>
+    <!-- Phone Info screen. Menu item label.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radioInfo_menu_viewFDN">View Fixed Dialing Numbers</string>
+    <!-- Phone Info screen. Menu item label.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radioInfo_menu_viewSDN">View Service Dialing Numbers</string>
+    <!-- Phone Info screen. Menu item label.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radioInfo_menu_getIMS">IMS Service Status</string>
+
+    <!-- Phone Info screen. IMS Registration Title.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radio_info_ims_reg_status_title">IMS Status</string>
+
+    <!-- Phone Info screen. IMS Status - Registered.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radio_info_ims_reg_status_registered">Registered</string>
+    <!-- Phone Info screen. Ims Status - Unregistered.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radio_info_ims_reg_status_not_registered">Not Registered</string>
+
+    <!-- Phone Info screen. Ims Feature Status label.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radio_info_ims_feature_status_available">Available</string>
+    <!-- Phone Info screen. Ims Feature status label.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radio_info_ims_feature_status_unavailable">Unavailable</string>
+
+    <!-- Phone Info screen. IMS Registration.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radio_info_ims_reg_status">IMS Registration: <xliff:g id="status" example="registered">%1$s</xliff:g>\u000AVoice over LTE: <xliff:g id="availability" example="available">%2$s</xliff:g>\u000AVoice over WiFi: <xliff:g id="availability" example="available">%3$s</xliff:g>\u000AVideo Calling: <xliff:g id="availability" example="available">%4$s</xliff:g>\u000AUT Interface: <xliff:g id="availability" example="available">%5$s</xliff:g></string>
+
+    <!-- Phone Info screen. Status label.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radioInfo_service_in">In Service</string>
+    <!-- Phone Info screen. Status label.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radioInfo_service_out">Out of Service</string>
+    <!-- Phone Info screen. Status label.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radioInfo_service_emergency">Emergency Calls Only</string>
+    <!-- Phone Info screen. Status label.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radioInfo_service_off">Radio Off</string>
+
+    <!-- Phone Info screen. Status label.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radioInfo_roaming_in">Roaming</string>
+    <!-- Phone Info screen. Status label.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radioInfo_roaming_not">Not Roaming</string>
+
+    <!-- Phone Info screen. Status label.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radioInfo_phone_idle">Idle</string>
+    <!-- Phone Info screen. Status label.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radioInfo_phone_ringing">Ringing</string>
+    <!-- Phone Info screen. Status label.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radioInfo_phone_offhook">Call in Progress</string>
+
+    <!-- Phone Info screen. Status label.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radioInfo_data_disconnected">Disconnected</string>
+    <!-- Phone Info screen. Status label.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radioInfo_data_connecting">Connecting</string>
+    <!-- Phone Info screen. Status label.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radioInfo_data_connected">Connected</string>
+    <!-- Phone Info screen. Status label.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radioInfo_data_suspended">Suspended</string>
+
+    <!-- Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radioInfo_unknown">Unknown</string>
+    <!-- Phone Info screen. Units shown after a value.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radioInfo_display_packets">pkts</string>
+    <!-- Phone Info screen. Units shown after a value.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radioInfo_display_bytes">bytes</string>
+    <!-- Phone Info screen. Units shown after a value.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radioInfo_display_dbm">dBm</string>
+    <!-- Phone Info screen. Units shown after a value.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radioInfo_display_asu">asu</string>
+    <!-- Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radioInfo_lac">LAC</string>
+    <!-- Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radioInfo_cid">CID</string>
+
+
+    <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radio_info_subid">Current subId:</string>
+    <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radio_info_dds">SubId of default data SIM:</string>
+    <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radio_info_dl_kbps">DL Bandwidth (kbps):</string>
+    <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radio_info_ul_kbps">UL Bandwidth (kbps):</string>
+    <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radio_info_signal_location_label">Cell Location Info (deprecated):</string>
+    <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radio_info_phy_chan_config">LTE Physical Channel Configuration:</string>
+    <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radio_info_cell_info_refresh_rate">Cell Info Refresh Rate:</string>
+    <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radio_info_cellinfo_label">All Cell Measurement Info:</string>
+    <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radio_info_gprs_service_label">Data Service:</string>
+    <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radio_info_roaming_label">Roaming:</string>
+    <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radio_info_imei_label">IMEI:</string>
+    <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, DO NOT TRANSLATE. -->
+    <string name="radio_info_imsi_label">IMSI:</string>
+    <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radio_info_call_redirect_label">Call Redirect:</string>
+    <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radio_info_ppp_resets_label">Number of PPP Reset Since Boot:</string>
+    <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radio_info_current_network_label">Current Network:</string>
+    <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radio_info_ppp_received_label">Data Received:</string>
+    <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radio_info_gsm_service_label">Voice Service:</string>
+    <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radio_info_signal_strength_label">Signal Strength:</string>
+    <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radio_info_call_status_label">Voice Call Status:</string>
+    <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radio_info_ppp_sent_label">Data Sent:</string>
+    <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radio_info_message_waiting_label">Message Waiting:</string>
+    <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radio_info_phone_number_label">Phone Number:</string>
+    <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radio_info_band_mode_label">Select Radio Band</string>
+    <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radio_info_voice_network_type_label">Voice Network Type:</string>
+    <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radio_info_data_network_type_label">Data Network Type:</string>
+    <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="phone_index_label">Select phone index</string>
+    <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radio_info_set_perferred_label">Set Preferred Network Type:</string>
+    <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radio_info_ping_hostname_v4">Ping Hostname(www.google.com) IPv4:</string>
+    <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radio_info_ping_hostname_v6">Ping Hostname(www.google.com) IPv6:</string>
+    <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radio_info_http_client_test">HTTP Client Test:</string>
+    <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="ping_test_label">Run Ping Test</string>
+    <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radio_info_smsc_label">SMSC:</string>
+    <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radio_info_smsc_update_label">Update</string>
+    <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radio_info_smsc_refresh_label">Refresh</string>
+    <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radio_info_toggle_dns_check_label">Toggle DNS Check</string>
+    <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="oem_radio_info_label">OEM-specific Info/Settings</string>
+
+    <!-- Band Mode Selection -->
+    <!-- Band mode screen.  Title of activity. -->
+    <string name="band_mode_title">Set Radio Band Mode</string>
+    <!-- Band mode screen.  Loading message. -->
+    <string name="band_mode_loading">Loading Band List\u2026</string>
+    <!-- Band mode screen. Button caption to set the bandmode. -->
+    <string name="band_mode_set">Set</string>
+    <!-- Band mode screen. Status message when unsuccessful. -->
+    <string name="band_mode_failed">Unsuccessful</string>
+    <!-- Band mode screen. Statusm essage when successful. -->
+    <string name="band_mode_succeeded">Successful</string>
+
+    <!-- The title of the activity to see phone info -->
+    <string name="phone_info_label" product="tablet">Tablet info</string>
+    <!-- The title of the activity to see phone info -->
+    <string name="phone_info_label" product="default">Phone info</string>
+
+    <!-- Carrier Provisioning Info [CHAR LIMIT=NONE] -->
+    <string name="carrier_provisioning">Carrier Provisioning Info</string>
+    <!-- Trigger Carrier Provisioning [CHAR LIMIT=NONE] -->
+    <string name="trigger_carrier_provisioning">Trigger Carrier Provisioning</string>
+
 </resources>

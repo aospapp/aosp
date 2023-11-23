@@ -38,7 +38,6 @@ import androidx.preference.Preference;
 
 import com.android.settingslib.development.DevelopmentSettingsEnabler;
 import com.android.tv.settings.R;
-import com.android.tv.settings.testutils.TvShadowActivityThread;
 import com.android.tv.settings.testutils.Utils;
 
 import org.junit.Before;
@@ -48,7 +47,6 @@ import org.mockito.MockitoAnnotations;
 import org.mockito.Spy;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
-import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowPackageManager;
 import org.robolectric.shadows.ShadowUserManager;
 
@@ -141,7 +139,6 @@ public class DevicePrefFragmentTest {
         verify(castPref, atLeastOnce()).setTitle("Test Name");
     }
 
-    @Config(shadows = TvShadowActivityThread.class)
     @Test
     public void testUpdateAutofillSettings_noCandiate() {
         final Preference autofillPref = mock(Preference.class);
@@ -157,7 +154,6 @@ public class DevicePrefFragmentTest {
         verify(autofillPref, atLeastOnce()).setSummary("");
     }
 
-    @Config(shadows = TvShadowActivityThread.class)
     @Test
     public void testUpdateAutofillSettings_selected() {
         final Preference autofillPref = mock(Preference.class);
@@ -181,7 +177,6 @@ public class DevicePrefFragmentTest {
         verify(autofillPref, atLeastOnce()).setSummary("com.test.AutofillPackage.MyService");
     }
 
-    @Config(shadows = TvShadowActivityThread.class)
     @Test
     public void testUpdateAutofillSettings_selectedNone() {
         final Preference autofillPref = mock(Preference.class);

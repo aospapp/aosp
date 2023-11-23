@@ -17,6 +17,7 @@
 package android.car.cluster;
 
 import android.app.Activity;
+import android.car.Car;
 import android.content.Intent;
 import android.graphics.Rect;
 import android.os.Bundle;
@@ -54,10 +55,9 @@ public class FakeFreeNavigationActivity extends Activity {
             Log.w(TAG, "Received a null intent");
             return;
         }
-        Bundle bundle = intent.getBundleExtra(CarInstrumentClusterManager.KEY_EXTRA_ACTIVITY_STATE);
+        Bundle bundle = intent.getBundleExtra(Car.CAR_EXTRA_CLUSTER_ACTIVITY_STATE);
         if (bundle == null) {
-            Log.w(TAG, "Received an intent without " + CarInstrumentClusterManager
-                    .KEY_EXTRA_ACTIVITY_STATE);
+            Log.w(TAG, "Received an intent without " + Car.CAR_EXTRA_CLUSTER_ACTIVITY_STATE);
             return;
         }
         ClusterActivityState state = ClusterActivityState.fromBundle(bundle);

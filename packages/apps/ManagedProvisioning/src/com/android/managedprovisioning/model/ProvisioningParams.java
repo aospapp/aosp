@@ -87,7 +87,7 @@ public final class ProvisioningParams extends PersistableBundlable {
     public static final Integer DEFAULT_MAIN_COLOR = null;
     public static final boolean DEFAULT_STARTED_BY_TRUSTED_SOURCE = false;
     public static final boolean DEFAULT_IS_NFC = false;
-    public static final boolean DEFAULT_IS_CLOUD_ENROLLMENT = false;
+    public static final boolean DEFAULT_IS_QR_PROVISIONING = false;
     public static final boolean DEFAULT_LEAVE_ALL_SYSTEM_APPS_ENABLED = false;
     public static final boolean DEFAULT_EXTRA_PROVISIONING_SKIP_ENCRYPTION = false;
     public static final boolean DEFAULT_EXTRA_PROVISIONING_SKIP_USER_CONSENT = false;
@@ -105,12 +105,16 @@ public final class ProvisioningParams extends PersistableBundlable {
     public static final int PROVISIONING_MODE_MANAGED_PROFILE_ON_FULLY_NAMAGED_DEVICE = 3;
     public static final int PROVISIONING_MODE_FULLY_MANAGED_DEVICE_LEGACY = 4;
 
+    // Provisioning mode for financed device provisioning
+    public static final int PROVISIONING_MODE_FINANCED_DEVICE = 5;
+
     @IntDef(prefix = { "PROVISIONING_MODE_" }, value = {
             PROVISIONING_MODE_UNDECIDED,
             PROVISIONING_MODE_FULLY_MANAGED_DEVICE,
             PROVISIONING_MODE_MANAGED_PROFILE,
             PROVISIONING_MODE_MANAGED_PROFILE_ON_FULLY_NAMAGED_DEVICE,
-            PROVISIONING_MODE_FULLY_MANAGED_DEVICE_LEGACY
+            PROVISIONING_MODE_FULLY_MANAGED_DEVICE_LEGACY,
+            PROVISIONING_MODE_FINANCED_DEVICE
     })
     @Retention(RetentionPolicy.SOURCE)
     public @interface ProvisioningMode {}
@@ -121,10 +125,12 @@ public final class ProvisioningParams extends PersistableBundlable {
     private static final String TAG_PACKAGE_DOWNLOAD_INFO = "download-info";
     private static final String TAG_STARTED_BY_TRUSTED_SOURCE = "started-by-trusted-source";
     private static final String TAG_IS_NFC = "started-is-nfc";
-    private static final String TAG_IS_CLOUD_ENROLLMENT = "is-cloud-enrollment";
+    private static final String TAG_IS_QR_PROVISIONING = "is-qr-provisioning";
     private static final String TAG_PROVISIONING_ACTION = "provisioning-action";
     private static final String TAG_IS_ORGANIZATION_OWNED_PROVISIONING =
             "is-organization-owned-provisioning";
+    private static final String TAG_IS_TRANSITIONING_FROM_REGULAR_TO_CHILD =
+            "is-transitioning-from-regular-to-child";
     private static final String TAG_PROVISIONING_MODE = "provisioning-mode";
 
     public static final Parcelable.Creator<ProvisioningParams> CREATOR
@@ -228,7 +234,7 @@ public final class ProvisioningParams extends PersistableBundlable {
 
     public final boolean isNfc;
 
-    public final boolean isCloudEnrollment;
+    public final boolean isQrProvisioning;
 
     /** True if all system apps should be enabled after provisioning. */
     public final boolean leaveAllSystemAppsEnabled;
@@ -246,6 +252,9 @@ public final class ProvisioningParams extends PersistableBundlable {
 
     /** True if the provisioning is done on a device owned by the organization. */
     public final boolean isOrganizationOwnedProvisioning;
+
+    /** True if the device is transitioning from regular to child user. */
+    public final boolean isTransitioningFromRegularToChild;
 
     /**
      * The provisioning mode for organization owned provisioning. This is only used for
@@ -306,7 +315,7 @@ public final class ProvisioningParams extends PersistableBundlable {
 
         startedByTrustedSource = builder.mStartedByTrustedSource;
         isNfc = builder.mIsNfc;
-        isCloudEnrollment = builder.mIsCloudEnrollment;
+        isQrProvisioning = builder.mIsQrProvisioning;
         leaveAllSystemAppsEnabled = builder.mLeaveAllSystemAppsEnabled;
         skipEncryption = builder.mSkipEncryption;
         accountToMigrate = builder.mAccountToMigrate;
@@ -318,6 +327,7 @@ public final class ProvisioningParams extends PersistableBundlable {
         keepAccountMigrated = builder.mKeepAccountMigrated;
 
         isOrganizationOwnedProvisioning = builder.mIsOrganizationOwnedProvisioning;
+        isTransitioningFromRegularToChild = builder.mIsTransitioningFromRegularToChild;
         provisioningMode = builder.mProvisioningMode;
 
         validateFields();
@@ -360,7 +370,7 @@ public final class ProvisioningParams extends PersistableBundlable {
         bundle.putPersistableBundle(EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE, adminExtrasBundle);
         bundle.putBoolean(TAG_STARTED_BY_TRUSTED_SOURCE, startedByTrustedSource);
         bundle.putBoolean(TAG_IS_NFC, isNfc);
-        bundle.putBoolean(TAG_IS_CLOUD_ENROLLMENT, isCloudEnrollment);
+        bundle.putBoolean(TAG_IS_QR_PROVISIONING, isQrProvisioning);
         bundle.putBoolean(EXTRA_PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED,
                 leaveAllSystemAppsEnabled);
         bundle.putBoolean(EXTRA_PROVISIONING_SKIP_ENCRYPTION, skipEncryption);
@@ -369,6 +379,8 @@ public final class ProvisioningParams extends PersistableBundlable {
         bundle.putBoolean(EXTRA_PROVISIONING_SKIP_EDUCATION_SCREENS, skipEducationScreens);
         bundle.putBoolean(EXTRA_PROVISIONING_KEEP_ACCOUNT_ON_MIGRATION, keepAccountMigrated);
         bundle.putBoolean(TAG_IS_ORGANIZATION_OWNED_PROVISIONING, isOrganizationOwnedProvisioning);
+        bundle.putBoolean(TAG_IS_TRANSITIONING_FROM_REGULAR_TO_CHILD,
+                 isTransitioningFromRegularToChild);
         bundle.putInt(TAG_PROVISIONING_MODE, provisioningMode);
         return bundle;
     }
@@ -410,7 +422,7 @@ public final class ProvisioningParams extends PersistableBundlable {
                 EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE));
         builder.setStartedByTrustedSource(bundle.getBoolean(TAG_STARTED_BY_TRUSTED_SOURCE));
         builder.setIsNfc(bundle.getBoolean(TAG_IS_NFC));
-        builder.setIsCloudEnrollment(bundle.getBoolean(TAG_IS_CLOUD_ENROLLMENT));
+        builder.setIsQrProvisioning(bundle.getBoolean(TAG_IS_QR_PROVISIONING));
         builder.setSkipEncryption(bundle.getBoolean(EXTRA_PROVISIONING_SKIP_ENCRYPTION));
         builder.setLeaveAllSystemAppsEnabled(bundle.getBoolean(
                 EXTRA_PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED));
@@ -421,6 +433,8 @@ public final class ProvisioningParams extends PersistableBundlable {
                 EXTRA_PROVISIONING_KEEP_ACCOUNT_ON_MIGRATION));
         builder.setIsOrganizationOwnedProvisioning(bundle.getBoolean(
                 TAG_IS_ORGANIZATION_OWNED_PROVISIONING));
+        builder.setIsTransitioningFromRegularToChild(bundle.getBoolean(
+                TAG_IS_TRANSITIONING_FROM_REGULAR_TO_CHILD));
         builder.setProvisioningMode(bundle.getInt(TAG_PROVISIONING_MODE));
         return builder;
     }
@@ -529,7 +543,7 @@ public final class ProvisioningParams extends PersistableBundlable {
         private PersistableBundle mAdminExtrasBundle;
         private boolean mStartedByTrustedSource = DEFAULT_STARTED_BY_TRUSTED_SOURCE;
         private boolean mIsNfc = DEFAULT_IS_NFC;
-        private boolean mIsCloudEnrollment = DEFAULT_IS_CLOUD_ENROLLMENT;
+        private boolean mIsQrProvisioning = DEFAULT_IS_QR_PROVISIONING;
         private boolean mLeaveAllSystemAppsEnabled = DEFAULT_LEAVE_ALL_SYSTEM_APPS_ENABLED;
         private boolean mSkipEncryption = DEFAULT_EXTRA_PROVISIONING_SKIP_ENCRYPTION;
         private boolean mSkipUserConsent = DEFAULT_EXTRA_PROVISIONING_SKIP_USER_CONSENT;
@@ -538,6 +552,7 @@ public final class ProvisioningParams extends PersistableBundlable {
         private boolean mKeepAccountMigrated = DEFAULT_EXTRA_PROVISIONING_KEEP_ACCOUNT_MIGRATED;
         private boolean mUseMobileData = DEFAULT_EXTRA_PROVISIONING_USE_MOBILE_DATA;
         private boolean mIsOrganizationOwnedProvisioning = false;
+        private boolean mIsTransitioningFromRegularToChild = false;
         private @ProvisioningMode int mProvisioningMode = PROVISIONING_MODE_UNDECIDED;
 
         public Builder setProvisioningId(long provisioningId) {
@@ -636,8 +651,8 @@ public final class ProvisioningParams extends PersistableBundlable {
             return this;
         }
 
-        public Builder setIsCloudEnrollment(boolean isCloudEnrollment) {
-            mIsCloudEnrollment = isCloudEnrollment;
+        public Builder setIsQrProvisioning(boolean qrProvisioning) {
+            mIsQrProvisioning = qrProvisioning;
             return this;
         }
 
@@ -678,6 +693,12 @@ public final class ProvisioningParams extends PersistableBundlable {
 
         public Builder setIsOrganizationOwnedProvisioning(boolean isOrganizationOwnedProvisioning) {
             mIsOrganizationOwnedProvisioning = isOrganizationOwnedProvisioning;
+            return this;
+        }
+
+        public Builder setIsTransitioningFromRegularToChild(
+                boolean isTransitioningFromRegularToChild) {
+            mIsTransitioningFromRegularToChild = isTransitioningFromRegularToChild;
             return this;
         }
 

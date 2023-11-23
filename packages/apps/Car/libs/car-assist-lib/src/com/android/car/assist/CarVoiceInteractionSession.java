@@ -42,6 +42,13 @@ public abstract class CarVoiceInteractionSession extends VoiceInteractionSession
     public static final String KEY_EXCEPTION = "KEY_EXCEPTION";
 
     /**
+     * The key used for the {@link CarVoiceInteractionSession#VOICE_ACTION_HANDLE_EXCEPTION} payload
+     * {@link Bundle}. Must map to a boolean. If value is true, the Fallback Assistant that can
+     * handle the user's request has been disabled.
+     */
+    public static final String KEY_FALLBACK_ASSISTANT_ENABLED = "KEY_FALLBACK_ASSISTANT_ENABLED";
+
+    /**
      * The key used for the payload {@link Bundle}, if a {@link StatusBarNotification} is used as
      * the payload.
      */

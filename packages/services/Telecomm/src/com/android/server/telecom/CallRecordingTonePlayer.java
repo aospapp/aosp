@@ -17,12 +17,15 @@
 package com.android.server.telecom;
 
 import android.content.Context;
+import android.media.AudioAttributes;
 import android.media.AudioDeviceInfo;
 import android.media.AudioManager;
 import android.media.AudioRecordingConfiguration;
 import android.media.MediaPlayer;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.Message;
+import android.provider.MediaStore;
 import android.telecom.Log;
 
 import com.android.internal.annotations.VisibleForTesting;
@@ -59,19 +62,71 @@ public class CallRecordingTonePlayer extends CallsManagerListenerBase {
                 }
     };
 
+    private class LoopingTonePlayer extends Handler {
+        private Runnable mPlayToneRunnable = new Runnable() {
+            @Override
+            public void run() {
+                if (mRecordingTonePlayer != null) {
+                    mRecordingTonePlayer.start();
+                    postDelayed(this, mRepeatInterval);
+                }
+            }
+        };
+        private MediaPlayer mRecordingTonePlayer = null;
+
+        LoopingTonePlayer() {
+            // We're using the main looper here to avoid creating more threads and risking a thread
+            // leak. The actual playing of the tone doesn't take up much time on the calling
+            // thread, so it's okay to use the main thread for this.
+            super(Looper.getMainLooper());
+        }
+
+        private boolean start() {
+            if (mRecordingTonePlayer != null) {
+                Log.w(CallRecordingTonePlayer.this, "Can't start looping tone player more than"
+                        + " once");
+                return false;
+            }
+            AudioDeviceInfo telephonyDevice = getTelephonyDevice(mAudioManager);
+            if (telephonyDevice != null) {
+                mRecordingTonePlayer = MediaPlayer.create(mContext, R.raw.record);
+                mRecordingTonePlayer.setPreferredDevice(telephonyDevice);
+                mRecordingTonePlayer.setVolume(0.1f);
+                AudioAttributes audioAttributes = new AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION).build();
+                mRecordingTonePlayer.setAudioAttributes(audioAttributes);
+
+                post(mPlayToneRunnable);
+                return true;
+            } else {
+                Log.w(this ,"startCallRecordingTone: can't find telephony audio device.");
+                return false;
+            }
+        }
+
+        private void stop() {
+            mRecordingTonePlayer.release();
+            mRecordingTonePlayer = null;
+        }
+    }
+
     private final AudioManager mAudioManager;
     private final Context mContext;
     private final TelecomSystem.SyncRoot mLock;
     private final Handler mMainThreadHandler = new Handler(Looper.getMainLooper());
+    private final long mRepeatInterval;
     private boolean mIsRecording = false;
-    private MediaPlayer mRecordingTonePlayer = null;
+    private LoopingTonePlayer mLoopingTonePlayer;
     private List<Call> mCalls = new ArrayList<>();
 
     public CallRecordingTonePlayer(Context context, AudioManager audioManager,
+            Timeouts.Adapter timeouts,
             TelecomSystem.SyncRoot lock) {
         mContext = context;
         mAudioManager = audioManager;
         mLock = lock;
+        mRepeatInterval = timeouts.getCallRecordingToneRepeatIntervalMillis(
+                context.getContentResolver());
     }
 
     @Override
@@ -161,7 +216,7 @@ public class CallRecordingTonePlayer extends CallsManagerListenerBase {
      */
     private void maybeStartCallAudioTone() {
         if (mIsRecording && hasActiveCall()) {
-            startCallRecordingTone(mContext);
+            startCallRecordingTone();
         }
     }
 
@@ -229,23 +284,15 @@ public class CallRecordingTonePlayer extends CallsManagerListenerBase {
      * Begins playing the call recording tone to the remote end of the call.
      * The call recording tone is played via the telephony audio output device; this means that it
      * will only be audible to the remote end of the call, not the local side.
-     *
-     * @param context required for obtaining media player.
      */
-    private void startCallRecordingTone(Context context) {
-        if (mRecordingTonePlayer != null) {
+    private void startCallRecordingTone() {
+        if (mLoopingTonePlayer != null) {
+            Log.w(this, "Tone is already playing");
             return;
         }
-        AudioDeviceInfo telephonyDevice = getTelephonyDevice(mAudioManager);
-        if (telephonyDevice != null) {
-            Log.i(this ,"startCallRecordingTone: playing call recording tone to remote end.");
-            mRecordingTonePlayer = MediaPlayer.create(context, R.raw.record);
-            mRecordingTonePlayer.setLooping(true);
-            mRecordingTonePlayer.setPreferredDevice(telephonyDevice);
-            mRecordingTonePlayer.setVolume(0.1f);
-            mRecordingTonePlayer.start();
-        } else {
-            Log.w(this ,"startCallRecordingTone: can't find telephony audio device.");
+        mLoopingTonePlayer = new LoopingTonePlayer();
+        if (!mLoopingTonePlayer.start()) {
+            mLoopingTonePlayer = null;
         }
     }
 
@@ -253,10 +300,10 @@ public class CallRecordingTonePlayer extends CallsManagerListenerBase {
      * Attempts to stop the call recording tone if it is playing.
      */
     private void stopCallRecordingTone() {
-        if (mRecordingTonePlayer != null) {
-            Log.i(this ,"stopCallRecordingTone: stopping call recording tone.");
-            mRecordingTonePlayer.stop();
-            mRecordingTonePlayer = null;
+        if (mLoopingTonePlayer != null) {
+            Log.i(this, "stopCallRecordingTone: stopping call recording tone.");
+            mLoopingTonePlayer.stop();
+            mLoopingTonePlayer = null;
         }
     }
 

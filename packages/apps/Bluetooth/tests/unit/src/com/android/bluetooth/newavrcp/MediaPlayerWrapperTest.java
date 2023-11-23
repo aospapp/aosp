@@ -138,10 +138,10 @@ public class MediaPlayerWrapperTest {
      */
     @Test
     public void testNullControllerLooper() {
-        MediaPlayerWrapper wrapper = MediaPlayerWrapper.wrap(null, mThread.getLooper());
+        MediaPlayerWrapper wrapper = MediaPlayerWrapperFactory.wrap(null, mThread.getLooper());
         Assert.assertNull(wrapper);
 
-        wrapper = MediaPlayerWrapper.wrap(mMockController, null);
+        wrapper = MediaPlayerWrapperFactory.wrap(mMockController, null);
         Assert.assertNull(wrapper);
     }
 
@@ -151,7 +151,8 @@ public class MediaPlayerWrapperTest {
      */
     @Test
     public void testIsReady() {
-        MediaPlayerWrapper wrapper = MediaPlayerWrapper.wrap(mMockController, mThread.getLooper());
+        MediaPlayerWrapper wrapper =
+                MediaPlayerWrapperFactory.wrap(mMockController, mThread.getLooper());
         Assert.assertTrue(wrapper.isPlaybackStateReady());
         Assert.assertTrue(wrapper.isMetadataReady());
 
@@ -179,7 +180,8 @@ public class MediaPlayerWrapperTest {
     @Test
     public void testControllerUpdate() {
         // Create the wrapper object and register the looper with the timeout handler
-        MediaPlayerWrapper wrapper = MediaPlayerWrapper.wrap(mMockController, mThread.getLooper());
+        MediaPlayerWrapper wrapper =
+                MediaPlayerWrapperFactory.wrap(mMockController, mThread.getLooper());
         Assert.assertTrue(wrapper.isPlaybackStateReady());
         Assert.assertTrue(wrapper.isMetadataReady());
         wrapper.registerCallback(mTestCbs);
@@ -213,7 +215,7 @@ public class MediaPlayerWrapperTest {
         // Create the wrapper object and register the looper with the timeout handler
         TestLooperManager looperManager = new TestLooperManager(mThread.getLooper());
         MediaPlayerWrapper wrapper =
-                MediaPlayerWrapper.wrap(mMockController, mThread.getLooper());
+                MediaPlayerWrapperFactory.wrap(mMockController, mThread.getLooper());
         wrapper.registerCallback(mTestCbs);
 
         // Return null when getting the queue
@@ -275,7 +277,7 @@ public class MediaPlayerWrapperTest {
         // Create the wrapper object and register the looper with the timeout handler
         TestLooperManager looperManager = new TestLooperManager(mThread.getLooper());
         MediaPlayerWrapper wrapper =
-                MediaPlayerWrapper.wrap(mMockController, mThread.getLooper());
+                MediaPlayerWrapperFactory.wrap(mMockController, mThread.getLooper());
         wrapper.registerCallback(mTestCbs);
 
         // Return null when getting the queue
@@ -319,7 +321,7 @@ public class MediaPlayerWrapperTest {
         // Create the wrapper object and register the looper with the timeout handler
         TestLooperManager looperManager = new TestLooperManager(mThread.getLooper());
         MediaPlayerWrapper wrapper =
-                MediaPlayerWrapper.wrap(mMockController, mThread.getLooper());
+                MediaPlayerWrapperFactory.wrap(mMockController, mThread.getLooper());
         wrapper.registerCallback(mTestCbs);
 
         // Return null when getting the queue
@@ -348,7 +350,7 @@ public class MediaPlayerWrapperTest {
         // Create the wrapper object and register the looper with the timeout handler
         TestLooperManager looperManager = new TestLooperManager(mThread.getLooper());
         MediaPlayerWrapper wrapper =
-                MediaPlayerWrapper.wrap(mMockController, mThread.getLooper());
+                MediaPlayerWrapperFactory.wrap(mMockController, mThread.getLooper());
         wrapper.registerCallback(mTestCbs);
 
         // Return null when getting the queue
@@ -375,7 +377,7 @@ public class MediaPlayerWrapperTest {
         // Create the wrapper object and register the looper with the timeout handler
         TestLooperManager looperManager = new TestLooperManager(mThread.getLooper());
         MediaPlayerWrapper wrapper =
-                MediaPlayerWrapper.wrap(mMockController, mThread.getLooper());
+                MediaPlayerWrapperFactory.wrap(mMockController, mThread.getLooper());
         wrapper.registerCallback(mTestCbs);
 
         // Call getCurrentQueue() multiple times.
@@ -398,7 +400,7 @@ public class MediaPlayerWrapperTest {
         // Create the wrapper object and register the looper with the timeout handler
         TestLooperManager looperManager = new TestLooperManager(mThread.getLooper());
         MediaPlayerWrapper wrapper =
-                MediaPlayerWrapper.wrap(mMockController, mThread.getLooper());
+                MediaPlayerWrapperFactory.wrap(mMockController, mThread.getLooper());
         wrapper.registerCallback(mTestCbs);
 
         // Return null when getting the queue
@@ -455,7 +457,7 @@ public class MediaPlayerWrapperTest {
         // Create the wrapper object and register the looper with the timeout handler
         TestLooperManager looperManager = new TestLooperManager(mThread.getLooper());
         MediaPlayerWrapper wrapper =
-                MediaPlayerWrapper.wrap(mMockController, mThread.getLooper());
+                MediaPlayerWrapperFactory.wrap(mMockController, mThread.getLooper());
         wrapper.registerCallback(mTestCbs);
 
         // Cleanup the wrapper
@@ -475,7 +477,7 @@ public class MediaPlayerWrapperTest {
         // Create the wrapper object and register the looper with the timeout handler
         TestLooperManager looperManager = new TestLooperManager(mThread.getLooper());
         MediaPlayerWrapper wrapper =
-                MediaPlayerWrapper.wrap(mMockController, mThread.getLooper());
+                MediaPlayerWrapperFactory.wrap(mMockController, mThread.getLooper());
         wrapper.registerCallback(mTestCbs);
 
         // Grab the callbacks the wrapper registered with the controller
@@ -505,7 +507,7 @@ public class MediaPlayerWrapperTest {
         // Create the wrapper object and register the looper with the timeout handler
         TestLooperManager looperManager = new TestLooperManager(mThread.getLooper());
         MediaPlayerWrapper wrapper =
-                MediaPlayerWrapper.wrap(mMockController, mThread.getLooper());
+                MediaPlayerWrapperFactory.wrap(mMockController, mThread.getLooper());
         wrapper.registerCallback(mTestCbs);
 
         // Grab the callbacks the wrapper registered with the controller
@@ -565,7 +567,7 @@ public class MediaPlayerWrapperTest {
                 InstrumentationRegistry.getInstrumentation()
                         .acquireLooperManager(mThread.getLooper());
         MediaPlayerWrapper wrapper =
-                MediaPlayerWrapper.wrap(mMockController, mThread.getLooper());
+                MediaPlayerWrapperFactory.wrap(mMockController, mThread.getLooper());
         wrapper.registerCallback(mTestCbs);
 
         // Grab the callbacks the wrapper registered with the controller
@@ -615,7 +617,7 @@ public class MediaPlayerWrapperTest {
                 InstrumentationRegistry.getInstrumentation()
                         .acquireLooperManager(mThread.getLooper());
         MediaPlayerWrapper wrapper =
-                MediaPlayerWrapper.wrap(mMockController, mThread.getLooper());
+                MediaPlayerWrapperFactory.wrap(mMockController, mThread.getLooper());
         wrapper.registerCallback(mTestCbs);
 
         // Grab the callbacks the wrapper registered with the controller

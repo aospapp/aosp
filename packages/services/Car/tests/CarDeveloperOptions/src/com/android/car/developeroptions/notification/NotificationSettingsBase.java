@@ -328,7 +328,7 @@ abstract public class NotificationSettingsBase extends DashboardFragment {
                 return true;
             }
 
-            return channel.isBlockableSystem()
+            return channel.isBlockable()
                     || channel.getImportance() == NotificationManager.IMPORTANCE_NONE;
         }
         return false;

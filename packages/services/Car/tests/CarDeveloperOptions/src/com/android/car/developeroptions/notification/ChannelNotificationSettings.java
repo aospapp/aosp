@@ -113,7 +113,6 @@ public class ChannelNotificationSettings extends NotificationSettingsBase {
         mControllers.add(new BadgePreferenceController(context, mBackend));
         mControllers.add(new DndPreferenceController(context, mBackend));
         mControllers.add(new NotificationsOffPreferenceController(context));
-        mControllers.add(new BubblePreferenceController(context, mBackend));
         return new ArrayList<>(mControllers);
     }
 }

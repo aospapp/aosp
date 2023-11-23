@@ -99,7 +99,7 @@
     <string name="ok" msgid="163967937451981024">"Oke"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
     <string name="no_info_provided" msgid="716200382010821001">"Tidak ada informasi tentang pemilik ponsel"</string>
-    <string name="tap_pencil" msgid="2723698054265296934">"Jika ini ponsel Anda, tap ikon pensil untuk menambahkan informasi yang akan ditampilkan di sini jika terjadi keadaan darurat"</string>
+    <string name="tap_pencil" msgid="2723698054265296934">"Jika ini ponsel Anda, ketuk ikon pensil untuk menambahkan informasi yang akan ditampilkan di sini jika terjadi keadaan darurat"</string>
     <string name="clear_all" msgid="8899013032870561633">"Hapus semua"</string>
     <string name="clear" msgid="3648880442502887163">"Hapus"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Hapus semua informasi dan kontak?"</string>
@@ -109,5 +109,5 @@
     <string name="user_image_take_photo" msgid="2779924488370750102">"Ambil foto"</string>
     <string name="user_image_choose_photo" msgid="2442095378052415700">"Pilih gambar"</string>
     <string name="user_image_photo_selector" msgid="8941966433899876760">"Pilih foto"</string>
-    <string name="user_nickname" msgid="7956055372443961161">"Nama"</string>
+    <string name="user_nickname" msgid="7956055372443961161">"Nama panggilan"</string>
 </resources>

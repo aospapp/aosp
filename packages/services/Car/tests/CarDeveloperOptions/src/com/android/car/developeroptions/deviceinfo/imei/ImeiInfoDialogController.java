@@ -30,7 +30,6 @@ import android.text.style.TtsSpan;
 import androidx.annotation.NonNull;
 import androidx.annotation.VisibleForTesting;
 
-import com.android.internal.telephony.PhoneConstants;
 import com.android.car.developeroptions.R;
 
 import java.util.List;
@@ -142,8 +141,7 @@ public class ImeiInfoDialogController {
 
     @VisibleForTesting
     boolean isCdmaLteEnabled() {
-        return mTelephonyManager.getLteOnCdmaMode(mSubscriptionInfo.getSubscriptionId())
-                == PhoneConstants.LTE_ON_CDMA_TRUE;
+        return mTelephonyManager.isLteCdmaEvdoGsmWcdmaEnabled();
     }
 
     @VisibleForTesting

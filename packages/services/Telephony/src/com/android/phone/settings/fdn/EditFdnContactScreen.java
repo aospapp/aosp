@@ -29,6 +29,7 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.PersistableBundle;
 import android.provider.ContactsContract.CommonDataKinds;
 import android.telephony.PhoneNumberUtils;
 import android.text.Editable;
@@ -52,6 +53,7 @@ import com.android.internal.telephony.PhoneFactory;
 import com.android.phone.PhoneGlobals;
 import com.android.phone.R;
 import com.android.phone.SubscriptionInfoHelper;
+import android.telephony.CarrierConfigManager;
 
 /**
  * Activity to let the user add or edit an FDN contact.
@@ -100,6 +102,7 @@ public class EditFdnContactScreen extends Activity {
     }
     /** flag to track saving state */
     private boolean mDataBusy;
+    private int mFdnNumberLimitLength = 20;
 
     @Override
     protected void onCreate(Bundle icicle) {
@@ -111,6 +114,17 @@ public class EditFdnContactScreen extends Activity {
         setContentView(R.layout.edit_fdn_contact_screen);
         setupView();
         setTitle(mAddContact ? R.string.add_fdn_contact : R.string.edit_fdn_contact);
+        PersistableBundle b = null;
+        if (mSubscriptionInfoHelper.hasSubId()) {
+            b = PhoneGlobals.getInstance().getCarrierConfigForSubId(
+                    mSubscriptionInfoHelper.getSubId());
+        } else {
+            b = PhoneGlobals.getInstance().getCarrierConfig();
+        }
+        if (b != null) {
+            mFdnNumberLimitLength = b.getInt(
+                    CarrierConfigManager.KEY_FDN_NUMBER_LENGTH_LIMIT_INT);
+        }
 
         displayProgress(false);
     }
@@ -294,7 +308,7 @@ public class EditFdnContactScreen extends Activity {
       * TODO: Fix this logic.
       */
      private boolean isValidNumber(String number) {
-         return (number.length() <= 20) && (number.length() > 0);
+         return (number.length() <= mFdnNumberLimitLength) && (number.length() > 0);
      }
 
 
@@ -397,7 +411,8 @@ public class EditFdnContactScreen extends Activity {
         } else {
             if (DBG) log("handleResult: failed!");
             if (invalidNumber) {
-                showStatus(getResources().getText(R.string.fdn_invalid_number));
+                showStatus(getResources().getString(R.string.fdn_invalid_number,
+                        mFdnNumberLimitLength));
             } else {
                if (PhoneFactory.getDefaultPhone().getIccCard().getIccPin2Blocked()) {
                     showStatus(getResources().getText(R.string.fdn_enable_puk2_requested));
@@ -428,7 +443,7 @@ public class EditFdnContactScreen extends Activity {
             }
 
             if (v == mNameField) {
-                mNumberField.requestFocus();
+                mButton.requestFocus();
             } else if (v == mNumberField) {
                 mButton.requestFocus();
             } else if (v == mButton) {

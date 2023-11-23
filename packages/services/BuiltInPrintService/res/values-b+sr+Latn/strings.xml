@@ -60,6 +60,11 @@
     <string name="forget" msgid="892068061425802502">"Zaboravi"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"Povezuje se preko Wi-Fi Direct-a"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"Povezuje se preko trenutne mreže pomoću IP adrese <xliff:g id="IP_ADDRESS">%1$s</xliff:g>"</string>
+    <string name="recommendation_summary" msgid="2979700524954307566">"Podrazumevana usluga štampanja pruža osnovne opcije. Ostale opcije ovog štampača su možda dostupne u drugoj usluzi štampanja."</string>
+    <string name="recommendations_heading" msgid="5086762263560605249">"Preporučene usluge"</string>
+    <string name="recommendation_install_summary" msgid="374785283809791669">"Izaberite da biste instalirali"</string>
+    <string name="recommendation_enable_summary" msgid="3500907868251326224">"Izaberite da biste omogućili"</string>
+    <string name="recommendation_manage" msgid="4683640588502866284">"Upravljaj uslugama"</string>
     <string name="security" msgid="2279008326210305401">"Bezbednost"</string>
     <string name="certificate_update_request" msgid="1314796413107139475">"Ovaj štampač pruža novi bezbednosni sertifikat ili se neki drugi uređaj lažno predstavlja kao on. Želite li da prihvatite novi sertifikat?"</string>
     <string name="not_encrypted_request" msgid="4871472176807381642">"Ovaj štampač više ne prihvata šifrovane zadatke. Želite li da nastavite sa štampanjem?"</string>
@@ -68,4 +73,5 @@
     <string name="connections" msgid="8895413761760117180">"Veze"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Usluzi podrazumevanog štampanja treba dozvola za lokaciju da bi pronašla uređaje u blizini."</string>
     <string name="fix" msgid="7784394272611365393">"Prikaži dozvolu"</string>
+    <string name="print" msgid="7851318072404916362">"Odštampaj"</string>
 </resources>

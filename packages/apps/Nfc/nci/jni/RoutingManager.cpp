@@ -61,7 +61,10 @@ static const uint16_t DEFAULT_SYS_CODE = 0xFEFE;
 
 static const uint8_t AID_ROUTE_QUAL_PREFIX = 0x10;
 
-RoutingManager::RoutingManager() : mAidRoutingConfigured(false) {
+RoutingManager::RoutingManager()
+    : mSecureNfcEnabled(false),
+      mNativeData(NULL),
+      mAidRoutingConfigured(false) {
   static const char fn[] = "RoutingManager::RoutingManager()";
 
   mDefaultOffHostRoute =
@@ -107,6 +110,10 @@ RoutingManager::RoutingManager() : mAidRoutingConfigured(false) {
 
   mDefaultIsoDepRoute = NfcConfig::getUnsigned(NAME_DEFAULT_ISODEP_ROUTE, 0x0);
 
+  mHostListenTechMask =
+      NfcConfig::getUnsigned(NAME_HOST_LISTEN_TECH_MASK,
+                             NFA_TECHNOLOGY_MASK_A | NFA_TECHNOLOGY_MASK_F);
+
   memset(&mEeInfo, 0, sizeof(mEeInfo));
   mReceivedEeInfo = false;
   mSeTechMask = 0x00;
@@ -147,8 +154,10 @@ bool RoutingManager::initialize(nfc_jni_native_data* native) {
   }
   mSeTechMask = updateEeTechRouteSetting();
 
-  // Tell the host-routing to only listen on Nfc-A
-  tNFA_STATUS nfaStat = NFA_CeSetIsoDepListenTech(NFA_TECHNOLOGY_MASK_A);
+  // Set the host-routing Tech
+  tNFA_STATUS nfaStat = NFA_CeSetIsoDepListenTech(
+      mHostListenTechMask & (NFA_TECHNOLOGY_MASK_A | NFA_TECHNOLOGY_MASK_B));
+
   if (nfaStat != NFA_STATUS_OK)
     LOG(ERROR) << StringPrintf("Failed to configure CE IsoDep technologies");
 
@@ -196,7 +205,8 @@ void RoutingManager::enableRoutingToHost() {
 
   // Route Nfc-A to host if we don't have a SE
   tNFA_TECHNOLOGY_MASK techMask = NFA_TECHNOLOGY_MASK_A;
-  if ((mSeTechMask & NFA_TECHNOLOGY_MASK_A) == 0) {
+  if ((mHostListenTechMask & NFA_TECHNOLOGY_MASK_A) &&
+      (mSeTechMask & NFA_TECHNOLOGY_MASK_A) == 0) {
     nfaStat = NFA_EeSetDefaultTechRouting(
         NFC_DH_ID, techMask, 0, 0, mSecureNfcEnabled ? 0 : techMask,
         mSecureNfcEnabled ? 0 : techMask, mSecureNfcEnabled ? 0 : techMask);
@@ -206,9 +216,23 @@ void RoutingManager::enableRoutingToHost() {
       LOG(ERROR) << fn << "Fail to set default tech routing for Nfc-A";
   }
 
+  // Route Nfc-B to host if we don't have a SE
+  techMask = NFA_TECHNOLOGY_MASK_B;
+  if ((mHostListenTechMask & NFA_TECHNOLOGY_MASK_B) &&
+      (mSeTechMask & NFA_TECHNOLOGY_MASK_B) == 0) {
+    nfaStat = NFA_EeSetDefaultTechRouting(
+        NFC_DH_ID, techMask, 0, 0, mSecureNfcEnabled ? 0 : techMask,
+        mSecureNfcEnabled ? 0 : techMask, mSecureNfcEnabled ? 0 : techMask);
+    if (nfaStat == NFA_STATUS_OK)
+      mRoutingEvent.wait();
+    else
+      LOG(ERROR) << fn << "Fail to set default tech routing for Nfc-B";
+  }
+
   // Route Nfc-F to host if we don't have a SE
   techMask = NFA_TECHNOLOGY_MASK_F;
-  if ((mSeTechMask & NFA_TECHNOLOGY_MASK_F) == 0) {
+  if ((mHostListenTechMask & NFA_TECHNOLOGY_MASK_F) &&
+      (mSeTechMask & NFA_TECHNOLOGY_MASK_F) == 0) {
     nfaStat = NFA_EeSetDefaultTechRouting(
         NFC_DH_ID, techMask, 0, 0, mSecureNfcEnabled ? 0 : techMask,
         mSecureNfcEnabled ? 0 : techMask, mSecureNfcEnabled ? 0 : techMask);
@@ -224,41 +248,53 @@ void RoutingManager::disableRoutingToHost() {
   tNFA_STATUS nfaStat;
   SyncEventGuard guard(mRoutingEvent);
 
-  // Default routing for IsoDep protocol
+  // Clear default routing for IsoDep protocol
   if (mDefaultIsoDepRoute == NFC_DH_ID) {
     nfaStat =
         NFA_EeClearDefaultProtoRouting(NFC_DH_ID, NFA_PROTOCOL_MASK_ISO_DEP);
     if (nfaStat == NFA_STATUS_OK)
       mRoutingEvent.wait();
     else
-      LOG(ERROR) << fn << "Fail to set default proto routing for IsoDep";
+      LOG(ERROR) << fn << "Fail to clear default proto routing for IsoDep";
   }
 
-  // Default routing for Nfc-A technology if we don't have a SE
-  if ((mSeTechMask & NFA_TECHNOLOGY_MASK_A) == 0) {
+  // Clear default routing for Nfc-A technology if we don't have a SE
+  if ((mHostListenTechMask & NFA_TECHNOLOGY_MASK_A) &&
+      (mSeTechMask & NFA_TECHNOLOGY_MASK_A) == 0) {
     nfaStat = NFA_EeClearDefaultTechRouting(NFC_DH_ID, NFA_TECHNOLOGY_MASK_A);
     if (nfaStat == NFA_STATUS_OK)
       mRoutingEvent.wait();
     else
-      LOG(ERROR) << fn << "Fail to set default tech routing for Nfc-A";
+      LOG(ERROR) << fn << "Fail to clear default tech routing for Nfc-A";
   }
 
-  // Default routing for Nfc-F technology if we don't have a SE
-  if ((mSeTechMask & NFA_TECHNOLOGY_MASK_F) == 0) {
+  // Clear default routing for Nfc-B technology if we don't have a SE
+  if ((mHostListenTechMask & NFA_TECHNOLOGY_MASK_B) &&
+      (mSeTechMask & NFA_TECHNOLOGY_MASK_B) == 0) {
+    nfaStat = NFA_EeClearDefaultTechRouting(NFC_DH_ID, NFA_TECHNOLOGY_MASK_B);
+    if (nfaStat == NFA_STATUS_OK)
+      mRoutingEvent.wait();
+    else
+      LOG(ERROR) << fn << "Fail to clear default tech routing for Nfc-B";
+  }
+
+  // Clear default routing for Nfc-F technology if we don't have a SE
+  if ((mHostListenTechMask & NFA_TECHNOLOGY_MASK_F) &&
+      (mSeTechMask & NFA_TECHNOLOGY_MASK_F) == 0) {
     nfaStat = NFA_EeClearDefaultTechRouting(NFC_DH_ID, NFA_TECHNOLOGY_MASK_F);
     if (nfaStat == NFA_STATUS_OK)
       mRoutingEvent.wait();
     else
-      LOG(ERROR) << fn << "Fail to set default tech routing for Nfc-F";
+      LOG(ERROR) << fn << "Fail to clear default tech routing for Nfc-F";
   }
 
-  // Default routing for T3T protocol
+  // Clear default routing for T3T protocol
   if (!mIsScbrSupported && mDefaultEe == NFC_DH_ID) {
     nfaStat = NFA_EeClearDefaultProtoRouting(NFC_DH_ID, NFA_PROTOCOL_MASK_T3T);
     if (nfaStat == NFA_STATUS_OK)
       mRoutingEvent.wait();
     else
-      LOG(ERROR) << fn << "Fail to set default proto routing for T3T";
+      LOG(ERROR) << fn << "Fail to clear default proto routing for T3T";
   }
 }
 
@@ -661,14 +697,24 @@ tNFA_TECHNOLOGY_MASK RoutingManager::updateEeTechRouteSetting() {
   }
 
   // Clear DH technology route on NFC-A
-  if ((allSeTechMask & NFA_TECHNOLOGY_MASK_A) != 0) {
+  if ((mHostListenTechMask & NFA_TECHNOLOGY_MASK_A) &&
+      (allSeTechMask & NFA_TECHNOLOGY_MASK_A) != 0) {
     nfaStat = NFA_EeClearDefaultTechRouting(NFC_DH_ID, NFA_TECHNOLOGY_MASK_A);
     if (nfaStat != NFA_STATUS_OK)
       LOG(ERROR) << "Failed to clear DH technology routing on NFC-A.";
   }
 
+  // Clear DH technology route on NFC-B
+  if ((mHostListenTechMask & NFA_TECHNOLOGY_MASK_B) &&
+      (allSeTechMask & NFA_TECHNOLOGY_MASK_B) != 0) {
+    nfaStat = NFA_EeClearDefaultTechRouting(NFC_DH_ID, NFA_TECHNOLOGY_MASK_B);
+    if (nfaStat != NFA_STATUS_OK)
+      LOG(ERROR) << "Failed to clear DH technology routing on NFC-B.";
+  }
+
   // Clear DH technology route on NFC-F
-  if ((allSeTechMask & NFA_TECHNOLOGY_MASK_F) != 0) {
+  if ((mHostListenTechMask & NFA_TECHNOLOGY_MASK_F) &&
+      (allSeTechMask & NFA_TECHNOLOGY_MASK_F) != 0) {
     nfaStat = NFA_EeClearDefaultTechRouting(NFC_DH_ID, NFA_TECHNOLOGY_MASK_F);
     if (nfaStat != NFA_STATUS_OK)
       LOG(ERROR) << "Failed to clear DH technology routing on NFC-F.";
@@ -692,8 +738,11 @@ void RoutingManager::nfaEeCallback(tNFA_EE_EVT event,
   static const char fn[] = "RoutingManager::nfaEeCallback";
 
   RoutingManager& routingManager = RoutingManager::getInstance();
-  if (eventData) routingManager.mCbEventData = *eventData;
-
+  if (!eventData) {
+    LOG(ERROR) << "eventData is null";
+    return;
+  }
+  routingManager.mCbEventData = *eventData;
   switch (event) {
     case NFA_EE_REGISTER_EVT: {
       SyncEventGuard guard(routingManager.mEeRegisterEvent);

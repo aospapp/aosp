@@ -18,18 +18,13 @@ syntax = 'proto2';
 
 package com.android.tv.tuner.data;
 
+import "track.proto";
+
 option java_package = "com.android.tv.tuner.data";
 option java_outer_classname = "Channel";
 
-
-// AOSP_Comment_Out import "third_party/android/nanoproto/nano_descriptor.proto";
-
-import "track.proto";
-
 // Holds information about a channel used in the tuners.
 message TunerChannelProto {
-// AOSP_Comment_Out   option (proto2.nano.message_as_lite) = false;
-
   optional TunerType type = 1;
   optional string short_name = 2;
   optional string long_name = 3;
@@ -51,22 +46,24 @@ message TunerChannelProto {
   optional int32 audio_track_index = 19;
   repeated AtscCaptionTrack caption_tracks = 20;
   optional bool has_caption_track = 21;
-  optional AtscServiceType service_type = 22 [default = SERVICE_TYPE_ATSC_DIGITAL_TELEVISION];
+  optional AtscServiceType service_type = 22
+      [default = SERVICE_TYPE_ATSC_DIGITAL_TELEVISION];
   optional bool recording_prohibited = 23;
   optional string video_format = 24;
   /**
    * The flag indicating whether this TV channel is locked or not.
-   * This is primarily used for alternative parental control to prevent unauthorized users from
-   * watching the current channel regardless of the content rating
-   * @see <a href="https://developer.android.com/reference/android/media/tv/TvContract.Channels.html#COLUMN_LOCKED">link</a>
+   * This is primarily used for alternative parental control to prevent
+   * unauthorized users from watching the current channel regardless of the
+   * content rating
+   * @see <a
+   * href="https://developer.android.com/reference/android/media/tv/TvContract.Channels.html#COLUMN_LOCKED">link</a>
    */
   optional bool locked = 25;
+  optional DeliverySystemType delivery_system_type = 26;
 }
 
 // Enum describing the types of tuner.
 enum TunerType {
-// AOSP_Comment_Out   option (proto2.nano.enum_as_lite) = false;
-
   TYPE_TUNER = 0;
   TYPE_FILE = 1;
   TYPE_NETWORK = 2;
@@ -74,8 +71,10 @@ enum TunerType {
 
 // Enum describing the types of video stream.
 enum VideoStreamType {
-// AOSP_Comment_Out   option (proto2.nano.enum_as_lite) = false;
-
+  // Default unset value.  The spec says 0 is reserved.
+  UNSET = 0x00;
+  // DEPRECATED: previously used as default or unset value
+  INVALID_STREAMTYPE = -1 [deprecated=true];
   // ISO/IEC 11172 Video (MPEG-1)
   MPEG1 = 0x01;
   // ISO/IEC 13818-2 (MPEG-2) Video
@@ -90,8 +89,6 @@ enum VideoStreamType {
 
 // Enum describing the types of audio stream.
 enum AudioStreamType {
-// AOSP_Comment_Out   option (proto2.nano.enum_as_lite) = false;
-
   // ISO/IEC 11172 Audio (MPEG-1)
   MPEG1AUDIO = 0x03;
   // ISO/IEC 13818-3 Audio (MPEG-2)
@@ -109,8 +106,6 @@ enum AudioStreamType {
 // Enum describing ATSC service types
 // See ATSC Code Points Registry.
 enum AtscServiceType {
-// AOSP_Comment_Out   option (proto2.nano.enum_as_lite) = false;
-
   SERVICE_TYPE_ATSC_RESERVED = 0x0;
   SERVICE_TYPE_ANALOG_TELEVISION_CHANNELS = 0x1;
   SERVICE_TYPE_ATSC_DIGITAL_TELEVISION = 0x2;
@@ -121,4 +116,16 @@ enum AtscServiceType {
   SERVICE_TYPE_PARAMETERIZED_SERVICE = 0x7;
   SERVICE_TYPE_ATSC_NRT_SERVICE = 0x8;
   SERVICE_TYPE_EXTENDED_PARAMERTERIZED_SERVICE = 0x9;
+}
+
+// Enum describing the types of delivery system.
+enum DeliverySystemType {
+  // Do not reorder. Must match Tuner.java
+  DELIVERY_SYSTEM_UNDEFINED = 0;
+  DELIVERY_SYSTEM_ATSC = 1;
+  DELIVERY_SYSTEM_DVBC = 2;
+  DELIVERY_SYSTEM_DVBS = 3;
+  DELIVERY_SYSTEM_DVBS2 = 4;
+  DELIVERY_SYSTEM_DVBT = 5;
+  DELIVERY_SYSTEM_DVBT2 = 6;
 }

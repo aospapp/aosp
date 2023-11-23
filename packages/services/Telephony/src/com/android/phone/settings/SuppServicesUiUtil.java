@@ -208,7 +208,7 @@ public class SuppServicesUiUtil {
                                     Log.d(LOG_TAG, "handleCallerIdUssdResponse: response ="
                                             + response.toString());
                                     PhoneUtils.createUssdDialog(app, context, response.toString(),
-                                            WindowManager.LayoutParams.TYPE_SYSTEM_ALERT);
+                                            phone, WindowManager.LayoutParams.TYPE_SYSTEM_ALERT);
                                 }
 
                                 @Override
@@ -219,7 +219,7 @@ public class SuppServicesUiUtil {
                                             + failureCode);
                                     PhoneUtils.createUssdDialog(app, context,
                                             context.getText(R.string.response_error),
-                                            WindowManager.LayoutParams.TYPE_SYSTEM_ALERT);
+                                            phone, WindowManager.LayoutParams.TYPE_SYSTEM_ALERT);
                                 }
                             };
 

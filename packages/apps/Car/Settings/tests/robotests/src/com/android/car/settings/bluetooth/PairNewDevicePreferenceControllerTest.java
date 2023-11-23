@@ -26,23 +26,21 @@ import static com.android.car.settings.common.PreferenceController.UNSUPPORTED_O
 
 import static com.google.common.truth.Truth.assertThat;
 
-import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertThrows;
 
 import android.bluetooth.BluetoothAdapter;
-import android.car.userlib.CarUserManagerHelper;
 import android.content.Context;
 import android.content.Intent;
+import android.os.UserHandle;
+import android.os.UserManager;
 
 import androidx.lifecycle.Lifecycle;
 import androidx.preference.Preference;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.R;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
 import com.android.car.settings.testutils.ShadowBluetoothAdapter;
 import com.android.car.settings.testutils.ShadowBluetoothPan;
-import com.android.car.settings.testutils.ShadowCarUserManagerHelper;
 import com.android.settingslib.bluetooth.BluetoothEventManager;
 import com.android.settingslib.bluetooth.LocalBluetoothManager;
 
@@ -52,19 +50,19 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.Shadows;
 import org.robolectric.annotation.Config;
+import org.robolectric.shadow.api.Shadow;
+import org.robolectric.shadows.ShadowUserManager;
 import org.robolectric.util.ReflectionHelpers;
 
 /** Unit test for {@link PairNewDevicePreferenceController}. */
-@RunWith(CarSettingsRobolectricTestRunner.class)
-@Config(shadows = {ShadowCarUserManagerHelper.class, ShadowBluetoothAdapter.class,
-        ShadowBluetoothPan.class})
+@RunWith(RobolectricTestRunner.class)
+@Config(shadows = {ShadowBluetoothAdapter.class, ShadowBluetoothPan.class})
 public class PairNewDevicePreferenceControllerTest {
 
-    @Mock
-    private CarUserManagerHelper mCarUserManagerHelper;
     @Mock
     private BluetoothEventManager mEventManager;
     private BluetoothEventManager mSaveRealEventManager;
@@ -77,7 +75,6 @@ public class PairNewDevicePreferenceControllerTest {
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
-        ShadowCarUserManagerHelper.setMockInstance(mCarUserManagerHelper);
         mContext = RuntimeEnvironment.application;
         mLocalBluetoothManager = LocalBluetoothManager.getInstance(mContext, /* onInitCallback= */
                 null);
@@ -98,7 +95,6 @@ public class PairNewDevicePreferenceControllerTest {
 
     @After
     public void tearDown() {
-        ShadowCarUserManagerHelper.reset();
         ShadowBluetoothAdapter.reset();
         ReflectionHelpers.setField(mLocalBluetoothManager, "mEventManager", mSaveRealEventManager);
     }
@@ -122,8 +118,8 @@ public class PairNewDevicePreferenceControllerTest {
     public void getAvailabilityStatus_disallowBluetoothUserRestriction_disabledForUser() {
         Shadows.shadowOf(RuntimeEnvironment.application.getPackageManager()).setSystemFeature(
                 FEATURE_BLUETOOTH, /* supported= */ true);
-        when(mCarUserManagerHelper.isCurrentProcessUserHasRestriction(
-                DISALLOW_BLUETOOTH)).thenReturn(true);
+        getShadowUserManager().setUserRestriction(
+                UserHandle.of(UserHandle.myUserId()), DISALLOW_BLUETOOTH, true);
 
         assertThat(mController.getAvailabilityStatus()).isEqualTo(DISABLED_FOR_USER);
     }
@@ -132,8 +128,8 @@ public class PairNewDevicePreferenceControllerTest {
     public void getAvailabilityStatus_disallowConfigBluetoothUserRestriction_disabledForUser() {
         Shadows.shadowOf(RuntimeEnvironment.application.getPackageManager()).setSystemFeature(
                 FEATURE_BLUETOOTH, /* supported= */ true);
-        when(mCarUserManagerHelper.isCurrentProcessUserHasRestriction(
-                DISALLOW_CONFIG_BLUETOOTH)).thenReturn(true);
+        getShadowUserManager().setUserRestriction(
+                UserHandle.of(UserHandle.myUserId()), DISALLOW_CONFIG_BLUETOOTH, true);
 
         assertThat(mController.getAvailabilityStatus()).isEqualTo(DISABLED_FOR_USER);
     }
@@ -191,5 +187,9 @@ public class PairNewDevicePreferenceControllerTest {
     public void preferenceClicked_notHandled() {
         assertThat(mPreference.getOnPreferenceClickListener().onPreferenceClick(
                 mPreference)).isFalse();
+    }
+
+    private ShadowUserManager getShadowUserManager() {
+        return Shadow.extract(UserManager.get(RuntimeEnvironment.application));
     }
 }

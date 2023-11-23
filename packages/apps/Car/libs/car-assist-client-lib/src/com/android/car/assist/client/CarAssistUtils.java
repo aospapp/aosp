@@ -163,7 +163,8 @@ public class CarAssistUtils {
     public static boolean isCarCompatibleMessagingNotification(StatusBarNotification sbn) {
         return hasMessagingStyle(sbn)
                 && hasRequiredAssistantCallbacks(sbn)
-                && replyCallbackHasRemoteInput(sbn)
+                && ((getReplyAction(sbn.getNotification()) == null)
+                    || replyCallbackHasRemoteInput(sbn))
                 && assistantCallbacksShowNoUi(sbn);
     }
 
@@ -219,6 +220,21 @@ public class CarAssistUtils {
         for (NotificationCompat.Action action : getAllActions(notification)) {
             if (action.getSemanticAction()
                     == NotificationCompat.Action.SEMANTIC_ACTION_MARK_AS_READ) {
+                return action;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Retrieves the {@link NotificationCompat.Action} containing the
+     * {@link NotificationCompat.Action#SEMANTIC_ACTION_REPLY} semantic action.
+     */
+    @Nullable
+    private static NotificationCompat.Action getReplyAction(Notification notification) {
+        for (NotificationCompat.Action action : getAllActions(notification)) {
+            if (action.getSemanticAction()
+                    == NotificationCompat.Action.SEMANTIC_ACTION_REPLY) {
                 return action;
             }
         }
@@ -330,7 +346,8 @@ public class CarAssistUtils {
                 // If there is an active assistant, alert them to request permissions.
                 Bundle handleExceptionBundle = BundleBuilder
                         .buildAssistantHandleExceptionBundle(
-                                EXCEPTION_NOTIFICATION_LISTENER_PERMISSIONS_MISSING);
+                                EXCEPTION_NOTIFICATION_LISTENER_PERMISSIONS_MISSING,
+                                /* fallbackAssistantEnabled */ false);
                 fireAssistantAction(CarVoiceInteractionSession.VOICE_ACTION_HANDLE_EXCEPTION,
                         handleExceptionBundle, callback);
             }
@@ -374,8 +391,13 @@ public class CarAssistUtils {
                 final String fallbackActionResult = hasError ? ActionRequestCallback.RESULT_FAILED
                         : ActionRequestCallback.RESULT_SUCCESS;
                 if (hasActiveAssistant()) {
+                    // If there is an active assistant, alert them to request permissions.
+                    Bundle handleExceptionBundle = BundleBuilder
+                            .buildAssistantHandleExceptionBundle(
+                                    EXCEPTION_NOTIFICATION_LISTENER_PERMISSIONS_MISSING,
+                                    /* fallbackAssistantEnabled */ true);
                     fireAssistantAction(CarVoiceInteractionSession.VOICE_ACTION_HANDLE_EXCEPTION,
-                            null, new ActionRequestCallback() {
+                            handleExceptionBundle, new ActionRequestCallback() {
                                 @Override
                                 public void onResult(String requestActionFromAssistantResult) {
                                     if (fallbackActionResult.equals(

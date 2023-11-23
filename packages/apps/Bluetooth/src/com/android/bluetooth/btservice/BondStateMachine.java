@@ -26,8 +26,8 @@ import android.content.Intent;
 import android.os.Message;
 import android.os.UserHandle;
 import android.util.Log;
-import android.util.StatsLog;
 
+import com.android.bluetooth.BluetoothStatsLog;
 import com.android.bluetooth.Utils;
 import com.android.bluetooth.a2dp.A2dpService;
 import com.android.bluetooth.a2dpsink.A2dpSinkService;
@@ -36,9 +36,9 @@ import com.android.bluetooth.hfp.HeadsetService;
 import com.android.bluetooth.hfpclient.HeadsetClientService;
 import com.android.bluetooth.hid.HidHostService;
 import com.android.bluetooth.pbapclient.PbapClientService;
+import com.android.bluetooth.statemachine.State;
+import com.android.bluetooth.statemachine.StateMachine;
 import com.android.internal.annotations.VisibleForTesting;
-import com.android.internal.util.State;
-import com.android.internal.util.StateMachine;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -100,7 +100,7 @@ final class BondStateMachine extends StateMachine {
         return bsm;
     }
 
-    public void doQuit() {
+    public synchronized void doQuit() {
         quitNow();
     }
 
@@ -122,7 +122,7 @@ final class BondStateMachine extends StateMachine {
         }
 
         @Override
-        public boolean processMessage(Message msg) {
+        public synchronized boolean processMessage(Message msg) {
 
             BluetoothDevice dev = (BluetoothDevice) msg.obj;
 
@@ -178,7 +178,7 @@ final class BondStateMachine extends StateMachine {
         }
 
         @Override
-        public boolean processMessage(Message msg) {
+        public synchronized boolean processMessage(Message msg) {
             BluetoothDevice dev = (BluetoothDevice) msg.obj;
             DeviceProperties devProp = mRemoteDevices.getDeviceProperties(dev);
             boolean result = false;
@@ -323,14 +323,14 @@ final class BondStateMachine extends StateMachine {
             } else {
                 result = mAdapterService.createBondNative(addr, transport);
             }
-            StatsLog.write(StatsLog.BLUETOOTH_BOND_STATE_CHANGED,
+            BluetoothStatsLog.write(BluetoothStatsLog.BLUETOOTH_BOND_STATE_CHANGED,
                     mAdapterService.obfuscateAddress(dev), transport, dev.getType(),
                     BluetoothDevice.BOND_BONDING,
                     oobData == null ? BluetoothProtoEnums.BOND_SUB_STATE_UNKNOWN
                             : BluetoothProtoEnums.BOND_SUB_STATE_LOCAL_OOB_DATA_PROVIDED,
                     BluetoothProtoEnums.UNBOND_REASON_UNKNOWN);
             if (!result) {
-                StatsLog.write(StatsLog.BLUETOOTH_BOND_STATE_CHANGED,
+                BluetoothStatsLog.write(BluetoothStatsLog.BLUETOOTH_BOND_STATE_CHANGED,
                         mAdapterService.obfuscateAddress(dev), transport, dev.getType(),
                         BluetoothDevice.BOND_NONE, BluetoothProtoEnums.BOND_SUB_STATE_UNKNOWN,
                         BluetoothDevice.UNBOND_REASON_REPEATED_ATTEMPTS);
@@ -355,7 +355,7 @@ final class BondStateMachine extends StateMachine {
         intent.setFlags(Intent.FLAG_RECEIVER_FOREGROUND);
         // Workaround for Android Auto until pre-accepting pairing requests is added.
         intent.addFlags(Intent.FLAG_RECEIVER_INCLUDE_BACKGROUND);
-        mAdapterService.sendOrderedBroadcast(intent, mAdapterService.BLUETOOTH_ADMIN_PERM);
+        mAdapterService.sendOrderedBroadcast(intent, AdapterService.BLUETOOTH_ADMIN_PERM);
     }
 
     @VisibleForTesting
@@ -386,13 +386,15 @@ final class BondStateMachine extends StateMachine {
         if (oldState == newState) {
             return;
         }
-        StatsLog.write(StatsLog.BLUETOOTH_BOND_STATE_CHANGED,
+        BluetoothStatsLog.write(BluetoothStatsLog.BLUETOOTH_BOND_STATE_CHANGED,
                 mAdapterService.obfuscateAddress(device), 0, device.getType(),
-                newState, BluetoothProtoEnums.BOND_SUB_STATE_UNKNOWN, reason);
+                newState, BluetoothProtoEnums.BOND_SUB_STATE_UNKNOWN, reason,
+                mAdapterService.getMetricId(device));
         BluetoothClass deviceClass = device.getBluetoothClass();
         int classOfDevice = deviceClass == null ? 0 : deviceClass.getClassOfDevice();
-        StatsLog.write(StatsLog.BLUETOOTH_CLASS_OF_DEVICE_REPORTED,
-                mAdapterService.obfuscateAddress(device), classOfDevice);
+        BluetoothStatsLog.write(BluetoothStatsLog.BLUETOOTH_CLASS_OF_DEVICE_REPORTED,
+                mAdapterService.obfuscateAddress(device), classOfDevice,
+                mAdapterService.getMetricId(device));
         mAdapterProperties.onBondStateChanged(device, newState);
 
         if (devProp != null && ((devProp.getDeviceType() == BluetoothDevice.DEVICE_TYPE_CLASSIC
@@ -491,7 +493,7 @@ final class BondStateMachine extends StateMachine {
             device = Objects.requireNonNull(mRemoteDevices.getDevice(address));
         }
 
-        StatsLog.write(StatsLog.BLUETOOTH_BOND_STATE_CHANGED,
+        BluetoothStatsLog.write(BluetoothStatsLog.BLUETOOTH_BOND_STATE_CHANGED,
                 mAdapterService.obfuscateAddress(device), 0, device.getType(),
                 BluetoothDevice.BOND_BONDING,
                 BluetoothProtoEnums.BOND_SUB_STATE_LOCAL_SSP_REQUESTED, 0);
@@ -514,12 +516,13 @@ final class BondStateMachine extends StateMachine {
             bdDevice = Objects.requireNonNull(mRemoteDevices.getDevice(address));
         }
 
-        StatsLog.write(StatsLog.BLUETOOTH_BOND_STATE_CHANGED,
+        BluetoothStatsLog.write(BluetoothStatsLog.BLUETOOTH_BOND_STATE_CHANGED,
                 mAdapterService.obfuscateAddress(bdDevice), 0, bdDevice.getType(),
                 BluetoothDevice.BOND_BONDING,
                 BluetoothProtoEnums.BOND_SUB_STATE_LOCAL_PIN_REQUESTED, 0);
 
-        infoLog("pinRequestCallback: " + address + " name:" + name + " cod:" + cod);
+        infoLog("pinRequestCallback: " + bdDevice.getAddress()
+                + " name:" + bdDevice.getName() + " cod:" + new BluetoothClass(cod));
 
         Message msg = obtainMessage(PIN_REQUEST);
         msg.obj = bdDevice;
@@ -537,22 +540,24 @@ final class BondStateMachine extends StateMachine {
         PbapClientService pbapClientService = PbapClientService.getPbapClientService();
 
         if (hidService != null) {
-            hidService.setPriority(device, BluetoothProfile.PRIORITY_UNDEFINED);
+            hidService.setConnectionPolicy(device, BluetoothProfile.CONNECTION_POLICY_UNKNOWN);
         }
         if (a2dpService != null) {
-            a2dpService.setPriority(device, BluetoothProfile.PRIORITY_UNDEFINED);
+            a2dpService.setConnectionPolicy(device, BluetoothProfile.CONNECTION_POLICY_UNKNOWN);
         }
         if (headsetService != null) {
-            headsetService.setPriority(device, BluetoothProfile.PRIORITY_UNDEFINED);
+            headsetService.setConnectionPolicy(device, BluetoothProfile.CONNECTION_POLICY_UNKNOWN);
         }
         if (headsetClientService != null) {
-            headsetClientService.setPriority(device, BluetoothProfile.PRIORITY_UNDEFINED);
+            headsetClientService.setConnectionPolicy(device,
+                    BluetoothProfile.CONNECTION_POLICY_UNKNOWN);
         }
         if (a2dpSinkService != null) {
-            a2dpSinkService.setPriority(device, BluetoothProfile.PRIORITY_UNDEFINED);
+            a2dpSinkService.setConnectionPolicy(device, BluetoothProfile.CONNECTION_POLICY_UNKNOWN);
         }
         if (pbapClientService != null) {
-            pbapClientService.setPriority(device, BluetoothProfile.PRIORITY_UNDEFINED);
+            pbapClientService.setConnectionPolicy(device,
+                    BluetoothProfile.CONNECTION_POLICY_UNKNOWN);
         }
     }
 

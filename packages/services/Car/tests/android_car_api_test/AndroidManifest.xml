@@ -17,11 +17,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
         xmlns:androidprv="http://schemas.android.com/apk/prv/res/android"
         package="android.car.apitest"
-        android:sharedUserId="android.uid.system"
-        coreApp="true"
+        android:sharedUserId="com.google.android.car.uid.kitchensink"
         android:debuggable="true" >
 
-    <instrumentation android:name="android.test.InstrumentationTestRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
             android:targetPackage="android.car.apitest"
             android:label="Tests for Car APIs"
             android:debuggable="true" />
@@ -36,5 +35,9 @@
         </activity>
         <service android:name=".CarProjectionManagerTest$TestService"
                  android:exported="true" />
+        <activity android:name=".CarActivityViewDisplayIdTestBase$ActivityInActivityView"/>
+        <activity android:name=".CarActivityViewDisplayIdTestBase$ActivityViewTestActivity"/>
+        <activity android:name=".CarActivityViewDisplayIdTestBase$MultiProcessActivityViewTestActivity"
+                  android:exported="true" android:process=":activity_view_test"/>
     </application>
 </manifest>

@@ -27,9 +27,9 @@ import android.provider.Settings;
 
 import com.android.car.developeroptions.R;
 import com.android.car.developeroptions.search.BaseSearchIndexProvider;
-import com.android.car.developeroptions.search.Indexable;
-import com.android.car.developeroptions.search.SearchIndexableRaw;
+import com.android.settingslib.search.Indexable;
 import com.android.settingslib.search.SearchIndexable;
+import com.android.settingslib.search.SearchIndexableRaw;
 
 import java.util.ArrayList;
 import java.util.List;

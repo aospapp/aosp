@@ -15,12 +15,19 @@
     limitations under the License.
 -->
 
-<TimePicker
+<RelativeLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/time_picker"
-    android:layout_width="wrap_content"
-    android:layout_height="wrap_content"
-    android:layout_gravity="center"
-    android:scaleX="1.6"
-    android:scaleY="1.6"
-    android:timePickerMode="spinner"/>
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <TimePicker
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        android:id="@+id/time_picker"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerInParent="true"
+        android:scaleX="1.6"
+        android:scaleY="1.6"
+        android:timePickerMode="spinner"/>
+
+</RelativeLayout>

@@ -8,7 +8,7 @@ of configuration:
    <restrictionParameters> tag.
 
 Note:
-   1. The tags and attributes are declared in packages/services/Car/service/res/attrs.xml.
+   1. The tags and attributes are declared in packages/services/Car/service/res/values/attrs.xml.
    2. The driving states defined there should align with driving states (@CarDrivingState) defined in
    packages/services/Car/car-lib/src/android/car/drivingstate/CarDrivingStateEvent.java
    3. Similarly the UX restrictions should align with
@@ -48,13 +48,14 @@ Note:
         4. If the above conditions are not met, mapping behavior is undefined. -->
         <!-- This is restrictions for moving and speed [0,5m/s) -->
         <DrivingState car:state="moving" car:minSpeed="0" car:maxSpeed="5.0">
-            <Restrictions car:requiresDistractionOptimization="true" car:uxr="fully_restricted"/>
+            <Restrictions car:requiresDistractionOptimization="true" car:uxr="no_dialpad|no_filtering|limit_string_length|no_keyboard|no_video|limit_content|no_setup|no_text_message"/>
         </DrivingState>
 
         <!-- Restrictions for speed >=5 -->
         <DrivingState car:state="moving" car:minSpeed="5.0">
-            <Restrictions car:requiresDistractionOptimization="true" car:uxr="fully_restricted"/>
+            <Restrictions car:requiresDistractionOptimization="true" car:uxr="no_dialpad|no_filtering|limit_string_length|no_keyboard|no_video|limit_content|no_setup|no_text_message"/>
         </DrivingState>
+
     </RestrictionMapping>
 
     <!-- Configure restriction parameters here-->

@@ -41,10 +41,6 @@ public class NetworkRequestErrorDialogFragment extends InstrumentedDialogFragmen
         return new NetworkRequestErrorDialogFragment();
     }
 
-    private NetworkRequestErrorDialogFragment() {
-        super();
-    }
-
     @Override
     public void onCancel(@NonNull DialogInterface dialog) {
         super.onCancel(dialog);

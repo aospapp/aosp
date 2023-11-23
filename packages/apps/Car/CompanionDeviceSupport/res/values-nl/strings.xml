@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 
+  ~ Copyright (C) 2019 The Android Open Source Project
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~
+  ~      http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+   -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="default_device_name" msgid="405493967512651629">"Bijbehorend apparaat"</string>
+    <string name="add_device_title" msgid="6166003577845888151">"Gekoppeld apparaat toevoegen"</string>
+    <string name="add_associated_device_title" msgid="3275596124326477381">"Een bijbehorend apparaat koppelen"</string>
+    <string name="add_associated_device_instruction" msgid="1015406964657139291">"Je kunt je telefoon als bijbehorend apparaat gebruiken om de functionaliteit van je auto te beheren"</string>
+    <string name="associated_device_install_app" msgid="981663561198924864">"Zorg dat de "<b>"bijbehorende app"</b>" op je telefoon is geïnstalleerd"</string>
+    <string name="associated_device_pairing_code_title" msgid="5118861901337336309">"Bevestig de code op je telefoon"</string>
+    <string name="associated_device_pairing_message" msgid="7319249426394299109">"Bevestig dat deze overeenkomt met de code die op je telefoon wordt weergegeven"</string>
+    <string name="associated_device_success" msgid="584760065696870256">"Het apparaat is gekoppeld"</string>
+    <string name="associated_device_select_device" msgid="1931869046289060602">"Open de app en maak verbinding met &lt;b&gt;<xliff:g id="CAR_NAME">%1$s</xliff:g>&lt;b&gt;"</string>
+    <string name="remove_associated_device_title" msgid="4060806982019423895">"&lt;b&gt;<xliff:g id="CAR_NAME">%1$s</xliff:g>&lt;/b&gt; vergeten?"</string>
+    <string name="remove_associated_device_message" msgid="3991333597951462900">"Deze auto is niet meer gekoppeld aan dit apparaat. Je moet deze auto ook uit de bijbehorende app verwijderen."</string>
+    <string name="device_removed_success_toast_text" msgid="3242832156490823936">"<xliff:g id="PHONE_NAME">%1$s</xliff:g> is vergeten"</string>
+    <string name="device_removed_failure_toast_text" msgid="3756625943664982395">"Kan <xliff:g id="PHONE_NAME">%1$s</xliff:g> niet vergeten"</string>
+    <string name="continue_setup_toast_text" msgid="8487187853051037413">"Ga verder met het instellen op je telefoon"</string>
+    <string name="error_screen_title" msgid="3977744142045194903">"Er is iets misgegaan"</string>
+    <string name="error_screen_message" msgid="1217200461704367056">"Dit scherm kan niet goed worden weergegeven. Probeer het opnieuw."</string>
+    <string name="turn_on_bluetooth_title" msgid="2877749869113938263">"Bluetooth inschakelen"</string>
+    <string name="turn_on_bluetooth_message" msgid="5087006108685547788">"Je auto heeft bluetooth nodig om je telefoon in te stellen als bijbehorend apparaat."</string>
+    <string name="turn_on_bluetooth_dialog_title" msgid="8693712073791430461">"Bluetooth inschakelen?"</string>
+    <string name="turn_on_bluetooth_dialog_message" msgid="5347157597209022072">"Je auto heeft bluetooth nodig om de auto te koppelen aan je bijbehorende apparaat."</string>
+    <string name="accept" msgid="1454710793329618813">"Accepteren"</string>
+    <string name="reject" msgid="4315432282758892890">"Afwijzen"</string>
+    <string name="confirm" msgid="3748997214719276945">"Bevestigen"</string>
+    <string name="cancel" msgid="4306609731174629323">"Annuleren"</string>
+    <string name="remove" msgid="5513398257088729188">"Verwijderen"</string>
+    <string name="ok" msgid="2825038997730899083">"OK"</string>
+    <string name="connection" msgid="2798490936433656846">"Koppeling"</string>
+    <string name="forget_title" msgid="3027608547243824729">"Dit apparaat vergeten"</string>
+    <string name="forget" msgid="2069897665699141222">"Vergeten"</string>
+    <string name="disable" msgid="4619854429066283970">"Uitschakelen"</string>
+    <string name="enable" msgid="7656386199154111316">"Inschakelen"</string>
+    <string name="continue_button" msgid="2748318968566159950">"Doorgaan"</string>
+    <string name="retry" msgid="3783419451480721367">"Opnieuw proberen"</string>
+    <string name="turn_on" msgid="4288754850470994812">"Inschakelen"</string>
+    <string name="not_now" msgid="8764692269093707622">"Niet nu"</string>
+    <string name="connected" msgid="8051190714042020471">"Gekoppeld"</string>
+    <string name="notDetected" msgid="4115229772085594506">"Niet gedetecteerd"</string>
+    <string name="disconnected" msgid="8526513868622591894">"Losgekoppeld"</string>
+    <string name="unknown" msgid="555736316465118024">"Onbekend"</string>
+    <string name="app_running_msg_channel_name" msgid="87011783084544733">"Sms-service van telefoon wordt uitgevoerd"</string>
+    <string name="app_running_msg_notification_title" msgid="388907180286994900">"Sms-service van telefoon is actief"</string>
+    <string name="app_running_msg_notification_content" msgid="4602261901969140233">"Sms\'jes ontvangen via bijbehorend apparaat"</string>
+    <string name="trusted_device_feature_title" msgid="2690568414493283969">"Profiel ontgrendelen met telefoon"</string>
+    <string name="trusted_device_feature_instruction" msgid="2546439818978826962">"Check je bijbehorende app om ontgrendelingsopties in te stellen"</string>
+    <string name="trusted_device_item_title" msgid="4390572381407233745">"Laat &lt;b&gt;<xliff:g id="PHONE_NAME">%1$s</xliff:g>&lt;/b&gt; mijn profiel ontgrendelen"</string>
+    <string name="device_not_connected_dialog_title" msgid="1157155922752758658">"Je telefoon moet actief gekoppeld zijn"</string>
+    <string name="device_not_connected_dialog_message" msgid="4987412656697205324">"Voor deze functie moet bluetooth zijn ingeschakeld op je telefoon en in je auto en moeten je telefoon en auto bij elkaar in de buurt zijn"</string>
+    <string name="trusted_device_enrollment_success_message" msgid="2080578779942302923">"&lt;b&gt;<xliff:g id="PHONE_NAME">%1$s</xliff:g>&lt;/b&gt; kan nu je profiel ontgrendelen"</string>
+    <string name="create_profile_lock_dialog_title" msgid="7865225698595414341">"Een primaire profielvergrendeling maken"</string>
+    <string name="create_profile_lock_dialog_message" msgid="5078929325894045416">"Als je je telefoon wilt gebruiken om je profiel te ontgrendelen, heb je een primaire profielvergrendeling nodig als back-up"</string>
+    <string name="unlock_profile_to_finish_title" msgid="6542028315996392302">"Ontgrendel je profiel om dit proces te voltooien"</string>
+    <string name="unlock_profile_to_finish_message" msgid="8616094218201557262">"Je hebt een nieuwe profielvergrendeling ingesteld. Voer deze opnieuw in om te bevestigen dat je telefoon je profiel automatisch mag ontgrendelen"</string>
+    <string name="disable_device_connection_text" msgid="4361795552013963732">"Dit apparaat loskoppelen"</string>
+    <string name="enable_device_connection_text" msgid="7742550392552935783">"Dit apparaat opnieuw koppelen"</string>
+    <string name="trusted_device_notification_channel_name" msgid="6717174570621750321">"Ontgrendelen met telefoon"</string>
+    <string name="trusted_device_notification_title" msgid="249913439061543209">"Laat je telefoon je profiel ontgrendelen"</string>
+    <string name="trusted_device_notification_content" msgid="7536321078698712456">"Tik hier om deze functie te autoriseren"</string>
+    <string name="trusted_device_enrollment_error_dialog_title" msgid="8120284275374458606">"Er is iets misgegaan"</string>
+    <string name="trusted_device_enrollment_error_dialog_message" msgid="7205036748277720461">"Deze functie kan op dit moment niet worden ingeschakeld. Probeer het opnieuw."</string>
+    <string name="create_phone_lock_dialog_title" msgid="9160142569534569820">"Een schermvergrendeling op je telefoon maken"</string>
+    <string name="create_phone_lock_dialog_message" msgid="8209460622086922427">"Er is nog geen schermvergrendeling ingesteld op je telefoon. Als je je auto wilt ontgrendelen met je telefoon, maak je eerst een schermvergrendeling (ook wel toegangscode genoemd) in de instellingen van je telefoon."</string>
+</resources>

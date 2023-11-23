@@ -25,6 +25,7 @@
     <string name="trace_is_being_recorded" msgid="5947378146009337469">"ਟ੍ਰੇਸ ਨੂੰ ਰਿਕਾਰਡ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ"</string>
     <string name="tap_to_stop_tracing" msgid="6533282719573871806">"ਟ੍ਰੇਸਿੰਗ ਨੂੰ ਬੰਦ ਕਰਨ ਲਈ ਟੈਪ ਕਰੋ"</string>
     <string name="clear_saved_traces" msgid="4809195654452260944">"ਰੱਖਿਅਤ ਕੀਤੀਆਂ ਟ੍ਰੇਸਾਂ ਨੂੰ ਕਲੀਅਰ ਕਰੋ"</string>
+    <string name="clear_saved_traces_summary" msgid="6035923138201219577">"ਇੱਕ ਮਹੀਨੇ ਬਾਅਦ ਟ੍ਰੇਸ ਕਲੀਅਰ ਹੋ ਜਾਂਦੇ ਹਨ"</string>
     <string name="clear_saved_traces_question" msgid="2184026613055303818">"ਕੀ ਰੱਖਿਅਤ ਕੀਤੇ ਟ੍ਰੇਸਾਂ ਨੂੰ ਕਲੀਅਰ ਕਰਨਾ ਹੈ?"</string>
     <string name="all_traces_will_be_deleted" msgid="6646545462206955920">"ਸਾਰੇ ਟ੍ਰੇਸਾਂ ਨੂੰ /ਡਾਟਾ/ਸਥਾਨਕ/ਟ੍ਰੇਸਾਂ ਵਿੱਚੋਂ ਮਿਟਾਇਆ ਜਾਵੇਗਾ"</string>
     <string name="clear" msgid="5484761795406948056">"ਕਲੀਅਰ ਕਰੋ"</string>

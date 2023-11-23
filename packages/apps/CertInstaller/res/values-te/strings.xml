@@ -21,8 +21,8 @@
     <string name="pkcs12_password_dialog_title" msgid="5997624645207427161">"ప్రమాణపత్రాన్ని సంగ్రహించండి"</string>
     <string name="extracting_pkcs12" msgid="1881267738821799771">"సంగ్రహిస్తోంది…"</string>
     <string name="pkcs12_file_password_dialog_title" msgid="8102721384767269510">"%s నుండి సంగ్రహించండి"</string>
-    <string name="name_credential_dialog_title" msgid="277729846491554437">"ప్రమాణపత్రానికి పేరు పెట్టండి"</string>
-    <string name="credential_name" msgid="1974979771369744378">"సర్టిఫికెట్ పేరు:"</string>
+    <string name="name_credential_dialog_title" msgid="1481964824549786927">"ఈ సర్టిఫికెట్‌కు పేరు పెట్టండి"</string>
+    <string name="certificate_name" msgid="8415893401368824792">"సర్టిఫికెట్ పేరు"</string>
     <string name="credential_password" msgid="3520176519550993326">"ప్రమాణపత్రాలను సంగ్రహించడానికి పాస్‌వర్డ్‌ను టైప్ చేయండి."</string>
     <string name="credential_info" msgid="2436768402308470397">"ప్యాకేజీ వీటిని కలిగి ఉంది:"</string>
     <string name="p12_description" msgid="4128352087331630024">"PKCS12 కీస్టోర్‌లోని ప్రమాణపత్రాలు."</string>
@@ -41,10 +41,24 @@
     <string name="invalid_cert" msgid="7704228670980743590">"సర్టిఫికెట్ చెల్లదు."</string>
     <string name="action_missing_private_key" msgid="7543470057312920042">"సర్టిఫికెట్‌ను ఇన్‌స్టాల్ చేయడానికి ప్రైవేట్ కీ అవసరం"</string>
     <string name="action_missing_user_cert" msgid="3727411730202316771">"ప్రైవేట్ కీని ఇన్‌స్టాల్ చేయడానికి సర్టిఫికెట్‌ అవసరం"</string>
-    <string name="cert_is_added" msgid="6996557598167000500">"<xliff:g id="CREDENTIAL">%s</xliff:g> ఇన్‌స్టాల్ చేయబడింది."</string>
+    <string name="select_certificate_usage_title" msgid="8853023485944920851">"సర్టిఫికెట్ రకాన్ని ఎంచుకోండి"</string>
+    <string name="redirect_ca_certificate_title" msgid="3457516863949244510">"సెట్టింగ్‌లలో CA సర్టిఫికెట్‌లను ఇన్‌స్టాల్ చేయండి"</string>
+    <string name="redirect_ca_certificate_with_app_info_message" msgid="934477720755323579">"<xliff:g id="REQUESTING_APP">%1$s</xliff:g> నుండి ఈ సర్టిఫికెట్‌ను, సెట్టింగ్‌లలో తప్పనిసరిగా ఇన్‌స్టాల్ చేయాలి. మీకు నమ్మకం ఉన్న సంస్థల నుండి మాత్రమే CA సర్టిఫికెట్‌లను ఇన్‌స్టాల్ చేయండి."</string>
+    <string name="redirect_ca_certificate_close_button" msgid="4291301659747279488">"మూసివేయి"</string>
+    <string name="invalid_certificate_title" msgid="6500315398016809635">"ఈ ఫైల్‌ను ఉపయోగించలేము"</string>
+    <string name="invalid_certificate_close_button" msgid="350986774973653102">"మూసివేయి"</string>
+    <string name="invalid_certificate_message" msgid="3508065546083182733">"ఈ ఫైల్‌ను <xliff:g id="CERTIFICATE_USAGE">%1$s</xliff:g>గా ఉపయోగించడం సాధ్యం కాదు"</string>
+    <string name="certificate" msgid="8790577925509962529">"సర్టిఫికెట్"</string>
+    <string name="ca_certificate" msgid="7397198551290322945">"CA సర్టిఫికెట్"</string>
+    <string name="user_certificate" msgid="514888069820553128">"VPN &amp; యాప్ వినియోగదారు సర్టిఫికెట్"</string>
+    <string name="wifi_certificate" msgid="5356595832360140989">"Wi‑Fi సర్టిఫికెట్"</string>
+    <string name="ca_cert_is_added" msgid="2847081843756291802">"CA సర్టిఫికెట్ ఇన్‌స్టాల్ చేయబడింది"</string>
+    <string name="user_cert_is_added" msgid="3088794616560630823">"యూజర్ సర్టిఫికెట్ ఇన్‌స్టాల్ చేయబడింది"</string>
+    <string name="wifi_cert_is_added" msgid="333220613655140428">"Wi‑Fi సర్టిఫికెట్ ఇన్‌స్టాల్ చేయబడింది"</string>
     <string name="cert_too_large_error" msgid="8715414972725646285">"సర్టిఫికెట్ పరిమాణం చాలా ఎక్కువగా ఉన్నందున ఇన్‌స్టాల్ చేయడం సాధ్యపడలేదు."</string>
     <string name="cert_missing_error" msgid="7040527352278728220">"సర్టిఫికెట్ ఫైల్‌ను గుర్తించలేకపోయినందున ఇన్‌స్టాల్ చేయడం సాధ్యపడలేదు."</string>
     <string name="cert_read_error" msgid="7353463360652419796">"సర్టిఫికెట్ ఫైల్‌ను చదవలేకపోయినందున ఇన్‌స్టాల్ చేయడం సాధ్యపడలేదు."</string>
+    <string name="cert_temp_error" msgid="617276803992714550">"తాత్కాలిక వైఫల్యం. దయచేసి కాసేపటి తర్వాత మళ్లీ ప్రయత్నించండి."</string>
     <string name="only_primary_user_allowed" msgid="4005084935023047716">"ఈ పరికర యజమాని మాత్రమే ప్రమాణపత్రాలను ఇన్‌స్టాల్ చేయవచ్చు."</string>
     <string name="credential_usage_label" msgid="1513892208033156805">"ఆధారాల వినియోగం:"</string>
   <string-array name="credential_usage">

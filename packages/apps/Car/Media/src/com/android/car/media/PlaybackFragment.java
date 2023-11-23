@@ -16,15 +16,17 @@
 
 package com.android.car.media;
 
-import android.annotation.Nullable;
+import static android.car.media.CarMediaManager.MEDIA_SOURCE_MODE_BROWSE;
+
 import android.content.Context;
 import android.content.res.ColorStateList;
+import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.Rect;
-import android.content.res.Resources;
-import android.content.res.TypedArray;
+import android.graphics.drawable.BitmapDrawable;
 import android.os.Bundle;
 import android.util.Log;
+import android.util.Size;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -33,25 +35,30 @@ import android.widget.SeekBar;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
-import androidx.constraintlayout.widget.ConstraintLayout;
+import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.ViewModelProviders;
 import androidx.recyclerview.widget.DefaultItemAnimator;
-import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.car.apps.common.BackgroundImageView;
+import com.android.car.apps.common.imaging.ImageBinder;
+import com.android.car.apps.common.imaging.ImageBinder.PlaceholderType;
+import com.android.car.apps.common.imaging.ImageViewBinder;
 import com.android.car.apps.common.util.ViewUtils;
-import com.android.car.media.common.MediaAppSelectorWidget;
 import com.android.car.media.common.MediaItemMetadata;
 import com.android.car.media.common.MetadataController;
 import com.android.car.media.common.PlaybackControlsActionBar;
 import com.android.car.media.common.playback.PlaybackViewModel;
+import com.android.car.media.common.source.MediaSourceViewModel;
+import com.android.car.ui.toolbar.MenuItem;
+import com.android.car.ui.toolbar.Toolbar;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
+
 
 /**
  * A {@link Fragment} that implements both the playback and the content forward browsing experience.
@@ -61,18 +68,21 @@ import java.util.concurrent.CompletableFuture;
 public class PlaybackFragment extends Fragment {
     private static final String TAG = "PlaybackFragment";
 
-    private CompletableFuture<Bitmap> mFutureAlbumBackground;
+    private ImageBinder<MediaItemMetadata.ArtworkRef> mAlbumArtBinder;
     private BackgroundImageView mAlbumBackground;
     private View mBackgroundScrim;
     private View mControlBarScrim;
     private PlaybackControlsActionBar mPlaybackControls;
     private QueueItemsAdapter mQueueAdapter;
     private RecyclerView mQueue;
-    private ConstraintLayout mMetadataContainer;
+    private ViewGroup mSeekBarContainer;
     private SeekBar mSeekBar;
-    private View mQueueButton;
-    private ViewGroup mNavIconContainer;
+    private Toolbar mToolbar;
     private List<View> mViewsToHideForCustomActions;
+    private List<View> mViewsToHideWhenQueueIsVisible;
+    private List<View> mViewsToShowWhenQueueIsVisible;
+    private List<View> mViewsToHideImmediatelyWhenQueueIsVisible;
+    private List<View> mViewsToShowImmediatelyWhenQueueIsVisible;
 
     private DefaultItemAnimator mItemAnimator;
 
@@ -88,9 +98,13 @@ public class PlaybackFragment extends Fragment {
     private boolean mShowTimeForActiveQueueItem;
     private boolean mShowIconForActiveQueueItem;
     private boolean mShowThumbnailForQueueItem;
+    private boolean mShowSubtitleForQueueItem;
+
+    private boolean mShowLinearProgressBar;
 
     private int mFadeDuration;
-    private float mPlaybackQueueBackgroundAlpha;
+
+    private MediaActivity.ViewModel mViewModel;
 
     /**
      * PlaybackFragment listener
@@ -109,10 +123,13 @@ public class PlaybackFragment extends Fragment {
         private final ImageView mThumbnail;
         private final View mSpacer;
         private final TextView mTitle;
+        private final TextView mSubtitle;
         private final TextView mCurrentTime;
         private final TextView mMaxTime;
         private final TextView mTimeSeparator;
         private final ImageView mActiveIcon;
+
+        private final ImageViewBinder<MediaItemMetadata.ArtworkRef> mThumbnailBinder;
 
         QueueViewHolder(View itemView) {
             super(itemView);
@@ -120,20 +137,24 @@ public class PlaybackFragment extends Fragment {
             mThumbnailContainer = itemView.findViewById(R.id.thumbnail_container);
             mThumbnail = itemView.findViewById(R.id.thumbnail);
             mSpacer = itemView.findViewById(R.id.spacer);
-            mTitle = itemView.findViewById(R.id.title);
+            mTitle = itemView.findViewById(R.id.queue_list_item_title);
+            mSubtitle = itemView.findViewById(R.id.queue_list_item_subtitle);
             mCurrentTime = itemView.findViewById(R.id.current_time);
             mMaxTime = itemView.findViewById(R.id.max_time);
             mTimeSeparator = itemView.findViewById(R.id.separator);
             mActiveIcon = itemView.findViewById(R.id.now_playing_icon);
+
+            Size maxArtSize = MediaAppConfig.getMediaItemsBitmapMaxSize(itemView.getContext());
+            mThumbnailBinder = new ImageViewBinder<>(maxArtSize, mThumbnail);
         }
 
-        boolean bind(MediaItemMetadata item) {
+        void bind(MediaItemMetadata item) {
             mView.setOnClickListener(v -> onQueueItemClicked(item));
 
             ViewUtils.setVisible(mThumbnailContainer, mShowThumbnailForQueueItem);
             if (mShowThumbnailForQueueItem) {
-                MediaItemMetadata.updateImageView(mThumbnail.getContext(), item, mThumbnail, 0,
-                        true);
+                Context context = mView.getContext();
+                mThumbnailBinder.setImage(context, item != null ? item.getArtworkKey() : null);
             }
 
             ViewUtils.setVisible(mSpacer, !mShowThumbnailForQueueItem);
@@ -152,45 +173,103 @@ public class PlaybackFragment extends Fragment {
             ViewUtils.setVisible(mMaxTime, shouldShowTime);
             ViewUtils.setVisible(mTimeSeparator, shouldShowTime);
 
+            mView.setSelected(active);
+
             boolean shouldShowIcon = mShowIconForActiveQueueItem && active;
             ViewUtils.setVisible(mActiveIcon, shouldShowIcon);
 
-            return active;
+            if (mShowSubtitleForQueueItem) {
+                mSubtitle.setText(item.getSubtitle());
+            }
+        }
+
+        void onViewAttachedToWindow() {
+            if (mShowThumbnailForQueueItem) {
+                Context context = mView.getContext();
+                mThumbnailBinder.maybeRestartLoading(context);
+            }
+        }
+
+        void onViewDetachedFromWindow() {
+            if (mShowThumbnailForQueueItem) {
+                Context context = mView.getContext();
+                mThumbnailBinder.maybeCancelLoading(context);
+            }
         }
     }
 
 
     private class QueueItemsAdapter extends RecyclerView.Adapter<QueueViewHolder> {
 
-        private List<MediaItemMetadata> mQueueItems;
-        private String mCurrentTimeText;
-        private String mMaxTimeText;
+        private List<MediaItemMetadata> mQueueItems = Collections.emptyList();
+        private String mCurrentTimeText = "";
+        private String mMaxTimeText = "";
         private Integer mActiveItemPos;
         private boolean mTimeVisible;
 
         void setItems(@Nullable List<MediaItemMetadata> items) {
-            mQueueItems = new ArrayList<>(items != null ? items : Collections.emptyList());
+            List<MediaItemMetadata> newQueueItems =
+                new ArrayList<>(items != null ? items : Collections.emptyList());
+            if (newQueueItems.equals(mQueueItems)) {
+                return;
+            }
+            mQueueItems = newQueueItems;
+            updateActiveItem();
             notifyDataSetChanged();
         }
 
+        // Updates mActiveItemPos, then scrolls the queue to mActiveItemPos.
+        // It should be called when the active item (mActiveQueueItemId) changed or
+        // the queue items (mQueueItems) changed.
+        void updateActiveItem() {
+            if (mQueueItems == null || mActiveQueueItemId == null) {
+                mActiveItemPos = null;
+                return;
+            }
+            Integer activeItemPos = null;
+            for (int i = 0; i < mQueueItems.size(); i++) {
+                if (mQueueItems.get(i).getQueueId() == mActiveQueueItemId) {
+                    activeItemPos = i;
+                    break;
+                }
+            }
+
+            if (mActiveItemPos != activeItemPos) {
+                if (mActiveItemPos != null) {
+                    notifyItemChanged(mActiveItemPos.intValue());
+                }
+                mActiveItemPos = activeItemPos;
+                if (mActiveItemPos != null) {
+                    mQueue.scrollToPosition(mActiveItemPos.intValue());
+                    notifyItemChanged(mActiveItemPos.intValue());
+                }
+            }
+        }
+
         void setCurrentTime(String currentTime) {
-            mCurrentTimeText = currentTime;
-            if (mActiveItemPos != null) {
-                notifyItemChanged(mActiveItemPos.intValue());
+            if (!mCurrentTimeText.equals(currentTime)) {
+                mCurrentTimeText = currentTime;
+                if (mActiveItemPos != null) {
+                    notifyItemChanged(mActiveItemPos.intValue());
+                }
             }
         }
 
         void setMaxTime(String maxTime) {
-            mMaxTimeText = maxTime;
-            if (mActiveItemPos != null) {
-                notifyItemChanged(mActiveItemPos.intValue());
+            if (!mMaxTimeText.equals(maxTime)) {
+                mMaxTimeText = maxTime;
+                if (mActiveItemPos != null) {
+                    notifyItemChanged(mActiveItemPos.intValue());
+                }
             }
         }
 
         void setTimeVisible(boolean visible) {
-            mTimeVisible = visible;
-            if (mActiveItemPos != null) {
-                notifyItemChanged(mActiveItemPos.intValue());
+            if (mTimeVisible != visible) {
+                mTimeVisible = visible;
+                if (mActiveItemPos != null) {
+                    notifyItemChanged(mActiveItemPos.intValue());
+                }
             }
         }
 
@@ -216,13 +295,22 @@ public class PlaybackFragment extends Fragment {
         public void onBindViewHolder(QueueViewHolder holder, int position) {
             int size = mQueueItems.size();
             if (0 <= position && position < size) {
-                boolean active = holder.bind(mQueueItems.get(position));
-                if (active) {
-                    mActiveItemPos = position;
-                }
+                holder.bind(mQueueItems.get(position));
             } else {
                 Log.e(TAG, "onBindViewHolder invalid position " + position + " of " + size);
             }
+        }
+
+        @Override
+        public void onViewAttachedToWindow(@NonNull QueueViewHolder holder) {
+            super.onViewAttachedToWindow(holder);
+            holder.onViewAttachedToWindow();
+        }
+
+        @Override
+        public void onViewDetachedFromWindow(@NonNull QueueViewHolder holder) {
+            super.onViewDetachedFromWindow(holder);
+            holder.onViewDetachedFromWindow();
         }
 
         @Override
@@ -267,18 +355,36 @@ public class PlaybackFragment extends Fragment {
         View view = inflater.inflate(R.layout.fragment_playback, container, false);
         mAlbumBackground = view.findViewById(R.id.playback_background);
         mQueue = view.findViewById(R.id.queue_list);
-        mMetadataContainer = view.findViewById(R.id.metadata_container);
+        mSeekBarContainer = view.findViewById(R.id.seek_bar_container);
         mSeekBar = view.findViewById(R.id.seek_bar);
-        mQueueButton = view.findViewById(R.id.queue_button);
-        mQueueButton.setOnClickListener(button -> toggleQueueVisibility());
-        mNavIconContainer = view.findViewById(R.id.nav_icon_container);
-        mNavIconContainer.setOnClickListener(nav -> onCollapse());
+        mToolbar = view.findViewById(R.id.toolbar);
+        if (mToolbar != null) {
+            mToolbar.setBackgroundShown(false);
+            mToolbar.setNavButtonMode(Toolbar.NavButtonMode.DOWN);
+
+            // Notify listeners when toolbar's down button is pressed.
+            mToolbar.registerOnBackListener(() -> {
+                if (mListener != null) {
+                    mListener.onCollapse();
+                }
+                return true;
+            });
+
+            // Update toolbar's logo
+            MediaSourceViewModel mediaSourceViewModel = getMediaSourceViewModel();
+            mediaSourceViewModel.getPrimaryMediaSource().observe(this, mediaSource ->
+                mToolbar.setLogo(mediaSource != null
+                        ? new BitmapDrawable(getResources(), mediaSource.getCroppedPackageIcon())
+                        : null));
+        }
         mBackgroundScrim = view.findViewById(R.id.background_scrim);
         ViewUtils.setVisible(mBackgroundScrim, false);
         mControlBarScrim = view.findViewById(R.id.control_bar_scrim);
-        ViewUtils.setVisible(mControlBarScrim, false);
-        mControlBarScrim.setOnClickListener(scrim -> mPlaybackControls.close());
-        mControlBarScrim.setClickable(false);
+        if (mControlBarScrim != null) {
+            ViewUtils.setVisible(mControlBarScrim, false);
+            mControlBarScrim.setOnClickListener(scrim -> mPlaybackControls.close());
+            mControlBarScrim.setClickable(false);
+        }
 
         Resources res = getResources();
         mShowTimeForActiveQueueItem = res.getBoolean(
@@ -287,25 +393,35 @@ public class PlaybackFragment extends Fragment {
                 R.bool.show_icon_for_now_playing_queue_list_item);
         mShowThumbnailForQueueItem = getContext().getResources().getBoolean(
                 R.bool.show_thumbnail_for_queue_list_item);
+        mShowLinearProgressBar = getContext().getResources().getBoolean(
+                R.bool.show_linear_progress_bar);
+        mShowSubtitleForQueueItem = getContext().getResources().getBoolean(
+            R.bool.show_subtitle_for_queue_list_item);
 
-        boolean useMediaSourceColor = res.getBoolean(
-                R.bool.use_media_source_color_for_progress_bar);
-        int defaultColor = res.getColor(R.color.progress_bar_highlight, null);
-        if (useMediaSourceColor) {
-            getPlaybackViewModel().getMediaSourceColors().observe(getViewLifecycleOwner(),
-                    sourceColors -> {
-                        int color = sourceColors != null ? sourceColors.getAccentColor(defaultColor)
-                                : defaultColor;
-                        mSeekBar.setThumbTintList(ColorStateList.valueOf(color));
-                        mSeekBar.setProgressTintList(ColorStateList.valueOf(color));
-                    });
-        } else {
-            mSeekBar.setThumbTintList(ColorStateList.valueOf(defaultColor));
-            mSeekBar.setProgressTintList(ColorStateList.valueOf(defaultColor));
+        if (mSeekBar != null) {
+            if (mShowLinearProgressBar) {
+                boolean useMediaSourceColor = res.getBoolean(
+                        R.bool.use_media_source_color_for_progress_bar);
+                int defaultColor = res.getColor(R.color.progress_bar_highlight, null);
+                if (useMediaSourceColor) {
+                    getPlaybackViewModel().getMediaSourceColors().observe(getViewLifecycleOwner(),
+                            sourceColors -> {
+                                int color = sourceColors != null ? sourceColors.getAccentColor(
+                                        defaultColor)
+                                        : defaultColor;
+                                mSeekBar.setThumbTintList(ColorStateList.valueOf(color));
+                                mSeekBar.setProgressTintList(ColorStateList.valueOf(color));
+                            });
+                } else {
+                    mSeekBar.setThumbTintList(ColorStateList.valueOf(defaultColor));
+                    mSeekBar.setProgressTintList(ColorStateList.valueOf(defaultColor));
+                }
+            } else {
+                mSeekBar.setVisibility(View.GONE);
+            }
         }
 
-        MediaAppSelectorWidget appIcon = view.findViewById(R.id.app_icon_container);
-        appIcon.setFragmentActivity(getActivity());
+        mViewModel = ViewModelProviders.of(requireActivity()).get(MediaActivity.ViewModel.class);
 
         getPlaybackViewModel().getPlaybackController().observe(getViewLifecycleOwner(),
                 controller -> mController = controller);
@@ -313,43 +429,29 @@ public class PlaybackFragment extends Fragment {
         initMetadataController(view);
         initQueue();
 
-        TypedArray hideViewIds =
-                res.obtainTypedArray(R.array.playback_views_to_hide_when_showing_custom_actions);
-        mViewsToHideForCustomActions = new ArrayList<>(hideViewIds.length());
-        for (int i = 0; i < hideViewIds.length(); i++) {
-            int viewId = hideViewIds.getResourceId(i, 0);
-            if (viewId != 0) {
-                View viewToHide = view.findViewById(viewId);
-                if (viewToHide != null) {
-                    mViewsToHideForCustomActions.add(viewToHide);
-                }
-            }
-        }
-        hideViewIds.recycle();
+        // Don't update the visibility of seekBar if show_linear_progress_bar is false.
+        ViewUtils.Filter ignoreSeekBarFilter =
+            (viewToFilter) -> mShowLinearProgressBar || viewToFilter != mSeekBarContainer;
 
-        int albumBgSizePx = getResources().getInteger(
-                com.android.car.apps.common.R.integer.background_bitmap_target_size_px);
+        mViewsToHideForCustomActions = ViewUtils.getViewsById(view, res,
+            R.array.playback_views_to_hide_when_showing_custom_actions, ignoreSeekBarFilter);
+        mViewsToHideWhenQueueIsVisible = ViewUtils.getViewsById(view, res,
+            R.array.playback_views_to_hide_when_queue_is_visible, ignoreSeekBarFilter);
+        mViewsToShowWhenQueueIsVisible = ViewUtils.getViewsById(view, res,
+            R.array.playback_views_to_show_when_queue_is_visible, null);
+        mViewsToHideImmediatelyWhenQueueIsVisible = ViewUtils.getViewsById(view, res,
+            R.array.playback_views_to_hide_immediately_when_queue_is_visible, ignoreSeekBarFilter);
+        mViewsToShowImmediatelyWhenQueueIsVisible = ViewUtils.getViewsById(view, res,
+            R.array.playback_views_to_show_immediately_when_queue_is_visible, null);
+
+        mAlbumArtBinder = new ImageBinder<>(
+                PlaceholderType.BACKGROUND,
+                MediaAppConfig.getMediaItemsBitmapMaxSize(getContext()),
+                drawable -> mAlbumBackground.setBackgroundDrawable(drawable));
 
         getPlaybackViewModel().getMetadata().observe(getViewLifecycleOwner(),
-                metadata -> {
-                    if (mFutureAlbumBackground != null && !mFutureAlbumBackground.isDone()) {
-                        mFutureAlbumBackground.cancel(true);
-                    }
-                    if (metadata == null) {
-                        setBackgroundImage(null);
-                        mFutureAlbumBackground = null;
-                    } else {
-                        mFutureAlbumBackground = metadata.getAlbumArt(
-                                getContext(), albumBgSizePx, albumBgSizePx, false);
-                        mFutureAlbumBackground.whenComplete((result, throwable) -> {
-                            if (throwable != null) {
-                                setBackgroundImage(null);
-                            } else {
-                                setBackgroundImage(result);
-                            }
-                        });
-                    }
-                });
+                item -> mAlbumArtBinder.setImage(PlaybackFragment.this.getContext(),
+                        item != null ? item.getArtworkKey() : null));
 
         return view;
     }
@@ -364,24 +466,26 @@ public class PlaybackFragment extends Fragment {
         super.onDetach();
     }
 
-    private void setBackgroundImage(Bitmap bitmap) {
-        mAlbumBackground.setBackgroundImage(bitmap, bitmap != null);
-    }
-
     private void initPlaybackControls(PlaybackControlsActionBar playbackControls) {
         mPlaybackControls = playbackControls;
         mPlaybackControls.setModel(getPlaybackViewModel(), getViewLifecycleOwner());
         mPlaybackControls.registerExpandCollapseCallback((expanding) -> {
-            mControlBarScrim.setClickable(expanding);
-
             Resources res = getContext().getResources();
             int millis = expanding ? res.getInteger(R.integer.control_bar_expand_anim_duration) :
-                    res.getInteger(R.integer.control_bar_collapse_anim_duration);
+                res.getInteger(R.integer.control_bar_collapse_anim_duration);
+
+            if (mControlBarScrim != null) {
+                mControlBarScrim.setClickable(expanding);
+            }
 
             if (expanding) {
-                ViewUtils.showViewAnimated(mControlBarScrim, millis);
+                if (mControlBarScrim != null) {
+                    ViewUtils.showViewAnimated(mControlBarScrim, millis);
+                }
             } else {
-                ViewUtils.hideViewAnimated(mControlBarScrim, millis);
+                if (mControlBarScrim != null) {
+                    ViewUtils.hideViewAnimated(mControlBarScrim, millis);
+                }
             }
 
             if (!mQueueIsVisible) {
@@ -399,8 +503,6 @@ public class PlaybackFragment extends Fragment {
     private void initQueue() {
         mFadeDuration = getResources().getInteger(
                 R.integer.fragment_playback_queue_fade_duration_ms);
-        mPlaybackQueueBackgroundAlpha = getResources().getFloat(
-                R.dimen.playback_queue_background_alpha);
 
         int decorationHeight = getResources().getDimensionPixelSize(
                 R.dimen.playback_queue_list_padding_top);
@@ -417,11 +519,10 @@ public class PlaybackFragment extends Fragment {
                     Long itemId = (state != null) ? state.getActiveQueueItemId() : null;
                     if (!Objects.equals(mActiveQueueItemId, itemId)) {
                         mActiveQueueItemId = itemId;
-                        mQueueAdapter.refresh();
+                        mQueueAdapter.updateActiveItem();
                     }
                 });
         mQueue.setAdapter(mQueueAdapter);
-        mQueue.setLayoutManager(new LinearLayoutManager(getContext()));
 
         // Disable item changed animation.
         mItemAnimator = new DefaultItemAnimator();
@@ -432,10 +533,8 @@ public class PlaybackFragment extends Fragment {
 
         getPlaybackViewModel().hasQueue().observe(getViewLifecycleOwner(), hasQueue -> {
             boolean enableQueue = (hasQueue != null) && hasQueue;
+            mQueueIsVisible = mViewModel.getQueueVisible();
             setHasQueue(enableQueue);
-            if (mQueueIsVisible && !enableQueue) {
-                toggleQueueVisibility();
-            }
         });
         getPlaybackViewModel().getProgress().observe(getViewLifecycleOwner(),
                 playbackProgress ->
@@ -448,7 +547,6 @@ public class PlaybackFragment extends Fragment {
 
     private void setQueue(List<MediaItemMetadata> queueItems) {
         mQueueAdapter.setItems(queueItems);
-        mQueueAdapter.refresh();
     }
 
     private void initMetadataController(View view) {
@@ -460,42 +558,61 @@ public class PlaybackFragment extends Fragment {
         TextView curTime = view.findViewById(R.id.current_time);
         TextView innerSeparator = view.findViewById(R.id.inner_separator);
         TextView maxTime = view.findViewById(R.id.max_time);
-        SeekBar seekbar = view.findViewById(R.id.seek_bar);
+        SeekBar seekbar = mShowLinearProgressBar ? mSeekBar : null;
 
+        Size maxArtSize = MediaAppConfig.getMediaItemsBitmapMaxSize(view.getContext());
         mMetadataController = new MetadataController(getViewLifecycleOwner(),
                 getPlaybackViewModel(), title, artist, albumTitle, outerSeparator,
-                curTime, innerSeparator, maxTime, seekbar, albumArt,
-                getResources().getDimensionPixelSize(R.dimen.playback_album_art_size));
+                curTime, innerSeparator, maxTime, seekbar, albumArt, maxArtSize);
     }
 
     /**
-     * Hides or shows the playback queue.
+     * Hides or shows the playback queue when the user clicks the queue button.
      */
     private void toggleQueueVisibility() {
-        mQueueIsVisible = !mQueueIsVisible;
-        mQueueButton.setActivated(mQueueIsVisible);
-        mQueueButton.setSelected(mQueueIsVisible);
+        boolean updatedQueueVisibility = !mQueueIsVisible;
+        setQueueVisible(updatedQueueVisibility);
+
+        // When the visibility of queue is changed by the user, save the visibility into ViewModel
+        // so that we can restore PlaybackFragment properly when needed. If it's changed by media
+        // source change (media source changes -> hasQueue becomes false -> queue is hidden), don't
+        // save it.
+        mViewModel.setQueueVisible(updatedQueueVisibility);
+    }
+
+    private void setQueueVisible(boolean visible) {
+        mQueueIsVisible = visible;
+
+        if (mToolbar != null) {
+            if (mHasQueue) {
+                MenuItem queueMenuItem = MenuItem.builder(getContext())
+                        .setIcon(R.drawable.ic_queue_button)
+                        .setActivated(mQueueIsVisible)
+                        .setOnClickListener(button -> toggleQueueVisibility())
+                        .build();
+                mToolbar.setMenuItems(Collections.singletonList(queueMenuItem));
+            } else {
+                mToolbar.setMenuItems(Collections.emptyList());
+            }
+        }
+
         if (mQueueIsVisible) {
-            ViewUtils.hideViewAnimated(mMetadataContainer, mFadeDuration);
-            ViewUtils.hideViewAnimated(mSeekBar, mFadeDuration);
-            ViewUtils.showViewAnimated(mQueue, mFadeDuration);
-            ViewUtils.showViewAnimated(mBackgroundScrim, mFadeDuration);
+            ViewUtils.showViewsAnimated(mViewsToShowWhenQueueIsVisible, mFadeDuration);
+            ViewUtils.hideViewsAnimated(mViewsToHideWhenQueueIsVisible, mFadeDuration);
+            ViewUtils.setVisible(mViewsToShowImmediatelyWhenQueueIsVisible, true);
+            ViewUtils.setVisible(mViewsToHideImmediatelyWhenQueueIsVisible, false);
         } else {
-            ViewUtils.hideViewAnimated(mQueue, mFadeDuration);
-            ViewUtils.showViewAnimated(mMetadataContainer, mFadeDuration);
-            ViewUtils.showViewAnimated(mSeekBar, mFadeDuration);
-            ViewUtils.hideViewAnimated(mBackgroundScrim, mFadeDuration);
+            ViewUtils.hideViewsAnimated(mViewsToShowWhenQueueIsVisible, mFadeDuration);
+            ViewUtils.showViewsAnimated(mViewsToHideWhenQueueIsVisible, mFadeDuration);
+            ViewUtils.setVisible(mViewsToShowImmediatelyWhenQueueIsVisible, false);
+            ViewUtils.setVisible(mViewsToHideImmediatelyWhenQueueIsVisible, true);
         }
     }
 
     /** Sets whether the source has a queue. */
     private void setHasQueue(boolean hasQueue) {
         mHasQueue = hasQueue;
-        updateQueueVisibility();
-    }
-
-    private void updateQueueVisibility() {
-        mQueueButton.setVisibility(mHasQueue ? View.VISIBLE : View.GONE);
+        setQueueVisible(hasQueue && mQueueIsVisible);
     }
 
     private void onQueueItemClicked(MediaItemMetadata item) {
@@ -516,8 +633,13 @@ public class PlaybackFragment extends Fragment {
         mPlaybackControls.close();
     }
 
+    // TODO(b/151174811): Use appropriate modes, instead of just MEDIA_SOURCE_MODE_BROWSE
     private PlaybackViewModel getPlaybackViewModel() {
-        return PlaybackViewModel.get(getActivity().getApplication());
+        return PlaybackViewModel.get(getActivity().getApplication(), MEDIA_SOURCE_MODE_BROWSE);
+    }
+
+    private MediaSourceViewModel getMediaSourceViewModel() {
+        return MediaSourceViewModel.get(getActivity().getApplication(), MEDIA_SOURCE_MODE_BROWSE);
     }
 
     /**
@@ -526,11 +648,5 @@ public class PlaybackFragment extends Fragment {
      */
     public void setListener(PlaybackFragmentListener listener) {
         mListener = listener;
-    }
-
-    private void onCollapse() {
-        if (mListener != null) {
-            mListener.onCollapse();
-        }
     }
 }

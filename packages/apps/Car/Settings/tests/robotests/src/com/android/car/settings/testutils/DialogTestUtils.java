@@ -54,4 +54,10 @@ public class DialogTestUtils {
                 com.android.internal.R.id.alertTitle);
         return titleView.getText().toString();
     }
+
+    public static String getMessage(DialogFragment dialogFragment) {
+        TextView messageView = dialogFragment.getDialog().getWindow().findViewById(
+                com.android.internal.R.id.message);
+        return messageView.getText().toString();
+    }
 }

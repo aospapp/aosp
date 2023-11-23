@@ -267,7 +267,7 @@ public class KeyboardView extends View implements View.OnClickListener {
     /** The canvas for the above mutable keyboard bitmap */
     private Canvas mCanvas;
     /** The accessibility manager for accessibility support */
-    private AccessibilityManager mAccessibilityManager;
+    private final AccessibilityManager mAccessibilityManager;
 
     private boolean mUseSecondaryColor = true;
     private Locale mLocale;
@@ -381,6 +381,9 @@ public class KeyboardView extends View implements View.OnClickListener {
 
         mSwipeThreshold = (int) (500 * getResources().getDisplayMetrics().density);
         mDisambiguateSwipe = true;
+
+        mAccessibilityManager =
+            (AccessibilityManager) context.getSystemService(Context.ACCESSIBILITY_SERVICE);
 
         int color = getResources().getColor(R.color.ime_background_letters);
         mPopupScrimColor = Color.argb(

@@ -35,7 +35,6 @@ import androidx.lifecycle.Lifecycle;
 import androidx.preference.PreferenceGroup;
 import androidx.preference.TwoStatePreference;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.common.LogicalPreferenceGroup;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
 import com.android.car.settings.testutils.ShadowAppOpsManager;
@@ -51,6 +50,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadow.api.Shadow;
@@ -60,7 +60,7 @@ import java.util.Collections;
 import java.util.List;
 
 /** Unit test for {@link AppOpsPreferenceController}. */
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 @Config(shadows = {ShadowAppOpsManager.class, ShadowApplicationsState.class})
 public class AppOpsPreferenceControllerTest {
 

@@ -20,17 +20,17 @@
     android:id="@+id/container"
     android:layout_width="match_parent"
     android:layout_height="@dimen/media_browse_list_item_height"
+    android:paddingStart="@dimen/media_browse_list_item_icon_margin_start"
     android:focusable="true"
     android:foreground="?android:attr/selectableItemBackground">
-    <ImageView
+    <com.android.car.media.common.FixedRatioImageView
         android:id="@+id/thumbnail"
-        android:layout_width="@dimen/media_browse_list_item_thumbnail_size"
-        android:layout_height="@dimen/media_browse_list_item_thumbnail_size"
-        android:layout_marginStart="@dimen/media_browse_list_item_icon_margin_start"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
         android:scaleType="centerCrop"
-        app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent"/>
+        android:layout_marginBottom="@dimen/media_browse_list_item_thumbnail_margin_bottom"
+        app:aspect_ratio="1"/>
 
     <!-- This guideline is necessary because there are icons preceding the text which typically have
       visibility GONE, which prevents margins applied to the leftmost view from applying to the
@@ -69,8 +69,8 @@
         style="@style/BrowseListTitleStyle"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:includeFontPadding="false"
         android:singleLine="true"
+        android:includeFontPadding="false"
         app:layout_constraintVertical_chainStyle="packed"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toTopOf="@+id/subtitle"
@@ -104,7 +104,6 @@
         style="@style/BrowseListSubtitleStyle"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:includeFontPadding="false"
         android:singleLine="true"
         app:layout_constraintTop_toBottomOf="@+id/title"
         app:layout_constraintBottom_toBottomOf="parent"
@@ -113,11 +112,13 @@
 
     <ImageView
         android:id="@+id/right_arrow"
-        android:src="@drawable/ic_chevron_right"
+        style="@style/BrowseListItemRightArrowStyle"
         android:layout_width="@dimen/media_browse_list_item_arrow_size"
         android:layout_height="@dimen/media_browse_list_item_arrow_size"
+        android:layout_marginTop="@dimen/media_browse_subtitle_margin_top"
         android:layout_gravity="center_vertical"
         android:scaleType="centerCrop"
+        android:includeFontPadding="false"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"

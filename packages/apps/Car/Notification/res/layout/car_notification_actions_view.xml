@@ -18,36 +18,45 @@
 
     <Button
         android:id="@+id/action_1"
+        style="@style/NotificationActionButton"
         android:layout_width="wrap_content"
         android:layout_height="@dimen/action_button_height"
         android:layout_centerVertical="true"
+        android:layout_marginBottom="@dimen/action_button_spacing_bottom"
         android:layout_marginStart="@dimen/card_start_margin"
-        android:layout_marginTop="@dimen/action_button_spacing"
-        android:layout_marginEnd="@dimen/action_button_spacing"
-        android:layout_marginBottom="@dimen/action_button_spacing"
-        android:visibility="gone"
-        style="@style/NotificationActionButton"/>
+        android:layout_marginTop="@dimen/action_button_spacing_top"
+        android:minWidth="@dimen/action_button_min_width"
+        android:paddingBottom="@dimen/action_button_padding_bottom"
+        android:paddingTop="@dimen/action_button_padding_top"
+        android:visibility="gone"/>
 
     <Button
         android:id="@+id/action_2"
+        style="@style/NotificationActionButton"
         android:layout_width="wrap_content"
         android:layout_height="@dimen/action_button_height"
-        android:layout_toEndOf="@id/action_1"
         android:layout_centerVertical="true"
-        android:layout_margin="@dimen/action_button_spacing"
-        android:visibility="gone"
-        style="@style/NotificationActionButton"/>
+        android:layout_marginBottom="@dimen/action_button_spacing_bottom"
+        android:layout_marginStart="@dimen/action_button_spacing_start"
+        android:layout_marginTop="@dimen/action_button_spacing_top"
+        android:layout_toEndOf="@id/action_1"
+        android:minWidth="@dimen/action_button_min_width"
+        android:paddingBottom="@dimen/action_button_padding_bottom"
+        android:paddingTop="@dimen/action_button_padding_top"
+        android:visibility="gone"/>
 
     <Button
         android:id="@+id/action_3"
+        style="@style/NotificationActionButton"
         android:layout_width="wrap_content"
         android:layout_height="@dimen/action_button_height"
-        android:layout_toEndOf="@id/action_2"
         android:layout_centerVertical="true"
-        android:layout_marginStart="@dimen/action_button_spacing"
-        android:layout_marginTop="@dimen/action_button_spacing"
-        android:layout_marginEnd="@dimen/card_end_margin"
-        android:layout_marginBottom="@dimen/action_button_spacing"
-        android:visibility="gone"
-        style="@style/NotificationActionButton"/>
+        android:layout_marginBottom="@dimen/action_button_spacing_bottom"
+        android:layout_marginStart="@dimen/action_button_spacing_start"
+        android:layout_marginTop="@dimen/action_button_spacing_top"
+        android:layout_toEndOf="@id/action_2"
+        android:minWidth="@dimen/action_button_min_width"
+        android:paddingBottom="@dimen/action_button_padding_bottom"
+        android:paddingTop="@dimen/action_button_padding_top"
+        android:visibility="gone"/>
 </merge>

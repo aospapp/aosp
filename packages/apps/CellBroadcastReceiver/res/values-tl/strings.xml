@@ -16,9 +16,9 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_label" msgid="6006277287245076524">"Mga alertong pang-emergency"</string>
-    <string name="sms_cb_settings" msgid="3795852619005211509">"Mga alertong pang-emergency"</string>
-    <string name="cell_broadcast_settings_not_available" msgid="2612364350745967915">"Hindi available ang mga setting ng Cell Broadcast para sa user na ito"</string>
+    <string name="app_label" msgid="2008319089248760277">"Mga wireless na alerto sa emergency"</string>
+    <string name="sms_cb_settings" msgid="9021266457863671070">"Mga wireless na alerto sa emergency"</string>
+    <string name="cell_broadcast_settings_not_available" msgid="3908142962162375221">"Hindi available ang mga wireless na alerto sa emergency para sa user na ito"</string>
     <string name="button_dismiss" msgid="1234221657930516287">"OK"</string>
     <string name="no_cell_broadcasts" msgid="7554779730107421769">"Walang nakaraang alerto"</string>
     <string name="menu_delete_all" msgid="3940997343921149800">"I-delete ang mga broadcast"</string>
@@ -26,6 +26,7 @@
     <string name="menu_view_details" msgid="1040989019045280975">"Tingnan ang mga detalye"</string>
     <string name="menu_delete" msgid="128380070910799366">"I-delete ang broadcast"</string>
     <string name="view_details_title" msgid="1780427629491781473">"Mga detalye ng alerto"</string>
+    <string name="view_details_debugging_title" msgid="5699927030805114173">"Mga detalye ng alerto para sa pag-debug"</string>
     <string name="confirm_delete_broadcast" msgid="2540199303730232322">"I-delete ang broadcast na ito?"</string>
     <string name="confirm_delete_all_broadcasts" msgid="2924444089047280871">"I-delete ang lahat ng natanggap na broadcast na mensahe?"</string>
     <string name="button_delete" msgid="4672451757925194350">"I-delete"</string>
@@ -51,11 +52,11 @@
     <string name="emergency_alerts_title" msgid="6605036374197485429">"Mga Alerto"</string>
     <string name="notification_channel_broadcast_messages" msgid="880704362482824524">"Mga mensahe ng broadcast"</string>
     <string name="notification_channel_emergency_alerts" msgid="5008287980979183617">"Mga alerto sa emergency"</string>
+    <string name="notification_channel_broadcast_messages_in_voicecall" msgid="3291001780110813190">"Mga emergency na alerto sa voice call"</string>
     <string name="enable_alerts_master_toggle_title" msgid="1457904343636699446">"Payagan ang mga alerto"</string>
-    <string name="enable_alerts_master_toggle_summary" msgid="699552922381916044">"Makatanggap ng mga pang-emergency na notification"</string>
-    <string name="alert_reminder_interval_title" msgid="7466642011937564868">"Tunog ng paalala ng alerto"</string>
-    <string name="enable_alert_speech_title" msgid="8052104771053526941">"Magsalita ng mensaheng alerto"</string>
-    <string name="enable_alert_speech_summary" msgid="356086178962268831">"Gamitin ang text-to-speech upang magsalita ng mga mensahe ng alertong pang-emergency"</string>
+    <string name="enable_alerts_master_toggle_summary" msgid="5583168548073938617">"Tumanggap ng wireless emergency alert notification"</string>
+    <string name="alert_reminder_interval_title" msgid="3283595202268218149">"Alertong paalala"</string>
+    <string name="alert_reminder_dialog_title" msgid="2299010977651377315">"May magpe-play na tunog ng paalala sa regular na volume"</string>
     <string name="emergency_alert_history_title" msgid="8310173569237268431">"History ng alertong pang-emergency"</string>
     <string name="alert_preferences_title" msgid="6001469026393248468">"Mga kagustuhan sa alerto"</string>
     <string name="enable_etws_test_alerts_title" msgid="3593533226735441539">"Pansubok na broadcast ng ETWS"</string>
@@ -74,14 +75,13 @@
     <string name="enable_state_local_test_alerts_summary" msgid="780298327377950187">"Makatanggap ng mga pansubok na mensahe mula sa mga awtoridad ng estado at lokal na awtoridad"</string>
     <string name="enable_emergency_alerts_message_title" msgid="661894007489847468">"Mga alerto sa emergency"</string>
     <string name="enable_emergency_alerts_message_summary" msgid="7574617515441602546">"Magbabala tungkol sa mga nakamamatay na event"</string>
-    <string name="enable_cmas_test_alerts_title" msgid="1319231576046146463">"Kinakailangang buwanang test"</string>
-    <string name="enable_cmas_test_alerts_summary" msgid="588517403520088484">"Makatanggap ng mga test na mensahe para sa sistema ng alerto sa kaligtasan"</string>
+    <string name="enable_cmas_test_alerts_title" msgid="7194966927004755266">"Mga pansubok na alerto"</string>
+    <string name="enable_cmas_test_alerts_summary" msgid="2083089933271720217">"Makatanggap ng mga pansubok ng carrier at buwanang pagsubok mula sa system ng alerto sa kaligtasan"</string>
     <string name="enable_alert_vibrate_title" msgid="5421032189422312508">"Pag-vibrate"</string>
-    <string name="use_full_volume_title" msgid="8581439612945182255">"Gamitin ang sagad na volume"</string>
-    <string name="use_full_volume_summary" msgid="3560764277281704697">"Balewalain ang mga kagustuhan sa volume at Huwag Istorbohin"</string>
+    <string name="override_dnd_title" msgid="5120805993144214421">"Palaging alerto sa pinakamalakas na volume"</string>
+    <string name="override_dnd_summary" msgid="9026675822792800258">"Balewalain, Huwag Istorbohin at iba pang setting ng volume"</string>
     <string name="enable_area_update_info_alerts_title" msgid="3442042268424617226">"Mga broadcast sa pag-update sa lugar"</string>
     <string name="enable_area_update_info_alerts_summary" msgid="6437816607144264910">"Ipakita ang impormasyon ng pag-update sa status ng SIM"</string>
-    <string name="category_dev_settings_title" msgid="6194393458398329994">"Mga pagpipilian ng developer"</string>
     <string name="cmas_category_heading" msgid="3923503130776640717">"Kategorya ng Alerto:"</string>
     <string name="cmas_category_geo" msgid="4979494217069688527">"Geophysical"</string>
     <string name="cmas_category_met" msgid="7563732573851773537">"Meteorological"</string>
@@ -118,7 +118,7 @@
     <string name="notification_multiple_title" msgid="1523638925739947855">"Mga bagong alerto"</string>
     <string name="show_cmas_opt_out_summary" msgid="6926059266585295440">"Magpakita ng dialog sa pag-opt out pagkatapos ipakita ang unang alerto (bukod sa Presidential Alert)."</string>
     <string name="show_cmas_opt_out_title" msgid="9182104842820171132">"Ipakita ang dialog sa pag-opt-out"</string>
-    <string name="cmas_opt_out_dialog_text" msgid="7529010670998259128">"Kasalukuyan kang tumatanggap ng Mga Alerto ng Emergency. Nais mo bang magpatuloy sa pagtanggap ng Mga Alerto ng Emergency?"</string>
+    <string name="cmas_opt_out_dialog_text" msgid="4820577535626084938">"Kasalukuyan kang nakakatanggap ng mga wireless na alerto sa emergency. Gusto mo bang patuloy na makatanggap ng mga wireless na alerto sa emergency?"</string>
     <string name="cmas_opt_out_button_yes" msgid="7248930667195432936">"Oo"</string>
     <string name="cmas_opt_out_button_no" msgid="3110484064328538553">"Hindi"</string>
     <string name="cb_list_activity_title" msgid="1433502151877791724">"History ng alertong pang-emergency"</string>
@@ -127,7 +127,26 @@
     <item msgid="9097229303902157183">"Bawat 2 minuto"</item>
     <item msgid="5718214950343391480">"Bawat 5 minuto"</item>
     <item msgid="3863339891188103437">"Bawat 15 minuto"</item>
-    <item msgid="6868848414437854609">"Naka-off"</item>
+    <item msgid="7388573183644474611">"Hindi Kailanman"</item>
   </string-array>
     <string name="emergency_alert_settings_title_watches" msgid="4477073412799894883">"Mga wireless na alerto sa emergency"</string>
+    <string name="enable_cmas_presidential_alerts_title" msgid="7293800023375154256">"Mga Presidential alert"</string>
+    <string name="enable_cmas_presidential_alerts_summary" msgid="7900094335808247024">"Mga pambansang mensahe ng babala na inilabas ng Pangulo. Hindi puwedeng i-off."</string>
+    <string name="receive_cmas_in_second_language_title" msgid="1223260365527361964"></string>
+    <string name="receive_cmas_in_second_language_summary" msgid="7704105502782770718"></string>
+    <string name="alerts_header_summary" msgid="4700985191868591788"></string>
+    <string name="testing_mode_enabled" msgid="8296556666392297467">"Naka-enable ang mode ng pagsubok ng cell broadcast."</string>
+    <string name="testing_mode_disabled" msgid="8381408377958182661">"Naka-disable ang mode ng pagsubok ng cell broadcast."</string>
+    <string name="show_all_messages" msgid="3780970968167139836">"Ipakita ang lahat ng mensahe"</string>
+    <string name="show_regular_messages" msgid="7376885150513522515">"Ipakita ang mga regular na mensahe"</string>
+    <string name="message_identifier" msgid="5558338496219327850">"Pagkakakilanlan:"</string>
+    <string name="message_serial_number" msgid="3386553658712978964">"Serial number:"</string>
+    <string name="data_coding_scheme" msgid="4628901196730870577">"Scheme ng pag-code ng data:"</string>
+    <string name="message_content" msgid="6204502929879474632">"Content ng mensahe:"</string>
+    <string name="location_check_time" msgid="4105326161240531207">"Oras ng pagsusuri ng lokasyon:"</string>
+    <string name="message_displayed" msgid="5091678195925617971">"Ipinapakita ang mensahe:"</string>
+    <string name="message_coordinates" msgid="356333576818059052">"Mga Coordinate:"</string>
+    <string name="maximum_waiting_time" msgid="3504809124079381356">"Maximum na tagal ng paghihintay:"</string>
+    <string name="seconds" msgid="141450721520515025">"segundo"</string>
+    <string name="message_copied" msgid="6922953753733166675">"Nakopya ang mensahe"</string>
 </resources>

@@ -39,7 +39,15 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public class SystemStateHelper {
     public static interface SystemStateListener {
-        public void onCarModeChanged(boolean isCarMode);
+        /**
+         * Listener method to inform interested parties when a package name requests to enter or
+         * exit car mode.
+         * @param priority the priority of the enter/exit request.
+         * @param packageName the package name of the requester.
+         * @param isCarMode {@code true} if the package is entering car mode, {@code false}
+         *                              otherwise.
+         */
+        void onCarModeChanged(int priority, String packageName, boolean isCarMode);
     }
 
     private final Context mContext;
@@ -49,10 +57,22 @@ public class SystemStateHelper {
             Log.startSession("SSP.oR");
             try {
                 String action = intent.getAction();
-                if (UiModeManager.ACTION_ENTER_CAR_MODE.equals(action)) {
-                    onEnterCarMode();
-                } else if (UiModeManager.ACTION_EXIT_CAR_MODE.equals(action)) {
-                    onExitCarMode();
+                if (UiModeManager.ACTION_ENTER_CAR_MODE_PRIORITIZED.equals(action)) {
+                    int priority = intent.getIntExtra(UiModeManager.EXTRA_PRIORITY,
+                            UiModeManager.DEFAULT_PRIORITY);
+                    String callingPackage = intent.getStringExtra(
+                            UiModeManager.EXTRA_CALLING_PACKAGE);
+                    Log.i(SystemStateHelper.this, "ENTER_CAR_MODE_PRIVILEGED; priority=%d, pkg=%s",
+                            priority, callingPackage);
+                    onEnterCarMode(priority, callingPackage);
+                } else if (UiModeManager.ACTION_EXIT_CAR_MODE_PRIORITIZED.equals(action)) {
+                    int priority = intent.getIntExtra(UiModeManager.EXTRA_PRIORITY,
+                            UiModeManager.DEFAULT_PRIORITY);
+                    String callingPackage = intent.getStringExtra(
+                            UiModeManager.EXTRA_CALLING_PACKAGE);
+                    Log.i(SystemStateHelper.this, "EXIT_CAR_MODE_PRIVILEGED; priority=%d, pkg=%s",
+                            priority, callingPackage);
+                    onExitCarMode(priority, callingPackage);
                 } else {
                     Log.w(this, "Unexpected intent received: %s", intent.getAction());
                 }
@@ -68,8 +88,9 @@ public class SystemStateHelper {
     public SystemStateHelper(Context context) {
         mContext = context;
 
-        IntentFilter intentFilter = new IntentFilter(UiModeManager.ACTION_ENTER_CAR_MODE);
-        intentFilter.addAction(UiModeManager.ACTION_EXIT_CAR_MODE);
+        IntentFilter intentFilter = new IntentFilter(
+                UiModeManager.ACTION_ENTER_CAR_MODE_PRIORITIZED);
+        intentFilter.addAction(UiModeManager.ACTION_EXIT_CAR_MODE_PRIORITIZED);
         mContext.registerReceiver(mBroadcastReceiver, intentFilter);
         Log.i(this, "Registering car mode receiver: %s", intentFilter);
 
@@ -170,25 +191,19 @@ public class SystemStateHelper {
         }
     }
 
-    private void onEnterCarMode() {
-        if (!mIsCarMode) {
-            Log.i(this, "Entering carmode");
-            mIsCarMode = true;
-            notifyCarMode();
-        }
-    }
-
-    private void onExitCarMode() {
-        if (mIsCarMode) {
-            Log.i(this, "Exiting carmode");
-            mIsCarMode = false;
-            notifyCarMode();
-        }
-    }
-
-    private void notifyCarMode() {
+    private void onEnterCarMode(int priority, String packageName) {
+        Log.i(this, "Entering carmode");
+        mIsCarMode = getSystemCarMode();
         for (SystemStateListener listener : mListeners) {
-            listener.onCarModeChanged(mIsCarMode);
+            listener.onCarModeChanged(priority, packageName, true /* isCarMode */);
+        }
+    }
+
+    private void onExitCarMode(int priority, String packageName) {
+        Log.i(this, "Exiting carmode");
+        mIsCarMode = getSystemCarMode();
+        for (SystemStateListener listener : mListeners) {
+            listener.onCarModeChanged(priority, packageName, false /* isCarMode */);
         }
     }
 

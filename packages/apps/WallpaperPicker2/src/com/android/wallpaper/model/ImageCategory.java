@@ -74,7 +74,7 @@ public class ImageCategory extends Category {
                 MediaStore.Images.ImageColumns._ID,
                 MediaStore.Images.ImageColumns.DATE_TAKEN,
         };
-        String sortOrder = MediaStore.Images.ImageColumns.DATE_TAKEN + " DESC LIMIT 1";
+        String sortOrder = MediaStore.Images.ImageColumns.DATE_TAKEN + " DESC";
         Cursor cursor = context.getContentResolver().query(
                 MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
                 projection,

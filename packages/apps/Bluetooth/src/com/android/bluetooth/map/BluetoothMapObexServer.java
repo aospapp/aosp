@@ -324,6 +324,11 @@ public class BluetoothMapObexServer extends ServerRequestHandler {
         }
         this.mRemoteFeatureMask = mRemoteFeatureMask;
         this.mOutContent.setRemoteFeatureMask(mRemoteFeatureMask);
+        if ((mRemoteFeatureMask & BluetoothMapUtils.MAP_FEATURE_MESSAGE_FORMAT_V11_BIT)
+                == BluetoothMapUtils.MAP_FEATURE_MESSAGE_FORMAT_V11_BIT) {
+            mMessageVersion = BluetoothMapUtils.MAP_V11_STR;
+        }
+        if (V) Log.d(TAG," setRemoteFeatureMask mMessageVersion :" + mMessageVersion);
     }
 
     @Override
@@ -974,7 +979,7 @@ public class BluetoothMapObexServer extends ServerRequestHandler {
 
         }
         if (mProviderClient != null) {
-            mProviderClient.release();
+            mProviderClient.close();
             mProviderClient = null;
         }
 

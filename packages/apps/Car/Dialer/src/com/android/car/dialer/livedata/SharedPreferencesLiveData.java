@@ -20,6 +20,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.text.TextUtils;
 
+import androidx.annotation.StringRes;
 import androidx.lifecycle.LiveData;
 import androidx.preference.PreferenceManager;
 
@@ -46,6 +47,10 @@ public class SharedPreferencesLiveData extends LiveData<SharedPreferences> {
                 updateSharedPreferences();
             }
         };
+    }
+
+    public SharedPreferencesLiveData(Context context, @StringRes int key) {
+        this(context, context.getString(key));
     }
 
     @Override

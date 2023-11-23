@@ -19,7 +19,7 @@
     <!-- Displayed while a folder selected by the user is being retrieved. [CHAR LIMIT=57] -->
     <string name="browser_loading">Loading content…</string>
     <!-- Displayed when a folder selected by the user doesn't have any content. [CHAR LIMIT=57] -->
-    <string name="nothing_to_play">No media available here.</string>
+    <string name="nothing_to_play">No media available for browsing here</string>
     <!-- Prompt text to display when we failed to connect to a media app. [CHAR LIMIT=50]-->
     <string name="cannot_connect_to_app"><xliff:g name="app">%s</xliff:g> isn’t working right now.</string>
     <!-- Prompt text to display when connecting to a media app. [CHAR LIMIT=50] -->
@@ -32,8 +32,37 @@
     <string name="media_app_title">Media</string>
     <!-- Search input hint text. [CHAR LIMIT=20] -->
     <string name="search_hint">Search songs, artists, and more...</string>
-    <!-- Error Fragment error message [CHAR LIMIT=100] -->
-    <string name="default_error_message">Unknown application error</string>
     <!-- Title to display when in playback view. [CHAR LIMIT=50] -->
     <string name="fragment_playback_title">Now Playing</string>
+
+    <!-- MediaActivity default error message [CHAR LIMIT=100] -->
+    <string name="default_error_message">Something’s wrong. Try later.</string>
+    <!-- Error message set when the application state is invalid to fulfill the request. [CHAR LIMIT=100] -->
+    <string name="error_code_app_error">Can’t do that right now</string>
+    <!-- Error message set when the request is not supported by the application. [CHAR LIMIT=100] -->
+    <string name="error_code_not_supported">This app can’t do that</string>
+    <!-- Error message set when the request cannot be performed because authentication has expired. [CHAR LIMIT=100] -->
+    <string name="error_code_authentication_expired">Sign in to use this app</string>
+    <!-- Error message set when a premium account is required for the request to succeed. [CHAR LIMIT=100] -->
+    <string name="error_code_premium_account_required">Premium access required</string>
+    <!-- Error message set when too many concurrent streams are detected. [CHAR LIMIT=100] -->
+    <string name="error_code_concurrent_stream_limit">Listening on too many devices</string>
+    <!-- Error message set when the content is blocked due to parental controls. [CHAR LIMIT=100] -->
+    <string name="error_code_parental_control_restricted">That content is blocked</string>
+    <!-- Error message set when the content is blocked due to being regionally unavailable. [CHAR LIMIT=100] -->
+    <string name="error_code_not_available_in_region">Can’t get that content here</string>
+    <!-- Error message set when the requested content is already playing. [CHAR LIMIT=100] -->
+    <string name="error_code_content_already_playing">Already playing that content</string>
+    <!-- Error message set when the application cannot skip any more songs because skip limit is reached. [CHAR LIMIT=100] -->
+    <string name="error_code_skip_limit_reached">Can’t skip any more tracks</string>
+    <!-- Error message set when the action is interrupted due to some external event. [CHAR LIMIT=100] -->
+    <string name="error_code_action_aborted">Couldn’t finish. Try again.</string>
+    <!-- Error message set when the playback navigation (previous, next) is not possible because the queue was exhausted. [CHAR LIMIT=100] -->
+    <string name="error_code_end_of_queue">Nothing else is queued up</string>
+    <!-- Title string for the service used to bind to the current media source -->
+    <string name="service_notification_title">Connecting to media</string>
+    <!-- Title of the sound settings menu item. Will be displayed if the button is in the overflow menu. [CHAR_LIMIT=50] -->
+    <string name="menu_item_sound_settings_title">Sound Settings</string>
+    <!-- Title of the app selector menu item. Will be displayed if the button is in the overflow menu, and used as a content description. [CHAR_LIMIT=50] -->
+    <string name="menu_item_app_selector_title">Switch apps</string>
 </resources>

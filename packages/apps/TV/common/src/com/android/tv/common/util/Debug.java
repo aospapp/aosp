@@ -23,11 +23,11 @@ import java.util.concurrent.TimeUnit;
 /** A class only for help developers. */
 public class Debug {
     /**
-     * A threshold of start up time, when the start up time of Live TV is more than it, a
-     * warning will show to the developer.
+     * A threshold of start up time, when the start up time of TV app is more than it, a warning
+     * will show to the developer.
      */
     public static final long TIME_START_UP_DURATION_THRESHOLD = TimeUnit.SECONDS.toMillis(6);
-    /** Tag for measuring start up time of Live TV. */
+    /** Tag for measuring start up time of TV app. */
     public static final String TAG_START_UP_TIMER = "start_up_timer";
 
     /** A global map for duration timers. */

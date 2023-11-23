@@ -36,8 +36,11 @@ import androidx.annotation.Nullable;
 import androidx.lifecycle.Lifecycle;
 import androidx.lifecycle.LifecycleOwner;
 import androidx.lifecycle.LifecycleRegistry;
+import androidx.lifecycle.LiveData;
 
+import com.android.car.broadcastradio.support.Program;
 import com.android.car.broadcastradio.support.media.BrowseTree;
+import com.android.car.radio.SkipMode;
 import com.android.car.radio.audio.AudioStreamController;
 import com.android.car.radio.bands.ProgramType;
 import com.android.car.radio.bands.RegionConfig;
@@ -49,6 +52,8 @@ import com.android.car.radio.platform.RadioTunerExt.TuneCallback;
 import com.android.car.radio.storage.RadioStorage;
 import com.android.car.radio.util.Log;
 
+import java.io.FileDescriptor;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -86,6 +91,8 @@ public class RadioAppService extends MediaBrowserService implements LifecycleOwn
 
     private RegionConfig mRegionConfigCache;
 
+    private SkipController mSkipController;
+
     @Override
     public void onCreate() {
         super.onCreate();
@@ -108,8 +115,10 @@ public class RadioAppService extends MediaBrowserService implements LifecycleOwn
         mMediaSession = new TunerSession(this, mBrowseTree, mWrapper, mImageCache);
         setSessionToken(mMediaSession.getSessionToken());
         mBrowseTree.setAmFmRegionConfig(mRadioManager.getAmFmRegionConfig());
-        mRadioStorage.getFavorites().observe(this,
-                favs -> mBrowseTree.setFavorites(new HashSet<>(favs)));
+        LiveData<List<Program>> favorites = mRadioStorage.getFavorites();
+        SkipMode skipMode = mRadioStorage.getSkipMode();
+        mSkipController = new SkipController(mBinder, favorites, skipMode);
+        favorites.observe(this, favs -> mBrowseTree.setFavorites(new HashSet<>(favs)));
 
         mProgramList = mRadioTuner.getDynamicProgramList(null);
         if (mProgramList != null) {
@@ -214,7 +223,11 @@ public class RadioAppService extends MediaBrowserService implements LifecycleOwn
             ProgramSelector sel = mRadioStorage.getRecentlySelected(pt);
             if (sel != null) {
                 Log.i(TAG, "Restoring recently selected program: " + sel);
-                mRadioTuner.tune(sel, tuneCb);
+                try {
+                    mRadioTuner.tune(sel, tuneCb);
+                } catch (IllegalArgumentException | UnsupportedOperationException e) {
+                    Log.e(TAG, "Can't restore recently selected program: " + sel, e);
+                }
                 return;
             }
 
@@ -264,7 +277,16 @@ public class RadioAppService extends MediaBrowserService implements LifecycleOwn
         }
     }
 
-    private IRadioAppService.Stub mBinder = new IRadioAppService.Stub() {
+    @Override
+    public void dump(FileDescriptor fd, PrintWriter pw, String[] args) {
+        if (mSkipController != null) {
+            pw.println("SkipController:"); mSkipController.dump(pw, "  ");
+        } else {
+            pw.println("no SkipController");
+        }
+    }
+
+    private final IRadioAppService.Stub mBinder = new IRadioAppService.Stub() {
         @Override
         public void addCallback(IRadioAppCallback callback) throws RemoteException {
             synchronized (mLock) {
@@ -307,6 +329,24 @@ public class RadioAppService extends MediaBrowserService implements LifecycleOwn
                 mRadioTuner.seek(forward, tuneCb.alsoCall(
                         succ -> tryExec(() -> callback.onFinished(succ))));
             }
+        }
+
+        @Override
+        public void skip(boolean forward, ITuneCallback callback) throws RemoteException {
+            Objects.requireNonNull(callback);
+
+            mSkipController.skip(forward, callback);
+        }
+
+        @Override
+        public void setSkipMode(int mode) {
+            SkipMode newMode = SkipMode.valueOf(mode);
+            if (newMode == null) {
+                Log.e(TAG, "setSkipMode(): invalid mode " + mode);
+                return;
+            }
+            mSkipController.setSkipMode(newMode);
+            mRadioStorage.setSkipMode(newMode);
         }
 
         @Override
@@ -356,9 +396,7 @@ public class RadioAppService extends MediaBrowserService implements LifecycleOwn
         public void onProgramInfoChanged(ProgramInfo info) {
             Objects.requireNonNull(info);
 
-            if (Log.isLoggable(TAG, Log.DEBUG)) {
-                Log.d(TAG, "Program info changed: " + info);
-            }
+            Log.d(TAG, "Program info changed: %s", info);
 
             synchronized (mLock) {
                 mCurrentProgram = info;

@@ -117,7 +117,7 @@ public class BluetoothDeviceConnectionPolicy {
             }
         }
     }
-    private BluetoothBroadcastReceiver mBluetoothBroadcastReceiver;
+    private final BluetoothBroadcastReceiver mBluetoothBroadcastReceiver;
 
     /**
      * Create a new BluetoothDeviceConnectionPolicy object, responsible for encapsulating the
@@ -153,6 +153,7 @@ public class BluetoothDeviceConnectionPolicy {
         mUserId = userId;
         mContext = Objects.requireNonNull(context);
         mCarBluetoothService = bluetoothService;
+        mBluetoothBroadcastReceiver = new BluetoothBroadcastReceiver();
         mBluetoothAdapter = Objects.requireNonNull(BluetoothAdapter.getDefaultAdapter());
     }
 
@@ -160,9 +161,8 @@ public class BluetoothDeviceConnectionPolicy {
      * Setup the Bluetooth profile service connections and Vehicle Event listeners.
      * and start the state machine -{@link BluetoothAutoConnectStateMachine}
      */
-    public synchronized void init() {
+    public void init() {
         logd("init()");
-        mBluetoothBroadcastReceiver = new BluetoothBroadcastReceiver();
         IntentFilter profileFilter = new IntentFilter();
         profileFilter.addAction(BluetoothAdapter.ACTION_STATE_CHANGED);
         mContext.registerReceiverAsUser(mBluetoothBroadcastReceiver, UserHandle.CURRENT,
@@ -190,7 +190,7 @@ public class BluetoothDeviceConnectionPolicy {
      * Clean up slate. Close the Bluetooth profile service connections and quit the state machine -
      * {@link BluetoothAutoConnectStateMachine}
      */
-    public synchronized void release() {
+    public void release() {
         logd("release()");
         if (mCarPowerManager != null) {
             mCarPowerManager.clearListener();
@@ -198,7 +198,6 @@ public class BluetoothDeviceConnectionPolicy {
         }
         if (mBluetoothBroadcastReceiver != null) {
             mContext.unregisterReceiver(mBluetoothBroadcastReceiver);
-            mBluetoothBroadcastReceiver = null;
         }
     }
 
@@ -250,7 +249,7 @@ public class BluetoothDeviceConnectionPolicy {
     /**
      * Print the verbose status of the object
      */
-    public synchronized void dump(PrintWriter writer, String indent) {
+    public void dump(PrintWriter writer, String indent) {
         writer.println(indent + TAG + ":");
         writer.println(indent + "\tUserId: " + mUserId);
     }

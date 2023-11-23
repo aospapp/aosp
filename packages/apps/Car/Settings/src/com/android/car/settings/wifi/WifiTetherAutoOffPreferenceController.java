@@ -18,7 +18,8 @@ package com.android.car.settings.wifi;
 
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
-import android.provider.Settings;
+import android.net.wifi.SoftApConfiguration;
+import android.net.wifi.WifiManager;
 
 import androidx.preference.TwoStatePreference;
 
@@ -31,9 +32,12 @@ import com.android.car.settings.common.PreferenceController;
 public class WifiTetherAutoOffPreferenceController extends
         PreferenceController<TwoStatePreference> {
 
+    private final WifiManager mWifiManager;
+
     public WifiTetherAutoOffPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
+        mWifiManager = context.getSystemService(WifiManager.class);
     }
 
     @Override
@@ -43,16 +47,19 @@ public class WifiTetherAutoOffPreferenceController extends
 
     @Override
     protected void updateState(TwoStatePreference preference) {
-        boolean settingsOn = Settings.Global.getInt(getContext().getContentResolver(),
-                Settings.Global.SOFT_AP_TIMEOUT_ENABLED, 1) != 0;
+        SoftApConfiguration softApConfiguration = mWifiManager.getSoftApConfiguration();
+        boolean settingsOn = softApConfiguration.isAutoShutdownEnabled();
         preference.setChecked(settingsOn);
     }
 
     @Override
     protected boolean handlePreferenceChanged(TwoStatePreference preference, Object newValue) {
         boolean settingsOn = (Boolean) newValue;
-        Settings.Global.putInt(getContext().getContentResolver(),
-                Settings.Global.SOFT_AP_TIMEOUT_ENABLED, settingsOn ? 1 : 0);
-        return true;
+        SoftApConfiguration softApConfiguration = mWifiManager.getSoftApConfiguration();
+        SoftApConfiguration newSoftApConfiguration =
+                new SoftApConfiguration.Builder(softApConfiguration)
+                        .setAutoShutdownEnabled(settingsOn)
+                        .build();
+        return mWifiManager.setSoftApConfiguration(newSoftApConfiguration);
     }
 }

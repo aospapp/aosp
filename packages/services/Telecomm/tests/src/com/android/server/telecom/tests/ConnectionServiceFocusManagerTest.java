@@ -23,6 +23,7 @@ import com.android.server.telecom.CallsManager;
 import com.android.server.telecom.ConnectionServiceFocusManager;
 import com.android.server.telecom.ConnectionServiceFocusManager.*;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -69,6 +70,12 @@ public class ConnectionServiceFocusManagerTest extends TelecomTestCase {
                 ArgumentCaptor.forClass(CallsManager.CallsManagerListener.class);
         verify(mockCallsManagerRequester).setCallsManagerListener(captor.capture());
         mCallsManagerListener = captor.getValue();
+    }
+
+    @Override
+    @After
+    public void tearDown() throws Exception {
+        super.tearDown();
     }
 
     @SmallTest

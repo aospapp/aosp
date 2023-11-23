@@ -17,13 +17,19 @@
 package com.android.captiveportallogin;
 
 import static android.net.ConnectivityManager.EXTRA_CAPTIVE_PORTAL_PROBE_SPEC;
+import static android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED;
+import static android.provider.DeviceConfig.NAMESPACE_CONNECTIVITY;
 
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Application;
+import android.app.admin.DevicePolicyManager;
+import android.content.ActivityNotFoundException;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.pm.PackageManager.NameNotFoundException;
 import android.graphics.Bitmap;
 import android.net.CaptivePortal;
 import android.net.ConnectivityManager;
@@ -38,10 +44,14 @@ import android.net.http.SslCertificate;
 import android.net.http.SslError;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.SystemProperties;
+import android.provider.DeviceConfig;
+import android.provider.MediaStore;
 import android.text.TextUtils;
 import android.util.ArrayMap;
+import android.util.ArraySet;
 import android.util.Log;
 import android.util.SparseArray;
 import android.util.TypedValue;
@@ -50,9 +60,12 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.webkit.CookieManager;
+import android.webkit.DownloadListener;
 import android.webkit.SslErrorHandler;
+import android.webkit.URLUtil;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -60,6 +73,10 @@ import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
+import androidx.annotation.GuardedBy;
+import androidx.annotation.NonNull;
+import androidx.annotation.StringRes;
+import androidx.annotation.VisibleForTesting;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
@@ -70,6 +87,7 @@ import java.lang.reflect.Method;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.net.URLConnection;
 import java.util.Objects;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -81,6 +99,10 @@ public class CaptivePortalLoginActivity extends Activity {
 
     private static final int SOCKET_TIMEOUT_MS = 10000;
     public static final String HTTP_LOCATION_HEADER_NAME = "Location";
+    private static final String DEFAULT_CAPTIVE_PORTAL_HTTP_URL =
+            "http://connectivitycheck.gstatic.com/generate_204";
+    public static final String DISMISS_PORTAL_IN_VALIDATED_NETWORK =
+            "dismiss_portal_in_validated_network";
 
     private enum Result {
         DISMISSED(MetricsEvent.ACTION_CAPTIVE_PORTAL_LOGIN_RESULT_DISMISSED),
@@ -95,9 +117,11 @@ public class CaptivePortalLoginActivity extends Activity {
     private CaptivePortalProbeSpec mProbeSpec;
     private String mUserAgent;
     private Network mNetwork;
-    private CaptivePortal mCaptivePortal;
+    @VisibleForTesting
+    protected CaptivePortal mCaptivePortal;
     private NetworkCallback mNetworkCallback;
     private ConnectivityManager mCm;
+    private DevicePolicyManager mDpm;
     private WifiManager mWifiManager;
     private boolean mLaunchBrowser = false;
     private MyWebViewClient mWebViewClient;
@@ -105,14 +129,30 @@ public class CaptivePortalLoginActivity extends Activity {
     // Ensures that done() happens once exactly, handling concurrent callers with atomic operations.
     private final AtomicBoolean isDone = new AtomicBoolean(false);
 
+    // When starting downloads a file is created via startActivityForResult(ACTION_CREATE_DOCUMENT).
+    // This array keeps the download request until the activity result is received. It is keyed by
+    // requestCode sent in startActivityForResult.
+    @GuardedBy("mDownloadRequests")
+    private final SparseArray<DownloadRequest> mDownloadRequests = new SparseArray<>();
+    @GuardedBy("mDownloadRequests")
+    private int mNextDownloadRequestId = 1;
+
+    private static final class DownloadRequest {
+        final String mUrl;
+        final String mFilename;
+        DownloadRequest(String url, String filename) {
+            mUrl = url;
+            mFilename = filename;
+        }
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
         mCaptivePortal = getIntent().getParcelableExtra(ConnectivityManager.EXTRA_CAPTIVE_PORTAL);
         logMetricsEvent(MetricsEvent.ACTION_CAPTIVE_PORTAL_LOGIN_ACTIVITY);
-
         mCm = getSystemService(ConnectivityManager.class);
+        mDpm = getSystemService(DevicePolicyManager.class);
         mWifiManager = getSystemService(WifiManager.class);
         mNetwork = getIntent().getParcelableExtra(ConnectivityManager.EXTRA_NETWORK);
         mUserAgent =
@@ -125,7 +165,7 @@ public class CaptivePortalLoginActivity extends Activity {
             return;
         }
         if (DBG) {
-            Log.d(TAG, String.format("onCreate for %s", mUrl.toString()));
+            Log.d(TAG, String.format("onCreate for %s", mUrl));
         }
 
         final String spec = getIntent().getStringExtra(EXTRA_CAPTIVE_PORTAL_PROBE_SPEC);
@@ -141,6 +181,11 @@ public class CaptivePortalLoginActivity extends Activity {
             public void onLost(Network lostNetwork) {
                 // If the network disappears while the app is up, exit.
                 if (mNetwork.equals(lostNetwork)) done(Result.UNWANTED);
+            }
+
+            @Override
+            public void onCapabilitiesChanged(Network network, NetworkCapabilities nc) {
+                handleCapabilitiesChanged(network, nc);
             }
         };
         mCm.registerNetworkCallback(new NetworkRequest.Builder().build(), mNetworkCallback);
@@ -180,6 +225,7 @@ public class CaptivePortalLoginActivity extends Activity {
         mWebViewClient = new MyWebViewClient();
         webview.setWebViewClient(mWebViewClient);
         webview.setWebChromeClient(new MyWebChromeClient());
+        webview.setDownloadListener(new PortalDownloadListener());
         // Start initial page load so WebView finishes loading proxy settings.
         // Actual load of mUrl is initiated by MyWebViewClient.
         webview.loadData("", "text/html", null);
@@ -189,7 +235,30 @@ public class CaptivePortalLoginActivity extends Activity {
                 webview.reload();
                 mSwipeRefreshLayout.setRefreshing(true);
             });
+    }
 
+    @VisibleForTesting
+    MyWebViewClient getWebViewClient() {
+        return mWebViewClient;
+    }
+
+    @VisibleForTesting
+    void handleCapabilitiesChanged(@NonNull final Network network,
+            @NonNull final NetworkCapabilities nc) {
+        if (!isFeatureEnabled(DISMISS_PORTAL_IN_VALIDATED_NETWORK, isDismissPortalEnabled())) {
+            return;
+        }
+
+        if (network.equals(mNetwork) && nc.hasCapability(NET_CAPABILITY_VALIDATED)) {
+            // Dismiss when login is no longer needed since network has validated, exit.
+            done(Result.DISMISSED);
+        }
+    }
+
+    private boolean isDismissPortalEnabled() {
+        return Build.VERSION.SDK_INT > Build.VERSION_CODES.Q
+                || (Build.VERSION.SDK_INT == Build.VERSION_CODES.Q
+                && !"REL".equals(Build.VERSION.CODENAME));
     }
 
     // Find WebView's proxy BroadcastReceiver and prompt it to read proxy system properties.
@@ -225,7 +294,7 @@ public class CaptivePortalLoginActivity extends Activity {
             return;
         }
         if (DBG) {
-            Log.d(TAG, String.format("Result %s for %s", result.name(), mUrl.toString()));
+            Log.d(TAG, String.format("Result %s for %s", result.name(), mUrl));
         }
         logMetricsEvent(result.metricsEvent);
         switch (result) {
@@ -263,20 +332,20 @@ public class CaptivePortalLoginActivity extends Activity {
         final Result result;
         final String action;
         final int id = item.getItemId();
-        switch (id) {
-            case R.id.action_use_network:
-                result = Result.WANTED_AS_IS;
-                action = "USE_NETWORK";
-                break;
-            case R.id.action_do_not_use_network:
-                result = Result.UNWANTED;
-                action = "DO_NOT_USE_NETWORK";
-                break;
-            default:
-                return super.onOptionsItemSelected(item);
+        // This can't be a switch case because resource will be declared as static only but not
+        // static final as of ADT 14 in a library project. See
+        // http://tools.android.com/tips/non-constant-fields.
+        if (id == R.id.action_use_network) {
+            result = Result.WANTED_AS_IS;
+            action = "USE_NETWORK";
+        } else if (id == R.id.action_do_not_use_network) {
+            result = Result.UNWANTED;
+            action = "DO_NOT_USE_NETWORK";
+        } else {
+            return super.onOptionsItemSelected(item);
         }
         if (DBG) {
-            Log.d(TAG, String.format("onOptionsItemSelect %s for %s", action, mUrl.toString()));
+            Log.d(TAG, String.format("onOptionsItemSelect %s for %s", action, mUrl));
         }
         done(result);
         return true;
@@ -314,10 +383,42 @@ public class CaptivePortalLoginActivity extends Activity {
         }
     }
 
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (resultCode != RESULT_OK || data == null) return;
+
+        // Start download after receiving a created file to download to
+        final DownloadRequest pendingRequest;
+        synchronized (mDownloadRequests) {
+            pendingRequest = mDownloadRequests.get(requestCode);
+            if (pendingRequest == null) {
+                Log.e(TAG, "No pending download for request " + requestCode);
+                return;
+            }
+            mDownloadRequests.remove(requestCode);
+        }
+
+        final Uri fileUri = data.getData();
+        if (fileUri == null) {
+            Log.e(TAG, "No file received from download file creation result");
+            return;
+        }
+
+        final Intent downloadIntent = DownloadService.makeDownloadIntent(getApplicationContext(),
+                mNetwork, mUserAgent, pendingRequest.mUrl, pendingRequest.mFilename, fileUri);
+
+        startForegroundService(downloadIntent);
+    }
+
     private URL getUrl() {
         String url = getIntent().getStringExtra(ConnectivityManager.EXTRA_CAPTIVE_PORTAL_URL);
-        if (url == null) {
-            url = mCm.getCaptivePortalServerUrl();
+        if (url == null) { // TODO: Have a metric to know how often empty url happened.
+            // ConnectivityManager#getCaptivePortalServerUrl is deprecated starting with Android R.
+            if (Build.VERSION.SDK_INT > Build.VERSION_CODES.Q) {
+                url = DEFAULT_CAPTIVE_PORTAL_HTTP_URL;
+            } else {
+                url = mCm.getCaptivePortalServerUrl();
+            }
         }
         return makeURL(url);
     }
@@ -345,6 +446,26 @@ public class CaptivePortalLoginActivity extends Activity {
 
     private static boolean isDebuggable() {
         return SystemProperties.getInt("ro.debuggable", 0) == 1;
+    }
+
+    private void reevaluateNetwork() {
+        if (isFeatureEnabled(DISMISS_PORTAL_IN_VALIDATED_NETWORK, isDismissPortalEnabled())) {
+            // TODO : replace this with an actual call to the method when the network stack
+            // is built against a recent enough SDK.
+            if (callVoidMethodIfExists(mCaptivePortal, "reevaluateNetwork")) return;
+        }
+        testForCaptivePortal();
+    }
+
+    private boolean callVoidMethodIfExists(@NonNull final Object target,
+            @NonNull final String methodName) {
+        try {
+            final Method method = target.getClass().getDeclaredMethod(methodName);
+            method.invoke(target);
+            return true;
+        } catch (ReflectiveOperationException e) {
+            return false;
+        }
     }
 
     private void testForCaptivePortal() {
@@ -398,7 +519,26 @@ public class CaptivePortalLoginActivity extends Activity {
                 : (httpResponseCode == 204);
     }
 
-    private class MyWebViewClient extends WebViewClient {
+    @VisibleForTesting
+    boolean hasVpnNetwork() {
+        for (Network network : mCm.getAllNetworks()) {
+            final NetworkCapabilities nc = mCm.getNetworkCapabilities(network);
+            if (nc != null && nc.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    @VisibleForTesting
+    boolean isAlwaysOnVpnEnabled() {
+        final ComponentName cn = new ComponentName(this, CaptivePortalLoginActivity.class);
+        return mDpm.isAlwaysOnVpnLockdownEnabled(cn);
+    }
+
+    @VisibleForTesting
+    class MyWebViewClient extends WebViewClient {
         private static final String INTERNAL_ASSETS = "file:///android_asset/";
 
         private final String mBrowserBailOutToken = Long.toString(new Random().nextLong());
@@ -410,7 +550,7 @@ public class CaptivePortalLoginActivity extends Activity {
                     TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 1,
                     getResources().getDisplayMetrics());
         private int mPagesLoaded;
-        private String mMainFrameUrl;
+        private final ArraySet<String> mMainFrameUrls = new ArraySet<>();
 
         // If we haven't finished cleaning up the history, don't allow going back.
         public boolean allowBack() {
@@ -443,7 +583,7 @@ public class CaptivePortalLoginActivity extends Activity {
                 getActionBar().setSubtitle(subtitle);
             }
             getProgressBar().setVisibility(View.VISIBLE);
-            testForCaptivePortal();
+            reevaluateNetwork();
         }
 
         @Override
@@ -465,7 +605,7 @@ public class CaptivePortalLoginActivity extends Activity {
                 view.requestFocus();
                 view.clearHistory();
             }
-            testForCaptivePortal();
+            reevaluateNetwork();
         }
 
         // Convert Android scaled-pixels (sp) to HTML size.
@@ -482,28 +622,38 @@ public class CaptivePortalLoginActivity extends Activity {
         // Check if webview is trying to load the main frame and record its url.
         @Override
         public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+            final String url = request.getUrl().toString();
             if (request.isForMainFrame()) {
-                mMainFrameUrl = request.getUrl().toString();
+                mMainFrameUrls.add(url);
             }
             // Be careful that two shouldOverrideUrlLoading methods are overridden, but
             // shouldOverrideUrlLoading(WebView view, String url) was deprecated in API level 24.
             // TODO: delete deprecated one ??
-            return shouldOverrideUrlLoading(view, mMainFrameUrl);
+            return shouldOverrideUrlLoading(view, url);
+        }
+
+        // Record the initial main frame url. This is only called for the initial resource URL, not
+        // any subsequent redirect URLs.
+        @Override
+        public WebResourceResponse shouldInterceptRequest(WebView view,
+                WebResourceRequest request) {
+            if (request.isForMainFrame()) {
+                mMainFrameUrls.add(request.getUrl().toString());
+            }
+            return null;
         }
 
         // A web page consisting of a large broken lock icon to indicate SSL failure.
-
         @Override
         public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
-            final URL errorUrl = makeURL(error.getUrl());
-            final URL mainFrameUrl = makeURL(mMainFrameUrl);
+            final String strErrorUrl = error.getUrl();
+            final URL errorUrl = makeURL(strErrorUrl);
             Log.d(TAG, String.format("SSL error: %s, url: %s, certificate: %s",
                     sslErrorName(error), sanitizeURL(errorUrl), error.getCertificate()));
             if (errorUrl == null
-                    // Ignore SSL errors from resources by comparing the main frame url with SSL
-                    // error url.
-                    || !errorUrl.equals(mainFrameUrl)) {
-                Log.d(TAG, "onReceivedSslError: mMainFrameUrl = " + mMainFrameUrl);
+                    // Ignore SSL errors coming from subresources by comparing the
+                    // main frame urls with SSL error url.
+                    || (!mMainFrameUrls.contains(strErrorUrl))) {
                 handler.cancel();
                 return;
             }
@@ -515,13 +665,34 @@ public class CaptivePortalLoginActivity extends Activity {
             mSslError = error;
         }
 
-        private String makeSslErrorPage() {
-            final String warningMsg = getString(R.string.ssl_error_warning);
-            final String exampleMsg = getString(R.string.ssl_error_example);
-            final String continueMsg = getString(R.string.ssl_error_continue);
-            final String certificateMsg = getString(R.string.ssl_error_view_certificate);
+        private String makeHtmlTag() {
+            if (getWebview().getLayoutDirection() == View.LAYOUT_DIRECTION_RTL) {
+                return "<html dir=\"rtl\">";
+            }
+
+            return "<html>";
+        }
+
+        // If there is a VPN network or always-on VPN is enabled, there may be no way for user to
+        // see the log-in page by browser. So, hide the link which is used to open the browser.
+        @VisibleForTesting
+        String getVpnMsgOrLinkToBrowser() {
+            if (isAlwaysOnVpnEnabled() || hasVpnNetwork()) {
+                final String vpnWarning = getString(R.string.no_bypass_error_vpnwarning);
+                return "  <div class=vpnwarning>" + vpnWarning + "</div><br>";
+            }
+
+            final String continueMsg = getString(R.string.error_continue_via_browser);
+            return "  <a id=continue_link href=" + mBrowserBailOutToken + ">" + continueMsg
+                    + "</a><br>";
+        }
+
+        private String makeErrorPage(@StringRes int warningMsgRes, @StringRes int exampleMsgRes,
+                String extraLink) {
+            final String warningMsg = getString(warningMsgRes);
+            final String exampleMsg = getString(exampleMsgRes);
             return String.join("\n",
-                    "<html>",
+                    makeHtmlTag(),
                     "<head>",
                     "  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">",
                     "  <style>",
@@ -541,7 +712,7 @@ public class CaptivePortalLoginActivity extends Activity {
                     "      margin-top:16px;",
                     "      opacity:0.87;",
                     "    }",
-                    "    div.example {",
+                    "    div.example, div.vpnwarning {",
                     "      font-size:" + sp(14) + ";",
                     "      line-height:1.21905;",
                     "      margin-top:16px;",
@@ -557,7 +728,7 @@ public class CaptivePortalLoginActivity extends Activity {
                     "      text-decoration:none;",
                     "      text-transform:uppercase;",
                     "    }",
-                    "    a.certificate {",
+                    "    a#cert_link {",
                     "      margin-top:0px;",
                     "    }",
                     "  </style>",
@@ -566,17 +737,38 @@ public class CaptivePortalLoginActivity extends Activity {
                     "  <p><img src=quantum_ic_warning_amber_96.png><br>",
                     "  <div class=warn>" + warningMsg + "</div>",
                     "  <div class=example>" + exampleMsg + "</div>",
-                    "  <a href=" + mBrowserBailOutToken + ">" + continueMsg + "</a><br>",
-                    "  <a class=certificate href=" + mCertificateOutToken + ">" + certificateMsg +
-                            "</a>",
+                    getVpnMsgOrLinkToBrowser(),
+                    extraLink,
                     "</body>",
                     "</html>");
+        }
+
+        private String makeCustomSchemeErrorPage() {
+            return makeErrorPage(R.string.custom_scheme_warning, R.string.custom_scheme_example,
+                    "" /* extraLink */);
+        }
+
+        private String makeSslErrorPage() {
+            final String certificateMsg = getString(R.string.ssl_error_view_certificate);
+            return makeErrorPage(R.string.ssl_error_warning, R.string.ssl_error_example,
+                    "<a id=cert_link href=" + mCertificateOutToken + ">" + certificateMsg
+                            + "</a>");
         }
 
         @Override
         public boolean shouldOverrideUrlLoading (WebView view, String url) {
             if (url.startsWith("tel:")) {
-                startActivity(new Intent(Intent.ACTION_DIAL, Uri.parse(url)));
+                return startActivity(Intent.ACTION_DIAL, url);
+            } else if (url.startsWith("sms:")) {
+                return startActivity(Intent.ACTION_SENDTO, url);
+            } else if (!url.startsWith("http:")
+                    && !url.startsWith("https:") && !url.startsWith(INTERNAL_ASSETS)) {
+                // If the page is not in a supported scheme (HTTP, HTTPS or internal page),
+                // show an error page that informs the user that the page is not supported. The
+                // user can bypass the warning and reopen the portal in browser if needed.
+                // This is done as it is unclear whether third party applications can properly
+                // handle multinetwork scenarios, if the scheme refers to a third party application.
+                loadCustomSchemeErrorPage(view);
                 return true;
             }
             if (url.contains(mCertificateOutToken) && mSslError != null) {
@@ -585,6 +777,24 @@ public class CaptivePortalLoginActivity extends Activity {
             }
             return false;
         }
+
+        private boolean startActivity(String action, String uriData) {
+            final Intent intent = new Intent(action, Uri.parse(uriData));
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            try {
+                CaptivePortalLoginActivity.this.startActivity(intent);
+                return true;
+            } catch (ActivityNotFoundException e) {
+                Log.e(TAG, "No activity found to handle captive portal intent", e);
+                return false;
+            }
+        }
+
+        protected void loadCustomSchemeErrorPage(WebView view) {
+            final String errorPage = makeCustomSchemeErrorPage();
+            view.loadDataWithBaseURL(INTERNAL_ASSETS, errorPage, "text/HTML", "UTF-8", null);
+        }
+
         private void showSslAlertDialog(SslErrorHandler handler, SslError error, String title) {
             final LayoutInflater factory = LayoutInflater.from(CaptivePortalLoginActivity.this);
             final View sslWarningView = factory.inflate(R.layout.ssl_warning, null);
@@ -628,6 +838,48 @@ public class CaptivePortalLoginActivity extends Activity {
         @Override
         public void onProgressChanged(WebView view, int newProgress) {
             getProgressBar().setProgress(newProgress);
+        }
+    }
+
+    private class PortalDownloadListener implements DownloadListener {
+        @Override
+        public void onDownloadStart(String url, String userAgent, String contentDisposition,
+                String mimetype, long contentLength) {
+            final String normalizedType = Intent.normalizeMimeType(mimetype);
+            final String displayName = URLUtil.guessFileName(url, contentDisposition,
+                    normalizedType);
+
+            String guessedMimetype = normalizedType;
+            if (TextUtils.isEmpty(guessedMimetype)) {
+                guessedMimetype = URLConnection.guessContentTypeFromName(displayName);
+            }
+            if (TextUtils.isEmpty(guessedMimetype)) {
+                guessedMimetype = MediaStore.Downloads.CONTENT_TYPE;
+            }
+
+            Log.d(TAG, String.format("Starting download for %s, type %s with display name %s",
+                    url, guessedMimetype, displayName));
+
+            final Intent createFileIntent = DownloadService.makeCreateFileIntent(
+                    guessedMimetype, displayName);
+
+            final int requestId;
+            // WebView should call onDownloadStart from the UI thread, but to be extra-safe as
+            // that is not documented behavior, access the download requests array with a lock.
+            synchronized (mDownloadRequests) {
+                requestId = mNextDownloadRequestId++;
+                mDownloadRequests.put(requestId, new DownloadRequest(url, displayName));
+            }
+
+            try {
+                startActivityForResult(createFileIntent, requestId);
+            } catch (ActivityNotFoundException e) {
+                // This could happen in theory if the device has no stock document provider (which
+                // Android normally requires), or if the user disabled all of them, but
+                // should be rare; the download cannot be started as no writeable file can be
+                // created.
+                Log.e(TAG, "No document provider found to create download file", e);
+            }
         }
     }
 
@@ -706,5 +958,18 @@ public class CaptivePortalLoginActivity extends Activity {
 
     private static Integer sslErrorMessage(SslError error) {
         return SSL_ERROR_MSGS.get(error.getPrimaryError(), R.string.ssl_error_unknown);
+    }
+
+    private boolean isFeatureEnabled(@NonNull final String name, final boolean defaultEnabled) {
+        final long propertyVersion = DeviceConfig.getLong(NAMESPACE_CONNECTIVITY, name, 0);
+        long mPackageVersion = 0;
+        try {
+            mPackageVersion = getPackageManager().getPackageInfo(
+                getPackageName(), 0).getLongVersionCode();
+        } catch (NameNotFoundException e) {
+            Log.e(TAG, "Could not find the package name", e);
+        }
+        return (propertyVersion == 0 && defaultEnabled)
+                || (propertyVersion != 0 && mPackageVersion >= propertyVersion);
     }
 }

@@ -36,6 +36,7 @@
     <string name="menu_share" msgid="4307140947108068356">"ແບ່ງປັນ"</string>
     <string name="menu_delete" msgid="1022254131543256626">"ລຶບ"</string>
     <string name="menu_select_all" msgid="7600576812185570403">"ເລືອກທັງຫມົດ"</string>
+    <string name="menu_deselect_all" msgid="7729916068862742979">"ເຊົາເລືອກທັງໝົດ"</string>
     <string name="menu_select" msgid="1366061076507142387">"ເລືອກ"</string>
     <string name="menu_sort" msgid="3362419226163725275">"ຈັດຮຽງຕາມ..."</string>
     <string name="menu_copy" msgid="7404820171352314754">"ສຳເນົາໄປໃສ່..."</string>
@@ -44,6 +45,8 @@
     <string name="menu_extract" msgid="8171946945982532262">"ແຕກໄຟລ໌ໄປ…"</string>
     <string name="menu_rename" msgid="1883113442688817554">"ປ່ຽນຊື່"</string>
     <string name="menu_inspect" msgid="7279855349299446224">"ຂໍຂໍ້ມູນ"</string>
+    <string name="menu_show_hidden_files" msgid="5140676344684492769">"ສະ​ແດງ​ໄຟ​ລ໌​ທີ່​ເຊື່ອງ​ໄວ້"</string>
+    <string name="menu_hide_hidden_files" msgid="5654495713350153702">"ຢ່າສະແດງໄຟລ໌ທີ່ຖືກເຊື່ອງໄວ້"</string>
     <string name="menu_view_in_owner" msgid="7228948660557554770">"ເບິ່ງໃນ <xliff:g id="SOURCE">%1$s</xliff:g>"</string>
     <string name="menu_new_window" msgid="2947837751796109126">"ໜ້າຈໍໃໝ່"</string>
     <string name="menu_cut_to_clipboard" msgid="2878752142015026229">"ຕັດ"</string>
@@ -61,6 +64,7 @@
     <string name="button_retry" msgid="4011461781916631389">"ລອງໃໝ່ອີກເທື່ອໜຶ່ງ"</string>
     <string name="button_clear" msgid="5412304437764369441">"ລຶບລ້າງ"</string>
     <string name="button_show_provider" msgid="6905880493806292753">"ສະແດງໃນຜູ້ໃຫ້ບລິການ"</string>
+    <string name="button_back" msgid="1888621708934742182">"ກັບຄືນ"</string>
     <string name="not_sorted" msgid="7813496644889115530">"ບໍ່ໄດ້ຈັດຮຽງ"</string>
     <string name="sort_dimension_name" msgid="6325591541414177579">"ຊື່"</string>
     <string name="sort_dimension_summary" msgid="7724534446881397860">"ສະຫຼຸບ"</string>
@@ -86,6 +90,18 @@
     <string name="save_error" msgid="8631128801982095782">"ການບັນທຶກເອກະສານບໍ່ສຳເລັດ"</string>
     <string name="create_error" msgid="3092144450044861994">"ສ້າງໂຟນເດີບໍ່ສຳເລັດ"</string>
     <string name="query_error" msgid="6625421453613879336">"ບໍ່ສາມາດໂຫຼດເນື້ອຫາໄດ້ໃນຂະນະນີ້"</string>
+    <string name="quiet_mode_error_title" msgid="9126656325282792843">"ຢຸດໂປຣໄຟລ໌ວຽກໄວ້ຊົ່ວຄາວແລ້ວ"</string>
+    <string name="quiet_mode_button" msgid="6977115032320235420">"ເປີດໃຊ້"</string>
+    <string name="cant_select_work_files_error_title" msgid="6688716319549644354">"ບໍ່ສາມາດເລືອກໄຟລ໌ວຽກໄດ້"</string>
+    <string name="cant_select_work_files_error_message" msgid="683480676150690641">"ຜູ້ເບິ່ງແຍງໄອທີຂອງທ່ານບໍ່ອະນຸຍາດໃຫ້ເຂົ້າເຖິງໄຟລ໌ວຽກຈາກແອັບສ່ວນຕົວໄດ້"</string>
+    <string name="cant_select_personal_files_error_title" msgid="3200697170148617742">"ບໍ່ສາມາດເລືອກໄຟລ໌ສ່ວນຕົວໄດ້"</string>
+    <string name="cant_select_personal_files_error_message" msgid="4105905035459118209">"ຜູ້ເບິ່ງແຍງໄອທີຂອງທ່ານບໍ່ອະນຸຍາດໃຫ້ເຂົ້າເຖິງໄຟລ໌ສ່ວນຕົວຈາກແອັບວຽກໄດ້"</string>
+    <string name="cant_save_to_work_error_title" msgid="1351323070040641358">"ບໍ່ສາມາດບັນທຶກໄປໃສ່ໂປຣໄຟລ໌ວຽກໄດ້"</string>
+    <string name="cant_save_to_work_error_message" msgid="4975583233814059890">"ຜູ້ເບິ່ງແຍງໄອທີຂອງທ່ານບໍ່ອະນຸຍາດໃຫ້ບັນທຶກໄຟລ໌ສ່ວນຕົວໄປໃສ່ໂປຣໄຟລ໌ວຽກທ່ານ"</string>
+    <string name="cant_save_to_personal_error_title" msgid="858327493694069780">"ບໍ່ສາມາດບັນທຶກໄປໃສ່ໂປຣໄຟລ໌ສ່ວນຕົວໄດ້"</string>
+    <string name="cant_save_to_personal_error_message" msgid="6991758723736381751">"ຜູ້ເບິ່ງແຍງໄອທີຂອງທ່ານບໍ່ອະນຸຍາດໃຫ້ທ່ານບັນທຶກໄຟລ໌ວຽກໄປໃສ່ໂປຣໄຟລ໌ສ່ວນຕົວຂອງທ່ານໄດ້"</string>
+    <string name="cross_profile_action_not_allowed_title" msgid="6611281348716476478">"ບໍ່ອະນຸຍາດຄຳສັ່ງນີ້"</string>
+    <string name="cross_profile_action_not_allowed_message" msgid="7331275433061690947">"ເພື່ອສຶກສາເພີ່ມເຕີມ, ກະລຸນາຕິດຕໍ່ຜູ້ເບິ່ງແຍງໄອທີຂອງທ່ານ"</string>
     <string name="root_recent" msgid="1080156975424341623">"ຫຼ້າສຸດ"</string>
     <string name="root_available_bytes" msgid="8269870862691408864">"ຫວ່າງ <xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="root_type_service" msgid="6521366147466512289">"ບໍລິການບ່ອນຈັດເກັບຂໍ້ມູນ"</string>
@@ -97,6 +113,8 @@
     <string name="toast_no_application" msgid="7555319548595113121">"ບໍ່ສາມາດເປີດໄຟລ໌ໄດ້"</string>
     <string name="toast_view_in_archives_unsupported" msgid="1923221390170964845">"ບໍ່ສາມາດເປີດໄຟລ໌ໃນແຟ້ມຈັດເກັບໄດ້"</string>
     <string name="toast_failed_delete" msgid="3453846588205817591">"ບໍ່ສາມາດລຶບບາງເອກະສານໄດ້"</string>
+    <string name="toast_share_over_limit" msgid="5805442886537093015">"ບໍ່ສາມາດແບ່ງປັນໄດ້ຫຼາຍກວ່າ <xliff:g id="COUNT">%1$d</xliff:g> ໄຟລ໌"</string>
+    <string name="toast_action_not_allowed" msgid="1329382474450572415">"ບໍ່ອະນຸຍາດໃຫ້ໃຊ້ຄຳສັ່ງ"</string>
     <string name="share_via" msgid="8725082736005677161">"ແບ່ງປັນຜ່ານ"</string>
     <string name="copy_notification_title" msgid="52256435625098456">"ກຳລັງສຳເນົາໄຟລ໌"</string>
     <string name="compress_notification_title" msgid="6830195148113751021">"ກຳລັງບີບອັດໄຟລ໌"</string>
@@ -109,8 +127,8 @@
       <item quantity="one"><xliff:g id="COUNT_0">%1$d</xliff:g> ລາຍການ</item>
     </plurals>
     <plurals name="compress_begin" formatted="false" msgid="3534158317098678895">
-      <item quantity="other">Compressing <xliff:g id="COUNT_1">%1$d</xliff:g> files.</item>
-      <item quantity="one">ກຳ​ລັງ​ລຶບ <xliff:g id="COUNT_0">%1$d</xliff:g> ໄຟ​ລ໌.</item>
+      <item quantity="other">ກຳລັງບີບອັດ <xliff:g id="COUNT_1">%1$d</xliff:g> ໄຟ​ລ໌.</item>
+      <item quantity="one">ກຳລັງບີບອັດ <xliff:g id="COUNT_0">%1$d</xliff:g> ໄຟ​ລ໌.</item>
     </plurals>
     <plurals name="extract_begin" formatted="false" msgid="1006380679562903749">
       <item quantity="other">Extracting <xliff:g id="COUNT_1">%1$d</xliff:g> files.</item>
@@ -222,29 +240,42 @@
       <item quantity="other">ເລືອກ <xliff:g id="COUNT_1">%1$d</xliff:g> ແລ້ວ</item>
       <item quantity="one">ເລືອກ <xliff:g id="COUNT_0">%1$d</xliff:g> ແລ້ວ</item>
     </plurals>
-    <string name="root_info_header_recent" msgid="8754386597210017725">"ໄຟລ໌ຫຼ້າສຸດຢູ່ໂທລະສັບ"</string>
-    <string name="root_info_header_global_search" msgid="9099308729787003373">"ໄຟລ໌ຢູ່ໂທລະສັບ"</string>
-    <string name="root_info_header_media" msgid="2774453755906260852">"<xliff:g id="LABEL">%1$s</xliff:g> ຢູ່ໂທລະສັບ"</string>
+    <string name="root_info_header_recent" msgid="5654901877295332262">"ໄຟລ໌ຫຼ້າສຸດ"</string>
+    <string name="root_info_header_global_search" msgid="4904078222280496152">"ໄຟລ໌"</string>
+    <string name="root_info_header_downloads" msgid="8848161246921154115">"ໄຟລ໌ໃນ ດາວໂຫລດ"</string>
     <string name="root_info_header_storage" msgid="2989014130584927442">"ໄຟລ໌ຢູ່ <xliff:g id="DEVICE">%1$s</xliff:g>"</string>
+    <string name="root_info_header_folder" msgid="5851172222368049864">"ໄຟລ໌ໃນ <xliff:g id="FOLDER">%1$s</xliff:g>"</string>
     <string name="root_info_header_app" msgid="2125422047558420885">"ໄຟລ໌ຈາກ <xliff:g id="LABEL">%1$s</xliff:g>"</string>
     <string name="root_info_header_app_with_summary" msgid="3223302581236069702">"ໄຟລ໌ຈາກ <xliff:g id="LABEL">%1$s</xliff:g> / <xliff:g id="SUMMARY">%2$s</xliff:g>"</string>
-    <string name="root_info_header_image_recent" msgid="6252335619444758201">"ຮູບຫຼ້າສຸດຢູ່ໂທລະສັບ"</string>
-    <string name="root_info_header_image_global_search" msgid="7945533325610533016">"ຮູບຢູ່ໂທລະສັບ"</string>
+    <string name="root_info_header_image_recent" msgid="7494373563753926014">"ຮູບຫຼ້າສຸດ"</string>
+    <string name="root_info_header_image_global_search" msgid="7307009823489854697">"ຮູບພາບ"</string>
+    <string name="root_info_header_image_downloads" msgid="7072252612657612307">"ຮູບໃນການດາວໂຫຼດ"</string>
     <string name="root_info_header_image_storage" msgid="5086740886360075930">"ຮູບຢູ່ <xliff:g id="DEVICE">%1$s</xliff:g>"</string>
+    <string name="root_info_header_image_folder" msgid="5980430877636279667">"ຮູບໃນ <xliff:g id="FOLDER">%1$s</xliff:g>"</string>
     <string name="root_info_header_image_app" msgid="4858114210851525359">"ຮູບພາບຈາກ <xliff:g id="LABEL">%1$s</xliff:g>"</string>
     <string name="root_info_header_image_app_with_summary" msgid="6404842960923224778">"ຮູບຈາກ <xliff:g id="LABEL">%1$s</xliff:g> / <xliff:g id="SUMMARY">%2$s</xliff:g>"</string>
     <string name="chip_title_images" msgid="7838299046109841015">"ຮູບພາບ"</string>
     <string name="chip_title_audio" msgid="1032801828748235436">"ສຽງ"</string>
     <string name="chip_title_videos" msgid="7011260091979776447">"ວິດີໂອ"</string>
     <string name="chip_title_documents" msgid="7432457563000753983">"ເອກະສານ"</string>
+    <string name="chip_title_large_files" msgid="7740269190493883980">"ໄຟລ໌ໃຫຍ່"</string>
+    <string name="chip_title_from_this_week" msgid="4961536405220379672">"ອາທິດນີ້"</string>
     <string name="input_hint_new_folder" msgid="479672411219725677">"ຊື່ໂຟນເດີ"</string>
     <string name="input_hint_rename" msgid="8390711744270994452">"ຊື່ໃໝ່"</string>
     <string name="preview_file" msgid="4056622696305432343">"ເບິ່ງຕົວຢ່າງໄຟລ໌ <xliff:g id="FILENAME">%1$s</xliff:g>"</string>
+    <string name="preview_work_file" msgid="4495643735563487273">"ເບິ່ງຕົວຢ່າງໄຟລ໌ວຽກ <xliff:g id="FILENAME">%1$s</xliff:g>"</string>
     <string name="apps_row_title" msgid="3340490016663092925">"ເລືອກໄຟລ໌ໃນແອັບອື່ນ"</string>
     <string name="anonymous_application" msgid="7633027057951625862">"ບໍ່ລະບຸຊື່"</string>
-    <string name="open_tree_button" msgid="19992834788135845">"ອະນຸຍາດການເຂົ້າເຖິງ \"<xliff:g id="DIRECTORY">%1$s</xliff:g>\""</string>
-    <string name="open_tree_dialog_title" msgid="8429465292253532274">"ອະນຸຍາດໃຫ້ເຂົ້າເຖິງ \"<xliff:g id="DIRECTORY">%1$s</xliff:g>\" ໃນ \"<xliff:g id="ROOT">%2$s</xliff:g>\" ບ?"</string>
-    <string name="open_tree_dialog_message" msgid="8545093618524340168">"ມັນຈະອະນຸຍາດໃຫ້ \"<xliff:g id="APPNAME">%1$s</xliff:g>\" ເຂົ້າເຖິງໄຟລ໌ທັງໝົດທີ່ຕອນນີ້ບັນທຶກໄວ້ຢູ່ບ່ອນນີ້ຢ່າງເຕັມຮູບແບບ ແລະ ຮວມທັງເນື້ອຫາໃນອະນາຄົດທີ່ບັນທຶກໄວ້ບ່ອນນີ້ນຳ."</string>
+    <string name="open_tree_button" msgid="6402871398424497776">"ໃຊ້ໂຟນເດີນີ້"</string>
+    <string name="open_tree_dialog_title" msgid="6339509533852318569">"ອະນຸຍາດໃຫ້ <xliff:g id="APPNAME">%1$s</xliff:g> ເຂົ້າເຖິງໄຟລ໌ໃນ <xliff:g id="DIRECTORY">%2$s</xliff:g> ໄດ້ບໍ?"</string>
+    <string name="open_tree_dialog_message" msgid="4120695398430659628">"ນີ້ຈະເຮັດໃຫ້ <xliff:g id="APPNAME">%1$s</xliff:g> ມີສິດເຂົ້າເຖິງເນື້ອຫາປັດຈຸບັນ ແລະ ອະນາຄົດທີ່ຈັດເກັບໄວ້ໃນ <xliff:g id="DIRECTORY">%2$s</xliff:g> ໄດ້."</string>
+    <string name="directory_blocked_header_title" msgid="1164584889578740066">"ບໍ່ສາມາດໃຊ້ໂຟນເດີນີ້ໄດ້"</string>
+    <string name="directory_blocked_header_subtitle" msgid="2829150911849033408">"ໃຫ້ເລືອກໂຟນເດີອື່ນເພື່ອປົກປ້ອງຄວາມເປັນສ່ວນຕົວຂອງທ່ານ"</string>
+    <string name="create_new_folder_button" msgid="8859613309559794890">"ສ້າງໂຟນເດີໃໝ່"</string>
     <string name="search_bar_hint" msgid="4517366509897977321">"ຊອກຫາໂທລະສັບໜ່ວຍນີ້"</string>
     <string name="delete_search_history" msgid="2202015025607694515">"ລຶບປະຫວັດການຊອກຫາ <xliff:g id="TEXT">%1$s</xliff:g>"</string>
+    <string name="personal_tab" msgid="3878576287868528503">"ສ່ວນຕົວ"</string>
+    <string name="work_tab" msgid="7265359366883747413">"ວຽກ"</string>
+    <string name="a11y_work" msgid="7504431382825242153">"ວຽກ"</string>
+    <string name="drag_from_another_app" msgid="8310249276199969905">"ບໍ່ສາມາດຍ້າຍໄຟລ໌ຈາກແອັບອື່ນໄດ້."</string>
 </resources>

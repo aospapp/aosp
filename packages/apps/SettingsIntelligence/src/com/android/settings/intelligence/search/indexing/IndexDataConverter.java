@@ -165,7 +165,7 @@ public class IndexDataConverter {
         // A row is enabled if it does not show up as an nonIndexableKey
         boolean enabled = !(nonIndexableKeys != null && nonIndexableKeys.contains(raw.key));
 
-        final IndexData.Builder builder = new IndexData.Builder();
+        final IndexData.Builder builder = getIndexDataBuilder();
         builder.setTitle(raw.title)
                 .setSummaryOn(raw.summaryOn)
                 .setEntries(raw.entries)
@@ -244,7 +244,7 @@ public class IndexDataConverter {
             headerKeywords = XmlParserUtils.getDataKeywords(context, attrs);
             enabled = !nonIndexableKeys.contains(headerKey);
             // TODO: Set payload type for header results
-            IndexData.Builder headerBuilder = new IndexData.Builder();
+            IndexData.Builder headerBuilder = getIndexDataBuilder();
             headerBuilder.setTitle(headerTitle)
                     .setSummaryOn(headerSummary)
                     .setScreenTitle(screenTitle)
@@ -286,7 +286,7 @@ public class IndexDataConverter {
                     isHeaderUnique = false;
                 }
 
-                builder = new IndexData.Builder();
+                builder = getIndexDataBuilder();
                 builder.setTitle(title)
                         .setKeywords(keywords)
                         .setClassName(sir.className)
@@ -364,5 +364,9 @@ public class IndexDataConverter {
             String authority) {
         final Set<String> result = nonIndexableKeys.get(authority);
         return result != null ? result : new ArraySet<>();
+    }
+
+    protected IndexData.Builder getIndexDataBuilder() {
+        return new IndexData.Builder();
     }
 }

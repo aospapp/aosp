@@ -24,6 +24,8 @@ import static android.system.OsConstants.SOCK_NONBLOCK;
 import static android.system.OsConstants.SOL_SOCKET;
 import static android.system.OsConstants.SO_SNDTIMEO;
 
+import static com.android.testutils.MiscAssertsKt.assertThrows;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -182,7 +184,7 @@ public class PacketReaderTest {
         assertTrue(Arrays.equals(two, mLastRecvBuf));
         assertFalse(mStopped);
 
-        mReceiver.stop();
+        h.post(() -> mReceiver.stop());
         waitForActivity();
         assertEquals(2, mReceiver.numPacketsReceived());
         assertTrue(Arrays.equals(two, mLastRecvBuf));
@@ -207,5 +209,33 @@ public class PacketReaderTest {
             final PacketReader b = new NullPacketReader(h, i);
             assertEquals(DEFAULT_RECV_BUF_SIZE, b.recvBufSize());
         }
+    }
+
+    @Test
+    public void testStartingFromWrongThread() throws Exception {
+        final Handler h = mHandlerThread.getThreadHandler();
+        final PacketReader b = new NullPacketReader(h, DEFAULT_RECV_BUF_SIZE);
+        assertThrows(IllegalStateException.class, () -> b.start());
+    }
+
+    @Test
+    public void testStoppingFromWrongThread() throws Exception {
+        final Handler h = mHandlerThread.getThreadHandler();
+        final PacketReader b = new NullPacketReader(h, DEFAULT_RECV_BUF_SIZE);
+        assertThrows(IllegalStateException.class, () -> b.stop());
+    }
+
+    @Test
+    public void testSuccessToCreateSocket() throws Exception {
+        final Handler h = mHandlerThread.getThreadHandler();
+        final PacketReader b = new UdpLoopbackReader(h);
+        h.post(() -> assertTrue(b.start()));
+    }
+
+    @Test
+    public void testFailToCreateSocket() throws Exception {
+        final Handler h = mHandlerThread.getThreadHandler();
+        final PacketReader b = new NullPacketReader(h, DEFAULT_RECV_BUF_SIZE);
+        h.post(() -> assertFalse(b.start()));
     }
 }

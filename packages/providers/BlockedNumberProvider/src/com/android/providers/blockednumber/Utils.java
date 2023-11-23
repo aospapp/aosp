@@ -15,21 +15,33 @@
  */
 package com.android.providers.blockednumber;
 
+import static android.util.Log.isLoggable;
+
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.content.Context;
 import android.location.Country;
 import android.location.CountryDetector;
+import android.net.Uri;
+import android.os.Build;
+import android.telecom.PhoneAccount;
 import android.telephony.PhoneNumberUtils;
 import android.text.TextUtils;
 
 import java.util.Locale;
 
 public class Utils {
+    /**
+     * When generating a bug report, include the last X dialable digits when logging phone numbers.
+     */
+    private static final int NUM_DIALABLE_DIGITS_TO_LOG = Build.IS_USER ? 0 : 2;
+
     private Utils() {
     }
 
     public static final int MIN_INDEX_LEN = 8;
+    public static String TAG = "BlockedNumberProvider";
+    public static boolean VERBOSE = isLoggable(TAG, android.util.Log.VERBOSE);
 
     /**
      * @return The current country code.
@@ -73,5 +85,93 @@ public class Utils {
 
     public static @Nullable String wrapSelectionWithParens(@Nullable String selection) {
         return TextUtils.isEmpty(selection) ? null : "(" + selection + ")";
+    }
+
+    /**
+     * Generates an obfuscated string for a calling handle in {@link Uri} format, or a raw phone
+     * phone number in {@link String} format.
+     * @param pii The information to obfuscate.
+     * @return The obfuscated string.
+     */
+    public static String piiHandle(Object pii) {
+        if (pii == null || VERBOSE) {
+            return String.valueOf(pii);
+        }
+
+        StringBuilder sb = new StringBuilder();
+        if (pii instanceof Uri) {
+            Uri uri = (Uri) pii;
+            String scheme = uri.getScheme();
+
+            if (!TextUtils.isEmpty(scheme)) {
+                sb.append(scheme).append(":");
+            }
+
+            String textToObfuscate = uri.getSchemeSpecificPart();
+            if (PhoneAccount.SCHEME_TEL.equals(scheme)) {
+                obfuscatePhoneNumber(sb, textToObfuscate);
+            } else if (PhoneAccount.SCHEME_SIP.equals(scheme)) {
+                for (int i = 0; i < textToObfuscate.length(); i++) {
+                    char c = textToObfuscate.charAt(i);
+                    if (c != '@' && c != '.') {
+                        c = '*';
+                    }
+                    sb.append(c);
+                }
+            } else {
+                sb.append(pii(pii));
+            }
+        } else if (pii instanceof String) {
+            String number = (String) pii;
+            obfuscatePhoneNumber(sb, number);
+        }
+
+        return sb.toString();
+    }
+
+    /**
+     * Obfuscates a phone number, allowing NUM_DIALABLE_DIGITS_TO_LOG digits to be exposed for the
+     * phone number.
+     * @param sb String buffer to write obfuscated number to.
+     * @param phoneNumber The number to obfuscate.
+     */
+    private static void obfuscatePhoneNumber(StringBuilder sb, String phoneNumber) {
+        int numDigitsToObfuscate = getDialableCount(phoneNumber)
+                - NUM_DIALABLE_DIGITS_TO_LOG;
+        for (int i = 0; i < phoneNumber.length(); i++) {
+            char c = phoneNumber.charAt(i);
+            boolean isDialable = PhoneNumberUtils.isDialable(c);
+            if (isDialable) {
+                numDigitsToObfuscate--;
+            }
+            sb.append(isDialable && numDigitsToObfuscate >= 0 ? "*" : c);
+        }
+    }
+
+    /**
+     * Redact personally identifiable information for production users.
+     * If we are running in verbose mode, return the original string,
+     * and return "***" otherwise.
+     */
+    public static String pii(Object pii) {
+        if (pii == null || VERBOSE) {
+            return String.valueOf(pii);
+        }
+        return "***";
+    }
+
+    /**
+     * Determines the number of dialable characters in a string.
+     * @param toCount The string to count dialable characters in.
+     * @return The count of dialable characters.
+     */
+    private static int getDialableCount(String toCount) {
+        int numDialable = 0;
+        for (char c : toCount.toCharArray()) {
+            if (PhoneNumberUtils.isDialable(c)) {
+                numDialable++;
+            }
+        }
+        return numDialable;
     }
 }

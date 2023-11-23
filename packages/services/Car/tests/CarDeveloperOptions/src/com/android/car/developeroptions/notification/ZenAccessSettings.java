@@ -37,8 +37,8 @@ import com.android.car.developeroptions.applications.specialaccess.zenaccess.Zen
 import com.android.car.developeroptions.applications.specialaccess.zenaccess.ZenAccessDetails;
 import com.android.car.developeroptions.applications.specialaccess.zenaccess.ZenAccessSettingObserverMixin;
 import com.android.car.developeroptions.search.BaseSearchIndexProvider;
-import com.android.car.developeroptions.search.Indexable;
 import com.android.car.developeroptions.widget.EmptyTextSettings;
+import com.android.settingslib.search.Indexable;
 import com.android.settingslib.search.SearchIndexable;
 import com.android.settingslib.widget.apppreference.AppPreference;
 
@@ -86,11 +86,7 @@ public class ZenAccessSettings extends EmptyTextSettings implements
     @Override
     public void onResume() {
         super.onResume();
-        if (!ActivityManager.isLowRamDeviceStatic()) {
-            reloadList();
-        } else {
-            setEmptyText(R.string.disabled_low_ram_device);
-        }
+        reloadList();
     }
 
     @Override

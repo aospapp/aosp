@@ -337,7 +337,7 @@ public class BluetoothOppManager {
         String deviceName = null;
 
         if (device != null) {
-            deviceName = device.getAliasName();
+            deviceName = device.getAlias();
             if (deviceName == null) {
                 deviceName = BluetoothOppPreference.getInstance(mContext).getName(device);
             }

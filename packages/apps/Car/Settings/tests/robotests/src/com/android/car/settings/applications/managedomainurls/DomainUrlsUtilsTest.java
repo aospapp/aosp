@@ -28,19 +28,19 @@ import android.content.pm.IntentFilterVerificationInfo;
 import android.content.pm.PackageManager;
 import android.util.ArraySet;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.R;
 import com.android.car.settings.testutils.ShadowApplicationPackageManager;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 
 import java.util.Arrays;
 
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 @Config(shadows = {ShadowApplicationPackageManager.class})
 public class DomainUrlsUtilsTest {
 

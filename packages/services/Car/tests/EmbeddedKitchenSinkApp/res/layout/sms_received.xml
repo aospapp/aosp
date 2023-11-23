@@ -79,14 +79,30 @@
             android:id="@+id/sms_tel_num"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="+1-650-000-0000                    "
-            android:inputType="text" />
+            android:text="+1-650-000-0000, comma separated"
+            android:inputType="text"/>
+    </LinearLayout>
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content">
         <Button
             android:id="@+id/sms_new_message"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center"
             android:text="@string/sms_new_message_button"/>
+        <Button
+            android:id="@+id/mms_new_message"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:text="@string/mms_new_message_button"/>
+        <Button
+            android:id="@+id/reset_message_counter"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:text="@string/reset_message_counter_button"/>
     </LinearLayout>
 
     <CheckBox android:layout_width="wrap_content" android:layout_height="wrap_content"

@@ -21,6 +21,7 @@ import android.os.PersistableBundle;
 import android.preference.Preference;
 import android.preference.PreferenceActivity;
 import android.preference.PreferenceScreen;
+import android.provider.Settings;
 import android.telephony.CarrierConfigManager;
 import android.view.MenuItem;
 
@@ -32,7 +33,7 @@ public class GsmUmtsCallOptions extends PreferenceActivity {
 
     public static final String CALL_FORWARDING_KEY = "call_forwarding_key";
     public static final String CALL_BARRING_KEY = "call_barring_key";
-    private static final String ADDITIONAL_GSM_SETTINGS_KEY = "additional_gsm_call_settings_key";
+    public static final String ADDITIONAL_GSM_SETTINGS_KEY = "additional_gsm_call_settings_key";
 
     @Override
     protected void onCreate(Bundle icicle) {
@@ -69,12 +70,22 @@ public class GsmUmtsCallOptions extends PreferenceActivity {
             b = PhoneGlobals.getInstance().getCarrierConfig();
         }
 
+        boolean isAirplaneModeOff = true;
+        if (b != null && b.getBoolean(
+                CarrierConfigManager.KEY_DISABLE_SUPPLEMENTARY_SERVICES_IN_AIRPLANE_MODE_BOOL)) {
+            int airplaneMode = Settings.Global.getInt(
+                    subInfoHelper.getPhone().getContext().getContentResolver(),
+                    Settings.Global.AIRPLANE_MODE_ON, PhoneGlobals.AIRPLANE_OFF);
+            isAirplaneModeOff = PhoneGlobals.AIRPLANE_ON != airplaneMode;
+        }
+
         Preference callForwardingPref = prefScreen.findPreference(CALL_FORWARDING_KEY);
         if (callForwardingPref != null) {
             if (b != null && b.getBoolean(
                     CarrierConfigManager.KEY_CALL_FORWARDING_VISIBILITY_BOOL)) {
                 callForwardingPref.setIntent(
                         subInfoHelper.getIntent(GsmUmtsCallForwardOptions.class));
+                callForwardingPref.setEnabled(isAirplaneModeOff);
             } else {
                 prefScreen.removePreference(callForwardingPref);
             }
@@ -89,6 +100,7 @@ public class GsmUmtsCallOptions extends PreferenceActivity {
                     CarrierConfigManager.KEY_ADDITIONAL_SETTINGS_CALLER_ID_VISIBILITY_BOOL))) {
                 additionalGsmSettingsPref.setIntent(
                         subInfoHelper.getIntent(GsmUmtsAdditionalCallOptions.class));
+                additionalGsmSettingsPref.setEnabled(isAirplaneModeOff);
             } else {
                 prefScreen.removePreference(additionalGsmSettingsPref);
             }
@@ -98,6 +110,7 @@ public class GsmUmtsCallOptions extends PreferenceActivity {
         if (callBarringPref != null) {
             if (b != null && b.getBoolean(CarrierConfigManager.KEY_CALL_BARRING_VISIBILITY_BOOL)) {
                 callBarringPref.setIntent(subInfoHelper.getIntent(GsmUmtsCallBarringOptions.class));
+                callBarringPref.setEnabled(isAirplaneModeOff);
             } else {
                 prefScreen.removePreference(callBarringPref);
             }

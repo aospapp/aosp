@@ -95,6 +95,14 @@ public class VehiclePropConfigBuilder {
     }
 
     @CheckResult
+    public  VehiclePropConfigBuilder addAreaConfig(int areaId) {
+        VehicleAreaConfig area = new VehicleAreaConfig();
+        area.areaId = areaId;
+        mConfig.areaConfigs.add(area);
+        return this;
+    }
+
+    @CheckResult
     public VehiclePropConfigBuilder addAreaConfig(int areaId, int minValue, int maxValue) {
         VehicleAreaConfig area = new VehicleAreaConfig();
         area.areaId = areaId;

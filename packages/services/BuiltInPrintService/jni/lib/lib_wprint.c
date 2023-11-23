@@ -473,6 +473,9 @@ static int _recycle_handle(wJob_t job_handle) {
         if (jq->job_params.useragent != NULL) {
             free((void *) jq->job_params.useragent);
         }
+        if (jq->job_params.certificate != NULL) {
+            free((void *) jq->job_params.certificate);
+        }
         free(jq->printer_addr);
         jq->job_state = JOB_STATE_FREE;
         if (jq->job_debug_fd != -1) {
@@ -827,9 +830,9 @@ static void *_job_thread(void *param) {
             // wait for the printer to be idle
             if ((jq->status_ifc != NULL) && (jq->status_ifc->get_status != NULL)) {
                 int retry = 0;
-                int loop = 1;
+                bool idle = false;
                 printer_state_dyn_t printer_state;
-                do {
+                while (!idle) {
                     print_status_t status;
                     jq->status_ifc->get_status(jq->status_ifc, &printer_state);
                     status = printer_state.printer_status & ~PRINTER_IDLE_BIT;
@@ -838,79 +841,63 @@ static void *_job_thread(void *param) {
                     cb_param.certificate = jq->certificate;
                     cb_param.certificate_len = jq->certificate_len;
 
-                    switch (status) {
-                        case PRINT_STATUS_IDLE:
-                            printer_state.printer_status = PRINT_STATUS_IDLE;
-                            jq->blocked_reasons = 0;
-                            loop = 0;
-                            break;
-                        case PRINT_STATUS_UNKNOWN:
-                            if (printer_state.printer_reasons[0] == PRINT_STATUS_UNKNOWN) {
-                                LOGE("PRINTER STATUS UNKNOWN - Ln 747 libwprint.c");
-                                // no status available, break out and hope for the best
-                                printer_state.printer_status = PRINT_STATUS_IDLE;
-                                loop = 0;
+                    // Presume we found an idle state
+                    idle = true;
+                    if (status == PRINT_STATUS_IDLE) {
+                        printer_state.printer_status = PRINT_STATUS_IDLE;
+                        jq->blocked_reasons = 0;
+                    } else if (status == PRINT_STATUS_UNKNOWN
+                            && printer_state.printer_reasons[0] == PRINT_STATUS_UNKNOWN) {
+                        // no status available, break out and hope for the best
+                        printer_state.printer_status = PRINT_STATUS_IDLE;
+                    } else if ((status == PRINT_STATUS_UNKNOWN || status == PRINT_STATUS_SVC_REQUEST)
+                            && ((printer_state.printer_reasons[0] == PRINT_STATUS_UNABLE_TO_CONNECT)
+                                || (printer_state.printer_reasons[0] == PRINT_STATUS_OFFLINE))) {
+                        if (_is_certificate_allowed(jq)) {
+                            LOGD("%s: Received an Unable to Connect message", __func__);
+                            jq->blocked_reasons = BLOCKED_REASON_UNABLE_TO_CONNECT;
+                        } else {
+                            LOGD("%s: Bad certificate", __func__);
+                            jq->blocked_reasons = BLOCKED_REASON_BAD_CERTIFICATE;
+                        }
+                    } else if (printer_state.printer_status & PRINTER_IDLE_BIT) {
+                        LOGD("%s: printer blocked but appears to be in an idle state. "
+                                "Allowing job to proceed", __func__);
+                        printer_state.printer_status = PRINT_STATUS_IDLE;
+                    } else if (retry >= MAX_IDLE_WAIT) {
+                        jq->blocked_reasons |= BLOCKED_REASONS_PRINTER_BUSY;
+                    } else if (!jq->job_params.cancelled) {
+                        // Printer still appears busy, so stay in loop, notify, and poll again.
+                        idle = false;
+                        int blocked_reasons = 0;
+                        for (i = 0; i <= PRINT_STATUS_MAX_STATE; i++) {
+                            if (printer_state.printer_reasons[i] == PRINT_STATUS_MAX_STATE) {
                                 break;
                             }
-                        case PRINT_STATUS_SVC_REQUEST:
-                            if ((printer_state.printer_reasons[0] == PRINT_STATUS_UNABLE_TO_CONNECT)
-                                    || (printer_state.printer_reasons[0] == PRINT_STATUS_OFFLINE)) {
-                                if (_is_certificate_allowed(jq)) {
-                                    LOGD("_job_thread: Received an Unable to Connect message");
-                                    jq->blocked_reasons = BLOCKED_REASON_UNABLE_TO_CONNECT;
-                                } else {
-                                    LOGD("_job_thread: Bad certificate");
-                                    jq->blocked_reasons = BLOCKED_REASON_BAD_CERTIFICATE;
-                                }
-                                loop = 0;
-                                break;
-                            }
-                        default:
-                            if (printer_state.printer_status & PRINTER_IDLE_BIT) {
-                                LOGD("printer blocked but appears to be in an idle state. "
-                                        "Allowing job to proceed");
-                                printer_state.printer_status = PRINT_STATUS_IDLE;
-                                loop = 0;
-                                break;
-                            } else if (retry >= MAX_IDLE_WAIT) {
-                                jq->blocked_reasons |= BLOCKED_REASONS_PRINTER_BUSY;
-                                loop = 0;
-                            } else if (!jq->job_params.cancelled) {
-                                int blocked_reasons = 0;
-                                for (i = 0; i <= PRINT_STATUS_MAX_STATE; i++) {
-                                    if (printer_state.printer_reasons[i] ==
-                                            PRINT_STATUS_MAX_STATE) {
-                                        break;
-                                    }
-                                    blocked_reasons |= (1 << printer_state.printer_reasons[i]);
-                                }
-                                if (blocked_reasons == 0) {
-                                    blocked_reasons |= BLOCKED_REASONS_PRINTER_BUSY;
-                                }
+                            blocked_reasons |= (1 << printer_state.printer_reasons[i]);
+                        }
+                        if (blocked_reasons == 0) {
+                            blocked_reasons |= BLOCKED_REASONS_PRINTER_BUSY;
+                        }
 
-                                if ((jq->job_state != JOB_STATE_BLOCKED) ||
-                                        (jq->blocked_reasons != blocked_reasons)) {
-                                    jq->job_state = JOB_STATE_BLOCKED;
-                                    jq->blocked_reasons = blocked_reasons;
-                                    if (jq->cb_fn) {
-                                        cb_param.state = JOB_BLOCKED;
-                                        cb_param.blocked_reasons = blocked_reasons;
-                                        cb_param.job_done_result = OK;
+                        if ((jq->job_state != JOB_STATE_BLOCKED)
+                                || (jq->blocked_reasons != blocked_reasons)) {
+                            jq->job_state = JOB_STATE_BLOCKED;
+                            jq->blocked_reasons = blocked_reasons;
+                            if (jq->cb_fn) {
+                                cb_param.state = JOB_BLOCKED;
+                                cb_param.blocked_reasons = blocked_reasons;
+                                cb_param.job_done_result = OK;
 
-                                        jq->cb_fn(jq->job_handle, (void *) &cb_param);
-                                    }
-                                }
-                                _unlock();
-                                sleep(1);
-                                _lock();
-                                retry++;
+                                jq->cb_fn(jq->job_handle, (void *) &cb_param);
                             }
-                            break;
+                        }
+                        _unlock();
+                        sleep(1);
+                        _lock();
+                        retry++;
                     }
-                    if (jq->job_params.cancelled) {
-                        loop = 0;
-                    }
-                } while (loop);
+                }
 
                 if (jq->job_params.cancelled) {
                     job_result = CANCELLED;
@@ -1044,7 +1031,7 @@ static void *_job_thread(void *param) {
 
                             jq->job_params.copy_num = (i + 1);
                             jq->job_params.copy_page_num = page.page_num;
-                            jq->job_params.page_backside = (per_copy_page_num & 0x1);
+                            jq->job_params.page_backside = !(per_copy_page_num & 0x1);
                             jq->job_params.page_corrupted = (page.corrupted ? 1 : 0);
                             jq->job_params.page_printing = true;
                             _unlock();
@@ -1090,7 +1077,7 @@ static void *_job_thread(void *param) {
 
                         // make sure we always print an even number of pages in duplex jobs
                         if (page.last_page && (jq->job_params.duplex != DUPLEX_MODE_NONE)
-                                && (jq->job_params.page_backside)
+                                && !(jq->job_params.page_backside)
                                 && (jq->plugin->print_blank_page != NULL)) {
                             _unlock();
                             jq->plugin->print_blank_page(job_handle, &(jq->job_params));
@@ -1922,6 +1909,15 @@ wJob_t wprintStartJob(const char *printer_addr, port_t port_num,
         if (useragent != NULL) {
             snprintf(useragent, useragent_len, USERAGENT_PREFIX "%s", jq->job_params.docCategory);
             jq->job_params.useragent = useragent;
+        }
+
+        // Make a copy of the job_params certificate if it is present
+        if (job_params->certificate) {
+            jq->job_params.certificate = malloc(job_params->certificate_len);
+            if (jq->job_params.certificate) {
+                memcpy(jq->job_params.certificate, job_params->certificate,
+                        job_params->certificate_len);
+            }
         }
 
         jq->job_params.page_num = 0;

@@ -49,6 +49,7 @@ import androidx.test.InstrumentationRegistry;
 
 import com.android.internal.telecom.IConnectionService;
 import com.android.internal.util.FastXmlSerializer;
+import com.android.server.telecom.AppLabelProxy;
 import com.android.server.telecom.DefaultDialerCache;
 import com.android.server.telecom.PhoneAccountRegistrar;
 import com.android.server.telecom.PhoneAccountRegistrar.DefaultPhoneAccountHandle;
@@ -69,6 +70,7 @@ import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -83,7 +85,7 @@ public class PhoneAccountRegistrarTest extends TelecomTestCase {
     private PhoneAccountRegistrar mRegistrar;
     @Mock private TelecomManager mTelecomManager;
     @Mock private DefaultDialerCache mDefaultDialerCache;
-    @Mock private PhoneAccountRegistrar.AppLabelProxy mAppLabelProxy;
+    @Mock private AppLabelProxy mAppLabelProxy;
 
     @Override
     @Before
@@ -151,6 +153,68 @@ public class PhoneAccountRegistrarTest extends TelecomTestCase {
                 mContext);
 
         assertPhoneAccountEquals(input, result);
+    }
+
+    @SmallTest
+    @Test
+    public void testFilterPhoneAccountForTest() throws Exception {
+        ComponentName componentA = new ComponentName("a", "a");
+        ComponentName componentB1 = new ComponentName("b", "b1");
+        ComponentName componentB2 = new ComponentName("b", "b2");
+        ComponentName componentC = new ComponentName("c", "c");
+
+        PhoneAccount simAccountA = new PhoneAccount.Builder(
+                makeQuickAccountHandle(componentA, "1"), "1")
+                .setCapabilities(PhoneAccount.CAPABILITY_CALL_PROVIDER)
+                .setIsEnabled(true)
+                .build();
+
+        List<PhoneAccount> accountAList = new ArrayList<>();
+        accountAList.add(simAccountA);
+
+        PhoneAccount simAccountB1 = new PhoneAccount.Builder(
+                makeQuickAccountHandle(componentB1, "2"), "2")
+                .setCapabilities(PhoneAccount.CAPABILITY_CALL_PROVIDER)
+                .setIsEnabled(true)
+                .build();
+
+        PhoneAccount simAccountB2 = new PhoneAccount.Builder(
+                makeQuickAccountHandle(componentB2, "3"), "3")
+                .setCapabilities(PhoneAccount.CAPABILITY_CALL_PROVIDER)
+                .setIsEnabled(true)
+                .build();
+
+        List<PhoneAccount> accountBList = new ArrayList<>();
+        accountBList.add(simAccountB1);
+        accountBList.add(simAccountB2);
+
+        PhoneAccount simAccountC = new PhoneAccount.Builder(
+                makeQuickAccountHandle(componentC, "4"), "4")
+                .setCapabilities(PhoneAccount.CAPABILITY_CALL_PROVIDER)
+                .setIsEnabled(true)
+                .build();
+
+        List<PhoneAccount> accountCList = new ArrayList<>();
+        accountCList.add(simAccountC);
+
+        List<PhoneAccount> allAccounts = new ArrayList<>();
+        allAccounts.addAll(accountAList);
+        allAccounts.addAll(accountBList);
+        allAccounts.addAll(accountCList);
+
+        assertEquals(allAccounts, mRegistrar.filterRestrictedPhoneAccounts(allAccounts));
+
+        mRegistrar.setTestPhoneAccountPackageNameFilter(componentA.getPackageName());
+        assertEquals(accountAList, mRegistrar.filterRestrictedPhoneAccounts(allAccounts));
+
+        mRegistrar.setTestPhoneAccountPackageNameFilter(componentB1.getPackageName());
+        assertEquals(accountBList, mRegistrar.filterRestrictedPhoneAccounts(allAccounts));
+
+        mRegistrar.setTestPhoneAccountPackageNameFilter(componentC.getPackageName());
+        assertEquals(accountCList, mRegistrar.filterRestrictedPhoneAccounts(allAccounts));
+
+        mRegistrar.setTestPhoneAccountPackageNameFilter(null);
+        assertEquals(allAccounts, mRegistrar.filterRestrictedPhoneAccounts(allAccounts));
     }
 
     @MediumTest

@@ -55,6 +55,7 @@ import android.os.Messenger;
 import android.os.RemoteException;
 import android.os.UserHandle;
 import android.util.Log;
+import android.util.proto.ProtoOutputStream;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.WindowManager;
@@ -65,12 +66,12 @@ import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.StringJoiner;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
 
-import android.util.StatsLog;
 /**
  * Dispatch of NFC events to start activities
  */
@@ -241,7 +242,8 @@ class NfcDispatcher {
                     ActivityManager.getCurrentUser());
             if (activities.size() > 0) {
                 context.startActivityAsUser(rootIntent, UserHandle.CURRENT);
-                StatsLog.write(StatsLog.NFC_TAG_OCCURRED, StatsLog.NFC_TAG_OCCURRED__TYPE__APP_LAUNCH);
+                NfcStatsLog.write(NfcStatsLog.NFC_TAG_OCCURRED,
+                        NfcStatsLog.NFC_TAG_OCCURRED__TYPE__APP_LAUNCH);
                 return true;
             }
             return false;
@@ -253,7 +255,8 @@ class NfcDispatcher {
             if (activities.size() > 0) {
                 rootIntent.putExtra(NfcRootActivity.EXTRA_LAUNCH_INTENT, intentToStart);
                 context.startActivityAsUser(rootIntent, UserHandle.CURRENT);
-                StatsLog.write(StatsLog.NFC_TAG_OCCURRED, StatsLog.NFC_TAG_OCCURRED__TYPE__APP_LAUNCH);
+                NfcStatsLog.write(NfcStatsLog.NFC_TAG_OCCURRED,
+                        NfcStatsLog.NFC_TAG_OCCURRED__TYPE__APP_LAUNCH);
                 return true;
             }
             return false;
@@ -309,24 +312,28 @@ class NfcDispatcher {
 
         if (tryOverrides(dispatch, tag, message, overrideIntent, overrideFilters,
                 overrideTechLists)) {
-            StatsLog.write(StatsLog.NFC_TAG_OCCURRED, StatsLog.NFC_TAG_OCCURRED__TYPE__APP_LAUNCH);
+            NfcStatsLog.write(
+                    NfcStatsLog.NFC_TAG_OCCURRED, NfcStatsLog.NFC_TAG_OCCURRED__TYPE__APP_LAUNCH);
             return screenUnlocked ? DISPATCH_UNLOCK : DISPATCH_SUCCESS;
         }
 
         if (tryPeripheralHandover(message)) {
             if (DBG) Log.i(TAG, "matched BT HANDOVER");
-            StatsLog.write(StatsLog.NFC_TAG_OCCURRED, StatsLog.NFC_TAG_OCCURRED__TYPE__BT_PAIRING);
+            NfcStatsLog.write(
+                    NfcStatsLog.NFC_TAG_OCCURRED, NfcStatsLog.NFC_TAG_OCCURRED__TYPE__BT_PAIRING);
             return screenUnlocked ? DISPATCH_UNLOCK : DISPATCH_SUCCESS;
         }
 
         if (NfcWifiProtectedSetup.tryNfcWifiSetup(ndef, mContext)) {
             if (DBG) Log.i(TAG, "matched NFC WPS TOKEN");
-            StatsLog.write(StatsLog.NFC_TAG_OCCURRED, StatsLog.NFC_TAG_OCCURRED__TYPE__WIFI_CONNECT);
+            NfcStatsLog.write(
+                    NfcStatsLog.NFC_TAG_OCCURRED, NfcStatsLog.NFC_TAG_OCCURRED__TYPE__WIFI_CONNECT);
             return screenUnlocked ? DISPATCH_UNLOCK : DISPATCH_SUCCESS;
         }
 
         if (provisioningOnly) {
-            StatsLog.write(StatsLog.NFC_TAG_OCCURRED, StatsLog.NFC_TAG_OCCURRED__TYPE__PROVISION);
+            NfcStatsLog.write(
+                    NfcStatsLog.NFC_TAG_OCCURRED, NfcStatsLog.NFC_TAG_OCCURRED__TYPE__PROVISION);
             if (message == null) {
                 // We only allow NDEF-message dispatch in provisioning mode
                 return DISPATCH_FAIL;
@@ -361,7 +368,7 @@ class NfcDispatcher {
         }
 
         if (DBG) Log.i(TAG, "no match");
-        StatsLog.write(StatsLog.NFC_TAG_OCCURRED, StatsLog.NFC_TAG_OCCURRED__TYPE__OTHERS);
+        NfcStatsLog.write(NfcStatsLog.NFC_TAG_OCCURRED, NfcStatsLog.NFC_TAG_OCCURRED__TYPE__OTHERS);
         return DISPATCH_FAIL;
     }
 
@@ -562,7 +569,8 @@ class NfcDispatcher {
         if (dispatch.isWebIntent() && dispatch.hasIntentReceiver()) {
             if (DBG) Log.i(TAG, "matched Web link - prompting user");
             showWebLinkConfirmation(dispatch);
-            StatsLog.write(StatsLog.NFC_TAG_OCCURRED, StatsLog.NFC_TAG_OCCURRED__TYPE__URL);
+            NfcStatsLog.write(
+                    NfcStatsLog.NFC_TAG_OCCURRED, NfcStatsLog.NFC_TAG_OCCURRED__TYPE__URL);
             return true;
         }
 
@@ -756,7 +764,7 @@ class NfcDispatcher {
         }
         AlertDialog.Builder builder = new AlertDialog.Builder(
                 mContext.getApplicationContext(),
-                android.R.style.Theme_DeviceDefault_Light_Dialog_Alert);
+                R.style.DialogAlertDayNight);
         builder.setTitle(R.string.title_confirm_url_open);
         LayoutInflater inflater = LayoutInflater.from(mContext);
         View view = inflater.inflate(R.layout.url_open_confirmation, null);
@@ -781,6 +789,30 @@ class NfcDispatcher {
             pw.println("mOverrideIntent=" + mOverrideIntent);
             pw.println("mOverrideFilters=" + mOverrideFilters);
             pw.println("mOverrideTechLists=" + mOverrideTechLists);
+        }
+    }
+
+    void dumpDebug(ProtoOutputStream proto) {
+        proto.write(NfcDispatcherProto.DEVICE_SUPPORTS_BLUETOOTH, mDeviceSupportsBluetooth);
+        proto.write(NfcDispatcherProto.BLUETOOTH_ENABLED_BY_NFC, mBluetoothEnabledByNfc.get());
+
+        synchronized (this) {
+            proto.write(NfcDispatcherProto.PROVISIONING_ONLY, mProvisioningOnly);
+            if (mOverrideTechLists != null) {
+                StringJoiner techListsJoiner = new StringJoiner(System.lineSeparator());
+                for (String[] list : mOverrideTechLists) {
+                    techListsJoiner.add(Arrays.toString(list));
+                }
+                proto.write(NfcDispatcherProto.OVERRIDE_TECH_LISTS, techListsJoiner.toString());
+            }
+            if (mOverrideIntent != null) {
+                mOverrideIntent.dumpDebug(proto, NfcDispatcherProto.OVERRIDE_INTENT);
+            }
+            if (mOverrideFilters != null) {
+                for (IntentFilter filter : mOverrideFilters) {
+                    filter.dumpDebug(proto, NfcDispatcherProto.OVERRIDE_FILTERS);
+                }
+            }
         }
     }
 

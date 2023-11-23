@@ -16,48 +16,37 @@
 
 package com.android.car.media.common;
 
-import static android.graphics.Bitmap.Config.ARGB_8888;
-
-import android.annotation.DrawableRes;
-import android.annotation.NonNull;
-import android.annotation.Nullable;
 import android.content.Context;
 import android.content.res.Resources;
 import android.content.res.TypedArray;
 import android.graphics.Bitmap;
-import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.Paint;
+import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
-import android.os.SystemProperties;
 import android.support.v4.media.MediaBrowserCompat;
 import android.support.v4.media.MediaDescriptionCompat;
 import android.support.v4.media.MediaMetadataCompat;
 import android.support.v4.media.session.MediaSessionCompat;
-import android.util.Log;
-import android.view.View;
-import android.widget.ImageView;
+import android.text.TextUtils;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
-import com.android.car.apps.common.UriUtils;
+import com.android.car.apps.common.BitmapUtils;
+import com.android.car.apps.common.CommonFlags;
+import com.android.car.apps.common.imaging.ImageBinder;
+import com.android.car.apps.common.imaging.ImageBinder.PlaceholderType;
 
-import com.bumptech.glide.Glide;
-import com.bumptech.glide.RequestBuilder;
-import com.bumptech.glide.load.DataSource;
-import com.bumptech.glide.load.engine.GlideException;
-import com.bumptech.glide.request.RequestListener;
-import com.bumptech.glide.request.RequestOptions;
-import com.bumptech.glide.request.target.SimpleTarget;
-import com.bumptech.glide.request.target.Target;
-import com.bumptech.glide.request.transition.Transition;
-
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Abstract representation of a media item metadata.
@@ -68,14 +57,7 @@ import java.util.concurrent.CompletableFuture;
 public class MediaItemMetadata implements Parcelable {
     private static final String TAG = "MediaItemMetadata";
 
-    /**
-     * To red tint invalid art: adb root && adb shell setprop com.android.car.media.FlagInvalidArt 1
-     * Or set R.bool.flag_invalid_media_art to true.
-     */
-    static final String FLAG_INVALID_MEDIA_ART_KEY = "com.android.car.media.FlagInvalidArt";
     static final int INVALID_MEDIA_ART_TINT_COLOR = Color.argb(200, 255, 0, 0);
-
-    private static Boolean sFlagNonLocalMediaArt;
 
     @NonNull
     private final MediaDescriptionCompat mMediaDescription;
@@ -85,10 +67,8 @@ public class MediaItemMetadata implements Parcelable {
     private final boolean mIsPlayable;
     private final String mAlbumTitle;
     private final String mArtist;
+    private final ArtworkRef mArtworkKey = new ArtworkRef();
 
-    public MediaItemMetadata(@NonNull MediaDescriptionCompat description) {
-        this(description, null, false, false, null, null);
-    }
 
     /** Creates an instance based on a {@link MediaMetadataCompat} */
     public MediaItemMetadata(@NonNull MediaMetadataCompat metadata) {
@@ -118,21 +98,6 @@ public class MediaItemMetadata implements Parcelable {
         mArtist = in.readString();
     }
 
-    /**
-     * Creates a clone of this item
-     *
-     * @deprecated this method will be removed as part of b/79089344
-     */
-    @Deprecated
-    public MediaItemMetadata(@NonNull MediaItemMetadata item) {
-        mMediaDescription = item.mMediaDescription;
-        mQueueId = item.mQueueId;
-        mIsBrowsable = item.mIsBrowsable;
-        mIsPlayable = item.mIsPlayable;
-        mAlbumTitle = item.mAlbumTitle;
-        mArtist = item.mArtist;
-    }
-
     @VisibleForTesting
     public MediaItemMetadata(MediaDescriptionCompat description, Long queueId, boolean isBrowsable,
             boolean isPlayable, String albumTitle, String artist) {
@@ -142,6 +107,79 @@ public class MediaItemMetadata implements Parcelable {
         mIsBrowsable = isBrowsable;
         mAlbumTitle = albumTitle;
         mArtist = artist;
+    }
+
+    /**
+     * The key to access the image to display for this media item.
+     * Implemented as a class so that later we can support showing different images for the same
+     * item (eg: cover and author) by adding other keys.
+     */
+    public class ArtworkRef implements ImageBinder.ImageRef {
+
+        private @Nullable Bitmap getBitmapToFlag(Context context) {
+            CommonFlags flags = CommonFlags.getInstance(context);
+            return (flags.shouldFlagImproperImageRefs() && (mMediaDescription != null))
+                    ? mMediaDescription.getIconBitmap() : null;
+        }
+
+        private int getPlaceholderHash() {
+            // Only the title is reliably populated in metadata, since the album/artist fields
+            // aren't set in the items retrieved from the browse service (only Title/Subtitle).
+            return (getTitle() != null) ? getTitle().hashCode() : 0;
+        }
+
+        @Override
+        public String toString() {
+            return "title: " + getTitle() + " uri: " + getNonEmptyArtworkUri();
+        }
+
+        @Override
+        public @Nullable Uri getImageURI() {
+            return getNonEmptyArtworkUri();
+        }
+
+        @Override
+        public boolean equals(Context context, Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            ArtworkRef other = (ArtworkRef) o;
+
+            Bitmap myBitmap = getBitmapToFlag(context);
+            Bitmap otherBitmap = other.getBitmapToFlag(context);
+            if ((myBitmap != null) || (otherBitmap != null)) {
+                return Objects.equals(myBitmap, otherBitmap);
+            }
+
+            Uri myUri = getImageURI();
+            Uri otherUri = other.getImageURI();
+            if ((myUri != null) || (otherUri != null)) {
+                return Objects.equals(myUri, otherUri);
+            }
+
+            return getPlaceholderHash() == other.getPlaceholderHash();
+        }
+
+        @Override
+        public @Nullable Drawable getImage(Context context) {
+            Bitmap bitmap = getBitmapToFlag(context);
+            if (bitmap != null) {
+                Resources res = context.getResources();
+                return new BitmapDrawable(res, BitmapUtils.createTintedBitmap(bitmap,
+                        context.getColor(
+                                com.android.car.apps.common.R.color.improper_image_refs_tint_color
+                        )));
+            }
+            return null;
+        }
+
+        @Override
+        public Drawable getPlaceholder(Context context, @NonNull PlaceholderType type) {
+            if (type == PlaceholderType.NONE) return null;
+
+            List<Drawable> placeholders = getPlaceHolders(type, context);
+            int random = Math.floorMod(getPlaceholderHash(), placeholders.size());
+            return placeholders.get(random);
+        }
     }
 
     /** @return media item id */
@@ -183,19 +221,24 @@ public class MediaItemMetadata implements Parcelable {
         return mQueueId;
     }
 
-    /**
-     * @return album art bitmap, or NULL if this item doesn't have a local album art. In this,
-     * the {@link #getAlbumArtUri()} should be used to obtain a reference to a remote bitmap.
-     */
-    public Bitmap getAlbumArtBitmap() {
-        return mMediaDescription.getIconBitmap();
+
+    public ArtworkRef getArtworkKey() {
+        return mArtworkKey;
     }
 
     /**
-     * @return an {@link Uri} referencing the album art bitmap.
+     * @return a {@link Uri} referencing the artwork's bitmap.
      */
-    public Uri getAlbumArtUri() {
-        return mMediaDescription.getIconUri();
+    private @Nullable Uri getNonEmptyArtworkUri() {
+        Uri uri = mMediaDescription.getIconUri();
+        return (uri != null && !TextUtils.isEmpty(uri.toString())) ? uri : null;
+    }
+
+    /**
+     * @return optional extras that can include extra information about the media item to be played.
+     */
+    public Bundle getExtras() {
+        return mMediaDescription.getExtras();
     }
 
     /**
@@ -216,210 +259,31 @@ public class MediaItemMetadata implements Parcelable {
                 == MediaDescriptionCompat.STATUS_DOWNLOADED;
     }
 
-    static boolean flagInvalidMediaArt(Context context) {
-        if (sFlagNonLocalMediaArt == null) {
-            Resources res = context.getResources();
-            sFlagNonLocalMediaArt = res.getBoolean(R.bool.flag_invalid_media_art)
-                    || "1".equals(SystemProperties.get(FLAG_INVALID_MEDIA_ART_KEY, "0"));
-        }
-        return sFlagNonLocalMediaArt;
-    }
+    private static Map<PlaceholderType, List<Drawable>> sPlaceHolders = new HashMap<>();
 
-    static Drawable getPlaceholderDrawable(Context context,
-            @NonNull MediaItemMetadata metadata) {
-        TypedArray placeholderImages = context.getResources().obtainTypedArray(
-                R.array.placeholder_images);
-        if (placeholderImages != null && placeholderImages.length() > 0) {
-            // Only the title is reliably populated in metadata, since the album/artist fields
-            // aren't set in the items retrieved from the browse service (only Title/Subtitle).
-            int titleHash = (metadata.getTitle() != null) ? metadata.getTitle().hashCode() : 0;
-            int random = Math.floorMod(titleHash, placeholderImages.length());
-            Drawable placeholder = placeholderImages.getDrawable(random);
+    private static List<Drawable> getPlaceHolders(PlaceholderType type, Context context) {
+        List<Drawable> placeHolders = sPlaceHolders.get(type);
+        if (placeHolders == null) {
+            TypedArray placeholderImages = context.getResources().obtainTypedArray(
+                    type == PlaceholderType.FOREGROUND
+                            ? R.array.placeholder_images : R.array.placeholder_backgrounds);
+
+            if (placeholderImages == null) {
+                throw new NullPointerException("No placeholders for " + type);
+            }
+
+            placeHolders = new ArrayList<>(placeholderImages.length());
+            for (int i = 0; i < placeholderImages.length(); i++) {
+                placeHolders.add(placeholderImages.getDrawable(i));
+            }
             placeholderImages.recycle();
-            return placeholder;
-        }
-        return context.getDrawable(R.drawable.ic_placeholder);
-    }
+            sPlaceHolders.put(type, placeHolders);
 
-    /**
-     * Updates the given {@link ImageView} with the album art of the given media item. This is an
-     * asynchronous operation.
-     * Note: If a view is set using this method, it should also be cleared using this same method.
-     * Given that the loading is asynchronous, missing to use this method for clearing could cause
-     * a delayed request to set an undesired image, or caching entries to be used for images not
-     * longer necessary.
-     *
-     * @param context          {@link Context} used to load resources from
-     * @param metadata         metadata to use, or NULL if the {@link ImageView} should be cleared.
-     * @param imageView        loading target
-     * @param loadingIndicator a drawable resource that would be set into the {@link ImageView}
-     *                         while the image is being downloaded, or 0 if no loading indicator
-     *                         is required.
-     * @param showPlaceholder  whether to show an image placeholder when the image is null.
-     */
-    public static void updateImageView(Context context, @Nullable MediaItemMetadata metadata,
-            ImageView imageView, @DrawableRes int loadingIndicator, boolean showPlaceholder) {
-        Glide.with(context).clear(imageView);
-        imageView.clearColorFilter();
-        if (metadata == null) {
-            imageView.setImageBitmap(null);
-            imageView.setVisibility(View.GONE);
-            return;
-        }
-        boolean flagInvalidArt = flagInvalidMediaArt(context);
-        // Don't even try to get the album art bitmap unless flagging is active.
-        if (flagInvalidArt) {
-            Bitmap image = metadata.getAlbumArtBitmap();
-            if (image != null) {
-                imageView.setImageBitmap(image);
-                imageView.setVisibility(View.VISIBLE);
-                imageView.setColorFilter(INVALID_MEDIA_ART_TINT_COLOR);
-                return;
+            if (sPlaceHolders.size() <= 0) {
+                throw new Resources.NotFoundException("Placeholders should not be empty " + type);
             }
         }
-        Uri imageUri = metadata.getAlbumArtUri();
-        if (imageUri != null) {
-            boolean hasArtwork = false;
-            if (UriUtils.isAndroidResourceUri(imageUri)) {
-                // Glide doesn't support loading resources from other applications
-                Drawable pic = UriUtils.getDrawable(context, UriUtils.getIconResource(imageUri));
-                if (pic != null) {
-                    hasArtwork = true;
-                    imageView.setImageDrawable(pic);
-                } else {
-                    Log.e(TAG, "Unable to load resource " + imageUri);
-                }
-            } else if (flagInvalidArt || UriUtils.isContentUri(imageUri)) {
-                hasArtwork = true;
-                Glide.with(context)
-                        .load(imageUri)
-                        .apply(RequestOptions.placeholderOf(loadingIndicator))
-                        .listener(new RequestListener<Drawable>() {
-                            @Override
-                            public boolean onLoadFailed(@Nullable GlideException e, Object model,
-                                    Target<Drawable> target, boolean isFirstResource) {
-                                showPlaceholderOrHideView(context, metadata, imageView,
-                                        showPlaceholder);
-                                return true;
-                            }
-
-                            @Override
-                            public boolean onResourceReady(Drawable resource, Object model,
-                                    Target<Drawable> target, DataSource dataSource,
-                                    boolean isFirstResource) {
-                                return false;
-                            }
-                        })
-                        .into(imageView);
-                if (!UriUtils.isContentUri(imageUri)) {
-                    imageView.setColorFilter(INVALID_MEDIA_ART_TINT_COLOR);
-                }
-            } else {
-                Log.e(TAG, "unsupported uri: " + imageUri);
-            }
-
-            if (hasArtwork) {
-                imageView.setVisibility(View.VISIBLE);
-                return;
-            }
-        }
-        showPlaceholderOrHideView(context, metadata, imageView, showPlaceholder);
-    }
-
-    private static void showPlaceholderOrHideView(Context context,
-            @Nullable MediaItemMetadata metadata, ImageView imageView, boolean showPlaceholder) {
-        if (showPlaceholder) {
-            imageView.setImageDrawable(getPlaceholderDrawable(context, metadata));
-            imageView.setVisibility(View.VISIBLE);
-        } else {
-            imageView.setImageBitmap(null);
-            imageView.setVisibility(View.GONE);
-        }
-    }
-
-    /**
-     * Loads the album art of this media item asynchronously. The loaded image will be scaled to
-     * fit into the given view size.
-     * Using {@link #updateImageView(Context, MediaItemMetadata, ImageView, int)} method is
-     * preferred. Only use this method if you are going to apply transformations to the loaded
-     * image.
-     *
-     * @param width  desired width (should be > 0)
-     * @param height desired height (should be > 0)
-     * @param fit    whether the image should be scaled to fit (fitCenter), or it should be cropped
-     *               (centerCrop).
-     * @return a {@link CompletableFuture} that will be completed once the image is loaded, or the
-     * loading fails.
-     */
-    public CompletableFuture<Bitmap> getAlbumArt(Context context, int width, int height,
-            boolean fit) {
-        boolean flagInvalidArt = flagInvalidMediaArt(context);
-        // Don't even try to get the album art bitmap unless flagging is active.
-        if (flagInvalidArt) {
-            Bitmap image = getAlbumArtBitmap();
-            if (image != null) {
-                return CompletableFuture.completedFuture(flagBitmap(image));
-            }
-        }
-        Uri imageUri = getAlbumArtUri();
-        if (imageUri != null) {
-            if (UriUtils.isAndroidResourceUri(imageUri)) {
-                // Glide doesn't support loading resources for other applications...
-                Drawable pic = UriUtils.getDrawable(context, UriUtils.getIconResource(imageUri));
-                if (pic != null) {
-                    Bitmap bitmap = Bitmap.createBitmap(width, height, ARGB_8888);
-                    Canvas canvas = new Canvas(bitmap);
-                    pic.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
-                    pic.draw(canvas);
-                    return CompletableFuture.completedFuture(bitmap);
-                } else {
-                    String errorMessage = "Unable to load resource " + imageUri;
-                    Log.e(TAG, errorMessage);
-                    return CompletableFuture.failedFuture(new Exception(errorMessage));
-                }
-            } else if (flagInvalidArt || UriUtils.isContentUri(imageUri)) {
-                CompletableFuture<Bitmap> bitmapCompletableFuture = new CompletableFuture<>();
-                RequestBuilder<Bitmap> builder = Glide.with(context)
-                        .asBitmap()
-                        .load(getAlbumArtUri());
-                if (fit) {
-                    builder = builder.apply(RequestOptions.fitCenterTransform());
-                } else {
-                    builder = builder.apply(RequestOptions.centerCropTransform());
-                }
-                Target<Bitmap> target = new SimpleTarget<Bitmap>(width, height) {
-                    @Override
-                    public void onResourceReady(@NonNull Bitmap bitmap,
-                            @Nullable Transition<? super Bitmap> transition) {
-                        if (!UriUtils.isContentUri(imageUri)) {
-                            bitmap = flagBitmap(bitmap);
-                        }
-                        bitmapCompletableFuture.complete(bitmap);
-                    }
-
-                    @Override
-                    public void onLoadFailed(@Nullable Drawable errorDrawable) {
-                        bitmapCompletableFuture.completeExceptionally(
-                                new IllegalStateException("Unknown error"));
-                    }
-                };
-                builder.into(target);
-                return bitmapCompletableFuture;
-            } else {
-                String errorMessage = "unsupported uri: \n" + imageUri;
-                Log.e(TAG, errorMessage);
-                return CompletableFuture.failedFuture(new Exception(errorMessage));
-            }
-        }
-        return CompletableFuture.completedFuture(null);
-    }
-
-    private static Bitmap flagBitmap(Bitmap image) {
-        Bitmap clone = Bitmap.createBitmap(image.getWidth(), image.getHeight(), ARGB_8888);
-        Canvas canvas = new Canvas(clone);
-        canvas.drawBitmap(image, 0f, 0f, new Paint());
-        canvas.drawColor(INVALID_MEDIA_ART_TINT_COLOR);
-        return clone;
+        return placeHolders;
     }
 
     public boolean isBrowsable() {
@@ -492,7 +356,7 @@ public class MediaItemMetadata implements Parcelable {
                 && Objects.equals(getSubtitle(), that.getSubtitle())
                 && Objects.equals(getAlbumTitle(), that.getAlbumTitle())
                 && Objects.equals(getArtist(), that.getArtist())
-                && Objects.equals(getAlbumArtUri(), that.getAlbumArtUri())
+                && Objects.equals(getNonEmptyArtworkUri(), that.getNonEmptyArtworkUri())
                 && Objects.equals(mQueueId, that.mQueueId);
     }
 

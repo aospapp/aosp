@@ -187,6 +187,11 @@ public class TimeConsumingPreferenceActivity extends PreferenceActivity
     @Override
     public void onError(Preference preference, int error) {
         if (DBG) dumpState();
+        if (!preference.isEnabled()) {
+            Log.i(LOG_TAG, "onError, skipped duplicated error popup");
+            return;
+        }
+
         Log.i(LOG_TAG, "onError, preference=" + preference.getKey() + ", error=" + error);
 
         if (mIsForeground) {

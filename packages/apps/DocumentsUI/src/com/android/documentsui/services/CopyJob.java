@@ -19,12 +19,15 @@ package com.android.documentsui.services;
 import static android.content.ContentResolver.wrap;
 import static android.provider.DocumentsContract.buildChildDocumentsUri;
 import static android.provider.DocumentsContract.buildDocumentUri;
+import static android.provider.DocumentsContract.findDocumentPath;
 import static android.provider.DocumentsContract.getDocumentId;
 import static android.provider.DocumentsContract.isChildDocument;
 
 import static com.android.documentsui.OperationDialogFragment.DIALOG_TYPE_CONVERTED;
 import static com.android.documentsui.base.DocumentInfo.getCursorLong;
 import static com.android.documentsui.base.DocumentInfo.getCursorString;
+import static com.android.documentsui.base.Providers.AUTHORITY_DOWNLOADS;
+import static com.android.documentsui.base.Providers.AUTHORITY_STORAGE;
 import static com.android.documentsui.base.SharedMinimal.DEBUG;
 import static com.android.documentsui.services.FileOperationService.EXTRA_DIALOG_TYPE;
 import static com.android.documentsui.services.FileOperationService.EXTRA_FAILED_DOCS;
@@ -37,12 +40,14 @@ import android.app.Notification;
 import android.app.Notification.Builder;
 import android.app.PendingIntent;
 import android.content.ContentProviderClient;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.AssetFileDescriptor;
 import android.database.ContentObserver;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.DeadObjectException;
 import android.os.FileUtils;
 import android.os.Handler;
 import android.os.Looper;
@@ -55,12 +60,18 @@ import android.os.SystemClock;
 import android.os.storage.StorageManager;
 import android.provider.DocumentsContract;
 import android.provider.DocumentsContract.Document;
+import android.provider.DocumentsContract.Path;
 import android.system.ErrnoException;
 import android.system.Int64Ref;
 import android.system.Os;
 import android.system.OsConstants;
+import android.system.StructStat;
+import android.util.ArrayMap;
 import android.util.Log;
 import android.webkit.MimeTypeMap;
+
+import androidx.annotation.StringRes;
+import androidx.annotation.VisibleForTesting;
 
 import com.android.documentsui.DocumentsApplication;
 import com.android.documentsui.MetricConsts;
@@ -82,12 +93,10 @@ import java.io.InputStream;
 import java.io.SyncFailedException;
 import java.text.NumberFormat;
 import java.util.ArrayList;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
-
-import androidx.annotation.StringRes;
-import androidx.annotation.VisibleForTesting;
 
 class CopyJob extends ResolvedResourcesJob {
 
@@ -100,6 +109,7 @@ class CopyJob extends ResolvedResourcesJob {
 
     private final Handler mHandler = new Handler(Looper.getMainLooper());
     private final Messenger mMessenger;
+    private final Map<String, Long> mDirSizeMap = new ArrayMap<>();
 
     private CopyJobProgressTracker mProgressTracker;
 
@@ -223,7 +233,9 @@ class CopyJob extends ResolvedResourcesJob {
 
             try {
                 // Copying recursively to itself or one of descendants is not allowed.
-                if (mDstInfo.equals(srcInfo) || isDescendentOf(srcInfo, mDstInfo)) {
+                if (mDstInfo.equals(srcInfo)
+                    || isDescendantOf(srcInfo, mDstInfo)
+                    || isRecursiveCopy(srcInfo, mDstInfo)) {
                     Log.e(TAG, "Skipping recursive copy of " + srcInfo.derivedUri);
                     onFileFailed(srcInfo);
                 } else {
@@ -269,7 +281,7 @@ class CopyJob extends ResolvedResourcesJob {
             RootInfo root = stack.getRoot();
             // Query root info here instead of using stack.root because the number there may be
             // stale.
-            root = cache.getRootOneshot(root.authority, root.rootId, true);
+            root = cache.getRootOneshot(root.userId, root.authority, root.rootId, true);
             if (root.availableBytes >= 0) {
                 available = (batchSize <= root.availableBytes);
             } else {
@@ -307,6 +319,22 @@ class CopyJob extends ResolvedResourcesJob {
     }
 
     /**
+     * Logs progress when optimized copy.
+     *
+     * @param doc the doc current copy.
+     */
+    protected void makeOptimizedCopyProgress(DocumentInfo doc) {
+        long bytes;
+        if (doc.isDirectory()) {
+            Long byteObject = mDirSizeMap.get(doc.documentId);
+            bytes = byteObject == null ? 0 : byteObject.longValue();
+        } else {
+            bytes = doc.size;
+        }
+        makeCopyProgress(bytes);
+    }
+
+    /**
      * Copies a the given document to the given location.
      *
      * @param src DocumentInfos for the documents to copy.
@@ -318,8 +346,6 @@ class CopyJob extends ResolvedResourcesJob {
      */
     void processDocument(DocumentInfo src, DocumentInfo srcParent,
             DocumentInfo dstDirInfo) throws ResourceException {
-
-        // TODO: When optimized copy kicks in, we'll not making any progress updates.
         // For now. Local storage isn't using optimized copy.
 
         // When copying within the same provider, try to use optimized copying.
@@ -330,9 +356,13 @@ class CopyJob extends ResolvedResourcesJob {
                     if (DocumentsContract.copyDocument(wrap(getClient(src)), src.derivedUri,
                             dstDirInfo.derivedUri) != null) {
                         Metrics.logFileOperated(operationType, MetricConsts.OPMODE_PROVIDER);
+                        makeOptimizedCopyProgress(src);
                         return;
                     }
                 } catch (FileNotFoundException | RemoteException | RuntimeException e) {
+                    if (e instanceof DeadObjectException) {
+                        releaseClient(src);
+                    }
                     Log.e(TAG, "Provider side copy failed for: " + src.derivedUri
                             + " due to an exception.", e);
                     Metrics.logFileOperationFailure(
@@ -368,7 +398,8 @@ class CopyJob extends ResolvedResourcesJob {
         if (src.isVirtual()) {
             String[] streamTypes = null;
             try {
-                streamTypes = getContentResolver().getStreamTypes(src.derivedUri, "*/*");
+                streamTypes = src.userId.getContentResolver(service).getStreamTypes(src.derivedUri,
+                        "*/*");
             } catch (RuntimeException e) {
                 Metrics.logFileOperationFailure(
                         appContext, MetricConsts.SUBFILEOP_OBTAIN_STREAM_TYPE, src.derivedUri);
@@ -400,6 +431,9 @@ class CopyJob extends ResolvedResourcesJob {
             dstUri = DocumentsContract.createDocument(
                     wrap(getClient(dest)), dest.derivedUri, dstMimeType, dstDisplayName);
         } catch (FileNotFoundException | RemoteException | RuntimeException e) {
+            if (e instanceof DeadObjectException) {
+                releaseClient(dest);
+            }
             Metrics.logFileOperationFailure(
                     appContext, MetricConsts.SUBFILEOP_CREATE_DOCUMENT, dest.derivedUri);
             throw new ResourceException(
@@ -417,7 +451,8 @@ class CopyJob extends ResolvedResourcesJob {
 
         DocumentInfo dstInfo = null;
         try {
-            dstInfo = DocumentInfo.fromUri(getContentResolver(), dstUri);
+            dstInfo = DocumentInfo.fromUri(dest.userId.getContentResolver(service), dstUri,
+                    dest.userId);
         } catch (FileNotFoundException | RuntimeException e) {
             Metrics.logFileOperationFailure(
                     appContext, MetricConsts.SUBFILEOP_QUERY_DOCUMENT, dstUri);
@@ -458,6 +493,9 @@ class CopyJob extends ResolvedResourcesJob {
             try {
                 cursor = queryChildren(srcDir, queryColumns);
             } catch (RemoteException | RuntimeException e) {
+                if (e instanceof DeadObjectException) {
+                    releaseClient(srcDir);
+                }
                 Metrics.logFileOperationFailure(
                         appContext, MetricConsts.SUBFILEOP_QUERY_CHILDREN, srcDir.derivedUri);
                 throw new ResourceException("Failed to query children of %s due to an exception.",
@@ -467,7 +505,7 @@ class CopyJob extends ResolvedResourcesJob {
             DocumentInfo src;
             while (cursor.moveToNext() && !isCanceled()) {
                 try {
-                    src = DocumentInfo.fromCursor(cursor, srcDir.authority);
+                    src = DocumentInfo.fromCursor(cursor, srcDir.userId, srcDir.authority);
                     processDocument(src, srcDir, destDir);
                 } catch (RuntimeException e) {
                     Log.e(TAG, String.format(
@@ -517,6 +555,9 @@ class CopyJob extends ResolvedResourcesJob {
                     srcFileAsAsset = getClient(src).openTypedAssetFileDescriptor(
                                 src.derivedUri, mimeType, null, mSignal);
                 } catch (FileNotFoundException | RemoteException | RuntimeException e) {
+                    if (e instanceof DeadObjectException) {
+                        releaseClient(src);
+                    }
                     Metrics.logFileOperationFailure(
                             appContext, MetricConsts.SUBFILEOP_OPEN_FILE, src.derivedUri);
                     throw new ResourceException("Failed to open a file as asset for %s due to an "
@@ -537,6 +578,9 @@ class CopyJob extends ResolvedResourcesJob {
                 try {
                     srcFile = getClient(src).openFile(src.derivedUri, "r", mSignal);
                 } catch (FileNotFoundException | RemoteException | RuntimeException e) {
+                    if (e instanceof DeadObjectException) {
+                        releaseClient(src);
+                    }
                     Metrics.logFileOperationFailure(
                             appContext, MetricConsts.SUBFILEOP_OPEN_FILE, src.derivedUri);
                     throw new ResourceException(
@@ -550,6 +594,9 @@ class CopyJob extends ResolvedResourcesJob {
             try {
                 dstFile = getClient(dest).openFile(dest.derivedUri, "w", mSignal);
             } catch (FileNotFoundException | RemoteException | RuntimeException e) {
+                if (e instanceof DeadObjectException) {
+                    releaseClient(dest);
+                }
                 Metrics.logFileOperationFailure(
                         appContext, MetricConsts.SUBFILEOP_OPEN_FILE, dest.derivedUri);
                 throw new ResourceException("Failed to open the destination file %s for writing "
@@ -657,8 +704,9 @@ class CopyJob extends ResolvedResourcesJob {
                 if (src.isDirectory()) {
                     // Directories need to be recursed into.
                     try {
-                        bytesRequired +=
-                                calculateFileSizesRecursively(getClient(src), src.derivedUri);
+                        long size = calculateFileSizesRecursively(getClient(src), src.derivedUri);
+                        bytesRequired += size;
+                        mDirSizeMap.put(src.documentId, size);
                     } catch (RemoteException e) {
                         Log.w(TAG, "Failed to obtain the client for " + src.derivedUri, e);
                         return new IndeterminateProgressTracker(bytesRequired);
@@ -715,6 +763,9 @@ class CopyJob extends ResolvedResourcesJob {
                 }
             }
         } catch (RemoteException | RuntimeException e) {
+            if (e instanceof DeadObjectException) {
+                releaseClient(uri);
+            }
             throw new ResourceException(
                     "Failed to calculate size for %s due to an exception.", uri, e);
         } finally {
@@ -789,18 +840,90 @@ class CopyJob extends ResolvedResourcesJob {
      * Returns true if {@code doc} is a descendant of {@code parentDoc}.
      * @throws ResourceException
      */
-    boolean isDescendentOf(DocumentInfo doc, DocumentInfo parent)
+    boolean isDescendantOf(DocumentInfo doc, DocumentInfo parent)
             throws ResourceException {
         if (parent.isDirectory() && doc.authority.equals(parent.authority)) {
             try {
                 return isChildDocument(wrap(getClient(doc)), doc.derivedUri, parent.derivedUri);
             } catch (FileNotFoundException | RemoteException | RuntimeException e) {
+                if (e instanceof DeadObjectException) {
+                    releaseClient(doc);
+                }
                 throw new ResourceException(
                         "Failed to check if %s is a child of %s due to an exception.",
                         doc.derivedUri, parent.derivedUri, e);
             }
         }
         return false;
+    }
+
+
+    private boolean isRecursiveCopy(DocumentInfo source, DocumentInfo target) {
+        if (!source.isDirectory() || !target.isDirectory()) {
+            return false;
+        }
+
+        // Recursive copy within the same authority is prevented by a check to isDescendantOf.
+        if (source.authority.equals(target.authority)) {
+            return false;
+        }
+
+        if (!isFileSystemProvider(source) || !isFileSystemProvider(target)) {
+            return false;
+        }
+
+        Uri sourceUri = source.derivedUri;
+        Uri targetUri = target.derivedUri;
+
+        try {
+            final Path targetPath = findDocumentPath(wrap(getClient(target)), targetUri);
+            if (targetPath == null) {
+                return false;
+            }
+
+            ContentResolver cr = wrap(getClient(source));
+            try (ParcelFileDescriptor sourceFd = cr.openFile(sourceUri, "r", null)) {
+                StructStat sourceStat = Os.fstat(sourceFd.getFileDescriptor());
+                final long sourceDev = sourceStat.st_dev;
+                final long sourceIno = sourceStat.st_ino;
+                // Walk down the target hierarchy. If we ever match the source, we know we are a
+                // descendant of them and should abort the copy.
+                for (String targetNodeDocId : targetPath.getPath()) {
+                    Uri targetNodeUri = buildDocumentUri(target.authority, targetNodeDocId);
+                    cr = wrap(getClient(target));
+
+                    try (ParcelFileDescriptor targetFd = cr.openFile(targetNodeUri, "r", null)) {
+                        StructStat targetNodeStat = Os.fstat(targetFd.getFileDescriptor());
+                        final long targetNodeDev = targetNodeStat.st_dev;
+                        final long targetNodeIno = targetNodeStat.st_ino;
+
+                        // Devices differ, just return early.
+                        if (sourceDev != targetNodeDev) {
+                            return false;
+                        }
+
+                        if (sourceIno == targetNodeIno) {
+                            Log.w(TAG, String.format(
+                                "Preventing copy from %s to %s", sourceUri, targetUri));
+                            return true;
+                        }
+
+                    }
+                }
+            }
+        } catch (Throwable t) {
+            if (t instanceof DeadObjectException) {
+                releaseClient(target);
+            }
+            Log.w(TAG, String.format("Failed to determine if isRecursiveCopy" +
+                " for source %s and target %s", sourceUri, targetUri), t);
+        }
+        return false;
+    }
+
+    private static boolean isFileSystemProvider(DocumentInfo info) {
+        return AUTHORITY_STORAGE.equals(info.authority)
+            || AUTHORITY_DOWNLOADS.equals(info.authority);
     }
 
     @Override

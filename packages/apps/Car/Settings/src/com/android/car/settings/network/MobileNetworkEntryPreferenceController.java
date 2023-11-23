@@ -17,8 +17,8 @@
 package com.android.car.settings.network;
 
 import android.car.drivingstate.CarUxRestrictions;
-import android.car.userlib.CarUserManagerHelper;
 import android.content.Context;
+import android.content.Intent;
 import android.net.ConnectivityManager;
 import android.os.UserManager;
 import android.telephony.SubscriptionInfo;
@@ -28,6 +28,7 @@ import android.telephony.TelephonyManager;
 import androidx.preference.Preference;
 
 import com.android.car.settings.R;
+import com.android.car.settings.common.CarSettingActivities;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceController;
 
@@ -38,7 +39,7 @@ public class MobileNetworkEntryPreferenceController extends
         PreferenceController<Preference> implements
         SubscriptionsChangeListener.SubscriptionsChangeAction {
 
-    private final CarUserManagerHelper mCarUserManagerHelper;
+    private final UserManager mUserManager;
     private final SubscriptionsChangeListener mChangeListener;
     private final SubscriptionManager mSubscriptionManager;
     private final ConnectivityManager mConnectivityManager;
@@ -47,7 +48,7 @@ public class MobileNetworkEntryPreferenceController extends
     public MobileNetworkEntryPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
-        mCarUserManagerHelper = new CarUserManagerHelper(context);
+        mUserManager = UserManager.get(context);
         mChangeListener = new SubscriptionsChangeListener(context, /* action= */ this);
         mSubscriptionManager = context.getSystemService(SubscriptionManager.class);
         mConnectivityManager = context.getSystemService(ConnectivityManager.class);
@@ -75,9 +76,9 @@ public class MobileNetworkEntryPreferenceController extends
             return UNSUPPORTED_ON_DEVICE;
         }
 
-        boolean isNotAdmin = !mCarUserManagerHelper.getCurrentProcessUserInfo().isAdmin();
-        boolean hasRestriction = mCarUserManagerHelper.isCurrentProcessUserHasRestriction(
-                UserManager.DISALLOW_CONFIG_MOBILE_NETWORKS);
+        boolean isNotAdmin = !mUserManager.isAdminUser();
+        boolean hasRestriction =
+                mUserManager.hasUserRestriction(UserManager.DISALLOW_CONFIG_MOBILE_NETWORKS);
         if (isNotAdmin || hasRestriction) {
             return DISABLED_FOR_USER;
         }
@@ -101,10 +102,15 @@ public class MobileNetworkEntryPreferenceController extends
         }
 
         if (subs.size() == 1) {
-            getFragmentController().launchFragment(
-                    MobileNetworkFragment.newInstance(subs.get(0).getSubscriptionId()));
+            Intent intent = new Intent(getContext(),
+                    CarSettingActivities.MobileNetworkActivity.class);
+            intent.putExtra(MobileNetworkFragment.ARG_NETWORK_SUB_ID,
+                    subs.get(0).getSubscriptionId());
+            getContext().startActivity(intent);
         } else {
-            getFragmentController().launchFragment(new MobileNetworkListFragment());
+            Intent intent = new Intent(getContext(),
+                    CarSettingActivities.MobileNetworkListActivity.class);
+            getContext().startActivity(intent);
         }
         return true;
     }

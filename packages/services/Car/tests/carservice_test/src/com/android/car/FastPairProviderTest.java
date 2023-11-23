@@ -29,22 +29,27 @@ import android.content.Context;
 import android.content.res.Resources;
 import android.os.ParcelUuid;
 
+import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SmallTest;
-import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Assert;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
 
 import java.util.Arrays;
 
 @SmallTest
 @RunWith(AndroidJUnit4.class)
 public class FastPairProviderTest {
+    @Rule
+    public final MockitoRule rule = MockitoJUnit.rule();
+
     // Service ID assigned for FastPair.
     private static final ParcelUuid FastPairServiceUuid = ParcelUuid
             .fromString("0000FE2C-0000-1000-8000-00805f9b34fb");
@@ -62,7 +67,6 @@ public class FastPairProviderTest {
 
     @Before
     public void setUp() {
-        MockitoAnnotations.initMocks(this);
         when(mMockContext.getSystemService(Context.BLUETOOTH_SERVICE)).thenReturn(
                 mMockBluetoothManager);
         when(mMockBluetoothManager.getAdapter()).thenReturn(mMockBluetoothAdapter);

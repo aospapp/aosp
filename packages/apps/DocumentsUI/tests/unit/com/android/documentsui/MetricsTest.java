@@ -3,7 +3,6 @@ package com.android.documentsui;
 import android.content.Intent;
 import android.net.Uri;
 
-import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
 
@@ -35,5 +34,10 @@ public class MetricsTest {
         final State state = new State();
         state.action = State.ACTION_BROWSE;
         Metrics.logActivityLaunch(state, intent);
+    }
+
+    @Test
+    public void logDragInitiated_shouldNotCrash() {
+        Metrics.logDragInitiated(true);
     }
 }

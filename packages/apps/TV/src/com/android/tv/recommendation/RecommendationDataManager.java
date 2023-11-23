@@ -34,14 +34,17 @@ import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.annotation.WorkerThread;
 import android.util.Log;
+
 import com.android.tv.TvSingletons;
 import com.android.tv.common.WeakHandler;
 import com.android.tv.common.util.PermissionUtils;
 import com.android.tv.data.ChannelDataManager;
-import com.android.tv.data.Program;
+import com.android.tv.data.ProgramImpl;
 import com.android.tv.data.WatchedHistoryManager;
 import com.android.tv.data.api.Channel;
+import com.android.tv.data.api.Program;
 import com.android.tv.util.TvUriMatcher;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -232,6 +235,9 @@ public class RecommendationDataManager implements WatchedHistoryManager.Listener
 
     @MainThread
     private void stop() {
+        if (mWatchedHistoryManager != null) {
+            mWatchedHistoryManager.setListener(null);
+        }
         for (int what = MSG_FIRST; what <= MSG_LAST; ++what) {
             mHandler.removeMessages(what);
         }
@@ -359,7 +365,7 @@ public class RecommendationDataManager implements WatchedHistoryManager.Listener
             WatchedHistoryManager.WatchedRecord watchedRecord) {
         long endTime = watchedRecord.watchedStartTime + watchedRecord.duration;
         Program program =
-                new Program.Builder()
+                new ProgramImpl.Builder()
                         .setChannelId(watchedRecord.channelId)
                         .setTitle("")
                         .setStartTimeUtcMillis(watchedRecord.watchedStartTime)
@@ -411,7 +417,7 @@ public class RecommendationDataManager implements WatchedHistoryManager.Listener
         }
 
         Program program =
-                new Program.Builder()
+                new ProgramImpl.Builder()
                         .setChannelId(cursor.getLong(mIndexWatchChannelId))
                         .setTitle(cursor.getString(mIndexProgramTitle))
                         .setStartTimeUtcMillis(cursor.getLong(mIndexProgramStartTime))

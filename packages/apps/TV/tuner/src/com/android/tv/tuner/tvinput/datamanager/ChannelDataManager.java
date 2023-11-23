@@ -29,11 +29,10 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Message;
 import android.os.RemoteException;
+import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.text.format.DateUtils;
 import android.util.Log;
-import com.android.tv.common.singletons.HasSingletons;
-import com.android.tv.common.singletons.HasTvInputId;
 import com.android.tv.common.util.PermissionUtils;
 import com.android.tv.tuner.data.PsipData.EitItem;
 import com.android.tv.tuner.data.TunerChannel;
@@ -51,7 +50,7 @@ import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-/** Manages the channel info and EPG data through {@link TvInputManager}. */
+/** Manages the channel info and EPG data for a specific inputId. */
 public class ChannelDataManager implements Handler.Callback {
     private static final String TAG = "ChannelDataManager";
 
@@ -146,9 +145,9 @@ public class ChannelDataManager implements Handler.Callback {
         void onChannelHandlingDone();
     }
 
-    public ChannelDataManager(Context context) {
+    public ChannelDataManager(Context context, String inputId) {
         mContext = context;
-        mInputId = HasSingletons.get(HasTvInputId.class, context).getEmbeddedTunerInputId();
+        mInputId = inputId;
         mChannelsUri = TvContract.buildChannelsUriForInput(mInputId);
         mTunerChannelMap = new ConcurrentHashMap<>();
         mTunerChannelIdMap = new ConcurrentSkipListMap<>();
@@ -380,6 +379,12 @@ public class ChannelDataManager implements Handler.Callback {
                 Log.w(TAG, "unexpected case in handleMessage ( " + msg.what + " )");
         }
         return false;
+    }
+
+    @NonNull
+    @Override
+    public String toString() {
+        return "ChannelDataManager[" + mInputId + "]";
     }
 
     // Private methods

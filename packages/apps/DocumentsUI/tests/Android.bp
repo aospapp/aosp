@@ -29,6 +29,14 @@ filegroup {
     ],
 }
 
+filegroup {
+    name: "DocumentsUIUnitTests-srcs",
+    srcs: [
+        "common/**/*.java",
+        "unit/**/*.java",
+    ],
+}
+
 android_library {
     name: "DocumentsUITests-res-lib",
 
@@ -47,6 +55,9 @@ android_library {
         "-0 .zip",
         "--auto-add-overlay",
     ],
+
+    min_sdk_version : "29",
+    target_sdk_version : "29",
 }
 
 android_test {
@@ -87,6 +98,7 @@ android_test {
 
     test_suites: [
         "device-tests",
+        "mts",
     ],
 
     platform_apis: true,
@@ -94,4 +106,6 @@ android_test {
     certificate: "platform",
 
     instrumentation_for: "DocumentsUI",
+    min_sdk_version : "29",
+    target_sdk_version : "29",
 }

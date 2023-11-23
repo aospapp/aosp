@@ -51,18 +51,15 @@ import android.os.Looper;
 import android.os.RemoteException;
 
 import androidx.test.core.app.ApplicationProvider;
-import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.Spy;
-import org.mockito.junit.MockitoJUnit;
-import org.mockito.junit.MockitoRule;
+import org.mockito.junit.MockitoJUnitRunner;
 
 import java.util.Arrays;
 import java.util.BitSet;
@@ -70,7 +67,7 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-@RunWith(AndroidJUnit4.class)
+@RunWith(MockitoJUnitRunner.class)
 public class CarProjectionServiceTest {
     private static final int MD_ID1 = 1;
     private static final int MD_ID2 = 2;
@@ -83,9 +80,6 @@ public class CarProjectionServiceTest {
     private static final String STATUS_EXTRA_VALUE = "additional status value";
 
     private final IBinder mToken = new Binder();
-
-    @Rule
-    public MockitoRule rule = MockitoJUnit.rule();
 
     private CarProjectionService mService;
 

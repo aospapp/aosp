@@ -480,8 +480,7 @@
     <string name="face_lock_screen_setup_skip_dialog_text" product="tablet" msgid="2998863111689476550">"আপোনাৰ টেবলেটটো কোনো স্ক্ৰীণ লক বিকল্পৰ দ্বাৰা সুৰক্ষিত কৰক যাতে চুৰি হ’লে বা হেৰালে কোনেও সেইটো ব্যৱহাৰ কৰিব নোৱাৰে। মুখমণ্ডল প্ৰমাণীকৰণ ছেট আপ কৰিবলৈ আপোনাক এটা স্ক্ৰীণ লক বিকল্পৰো প্ৰয়োজন। বাতিল কৰক-ত টিপক, তাৰ পিছত পিন ছেট কৰক বা অন্য এটা স্ক্ৰীণ লক বিকল্প বাছনি কৰক।"</string>
     <string name="face_lock_screen_setup_skip_dialog_text" product="device" msgid="6780557259734235952">"আপোনাৰ ডিভাইচটো কোনো স্ক্ৰীণ লক বিকল্পৰ দ্বাৰা সুৰক্ষিত কৰক যাতে চুৰি হ’লে বা হেৰালে কোনেও সেইটো ব্যৱহাৰ কৰিব নোৱাৰে। মুখমণ্ডল প্ৰমাণীকৰণ ছেট আপ কৰিবলৈ আপোনাক এটা স্ক্ৰীণ লক বিকল্পৰো প্ৰয়োজন। বাতিল কৰক-ত টিপক, তাৰ পিছত পিন ছেট কৰক বা অন্য এটা স্ক্ৰীণ লক বিকল্প বাছনি কৰক।"</string>
     <string name="face_lock_screen_setup_skip_dialog_text" product="default" msgid="8541640018478926775">"আপোনাৰ ফ’নটো কোনো স্ক্ৰীণ লক বিকল্পৰ দ্বাৰা সুৰক্ষিত কৰক যাতে চুৰি হ’লে বা হেৰালে কোনেও সেইটো ব্যৱহাৰ কৰিব নোৱাৰে। মুখমণ্ডল প্ৰমাণীকৰণ ছেট আপ কৰিবলৈ আপোনাক এটা স্ক্ৰীণ লক বিকল্পৰো প্ৰয়োজন। বাতিল কৰক-ত টিপক, তাৰ পিছত পিন ছেট কৰক বা অন্য এটা স্ক্ৰীণ লক বিকল্প বাছনি কৰক।"</string>
-    <!-- no translation found for lock_screen_pin_skip_title (8217519439213393785) -->
-    <skip />
+    <string name="lock_screen_pin_skip_title" msgid="8217519439213393785">"পিন ছেট আপ নকৰাকৈ এৰি যাবনে?"</string>
     <string name="lock_screen_password_skip_title" msgid="3725788215672959827">"পাছৱৰ্ড ছেট আপ এৰি যাব নেকি?"</string>
     <string name="lock_screen_pattern_skip_title" msgid="4237030500353932005">"আৰ্হি ছেট আপ এৰি যাব নেকি?"</string>
     <string name="security_settings_fingerprint_enroll_setup_screen_lock" msgid="9036983528330627756">"স্ক্ৰীণ লক ছেট আপ কৰক"</string>
@@ -668,7 +667,6 @@
       <item quantity="one"><xliff:g id="NUMBER_1">%d</xliff:g>টা সংখ্যাতকৈ কম হ\'বই লাগিব</item>
       <item quantity="other"><xliff:g id="NUMBER_1">%d</xliff:g>টা সংখ্যাতকৈ কম হ\'বই লাগিব</item>
     </plurals>
-    <string name="lockpassword_pin_contains_non_digits" msgid="1501729742023195556">"কেৱল অংকহে থাকিব লাগিব ০-৯"</string>
     <string name="lockpassword_pin_recently_used" msgid="5556148774911741103">"ডিভাইচ এডমিনে আপুনি ব্যৱহাৰ কৰা অন্তিমটো পিন আকৌ ব্যৱহাৰ কৰিবলৈ অনুমতি দিয়া নাই"</string>
     <string name="lockpassword_pin_blacklisted_by_admin" msgid="2752037810571200697">"আপোনাৰ আইটি প্ৰশাসকে বিশেষত্বহীন পিনবোৰ অৱৰোধ কৰি থৈছে৷ এটা পৃথক পিনেৰে চেষ্টা কৰক৷"</string>
     <string name="lockpassword_illegal_character" msgid="3577712947676261351">"কেৱল বৈধ বৰ্ণহে দিয়ক"</string>
@@ -698,6 +696,10 @@
     <plurals name="lockpassword_password_requires_nonletter" formatted="false" msgid="3692485784007607387">
       <item quantity="one">অতি কমেও <xliff:g id="COUNT">%d</xliff:g>টা সংখ্যা বা প্ৰতীক থাকিব লাগিব</item>
       <item quantity="other">অতি কমেও <xliff:g id="COUNT">%d</xliff:g>টা সংখ্যা বা প্ৰতীক থাকিব লাগিব</item>
+    </plurals>
+    <plurals name="lockpassword_password_requires_nonnumerical" formatted="false" msgid="6943707011152180150">
+      <item quantity="one">অতি কমেও <xliff:g id="COUNT">%d</xliff:g>টা এনেকুৱা বৰ্ণ থাকিবই লাগিব যিটো সংখ্যা নহয়</item>
+      <item quantity="other">অতি কমেও <xliff:g id="COUNT">%d</xliff:g>টা এনেকুৱা বৰ্ণ থাকিবই লাগিব যিটো সংখ্যা নহয়</item>
     </plurals>
     <string name="lockpassword_password_recently_used" msgid="6944729699375087431">"ডিভাইচৰ প্ৰশাসকে শেহতীয়া পাছৱৰ্ড ব্যৱহাৰ কৰিব নিদিয়ে"</string>
     <string name="lockpassword_password_blacklisted_by_admin" msgid="4988166770148440755">"আইটি এডমিনে উমৈহতীয়া পাছৱৰ্ডসমূহ অৱৰোধ কৰি থৈছে। এটা পৃথক পাছৱৰ্ডেৰে চেষ্টা কৰক।"</string>
@@ -1091,13 +1093,19 @@
     <item msgid="2552412793005571845">"@*android:string/wfc_mode_cellular_preferred_summary"</item>
     <item msgid="742811521969300868">"@*android:string/wfc_mode_wifi_only_summary"</item>
   </string-array>
-    <!-- no translation found for wifi_calling_mode_choices_v2:0 (9149346657812979257) -->
-    <!-- no translation found for wifi_calling_mode_choices_v2:2 (6007360612667098926) -->
+  <string-array name="wifi_calling_mode_choices_v2">
+    <item msgid="9149346657812979257">"ৱাই-ফাই"</item>
+    <item msgid="4421333712484542489">"ম’বাইল"</item>
+    <item msgid="6007360612667098926">"ৱাই-ফাই মাত্ৰ"</item>
+  </string-array>
   <string-array name="wifi_calling_mode_choices_without_wifi_only">
     <item msgid="3658897985297386665">"@*android:string/wfc_mode_wifi_preferred_summary"</item>
     <item msgid="4191802193352447215">"@*android:string/wfc_mode_cellular_preferred_summary"</item>
   </string-array>
-    <!-- no translation found for wifi_calling_mode_choices_v2_without_wifi_only:0 (6452246499629557266) -->
+  <string-array name="wifi_calling_mode_choices_v2_without_wifi_only">
+    <item msgid="6452246499629557266">"ৱাই-ফাই"</item>
+    <item msgid="2271962426654621656">"ম’বাইল"</item>
+  </string-array>
     <string name="wifi_calling_mode_wifi_preferred_summary" msgid="8298294808362169798">"যদি ৱাই-ফাই উপলব্ধ নহয়, তেন্তে ম’বাইল নেটৱৰ্ক ব্যৱহাৰ কৰক"</string>
     <string name="wifi_calling_mode_cellular_preferred_summary" msgid="4906499810156794061">"যদি ম’বাইল নেটৱৰ্ক নাথাকে তেন্তে ৱাই-ফাই ব্যৱহাৰ কৰক"</string>
     <string name="wifi_calling_mode_wifi_only_summary" msgid="6928556021002500522">"ৱাই-ফাইৰ জৰিয়তে কল কৰক। ৱাই-ফাই সংযোগ হেৰালে কল সমাপ্ত হ’ব।"</string>
@@ -2611,7 +2619,7 @@
     <string name="sync_one_time_sync" msgid="6005174168405784256">"এতিয়াই ছিংক কৰিবলৈ টিপক<xliff:g id="LAST_SYNC_TIME">
 %1$s</xliff:g>"</string>
     <string name="sync_gmail" msgid="4457967084840001296">"Gmail"</string>
-    <string name="sync_calendar" msgid="6573708019827519372">"কেলেণ্ডাৰ"</string>
+    <string name="sync_calendar" msgid="6573708019827519372">"Calendar"</string>
     <string name="sync_contacts" msgid="5687434785723746534">"সম্পৰ্কসমূহ"</string>
     <string name="sync_plug" msgid="6703804441408427257"><font fgcolor="#ffffffff">"Google ছিংকলৈ আপোনাক স্বাগতম!"</font>" \nডেটা ছিংক কৰাৰ এইয়া Googleৰ এটা পদক্ষেপ, যাৰদ্বাৰা আপুনি য\'তেই নাথাকক ত\'তে সম্পৰ্কসূচী, সাক্ষাতৰ সময়সূচীকে ধৰি আপোনাৰ বাবে অতি দৰকাৰী তথ্যসমূহ থাওকতে পাব।"</string>
     <string name="header_application_sync_settings" msgid="4581847153669774489">"এপৰ ছিংক ছেটিংসমূহ"</string>
@@ -4231,7 +4239,7 @@
     <string name="storage_music_audio" msgid="3661289086715297149">"সংগীত আৰু ধ্বনি"</string>
     <string name="storage_games" msgid="7740038143749092373">"খেল"</string>
     <string name="storage_other_apps" msgid="3202407095387420842">"অন্যান্য এপসমূহ"</string>
-    <string name="storage_files" msgid="2087824267937487880">"ফাইলসমূহ"</string>
+    <string name="storage_files" msgid="2087824267937487880">"Files"</string>
     <string name="storage_size_large_alternate" msgid="1317796542509105857">"<xliff:g id="NUMBER">^1</xliff:g>"<small>" "<font size="20">"<xliff:g id="UNIT">^2</xliff:g>"</font></small>""</string>
     <string name="storage_volume_total" msgid="5021484171514159913">"<xliff:g id="TOTAL">%1$s</xliff:g>ৰ বাবে ব্যৱহৃত"</string>
     <string name="storage_percent_full" msgid="6924662861545958442">"ব্যৱহৃত"</string>
@@ -4271,6 +4279,8 @@
     <string name="disabled_feature_reason_slow_down_phone" msgid="1819157849156814583">"ইয়ে এই ফ’নটো মন্থৰ কৰিব"</string>
     <string name="enable_gnss_raw_meas_full_tracking" msgid="3397182995626655581">"সম্পূৰ্ণ জিএনএছএছ পৰিমাপ প্ৰয়োগ কৰক"</string>
     <string name="enable_gnss_raw_meas_full_tracking_summary" msgid="2469305990718976105">"কোনো উপযোগীতা অনুপাতৰ সহায় নোলোৱাকৈ GNSS কনষ্টেলেশ্বন আৰু ফ্ৰিকুৱেন্সী নিৰীক্ষণ কৰক"</string>
+    <string name="enable_user_switch_message" msgid="8613014373053051092">"ব্যৱহাৰকাৰী সলনি কৰাৰ সম্পর্কে সবিশেষ তথ্য দেখুৱাওক"</string>
+    <string name="enable_user_switch_message_summary" msgid="3354160264601132060">"ব্যৱহাৰকাৰী সলনি কৰাৰ সময়ত সবিশেষ তথ্য দেখুৱাওক"</string>
     <string name="allow_background_activity_starts" msgid="6754016668813082728">"নেপথ্যৰ কাৰ্যকলাপ আৰম্ভ কৰাত অনুমতি দিয়ে"</string>
     <string name="allow_background_activity_starts_summary" msgid="8170749270869606692">"সকলো নেপথ্যৰ কাৰ্যকলাপ আৰম্ভ কৰাত অনুমতি দিয়ে"</string>
     <string name="show_first_crash_dialog" msgid="3682063068903692710">"সদায় ক্ৰেশ্ব ডায়ল\'গ দেখুৱাওক"</string>
@@ -4463,7 +4473,7 @@
     <string name="privacy_dashboard_title" msgid="8764930992456607513">"গোপনীয়তা"</string>
     <string name="privacy_dashboard_summary" msgid="7916431309860824945">"অনুমতি, একাউণ্টৰ কাৰ্যকলাপ, ব্যক্তিগত ডেটা"</string>
     <string name="contextual_card_dismiss_remove" msgid="1750420285615827309">"আঁতৰাওক"</string>
-    <string name="contextual_card_dismiss_keep" msgid="3204450672928193661">"ৰাখক"</string>
+    <string name="contextual_card_dismiss_keep" msgid="3204450672928193661">"Keep"</string>
     <string name="contextual_card_dismiss_confirm_message" msgid="2352465079667730312">"এই পৰামৰ্শটো আঁতৰাবনে?"</string>
     <string name="contextual_card_removed_message" msgid="4047307820743366876">"পৰামৰ্শ আঁতৰোৱা হ’ল"</string>
     <string name="contextual_card_undo_dismissal_text" msgid="5009245286931852012">"আনডু কৰক"</string>

@@ -18,16 +18,22 @@ package com.android.phone.settings;
 
 import android.content.Context;
 import android.content.Intent;
+import android.os.PersistableBundle;
 import android.os.UserHandle;
 import android.preference.ListPreference;
 import android.preference.Preference;
 import android.provider.Settings;
+import android.provider.Settings.Secure;
 import android.telecom.TelecomManager;
+import android.telephony.CarrierConfigManager;
+import android.telephony.SubscriptionManager;
 import android.util.AttributeSet;
 import android.util.Log;
 
 import com.android.phone.PhoneGlobals;
 import com.android.phone.R;
+
+import java.util.Arrays;
 
 public class TtyModeListPreference extends ListPreference
         implements Preference.OnPreferenceChangeListener {
@@ -44,6 +50,19 @@ public class TtyModeListPreference extends ListPreference
         int settingsTtyMode = Settings.Secure.getInt(getContext().getContentResolver(),
                 Settings.Secure.PREFERRED_TTY_MODE,
                 TelecomManager.TTY_MODE_OFF);
+        if (shouldHideHcoAndVco()) {
+            setEntries(Arrays.copyOfRange(
+                    getContext().getResources().getTextArray(R.array.tty_mode_entries), 0, 2));
+            setEntryValues(Arrays.copyOfRange(
+                    getContext().getResources().getTextArray(R.array.tty_mode_values), 0, 2));
+            if (settingsTtyMode == TelecomManager.TTY_MODE_HCO
+                    || settingsTtyMode == TelecomManager.TTY_MODE_VCO) {
+                // If the persisted setting is HCO or VCO, set it to full here
+                settingsTtyMode = TelecomManager.TTY_MODE_FULL;
+                Settings.Secure.putInt(getContext().getContentResolver(), Secure.PREFERRED_TTY_MODE,
+                        settingsTtyMode);
+            }
+        }
         setValue(Integer.toString(settingsTtyMode));
         updatePreferredTtyModeSummary(settingsTtyMode);
     }
@@ -99,6 +118,18 @@ public class TtyModeListPreference extends ListPreference
                 setSummary(txts[TelecomManager.TTY_MODE_OFF]);
                 break;
         }
+    }
+
+    private boolean shouldHideHcoAndVco() {
+        CarrierConfigManager carrierConfigManager =
+                getContext().getSystemService(CarrierConfigManager.class);
+        PersistableBundle config = carrierConfigManager.getConfigForSubId(
+                SubscriptionManager.getDefaultVoiceSubscriptionId());
+        boolean carrierShouldHideHcoVco = config != null && config.getBoolean(
+                CarrierConfigManager.KEY_HIDE_TTY_HCO_VCO_WITH_RTT_BOOL, false);
+        boolean isRttSupported = PhoneGlobals.getInstance().phoneMgr.isRttSupported(
+                SubscriptionManager.getDefaultVoiceSubscriptionId());
+        return carrierShouldHideHcoVco && isRttSupported;
     }
 
     private static void log(String msg) {

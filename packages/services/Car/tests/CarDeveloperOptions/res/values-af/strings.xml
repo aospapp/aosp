@@ -83,8 +83,7 @@
     <string name="font_size_summary" msgid="9120023206321191067">"Maak die teks op die skerm kleiner of groter."</string>
     <string name="font_size_make_smaller_desc" msgid="5780829318985556969">"Maak kleiner"</string>
     <string name="font_size_make_larger_desc" msgid="2907824418252785875">"Maak groter"</string>
-    <!-- no translation found for font_size_preview_text (360019784926073822) -->
-    <skip />
+    <string name="font_size_preview_text" msgid="360019784926073822">"Servez à ce monsieur une bière et des kiwis."</string>
     <string name="font_size_preview_text_headline" msgid="8038650525913995091">"Voorbeeldteks"</string>
     <string name="font_size_preview_text_title" msgid="2593520249400910305">"Die Wonderlike Towenaar van Oz"</string>
     <string name="font_size_preview_text_subtitle" msgid="6106782964143379331">"Hoofstuk 11: Die Wonderlike Smaragstad van Oz"</string>
@@ -481,8 +480,7 @@
     <string name="face_lock_screen_setup_skip_dialog_text" product="tablet" msgid="2998863111689476550">"Beskerm jou tablet met \'n skermslotopsie sodat niemand dat sal kan gebruik as dit verloor of gesteel word nie. Jy moet ook \'n skermslotopsie hê om gesigstawing op te stel. Tik op Kanselleer, en stel dan \'n PIN of kies \'n ander skermslotopsie."</string>
     <string name="face_lock_screen_setup_skip_dialog_text" product="device" msgid="6780557259734235952">"Beskerm jou toestel met \'n skermslotopsie sodat niemand dat sal kan gebruik as dit verloor of gesteel word nie. Jy moet ook \'n skermslotopsie hê om gesigstawing op te stel. Tik op Kanselleer, en stel dan \'n PIN of kies \'n ander skermslotopsie."</string>
     <string name="face_lock_screen_setup_skip_dialog_text" product="default" msgid="8541640018478926775">"Beskerm jou foon met \'n skermslotopsie sodat niemand dat sal kan gebruik as dit verloor of gesteel word nie. Jy moet ook \'n skermslotopsie hê om gesigstawing op te stel. Tik op Kanselleer, en stel dan \'n PIN of kies \'n ander skermslotopsie."</string>
-    <!-- no translation found for lock_screen_pin_skip_title (8217519439213393785) -->
-    <skip />
+    <string name="lock_screen_pin_skip_title" msgid="8217519439213393785">"Slaan PIN-opstelling oor?"</string>
     <string name="lock_screen_password_skip_title" msgid="3725788215672959827">"Slaan wagwoordopstelling oor?"</string>
     <string name="lock_screen_pattern_skip_title" msgid="4237030500353932005">"Slaan patroonopstelling oor?"</string>
     <string name="security_settings_fingerprint_enroll_setup_screen_lock" msgid="9036983528330627756">"Stel skermslot op"</string>
@@ -669,7 +667,6 @@
       <item quantity="other">Moet minder as <xliff:g id="NUMBER_1">%d</xliff:g> syfers wees</item>
       <item quantity="one">Moet minder as <xliff:g id="NUMBER_0">%d</xliff:g> syfer wees</item>
     </plurals>
-    <string name="lockpassword_pin_contains_non_digits" msgid="1501729742023195556">"Mag net syfers 0-9 bevat"</string>
     <string name="lockpassword_pin_recently_used" msgid="5556148774911741103">"Toesteladministrateur laat nie toe dat jy \'n onlangse PIN gebruik nie"</string>
     <string name="lockpassword_pin_blacklisted_by_admin" msgid="2752037810571200697">"Jou IT-administrateur blokkeer algemene PIN\'e. Probeer \'n ander PIN."</string>
     <string name="lockpassword_illegal_character" msgid="3577712947676261351">"Dit mag nie \'n ongeldige karakter insluit nie"</string>
@@ -699,6 +696,10 @@
     <plurals name="lockpassword_password_requires_nonletter" formatted="false" msgid="3692485784007607387">
       <item quantity="other">Moet minstens <xliff:g id="COUNT">%d</xliff:g> nieletterkarakters bevat</item>
       <item quantity="one">Moet minstens 1 nieletterkarakter bevat</item>
+    </plurals>
+    <plurals name="lockpassword_password_requires_nonnumerical" formatted="false" msgid="6943707011152180150">
+      <item quantity="other">Moet minstens <xliff:g id="COUNT">%d</xliff:g> nienumeriese karakters bevat</item>
+      <item quantity="one">Moet minstens 1 nienumeriese karakter bevat</item>
     </plurals>
     <string name="lockpassword_password_recently_used" msgid="6944729699375087431">"Toesteladministrateur laat nie toe dat jy \'n onlangse wagwoord gebruik nie"</string>
     <string name="lockpassword_password_blacklisted_by_admin" msgid="4988166770148440755">"Jou IT-administrateur blokkeer algemene wagwoorde. Probeer \'n ander wagwoord."</string>
@@ -1092,13 +1093,19 @@
     <item msgid="2552412793005571845">"@*android:string/wfc_mode_cellular_preferred_summary"</item>
     <item msgid="742811521969300868">"@*android:string/wfc_mode_wifi_only_summary"</item>
   </string-array>
-    <!-- no translation found for wifi_calling_mode_choices_v2:0 (9149346657812979257) -->
-    <!-- no translation found for wifi_calling_mode_choices_v2:2 (6007360612667098926) -->
+  <string-array name="wifi_calling_mode_choices_v2">
+    <item msgid="9149346657812979257">"Wi-Fi"</item>
+    <item msgid="4421333712484542489">"Mobiel"</item>
+    <item msgid="6007360612667098926">"Net Wi-Fi"</item>
+  </string-array>
   <string-array name="wifi_calling_mode_choices_without_wifi_only">
     <item msgid="3658897985297386665">"@*android:string/wfc_mode_wifi_preferred_summary"</item>
     <item msgid="4191802193352447215">"@*android:string/wfc_mode_cellular_preferred_summary"</item>
   </string-array>
-    <!-- no translation found for wifi_calling_mode_choices_v2_without_wifi_only:0 (6452246499629557266) -->
+  <string-array name="wifi_calling_mode_choices_v2_without_wifi_only">
+    <item msgid="6452246499629557266">"Wi-Fi"</item>
+    <item msgid="2271962426654621656">"Mobiel"</item>
+  </string-array>
     <string name="wifi_calling_mode_wifi_preferred_summary" msgid="8298294808362169798">"As Wi-Fi onbeskikbaar is, moet jy mobiele netwerk gebruik"</string>
     <string name="wifi_calling_mode_cellular_preferred_summary" msgid="4906499810156794061">"As mobiele netwerk onbeskikbaar is, gebruik Wi‑Fi"</string>
     <string name="wifi_calling_mode_wifi_only_summary" msgid="6928556021002500522">"Bel oor Wi-Fi. Die oproep sal eindig as jy nie meer Wi-Fi het nie."</string>
@@ -2151,7 +2158,7 @@
     <string name="captioning_window_color" msgid="8696903405657599896">"Onderskrifvenster se kleur"</string>
     <string name="captioning_window_opacity" msgid="4315586548781763353">"Onderskrifvenster se ondeursigtigheid"</string>
     <string name="captioning_foreground_color" msgid="7412509133818882005">"Tekskleur"</string>
-    <string name="captioning_foreground_opacity" msgid="7635639017810117478">"Teks-ondeursigtigheid"</string>
+    <string name="captioning_foreground_opacity" msgid="7635639017810117478">"Teksondeursigtigheid"</string>
     <string name="captioning_edge_color" msgid="4330622137047993780">"Randkleur"</string>
     <string name="captioning_edge_type" msgid="4414946407430588162">"Randtipe"</string>
     <string name="captioning_typeface" msgid="7893208796949341767">"Letterfamilie"</string>
@@ -2302,9 +2309,9 @@
       <item quantity="other">Beperk %1$d programme?</item>
       <item quantity="one">Beperk program?</item>
     </plurals>
-    <string name="battery_tip_restrict_app_dialog_message" msgid="6905822297507947381">"Om batterykrag te bespaar, keer <xliff:g id="APP">%1$s</xliff:g> om die battery op die agtergrond te gebruik. Hierdie program sal dalk nie behoorlik werk nie en kennisgewings sal dalk vertraag word."</string>
-    <string name="battery_tip_restrict_apps_less_than_5_dialog_message" msgid="4225881888543582456">"Om batterykrag te bespaar, keer hierdie programme om die battery op die agtergrond te gebruik. Beperkte programme sal dalk nie behoorlik werk nie en kennisgewings sal dalk vertraag word.\n\nProgramme:"</string>
-    <string name="battery_tip_restrict_apps_more_than_5_dialog_message" msgid="1748375562539446634">"Om batterykrag te bespaar, keer hierdie programme om die battery op die agtergrond te gebruik. Beperkte programme sal dalk nie behoorlik werk nie en kennisgewings sal dalk vertraag word.\n\nProgramme:\n<xliff:g id="APP_LIST">%1$s</xliff:g>."</string>
+    <string name="battery_tip_restrict_app_dialog_message" msgid="6905822297507947381">"Verhoed <xliff:g id="APP">%1$s</xliff:g> om die battery op die agtergrond te gebruik om so batterykrag te bespaar. Hierdie program sal dalk nie behoorlik werk nie en kennisgewings sal dalk vertraag word."</string>
+    <string name="battery_tip_restrict_apps_less_than_5_dialog_message" msgid="4225881888543582456">"Verhoed hierdie programme om die battery op die agtergrond te gebruik om so batterykrag te bespaar. Beperkte programme sal dalk nie behoorlik werk nie en kennisgewings sal dalk vertraag word.\n\nProgramme:"</string>
+    <string name="battery_tip_restrict_apps_more_than_5_dialog_message" msgid="1748375562539446634">"Verhoed hierdie programme om die battery op die agtergrond te gebruik om so batterykrag te bespaar. Beperkte programme sal dalk nie behoorlik werk nie en kennisgewings sal dalk vertraag word.\n\nProgramme:\n<xliff:g id="APP_LIST">%1$s</xliff:g>."</string>
     <string name="battery_tip_restrict_app_dialog_ok" msgid="2573410775701913487">"Beperk"</string>
     <string name="battery_tip_unrestrict_app_dialog_title" msgid="812458516399125710">"Verwyder beperking?"</string>
     <string name="battery_tip_unrestrict_app_dialog_message" msgid="8120081438825031335">"Hierdie program sal batterykrag op die agtergrond kan gebruik. Jou battery sal dalk gouer as verwag afloop."</string>
@@ -2622,8 +2629,8 @@
     <string name="remove_account_label" msgid="5885425720323823387">"Verwyder rekening"</string>
     <string name="header_add_an_account" msgid="8482614556580804956">"Voeg \'n rekening by"</string>
     <string name="really_remove_account_title" msgid="4166512362915154319">"Verwyder rekening?"</string>
-    <string name="really_remove_account_message" product="tablet" msgid="7403843371045856719">"Verwydering van hierdie rekening sal ook al sy boodskappe, kontakte en ander data van die tablet uitvee."</string>
-    <string name="really_remove_account_message" product="default" msgid="8951224626153163914">"Verwydering van hierdie rekening sal ook al sy boodskappe, kontakte en ander data van die foon uitvee."</string>
+    <string name="really_remove_account_message" product="tablet" msgid="7403843371045856719">"Verwydering van hierdie rekening sal ook al sy boodskappe, kontakte en ander data van die tablet af uitvee."</string>
+    <string name="really_remove_account_message" product="default" msgid="8951224626153163914">"Verwydering van hierdie rekening sal ook al sy boodskappe, kontakte en ander data van die foon af uitvee."</string>
     <string name="really_remove_account_message" product="device" msgid="3751798556257519916">"As hierdie rekening verwyder word, sal al sy boodskappe, kontakte en ander data van die toestel af uitgevee word!"</string>
     <string name="remove_account_failed" msgid="491458185327106966">"Hierdie verandering word nie deur jou administrateur toegelaat nie"</string>
     <string name="cant_sync_dialog_title" msgid="5483419398223189881">"Kan nie handmatig sinkroniseer nie"</string>
@@ -3701,7 +3708,7 @@
     </plurals>
     <string name="high_power_filter_on" msgid="5294209328473386403">"Nie geoptimeer nie"</string>
     <string name="high_power_on" msgid="3573501822510580334">"Nie geoptimeer nie"</string>
-    <string name="high_power_off" msgid="5906679734326490426">"Optimaliseer batterygebruik"</string>
+    <string name="high_power_off" msgid="5906679734326490426">"Optimeer batterygebruik"</string>
     <string name="high_power_system" msgid="739584574711292753">"Batteryoptimering is nie beskikbaar nie"</string>
     <string name="high_power_desc" msgid="333756885680362741">"Moenie batteryoptimering toepas nie. Dit kan jou battery dalk vinniger pap maak."</string>
     <string name="high_power_prompt_title" msgid="2805745781720454052">"Laat program altyd in die agtergrond loop?"</string>
@@ -4272,6 +4279,8 @@
     <string name="disabled_feature_reason_slow_down_phone" msgid="1819157849156814583">"Dit sal hierdie foon stadiger maak"</string>
     <string name="enable_gnss_raw_meas_full_tracking" msgid="3397182995626655581">"Dwing vol GNSS-metings af"</string>
     <string name="enable_gnss_raw_meas_full_tracking_summary" msgid="2469305990718976105">"Spoor alle GNSS-konstellasies en -frekwensies na sonder enige dienssiklussering"</string>
+    <string name="enable_user_switch_message" msgid="8613014373053051092">"Ontfout wanneer gebruikers wissel"</string>
+    <string name="enable_user_switch_message_summary" msgid="3354160264601132060">"Wys gedetailleerde inligting wanneer gebruikers wissel"</string>
     <string name="allow_background_activity_starts" msgid="6754016668813082728">"Laat agtergrondaktiwiteitafskoppe toe"</string>
     <string name="allow_background_activity_starts_summary" msgid="8170749270869606692">"Laat alle agtergrondaktiwiteitafskoppe toe"</string>
     <string name="show_first_crash_dialog" msgid="3682063068903692710">"Wys altyd omvaldialoog"</string>

@@ -17,9 +17,6 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.android.car.radio">
-    <uses-sdk
-        android:minSdkVersion="25"
-        android:targetSdkVersion="25" />
 
     <!-- This permission is required to allow the radio to be muted. -->
     <uses-permission android:name="android.car.permission.CAR_CONTROL_AUDIO_SETTINGS" />
@@ -30,9 +27,18 @@
     <!-- Media Center permission to fetch and update the currently selected media source -->
     <uses-permission android:name="com.android.car.media.provider.READ_WRITE"/>
 
+    <!-- To connect to media browser services in other apps, media browser clients
+    that target Android 11 need to add the following in their manifest -->
+    <queries>
+        <intent>
+            <action android:name="android.media.browse.MediaBrowserService" />
+        </intent>
+    </queries>
+
     <application android:label="@string/app_name"
         android:icon="@drawable/logo_fm_radio"
-        android:theme="@style/Theme.Radio">
+        android:theme="@style/Theme.Radio"
+        android:supportsRtl="true">
 
         <activity
             android:name=".RadioActivity"

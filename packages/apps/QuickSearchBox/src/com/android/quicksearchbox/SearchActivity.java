@@ -328,7 +328,7 @@ public class SearchActivity extends Activity {
      * @return true if a search was performed as a result of this click, false otherwise.
      */
     protected boolean onSearchClicked(int method) {
-        String query = CharMatcher.WHITESPACE.trimAndCollapseFrom(getQuery(), ' ');
+        String query = CharMatcher.whitespace().trimAndCollapseFrom(getQuery(), ' ');
         if (DBG) Log.d(TAG, "Search clicked, query=" + query);
 
         // Don't do empty queries
@@ -471,7 +471,7 @@ public class SearchActivity extends Activity {
 
     public void updateSuggestions() {
         if (DBG) Log.d(TAG, "updateSuggestions()");
-        final String query = CharMatcher.WHITESPACE.trimLeadingFrom(getQuery());
+        final String query = CharMatcher.whitespace().trimLeadingFrom(getQuery());
         updateSuggestions(query, mSource);
     }
 

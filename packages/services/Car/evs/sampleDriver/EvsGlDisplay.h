@@ -14,48 +14,63 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_HARDWARE_AUTOMOTIVE_EVS_V1_0_EVSGLDISPLAY_H
-#define ANDROID_HARDWARE_AUTOMOTIVE_EVS_V1_0_EVSGLDISPLAY_H
+#ifndef ANDROID_HARDWARE_AUTOMOTIVE_EVS_V1_1_EVSGLDISPLAY_H
+#define ANDROID_HARDWARE_AUTOMOTIVE_EVS_V1_1_EVSGLDISPLAY_H
 
-#include <android/hardware/automotive/evs/1.0/IEvsDisplay.h>
+#include <android/hardware/automotive/evs/1.1/IEvsDisplay.h>
+#include <android/frameworks/automotive/display/1.0/IAutomotiveDisplayProxyService.h>
 #include <ui/GraphicBuffer.h>
 
 #include "GlWrapper.h"
 
+using ::android::hardware::automotive::evs::V1_0::EvsResult;
+using ::android::hardware::automotive::evs::V1_0::DisplayDesc;
+using ::android::hardware::automotive::evs::V1_0::DisplayState;
+using ::android::hardware::automotive::evs::V1_1::IEvsDisplay;
+using EvsResult   = ::android::hardware::automotive::evs::V1_0::EvsResult;
+using BufferDesc_1_0  = ::android::hardware::automotive::evs::V1_0::BufferDesc;
+using EvsDisplayState = ::android::hardware::automotive::evs::V1_0::DisplayState;
+using android::frameworks::automotive::display::V1_0::IAutomotiveDisplayProxyService;
 
 namespace android {
 namespace hardware {
 namespace automotive {
 namespace evs {
-namespace V1_0 {
+namespace V1_1 {
 namespace implementation {
 
 
 class EvsGlDisplay : public IEvsDisplay {
 public:
     // Methods from ::android::hardware::automotive::evs::V1_0::IEvsDisplay follow.
-    Return<void> getDisplayInfo(getDisplayInfo_cb _hidl_cb)  override;
-    Return<EvsResult> setDisplayState(DisplayState state)  override;
-    Return<DisplayState> getDisplayState()  override;
-    Return<void> getTargetBuffer(getTargetBuffer_cb _hidl_cb)  override;
-    Return<EvsResult> returnTargetBufferForDisplay(const BufferDesc& buffer)  override;
+    Return<void>            getDisplayInfo(getDisplayInfo_cb _hidl_cb)  override;
+    Return<EvsResult>       setDisplayState(EvsDisplayState state)  override;
+    Return<EvsDisplayState> getDisplayState()  override;
+    Return<void>            getTargetBuffer(getTargetBuffer_cb _hidl_cb)  override;
+    Return<EvsResult>       returnTargetBufferForDisplay(const BufferDesc_1_0& buffer)  override;
+
+    // Methods from ::android::hardware::automotive::evs::V1_1::IEvsDisplay follow.
+    Return<void>            getDisplayInfo_1_1(getDisplayInfo_1_1_cb _info_cb) override;
 
     // Implementation details
-    EvsGlDisplay();
+    EvsGlDisplay(sp<IAutomotiveDisplayProxyService> pWindowService, uint64_t displayId);
     virtual ~EvsGlDisplay() override;
 
     void forceShutdown();   // This gets called if another caller "steals" ownership of the display
 
 private:
     DisplayDesc     mInfo           = {};
-    BufferDesc      mBuffer         = {};       // A graphics buffer into which we'll store images
+    BufferDesc_1_0  mBuffer         = {};       // A graphics buffer into which we'll store images
 
     bool            mFrameBusy      = false;    // A flag telling us our buffer is in use
-    DisplayState    mRequestedState = DisplayState::NOT_VISIBLE;
+    EvsDisplayState mRequestedState = EvsDisplayState::NOT_VISIBLE;
 
     GlWrapper       mGlWrapper;
 
     std::mutex      mAccessLock;
+
+    sp<IAutomotiveDisplayProxyService> mDisplayProxy;
+    uint64_t                           mDisplayId;
 };
 
 } // namespace implementation

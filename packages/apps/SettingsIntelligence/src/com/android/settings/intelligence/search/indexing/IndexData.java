@@ -68,7 +68,7 @@ public class IndexData {
     private static final Pattern REMOVE_DIACRITICALS_PATTERN
             = Pattern.compile("\\p{InCombiningDiacriticalMarks}+");
 
-    private IndexData(Builder builder) {
+    protected IndexData(Builder builder) {
         locale = Locale.getDefault().toString();
         updatedTitle = normalizeHyphen(builder.mTitle);
         updatedSummaryOn = normalizeHyphen(builder.mSummaryOn);
@@ -186,6 +186,18 @@ public class IndexData {
             return mKey;
         }
 
+        public String getIntentAction() {
+            return mIntentAction;
+        }
+
+        public String getIntentTargetPackage() {
+            return mIntentTargetPackage;
+        }
+
+        public String getIntentTargetClass() {
+            return mIntentTargetClass;
+        }
+
         public Builder setSummaryOn(String summaryOn) {
             mSummaryOn = summaryOn;
             return this;
@@ -290,9 +302,10 @@ public class IndexData {
         }
 
         /**
-         * Adds Intent payload to builder.
+         * Builds Intent payload for the builder.
+         * This protected method that can be overridden in a subclass for custom intents.
          */
-        private Intent buildIntent(Context context) {
+        protected Intent buildIntent(Context context) {
             final Intent intent;
 
             // TODO REFACTOR (b/62807132) With inline results re-add proper intent support

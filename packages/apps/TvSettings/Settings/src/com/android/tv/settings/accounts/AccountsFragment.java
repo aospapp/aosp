@@ -16,9 +16,12 @@
 
 package com.android.tv.settings.accounts;
 
+import static com.android.tv.settings.util.InstrumentationUtils.logEntrySelected;
+
 import android.accounts.Account;
 import android.accounts.AccountManager;
 import android.accounts.AuthenticatorDescription;
+import android.app.tvsettings.TvSettingsEnums;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -186,6 +189,11 @@ public class AccountsFragment extends SettingsPreferenceFragment {
                 // If there are available account types, show the "add account" button.
         preference.setVisible(!allowableAccountTypes.isEmpty());
         preference.setIntent(i);
+        preference.setOnPreferenceClickListener(
+                preference1 -> {
+                    logEntrySelected(TvSettingsEnums.ACCOUNT_CLASSIC_ADD_ACCOUNT);
+                    return false;
+                });
     }
 
     private static Context getTargetContext(Context context, AuthenticatorDescription authDesc) {
@@ -223,5 +231,10 @@ public class AccountsFragment extends SettingsPreferenceFragment {
             Log.e(TAG, "Authenticator has bad resources", e);
         }
         return authImage;
+    }
+
+    @Override
+    protected int getPageId() {
+        return TvSettingsEnums.ACCOUNT_CLASSIC;
     }
 }

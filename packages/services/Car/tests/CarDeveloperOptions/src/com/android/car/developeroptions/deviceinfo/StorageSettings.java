@@ -50,13 +50,13 @@ import com.android.car.developeroptions.SettingsPreferenceFragment;
 import com.android.car.developeroptions.core.SubSettingLauncher;
 import com.android.car.developeroptions.core.instrumentation.InstrumentedDialogFragment;
 import com.android.car.developeroptions.search.BaseSearchIndexProvider;
-import com.android.car.developeroptions.search.Indexable;
-import com.android.car.developeroptions.search.SearchIndexableRaw;
 import com.android.settingslib.RestrictedLockUtils;
 import com.android.settingslib.RestrictedLockUtilsInternal;
 import com.android.settingslib.deviceinfo.PrivateStorageInfo;
 import com.android.settingslib.deviceinfo.StorageManagerVolumeProvider;
+import com.android.settingslib.search.Indexable;
 import com.android.settingslib.search.SearchIndexable;
+import com.android.settingslib.search.SearchIndexableRaw;
 
 import java.util.ArrayList;
 import java.util.Collections;

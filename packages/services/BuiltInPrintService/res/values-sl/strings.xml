@@ -50,7 +50,7 @@
     <string name="wifi_direct" msgid="4629404342852294985">"Wi-Fi Direct"</string>
     <string name="find_wifi_direct" msgid="5270504288829123954">"Poišči tiskalnike s povezavo Wi-Fi Direct"</string>
     <string name="wifi_direct_printing" msgid="8423811041563144048">"Tiskanje s funkcijo Wi-Fi Direct"</string>
-    <string name="wifi_direct_printers" msgid="541168032444693191">"Tiskalniki s povezavo Wi-Fi Direct"</string>
+    <string name="wifi_direct_printers" msgid="541168032444693191">"Tiskalniki Wi-Fi Direct"</string>
     <string name="searching" msgid="2114018057619514587">"Iskanje …"</string>
     <string name="connect_hint_text" msgid="587112503851044234">"Morda boste morali to povezavo odobriti na nadzorni plošči tiskalnika"</string>
     <string name="connecting_to" msgid="2665161014972086194">"Vzpostavljanje povezave s tiskalnikom <xliff:g id="PRINTER">%1$s</xliff:g>"</string>
@@ -60,6 +60,11 @@
     <string name="forget" msgid="892068061425802502">"Pozabi"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"Vzpostavitev povezave prek povezave Wi-Fi Direct"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"Vzpostavitev povezave prek trenutnega omrežja z naslovom <xliff:g id="IP_ADDRESS">%1$s</xliff:g>"</string>
+    <string name="recommendation_summary" msgid="2979700524954307566">"Privzeta storitev tiskanja zagotavlja osnovne možnosti. Druge možnosti za ta tiskalnik so morda na voljo v kateri drugi storitvi tiskanja."</string>
+    <string name="recommendations_heading" msgid="5086762263560605249">"Priporočene storitve"</string>
+    <string name="recommendation_install_summary" msgid="374785283809791669">"Izberite, če želite namestiti"</string>
+    <string name="recommendation_enable_summary" msgid="3500907868251326224">"Izberite, če želite omogočiti"</string>
+    <string name="recommendation_manage" msgid="4683640588502866284">"Upravljanje storitev"</string>
     <string name="security" msgid="2279008326210305401">"Varnost"</string>
     <string name="certificate_update_request" msgid="1314796413107139475">"Ta tiskalnik je posredoval novo varnostno potrdilo ali pa se zanj lažno predstavlja druga naprava. Želite sprejeti novo potrdilo?"</string>
     <string name="not_encrypted_request" msgid="4871472176807381642">"Ta tiskalnik ne sprejema več šifriranih opravil. Želite nadaljevati tiskanje?"</string>
@@ -68,4 +73,5 @@
     <string name="connections" msgid="8895413761760117180">"Povezave"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Privzeta storitev tiskanja za iskanje naprav v bližini potrebuje dovoljenje za lokacijo."</string>
     <string name="fix" msgid="7784394272611365393">"Pregled dovoljenja"</string>
+    <string name="print" msgid="7851318072404916362">"Natisni"</string>
 </resources>

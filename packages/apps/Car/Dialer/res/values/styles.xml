@@ -15,20 +15,31 @@
 -->
 <resources xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Dialpad -->
-    <style name="TextAppearance.DialNumber" parent="@style/TextAppearance.Display3"/>
-    <style name="TextAppearance.EmergencyDialNumber" parent="@style/TextAppearance.DialNumber">
+    <!-- The size won't matter here, as the autosizing will override it -->
+    <style name="TextAppearance.DialNumber" parent="TextAppearance.Display3"/>
+    <style name="TextAppearance.EmergencyDialNumber" parent="TextAppearance.DialNumber">
         <item name="android:textColor">@color/emergency_text_color</item>
     </style>
-    <style name="TextAppearance.DialpadDisplayName" parent="@style/TextAppearance.Body1"/>
+    <style name="TextAppearance.DialpadDisplayName" parent="TextAppearance.Body1"/>
 
     <style name="KeypadNumber">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
         <item name="android:textAppearance">?android:attr/textAppearanceLarge</item>
         <item name="android:textSize">@dimen/car_key1_size</item>
     </style>
 
     <style name="KeypadLetter">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
         <item name="android:textAppearance">?android:attr/textAppearanceSmall</item>
         <item name="android:textSize">@dimen/car_key2_size</item>
+    </style>
+
+    <style name="KeypadImage">
+        <item name="android:layout_width">32dp</item>
+        <item name="android:layout_height">32dp</item>
+        <item name="android:tint">@color/car_key2</item>
     </style>
 
     <!-- Phone -->
@@ -61,81 +72,76 @@
         <item name="android:tint">@color/primary_icon_color</item>
     </style>
 
-    <style name="NoHfpText">
-        <item name="android:textAppearance">?android:attr/textAppearanceMedium</item>
-        <item name="android:gravity">center</item>
-        <item name="android:maxLines">3</item>
-    </style>
-
-    <!--TODO: fix it system wide instead of creating override-->
-    <style name="Widget.Dialer.Toolbar" parent="*android:Widget.DeviceDefault.Toolbar">
-        <!-- No padding for navigation button which is car_margin wide -->
-        <item name="android:paddingStart">0dp</item>
-        <!-- Menu item has padding/margin to define the end distance from toolbar edge -->
-        <item name="android:paddingEnd">0dp</item>
-        <item name="android:contentInsetStart">0dp</item>
-        <item name="android:contentInsetEnd">@*android:dimen/car_margin</item>
-        <!-- Override the max height of navigation button and menu button -->
-        <item name="android:maxButtonHeight">?android:attr/actionBarSize</item>
-        <item name="android:navigationIcon">@drawable/ic_arrow_back</item>
-        <item name="android:titleTextAppearance">@style/TextAppearance.Dialer.Widget.Toolbar.Title
-        </item>
-        <!-- Navigation button style -->
-        <item name="*android:navigationButtonStyle">@style/Widget.Dialer.Navigation</item>
-    </style>
-
-    <style name="TextAppearance.Dialer.Widget.Toolbar.Title"
-           parent="*android:TextAppearance.DeviceDefault.Widget.Toolbar.Title">
-        <item name="android:textSize">@*android:dimen/car_body1_size</item>
-    </style>
-
-    <style name="Widget.Dialer.Navigation"
-           parent="android:Widget.Material.Toolbar.Button.Navigation">
-        <item name="android:minWidth">@*android:dimen/car_margin</item>
-        <item name="android:background">?android:attr/actionBarItemBackground</item>
-    </style>
-
-    <style name="Widget.Dialer.ActionButton" parent="android:Widget.DeviceDefault.ActionButton">
-        <item name="android:minWidth">@dimen/touch_target_size</item>
-        <item name="android:minHeight">@dimen/touch_target_size</item>
-    </style>
-
-    <style name="Widget.Dialer.ActionButton.Overflow" parent="android:Widget.DeviceDefault.ActionButton.Overflow">
-        <item name="android:src">@drawable/ic_overflow</item>
-        <item name="android:minWidth">@dimen/touch_target_size</item>
-        <item name="android:minHeight">@dimen/touch_target_size</item>
-        <item name="android:paddingStart">0dp</item>
-        <item name="android:paddingEnd">@dimen/menu_item_margin_x</item>
-        <item name="android:background">@android:color/transparent</item>
-    </style>
-
     <!-- In-call styling for everything except short landscape screens -->
-    <style name="TextAppearance.InCallUserTitle" parent="@style/TextAppearance.Display2"/>
-    <style name="TextAppearance.InCallUserPhoneNumber" parent="@style/TextAppearance.Body1">
+    <style name="TextAppearance.InCallUserTitle" parent="TextAppearance.Display2"/>
+    <style name="TextAppearance.InCallUserPhoneNumber" parent="TextAppearance.Body1">
         <item name="android:textColor">#B8FFFFFF</item>
     </style>
-    <style name="TextAppearance.InCallState" parent="@style/TextAppearance.Body1">
+    <style name="TextAppearance.InCallState" parent="TextAppearance.Body1">
         <item name="android:textColor">#B8FFFFFF</item>
     </style>
 
     <!-- Call history -->
-    <style name="TextAppearance.CallLogTitleDefault" parent="@style/TextAppearance.Body1"/>
-
+    <style name="TextAppearance.CallLogTitleDefault" parent="TextAppearance.Body1"/>
     <!-- Customized text color for missed calls can be added here -->
-    <style name="TextAppearance.CallLogTitleMissedCall" parent="@style/TextAppearance.Body1"/>
+    <style name="TextAppearance.CallLogTitleMissedCall" parent="TextAppearance.Body1"/>
+    <style name="TextAppearance.CallLogSubtitle" parent="TextAppearance.Body3">
+        <item name="android:textColor">@color/secondary_text_color</item>
+    </style>
+    <style name="TextAppearance.CallLogCallCountDefault" parent="TextAppearance.CallLogSubtitle"/>
+    <!-- Customized text color for missed calls can be added here -->
+    <style name="TextAppearance.CallLogCallCountMissedCall" parent="TextAppearance.CallLogSubtitle"/>
+    <style name="TextAppearance.CallLogTimestampDefault" parent="TextAppearance.CallLogSubtitle"/>
+    <!-- Customized text color for missed calls can be added here -->
+    <style name="TextAppearance.CallLogTimestampMissedCall" parent="TextAppearance.CallLogSubtitle"/>
 
     <!-- Contact details -->
-    <style name="TextAppearance.ContactDetailsTitle" parent="@style/TextAppearance.Display2"/>
-
-    <style name="TextAppearance.ContactResultTitle" parent="@style/TextAppearance.Body1"/>
-
-    <!-- Display options defined for ActionBar-->
-    <style name="RootToolbarDisplayOptions">
-        <item name="android:displayOptions">useLogo|showHome|showTitle|showCustom</item>
+    <style name="TextAppearance.ContactDetailsTitle" parent="TextAppearance.Display2"/>
+    <style name="TextAppearance.ContactDetailsListTitle" parent="TextAppearance.Body1"/>
+    <style name="TextAppearance.ContactDetailsListSubtitle" parent="TextAppearance.Body3">
+        <item name="android:textColor">@color/secondary_text_color</item>
+    </style>
+    <style name="TextAppearance.DefaultNumberLabel" parent="TextAppearance.Body3">
+        <item name="android:textColor">@*android:color/accent_device_default_light</item>
     </style>
 
-    <style name="HomeAsUpDisplayOptions">
-        <item name="android:displayOptions">showTitle|homeAsUp|showCustom</item>
+    <!-- Contact results -->
+    <style name="TextAppearance.ContactResultTitle" parent="TextAppearance.Body1">
+        <item name="android:textColor">@color/primary_text_selector</item>
     </style>
 
+    <!-- Add to favorite flow dialog -->
+    <style name="TextAppearance.AddFavoriteNumberTitle" parent="TextAppearance.Body1">
+        <item name="android:textColor">@color/primary_text_selector</item>
+    </style>
+    <style name="TextAppearance.AddFavoriteNumberSubtitle" parent="TextAppearance.Body3">
+        <item name="android:textColor">@color/primary_text_selector</item>
+    </style>
+
+    <!-- Subheader -->
+    <style name="SubheaderText">
+        <item name="android:textAppearance">@style/TextAppearance.Body3</item>
+        <item name="android:textFontWeight">500</item>
+        <item name="android:textStyle">normal</item>
+    </style>
+
+    <style name="Widget.Dialer.Button" parent="android:Widget.DeviceDefault.Button">
+        <item name="android:ellipsize">none</item>
+        <item name="android:requiresFadingEdge">horizontal</item>
+        <item name="android:fadingEdgeLength">@*android:dimen/car_textview_fading_edge_length</item>
+    </style>
+
+    <style name="LoadingInfoMessageStyle" parent="FullScreenErrorMessageStyle">
+        <item name="android:textAppearance">@style/TextAppearance.Display3</item>
+        <item name="android:textFontWeight">500</item>
+        <item name="android:textStyle">normal</item>
+    </style>
+    <style name="LoadingInfoSecondaryMessageStyle" parent="FullScreenErrorMessageStyle">
+        <item name="android:textAppearance">@style/TextAppearance.Body2</item>
+    </style>
+    <style name="LoadingInfoActionButtonStyle" parent="FullScreenErrorButtonStyle">
+        <item name="android:textAppearance">@style/TextAppearance.Body3</item>
+        <item name="android:textFontWeight">500</item>
+        <item name="android:textStyle">normal</item>
+    </style>
 </resources>

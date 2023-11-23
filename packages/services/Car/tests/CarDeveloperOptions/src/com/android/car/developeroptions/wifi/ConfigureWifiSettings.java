@@ -28,9 +28,9 @@ import android.provider.SearchIndexableResource;
 import com.android.car.developeroptions.R;
 import com.android.car.developeroptions.dashboard.DashboardFragment;
 import com.android.car.developeroptions.search.BaseSearchIndexProvider;
-import com.android.car.developeroptions.search.Indexable;
 import com.android.car.developeroptions.wifi.p2p.WifiP2pPreferenceController;
 import com.android.settingslib.core.AbstractPreferenceController;
+import com.android.settingslib.search.Indexable;
 import com.android.settingslib.search.SearchIndexable;
 
 import java.util.ArrayList;

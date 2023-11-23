@@ -20,18 +20,24 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.net.wifi.WifiManager;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.text.TextUtils;
-import android.widget.Button;
+import android.widget.Toast;
 
-import androidx.annotation.LayoutRes;
 import androidx.annotation.XmlRes;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.Logger;
 import com.android.car.settings.common.SettingsFragment;
+import com.android.car.ui.toolbar.MenuItem;
 import com.android.settingslib.wifi.AccessPoint;
+
+import java.util.Collections;
+import java.util.List;
 
 /**
  * Adds a hidden wifi network. The connect button on the fragment is only used for unsecure hidden
@@ -62,20 +68,36 @@ public class AddWifiFragment extends SettingsFragment {
         }
     };
 
-    private Button mAddWifiButton;
+    private final Handler mUiHandler = new Handler(Looper.getMainLooper());
+    private final WifiManager.ActionListener mConnectionListener =
+            new WifiManager.ActionListener() {
+                @Override
+                public void onSuccess() {
+                    LOG.d("connected to network");
+                    mUiHandler.post(() -> goBack());
+                }
+
+                @Override
+                public void onFailure(int reason) {
+                    LOG.d("Failed to connect to network. Failure code: " + reason);
+                    Toast.makeText(getContext(), R.string.wifi_failed_connect_message,
+                            Toast.LENGTH_SHORT).show();
+                }
+            };
+
+    private MenuItem mAddWifiButton;
     private String mNetworkName;
     private int mSecurityType = AccessPoint.SECURITY_NONE;
+
+    @Override
+    public List<MenuItem> getToolbarMenuItems() {
+        return Collections.singletonList(mAddWifiButton);
+    }
 
     @Override
     @XmlRes
     protected int getPreferenceScreenResId() {
         return R.xml.add_wifi_fragment;
-    }
-
-    @Override
-    @LayoutRes
-    protected int getActionBarLayoutId() {
-        return R.layout.action_bar_with_button;
     }
 
     @Override
@@ -85,6 +107,27 @@ public class AddWifiFragment extends SettingsFragment {
             mNetworkName = savedInstanceState.getString(KEY_NETWORK_NAME);
             mSecurityType = savedInstanceState.getInt(KEY_SECURITY_TYPE, AccessPoint.SECURITY_NONE);
         }
+
+        mAddWifiButton = new MenuItem.Builder(getContext())
+                .setTitle(R.string.wifi_setup_connect)
+                .setOnClickListener(i -> {
+                    // This only needs to handle hidden/unsecure networks.
+                    WifiUtil.connectToAccessPoint(getContext(), mNetworkName,
+                            mSecurityType, /* password= */ null, /* hidden= */ true,
+                            mConnectionListener);
+                })
+                .build();
+        LocalBroadcastManager.getInstance(getContext()).registerReceiver(mNameChangeReceiver,
+                new IntentFilter(NetworkNamePreferenceController.ACTION_NAME_CHANGE));
+        LocalBroadcastManager.getInstance(getContext()).registerReceiver(mSecurityChangeReceiver,
+                new IntentFilter(NetworkSecurityPreferenceController.ACTION_SECURITY_CHANGE));
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        LocalBroadcastManager.getInstance(getContext()).unregisterReceiver(mNameChangeReceiver);
+        LocalBroadcastManager.getInstance(getContext()).unregisterReceiver(mSecurityChangeReceiver);
     }
 
     @Override
@@ -95,45 +138,23 @@ public class AddWifiFragment extends SettingsFragment {
     }
 
     @Override
-    public void onActivityCreated(Bundle savedInstanceState) {
-        super.onActivityCreated(savedInstanceState);
-
-        mAddWifiButton = getActivity().findViewById(R.id.action_button1);
-        mAddWifiButton.setText(R.string.wifi_setup_connect);
-        setButtonEnabledState();
-
-        // This only needs to handle hidden/unsecure networks.
-        mAddWifiButton.setOnClickListener(v -> {
-            int netId = WifiUtil.connectToAccessPoint(getContext(), mNetworkName,
-                    AccessPoint.SECURITY_NONE, /* password= */ null, /* hidden= */ true);
-
-            LOG.d("connected to netId: " + netId);
-            if (netId != WifiUtil.INVALID_NET_ID) {
-                goBack();
-            }
-        });
-    }
-
-    @Override
     public void onStart() {
         super.onStart();
-        LocalBroadcastManager.getInstance(getContext()).registerReceiver(mNameChangeReceiver,
-                new IntentFilter(NetworkNamePreferenceController.ACTION_NAME_CHANGE));
-        LocalBroadcastManager.getInstance(getContext()).registerReceiver(mSecurityChangeReceiver,
-                new IntentFilter(NetworkSecurityPreferenceController.ACTION_SECURITY_CHANGE));
+        setButtonEnabledState();
     }
 
     @Override
     public void onStop() {
         super.onStop();
-        LocalBroadcastManager.getInstance(getContext()).unregisterReceiver(mNameChangeReceiver);
-        LocalBroadcastManager.getInstance(getContext()).unregisterReceiver(mSecurityChangeReceiver);
+        if (mAddWifiButton != null) {
+            mAddWifiButton.setEnabled(false);
+        }
     }
 
     private void setButtonEnabledState() {
         if (mAddWifiButton != null) {
             mAddWifiButton.setEnabled(
-                    !TextUtils.isEmpty(mNetworkName) && mSecurityType == AccessPoint.SECURITY_NONE);
+                    !TextUtils.isEmpty(mNetworkName) && WifiUtil.isOpenNetwork(mSecurityType));
         }
     }
 }

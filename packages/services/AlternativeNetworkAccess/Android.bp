@@ -19,7 +19,10 @@ android_app {
     name: "ONS",
     platform_apis: true,
     privileged: true,
-    libs: ["telephony-common"],
+    libs: [
+        "telephony-common",
+        "app-compat-annotations",
+    ],
     srcs: ["src/**/*.java"],
     aaptflags: ["--auto-add-overlay"],
     certificate: "platform",

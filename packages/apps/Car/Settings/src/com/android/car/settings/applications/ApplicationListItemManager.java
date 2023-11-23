@@ -15,7 +15,7 @@
  */
 package com.android.car.settings.applications;
 
-import android.graphics.drawable.Drawable;
+import android.os.Handler;
 import android.os.storage.VolumeInfo;
 
 import androidx.lifecycle.Lifecycle;
@@ -25,7 +25,9 @@ import com.android.settingslib.applications.ApplicationsState;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Class used to load the applications installed on the system with their metadata.
@@ -44,21 +46,43 @@ public class ApplicationListItemManager implements ApplicationsState.Callbacks {
     }
 
     private static final Logger LOG = new Logger(ApplicationListItemManager.class);
+    private static final String APP_NAME_UNKNOWN = "APP NAME UNKNOWN";
 
     private final VolumeInfo mVolumeInfo;
     private final Lifecycle mLifecycle;
     private final ApplicationsState mAppState;
     private final List<AppListItemListener> mAppListItemListeners = new ArrayList<>();
+    private final Handler mHandler;
+    private final int mMillisecondUpdateInterval;
+    // Milliseconds that warnIfNotAllLoadedInTime method waits before comparing mAppsToLoad and
+    // mLoadedApps to log any apps that failed to load.
+    private final int mMaxAppLoadWaitInterval;
 
     private ApplicationsState.Session mSession;
     private ApplicationsState.AppFilter mAppFilter;
     private Comparator<ApplicationsState.AppEntry> mAppEntryComparator;
+    // Contains all of the apps that we are expecting to load.
+    private Set<ApplicationsState.AppEntry> mAppsToLoad = new HashSet<>();
+    // Contains all apps that have been successfully loaded.
+    private ArrayList<ApplicationsState.AppEntry> mLoadedApps = new ArrayList<>();
+
+    // Indicates whether onRebuildComplete's throttling is off and it is ready to render updates.
+    // onRebuildComplete uses throttling to prevent it from being called too often, since the
+    // animation can be choppy if the refresh rate is too high.
+    private boolean mReadyToRenderUpdates = true;
+    // Parameter we use to call onRebuildComplete method when the throttling is off and we are
+    // "ReadyToRenderUpdates" again.
+    private ArrayList<ApplicationsState.AppEntry> mDeferredAppsToUpload;
 
     public ApplicationListItemManager(VolumeInfo volumeInfo, Lifecycle lifecycle,
-            ApplicationsState appState) {
+            ApplicationsState appState, int millisecondUpdateInterval,
+            int maxWaitIntervalToFinishLoading) {
         mVolumeInfo = volumeInfo;
         mLifecycle = lifecycle;
         mAppState = appState;
+        mHandler = new Handler();
+        mMillisecondUpdateInterval = millisecondUpdateInterval;
+        mMaxAppLoadWaitInterval = maxWaitIntervalToFinishLoading;
     }
 
     /**
@@ -78,10 +102,11 @@ public class ApplicationListItemManager implements ApplicationsState.Callbacks {
     }
 
     /**
-     * Resumes the session on fragment start.
+     * Resumes the session and starts meauring app loading time on fragment start.
      */
     public void onFragmentStart() {
         mSession.onResume();
+        warnIfNotAllLoadedInTime();
     }
 
     /**
@@ -157,24 +182,64 @@ public class ApplicationListItemManager implements ApplicationsState.Callbacks {
 
     @Override
     public void onRebuildComplete(ArrayList<ApplicationsState.AppEntry> apps) {
-        List<String> successfullyLoadedApplications = new ArrayList<>();
-        for (ApplicationsState.AppEntry appEntry : apps) {
-            String key = appEntry.label + appEntry.sizeStr;
-            if (isLoaded(appEntry.label,
-                    appEntry.sizeStr, appEntry.icon)) {
-                successfullyLoadedApplications.add(key);
-            }
+        // Checking for apps.size prevents us from unnecessarily triggering throttling and blocking
+        // subsequent updates.
+        if (apps.size() == 0) {
+            return;
         }
 
-        if (successfullyLoadedApplications.size() == apps.size()) {
-            for (AppListItemListener appListItemListener : mAppListItemListeners) {
-                appListItemListener.onDataLoaded(apps);
+        if (mReadyToRenderUpdates) {
+            mReadyToRenderUpdates = false;
+            mLoadedApps = new ArrayList<>();
+
+            for (ApplicationsState.AppEntry app : apps) {
+                if (isLoaded(app)) {
+                    mLoadedApps.add(app);
+                }
             }
+
+            for (AppListItemListener appListItemListener : mAppListItemListeners) {
+                appListItemListener.onDataLoaded(mLoadedApps);
+            }
+
+            mHandler.postDelayed(() -> {
+                mReadyToRenderUpdates = true;
+                if (mDeferredAppsToUpload != null) {
+                    onRebuildComplete(mDeferredAppsToUpload);
+                    mDeferredAppsToUpload = null;
+                }
+            }, mMillisecondUpdateInterval);
+        } else {
+            mDeferredAppsToUpload = apps;
         }
+
+        // Add all apps that are not already contained in mAppsToLoad Set, since we want it to be an
+        // exhaustive Set of all apps to be loaded.
+        mAppsToLoad.addAll(apps);
     }
 
-    private boolean isLoaded(String title, String summary, Drawable icon) {
-        return title != null && summary != null && icon != null;
+    private boolean isLoaded(ApplicationsState.AppEntry app) {
+        return app.label != null && app.sizeStr != null && app.icon != null;
+    }
+
+    private void warnIfNotAllLoadedInTime() {
+        mHandler.postDelayed(() -> {
+            if (mLoadedApps.size() < mAppsToLoad.size()) {
+                LOG.w("Expected to load " + mAppsToLoad.size() + " apps but only loaded "
+                        + mLoadedApps.size());
+
+                // Creating a copy to avoid state inconsistency.
+                Set<ApplicationsState.AppEntry> appsToLoadCopy = new HashSet(mAppsToLoad);
+                for (ApplicationsState.AppEntry loadedApp : mLoadedApps) {
+                    appsToLoadCopy.remove(loadedApp);
+                }
+
+                for (ApplicationsState.AppEntry appEntry : appsToLoadCopy) {
+                    String appName = appEntry.label == null ? APP_NAME_UNKNOWN : appEntry.label;
+                    LOG.w("App failed to load: " + appName);
+                }
+            }
+        }, mMaxAppLoadWaitInterval);
     }
 
     ApplicationsState.AppFilter getCompositeFilter(String volumeUuid) {

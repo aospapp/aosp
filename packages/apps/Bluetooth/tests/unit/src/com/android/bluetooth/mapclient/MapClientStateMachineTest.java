@@ -150,6 +150,36 @@ public class MapClientStateMachineTest {
         Assert.assertEquals(BluetoothProfile.STATE_CONNECTED, mMceStateMachine.getState());
     }
 
+     /**
+     * Test transition from STATE_CONNECTING --> (receive MSG_MAS_CONNECTED) --> STATE_CONNECTED
+     * --> (receive MSG_MAS_DISCONNECTED) --> STATE_DISCONNECTED
+     */
+    @Test
+    public void testStateTransitionFromConnectedWithMasDisconnected() {
+        Log.i(TAG, "in testStateTransitionFromConnectedWithMasDisconnected");
+
+        setupSdpRecordReceipt();
+        Message msg = Message.obtain(mHandler, MceStateMachine.MSG_MAS_CONNECTED);
+        mMceStateMachine.sendMessage(msg);
+
+        // Wait until the message is processed and a broadcast request is sent to
+        // to MapClientService to change
+        // state from STATE_CONNECTING to STATE_CONNECTED
+        verify(mMockMapClientService,
+                timeout(ASYNC_CALL_TIMEOUT_MILLIS).times(2)).sendBroadcast(
+                mIntentArgument.capture(), eq(ProfileService.BLUETOOTH_PERM));
+        Assert.assertEquals(BluetoothProfile.STATE_CONNECTED, mMceStateMachine.getState());
+
+        msg = Message.obtain(mHandler, MceStateMachine.MSG_MAS_DISCONNECTED);
+        mMceStateMachine.sendMessage(msg);
+        verify(mMockMapClientService,
+                timeout(ASYNC_CALL_TIMEOUT_MILLIS).times(4)).sendBroadcast(
+                mIntentArgument.capture(), eq(ProfileService.BLUETOOTH_PERM));
+
+        Assert.assertEquals(BluetoothProfile.STATE_DISCONNECTED, mMceStateMachine.getState());
+    }
+
+
     /**
      * Test receiving an empty event report
      */

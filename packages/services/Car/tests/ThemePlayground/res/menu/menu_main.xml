@@ -42,6 +42,10 @@
         android:orderInCategory="100"
         android:title="@string/recycler_view"/>
     <item
+        android:id="@+id/car_ui_recycler_view"
+        android:orderInCategory="100"
+        android:title="@string/car_ui_recycler_view"/>
+    <item
         android:id="@+id/default_themes"
         android:orderInCategory="100"
         android:title="@string/default_themes"/>

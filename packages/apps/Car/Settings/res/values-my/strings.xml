@@ -50,7 +50,7 @@
     <string name="roaming_title" msgid="6218635014519017734">"ပြင်ပကွန်ရက်သို့ ချိတ်ဆက်ခြင်း"</string>
     <string name="roaming_summary" msgid="7476127740259728901">"ပြင်ပကွန်ရက် သုံးသောအခါ ဒေတာဝန်ဆောင်မှုများနှင့် ချိတ်ဆက်သည်"</string>
     <string name="roaming_alert_title" msgid="4433901635766775763">"ပြင်ပကွန်ရက် ဒေတာသုံးခွင့်ပြုမလား။"</string>
-    <string name="roaming_warning" msgid="5313281900566657209">"ငွေကြေးအတန်အသင့် ကုန်ကျနိုင်ပါသည်။"</string>
+    <string name="roaming_warning" msgid="4908184914868720704">"ပြင်ပကွန်ရက်နှင့် ချိတ်ဆက်သော အသုံးပြုခများ ကျသင့်နိုင်သည်။"</string>
     <string name="data_usage_settings" msgid="7877132994777987848">"ဒေတာသုံးစွဲမှု"</string>
     <string name="data_usage_title" msgid="2923515974389203812">"အဓိက ဒေတာ"</string>
     <string name="data_used_formatted" msgid="6684557577780068339">"<xliff:g id="ID_1">^1</xliff:g> <xliff:g id="ID_2">^2</xliff:g> အသုံးပြုထားသည်"</string>
@@ -199,6 +199,8 @@
     <string name="bluetooth_device_picker" msgid="673238198452345475">"ဘလူးတုသ် စက်ကိရိယာကို ရွေးပါ"</string>
     <string name="language_settings" msgid="2079258598337245546">"ဘာသာစကားများ"</string>
     <string name="languages_and_input_settings" msgid="3672322610529408248">"ဘာသာစကားနှင့် ထည့်သွင်းမှုစနစ်"</string>
+    <string name="language_picker_list_suggested_header" msgid="7593893806003415948">"အကြံပြုထားသော"</string>
+    <string name="language_picker_list_all_header" msgid="1577387973934368428">"ဘာသာစကားအားလုံး"</string>
     <string name="keyboard_settings" msgid="1959697870618278081">"လက်ကွက်"</string>
     <string name="manage_keyboard" msgid="4045394766282200132">"လက်ကွက်များ စီမံခန့်ခွဲရန်"</string>
     <string name="text_to_speech_settings" msgid="811985746199507343">"စာသားမှ စကားပြောသို့ အထွက်"</string>
@@ -283,9 +285,11 @@
     <string name="not_installed" msgid="4218816013370552746">"ဤအသုံးပြုသူအတွက် ထည့်သွင်းမထားပါ"</string>
     <string name="permissions_label" msgid="2701446753515612685">"ခွင့်ပြုချက်များ"</string>
     <string name="notifications_label" msgid="6586089149665170731">"အကြောင်းကြားချက်များ"</string>
+    <string name="storage_application_label" msgid="5911779903670978586">"သိုလှောင်ခန်းနှင့် ကက်ရှ်"</string>
     <string name="application_version_label" msgid="8556889839783311649">"ဗားရှင်း− %1$s"</string>
     <string name="runtime_permissions_summary_no_permissions_granted" msgid="6001439205270250021">"ခွင့်ပြုထားသည့် အရာများ မရှိပါ"</string>
     <string name="runtime_permissions_summary_no_permissions_requested" msgid="4074220596273432442">"တောင်းဆိုထားသော ခွင့်ပြုချက်များ မရှိပါ"</string>
+    <string name="storage_type_internal" msgid="8918688427078709570">"စက်အတွင်းသိမ်းဆည်းရန်နေရာတွင် %s"</string>
     <string name="data_usage_summary_title" msgid="4368024763485916986">"ဒေတာသုံးစွဲမှု"</string>
     <string name="data_usage_app_summary_title" msgid="5012851696585421420">"အက်ပ်ဒေတာ သုံးစွဲမှု"</string>
     <string name="computing_size" msgid="5791407621793083965">"တွက်ချက်နေသည်…"</string>
@@ -345,17 +349,13 @@
     <string name="location_settings_recent_requests_title" msgid="6345634382240930628">"လတ်တလော တည်နေရာတောင်းဆိုချက်များ"</string>
     <string name="location_settings_recent_requests_empty_message" msgid="7789667070033674910">"လတ်တလော တည်နေရာတောင်းဆိုချက်များ မရှိပါ"</string>
     <string name="location_settings_app_permissions_title" msgid="6446735313354321564">"အက်ပ်အဆင့် ခွင့်ပြုချက်များ"</string>
-    <string name="location_settings_scanning_title" msgid="4253945869911300740">"စကင်ဖတ်နေသည်"</string>
     <string name="location_settings_services_title" msgid="1186133632690970468">"တည်နေရာဝန်ဆောင်မှုများ"</string>
-    <string name="location_settings_wifi_scanning_title" msgid="8021558840074023719">"Wi-Fi ရှာဖွေနေသည်"</string>
-    <string name="location_settings_wifi_scanning_summary" msgid="2116283960258671324">"Wi‑Fi ကို ပိတ်ထားသော်လည်း အနီးအနားရှိ Wi-Fi ကွန်ရက်များကို အချိန်မရွေးရှာဖွေရန် အက်ပ်နှင့် ဝန်ဆောင်မှုများအား ခွင့်ပြုပါ။ ဥပမာအားဖြင့် ၎င်းကို တည်နေရာအခြေပြု လုပ်ဆောင်ချက်နှင့် ဝန်ဆောင်မှုများ တိုးတက်လာစေရန် အသုံးပြုနိုင်ပါသည်။"</string>
-    <string name="location_settings_bluetooth_scanning_title" msgid="2969682902241932059">"ဘလူးတုသ် ရှာဖွေနေသည်"</string>
-    <string name="location_settings_bluetooth_scanning_summary" msgid="9158101751700727062">"ဘလူးတုသ်ကို ပိတ်ထားသော်လည်း အနီးအနားရှိ စက်ပစ္စည်းများကို အချိန်မရွေးရှာဖွေရန် အက်ပ်နှင့် ဝန်ဆောင်မှုများအား ခွင့်ပြုပါ။ ဥပမာအားဖြင့် ၎င်းကို တည်နေရာအခြေပြု လုပ်ဆောင်ချက်နှင့် ဝန်ဆောင်မှုများ တိုးတက်လာစေရန် အသုံးပြုနိုင်ပါသည်။"</string>
     <string name="system_setting_title" msgid="6864599341809463440">"စနစ်"</string>
     <string name="system_update_settings_title" msgid="8448588267784138855">"စနစ်အပ်ဒိတ်များ"</string>
     <string name="firmware_version" msgid="8491753744549309333">"Android ဗားရှင်း"</string>
     <string name="security_patch" msgid="4794276590178386903">"Android လုံခြုံရေးပက်ချ်အဆင့်"</string>
-    <string name="model_info" msgid="4966408071657934452">"မော်ဒယ်"</string>
+    <string name="hardware_info" msgid="3973165746261507658">"မော်ဒယ်နှင့် စက်ပစ္စည်းဆိုင်ရာ"</string>
+    <string name="hardware_info_summary" msgid="8262576443254075921">"မော်ဒယ်- <xliff:g id="MODEL">%1$s</xliff:g>"</string>
     <string name="baseband_version" msgid="2370088062235041897">"baseband ဗားရှင်း"</string>
     <string name="kernel_version" msgid="7327212934187011508">"Kernel ဗားရှင်း"</string>
     <string name="build_number" msgid="3997326631001009102">"တည်ဆောက်မှုနံပါတ်"</string>
@@ -379,6 +379,9 @@
     <string name="webview_license_title" msgid="6442372337052056463">"စနစ်၏ ဝဘ်မြင်ကွင်း လိုင်စင်များ"</string>
     <string name="wallpaper_attributions" msgid="9201272150014500697">"နောက်ခံပုံများ"</string>
     <string name="wallpaper_attributions_values" msgid="4292446851583307603">"ဂြိုဟ်တုဓာတ်ပုံ ဝန်ဆောင်မှုပေးသူများ−\n©2014 CNES / Astrium၊ DigitalGlobe၊ Bluesky"</string>
+    <string name="model_info" msgid="4966408071657934452">"မော်ဒယ်"</string>
+    <string name="status_serial_number" msgid="9158889113131907656">"အမှတ်စဉ်"</string>
+    <string name="hardware_revision" msgid="5713759927934872874">"ကွန်ပျူတာဆိုင်ရာစက်ပစ္စည်း ဗားရှင်း"</string>
     <string name="regulatory_info_text" msgid="8890339124198005428"></string>
     <string name="settings_license_activity_title" msgid="8499293744313077709">"ပြင်ပကုမ္ပဏီလိုင်စင်များ"</string>
     <string name="settings_license_activity_unavailable" msgid="6104592821991010350">"လိုင်စင်များကို ဖွင့်ရာတွင် ပြသနာရှိနေသည်။"</string>
@@ -425,7 +428,7 @@
     <string name="date_time_auto" msgid="3570339569471779767">"ရက်စွဲနှင့် အချိန် အလိုအလျောက်"</string>
     <string name="date_time_auto_summary" msgid="3311706425095342759">"ကွန်ရက်က ဖော်ပြသောအချိန်ကို အသုံးပြုရန်"</string>
     <string name="zone_auto" msgid="3701878581920206160">"အလိုအလျောက် စံတော်ချိန်"</string>
-    <string name="zone_auto_summary" msgid="4345856882906981864">"ကွန်ရက်က ဖော်ပြသောအချိန်ကို အသုံးပြုရန်"</string>
+    <string name="zone_auto_summary" msgid="4345856882906981864">"ကွန်ရက်က ဖော်ပြထားသောအချိန်ဇုန်ကို အသုံးပြုရန်"</string>
     <string name="date_time_24hour_title" msgid="3025576547136168692">"၂၄-နာရီ စနစ်"</string>
     <string name="date_time_24hour" msgid="1137618702556486913">"၂၄-နာရီ စနစ်ကို သုံးရန်"</string>
     <string name="date_time_set_time_title" msgid="5884883050656937853">"အချိန်"</string>
@@ -479,6 +482,8 @@
     <string name="user_name_label" msgid="3210832645046206845">"အမည်"</string>
     <string name="user_summary_not_set_up" msgid="1473688119241224145">"စနစ်ထည့်သွင်းထားခြင်း မရှိပါ"</string>
     <string name="edit_user_name_title" msgid="6890782937520262478">"အသုံးပြုသူအမည် တည်းဖြတ်ခြင်း"</string>
+    <string name="name_input_blank_error" msgid="2088850865880984123">"အကွက်ကို ကွက်လပ်ထား၍ မရပါ။"</string>
+    <string name="name_input_invalid_error" msgid="3523545780580744273">"ထည့်ထားသော အသုံးပြုသူအမည် မမှန်ကန်ပါ။"</string>
     <string name="users_list_title" msgid="770764290290240909">"အသုံးပြုသူများ"</string>
     <string name="user_details_admin_title" msgid="3530292857178371891">"%1$s ကိုပေးထားသော ခွင့်ပြုချက်"</string>
     <string name="storage_settings_title" msgid="8957054192781341797">"သိုလှောင်ခန်း"</string>
@@ -498,6 +503,8 @@
     <string name="storage_clear_data_dlg_title" msgid="5863775997588969879">"အက်ပ်ဒေတာ ဖျက်မလား။"</string>
     <string name="storage_clear_data_dlg_text" msgid="795055288575727801">"ဤအက်ပ်၏ဒေတာများအားလုံးကို အပြီးဖျက်ပါမည်။ ဖိုင်များအားလုံး၊ ဆက်တင်များ၊ အကောင့်များ၊ ဒေတာဘေ့စ်စသည်တို့ ပါဝင်ပါမည်။"</string>
     <string name="storage_clear_failed_dlg_text" msgid="6710485971686866306">"အက်ပ်အတွက် သိုလှောင်ခန်းကို ရှင်းလင်း၍မရပါ။"</string>
+    <string name="storage_unmount_success" msgid="1553591517580407021">"<xliff:g id="NAME">%1$s</xliff:g> ကို ဘေးကင်းစွာ ထုတ်လိုက်ပါပြီ"</string>
+    <string name="storage_unmount_failure" msgid="4591934911541762883">"<xliff:g id="NAME">%1$s</xliff:g> ကို ဘေးကင်းစွာ ထုတ်၍မရပါ"</string>
     <string name="accounts_settings_title" msgid="436190037084293471">"အကောင့်များ"</string>
     <string name="user_add_account_menu" msgid="6625351983590713721">"အကောင့်ထည့်ရန်"</string>
     <string name="no_accounts_added" msgid="5148163140691096055">"အကောင့်များ ထည့်မထားပါ"</string>
@@ -529,6 +536,7 @@
     <string name="sync_button_sync_now" msgid="5767643057970371315">"ယခု စင့်ခ်လုပ်ရန်"</string>
     <string name="sync_button_sync_cancel" msgid="7739510554513641393">"စင့်ခ် ပယ်ဖျက်ရန်"</string>
     <string name="sync_is_failing" msgid="5766255460901806206">"စင့်ခ်လုပ်ရန် လက်ရှိတွင် ပြဿနာရှိနေပါသည်။ ခဏကြာလျှင် ပြန်လည်ရရှိပါမည်။"</string>
+    <string name="privacy_settings_title" msgid="3150145262029229572">"ကန့်သတ်ဆက်တင်"</string>
     <string name="security_settings_title" msgid="6955331714774709746">"လုံခြုံရေး"</string>
     <string name="security_settings_subtitle" msgid="2244635550239273229">"မျက်နှာပြင်လော့ခ်"</string>
     <string name="security_lock_none" msgid="1054645093754839638">"မရှိ"</string>
@@ -619,26 +627,11 @@
     <string name="lockpassword_pin_no_sequential_digits" msgid="38813552228809240">"အစဉ်လိုက်ဖြစ်နေသော ဂဏန်း အငယ်မှအကြီး၊ အကြီးမှအငယ် သို့မဟုတ် ထပ်နေသည့် နံပါတ်စဉ်များကို ခွင့်မပြုပါ။"</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"မျက်နှာပြင်လော့ခ်ချခြင်း ရွေးချယ်စရာများ"</string>
     <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g> - လွန်ခဲ့သော <xliff:g id="NUM_DAYS">%3$s</xliff:g> ရက်"</string>
-    <string name="add_device_title" msgid="8452168024017866232">"ယုံကြည်ရသည့် စက်ကိုထည့်ရန်"</string>
-    <string name="add_device_summary" msgid="5368217520710573302">"စိတ်ချရသည့် ကိရိယာထည့်ရန် ဘလူးတုသ် ဖွင့်ပါမည်"</string>
-    <string name="trusted_device" msgid="5637378361866787603">"ယုံကြည်ရသည့် စက်များ"</string>
-    <plurals name="trusted_device_subtitle" formatted="false" msgid="462041049834264945">
-      <item quantity="other">စက်ပစ္စည်း <xliff:g id="COUNT_1">%d</xliff:g> ခု</item>
-      <item quantity="one">စက်ပစ္စည်း <xliff:g id="COUNT_0">%d</xliff:g> ခု</item>
-    </plurals>
-    <string name="remove_device_message" msgid="6447820559674148349">"ချိတ်ဆက်သည့်အခါ သင့် <xliff:g id="CONNECTED_DEVICE_NAME_0">%1$s</xliff:g> က ဤကားကို လော့ခ်ဖွင့်ပါမည်။ တစ်စုံတစ်ယောက်က သင့် <xliff:g id="CONNECTED_DEVICE_NAME_1">%1$s</xliff:g> ကိုယူသွားလျှင် သူသည် ဤကိရိယာကို အသုံးပြုခွင့်ရရှိနိုင်ပါသည်"</string>
-    <string name="trusted_device_confirm_button" msgid="102354635014627996">"အတည်ပြုရန်"</string>
-    <string name="trusted_device_remove_button" msgid="6140476996063415420">"ယုံကြည်ရသော ကိရိယာ ဖယ်ရှားရန်"</string>
-    <string name="trusted_device_done_button" msgid="8481956533222625296">"ပြီးပြီ"</string>
-    <string name="add_trusted_device_instruction" msgid="2280382609884918033">"စိတ်ချရသည့် စက်ပစ္စည်းကို သတ်မှတ်ရန် တွဲဖက်အက်ပ်ကို သုံးပါ။ သတ်မှတ်ပြီးသည်နှင့် သင့်စက်ကို ယာဉ်အနီးတွင် တွေ့ရှိရသည့်အခါ သင့်အသုံးပြုသူပရိုဖိုင်သည် အလိုအလျောက် လော့ခ်ပွင့်ပါမည်။"</string>
-    <string name="trusted_device_download_app" msgid="6971096140154499983">"၁။ တွဲဖက် အက်ပ်ကို သင့်ဖုန်းတွင် ဒေါင်းလုဒ်လုပ်ပါ"</string>
-    <string name="trusted_device_select_device" msgid="198902765179270739">"၂။ စက်ပစ္စည်းနှင့်အတူ တွဲချိတ်ရန် သင့်ဖုန်းတွင် <xliff:g id="CAR_NAME">%1$s</xliff:g> ကို ရွေးပေးပါ"</string>
-    <string name="trusted_device_safety_alert" msgid="3834898922112046769">"စိတ်ချရသည့် စက်တစ်ခုသည် အခြားသူတစ်ဦး၏လက်ထဲတွင် ရှိနေစေကာမူ ကားစက်နှိုးလိုက်သည်နှင့် သင့်ကားအနီးရှိ ယင်းစက်တစ်ခုက အသုံးပြုသူ ပရိုဖိုင်ကို လော့ခ်ဖွင့်ပေးပါမည်။"</string>
-    <string name="trusted_device_pairing_code_dialog_title" msgid="8173792468216796873">"အတူတွဲချိတ်ရန် ကုဒ်များ ကိုက်ညီကြောင်း အတည်ပြုပါ"</string>
-    <string name="trusted_device_success_enrollment_toast" msgid="1238468775285575827">"ဖုန်းကို စာရင်းသွင်းပြီးပါပြီ"</string>
-    <string name="trusted_device_fail_enrollment_toast" msgid="6801324174861209092">"<xliff:g id="DEVICE_NAME">%1$s</xliff:g> ကို စာရင်းသွင်း၍ မရပါ"</string>
-    <string name="trusted_device_set_authentication_reminder" msgid="5947077589994822305">"စိတ်ချရသည့် ကိရိယာတစ်ခုကို ထည့်ပြီးပါက အထောက်အထားစိစစ်ခြင်း နည်းလမ်းတစ်ခုကို သတ်မှတ်ရပါမည်။ သင့်တွင် စိတ်ချရသည့် ကိရိယာ အတူပါမလာပါက သင့်ပရိုဖိုင်ကို ဝင်သုံးခွင့်ရရန် အထောက်အထားစိစစ်ခြင်း လိုအပ်ပါလိမ့်မည်။"</string>
-    <string name="trusted_device_disconnected_toast" msgid="2541862946536880255">"စက်ချိတ်ဆက်မှု ပြတ်တောက်သွားသည်။"</string>
+    <string name="credentials_reset" msgid="873900550885788639">"အထောက်အထားများကို ရှင်းလင်းခြင်း"</string>
+    <string name="credentials_reset_summary" msgid="6067911547500459637">"အသိအမှတ်ပြုလက်မှတ်အားလုံးကို ဖယ်ရှားရန်"</string>
+    <string name="credentials_reset_hint" msgid="3459271621754137661">"အကြောင်းအရာအားလုံးကို ဖယ်ရှားမလား။"</string>
+    <string name="credentials_erased" msgid="2515915439705550379">"ယုံကြည်စိတ်ချရသောသိုလှောင်ရာနေရာအား ဖျက်လိုက်ပါပြီ။"</string>
+    <string name="credentials_not_erased" msgid="6118567459076742720">"သိုလှောင်ရာနေရာအား ဖျက်၍မရပါ။"</string>
     <string name="forget" msgid="3971143908183848527">"မေ့ပစ်ရန်"</string>
     <string name="connect" msgid="5861699594602380150">"ချိတ်ရန်"</string>
     <string name="disconnect" msgid="6140789953324820336">"ချိတ်ဆက်မှု ဖြုတ်ရန်"</string>
@@ -654,6 +647,7 @@
     <string name="exit_retail_mode_dialog_body" msgid="8314316171782527301">"၎င်းက သရုပ်ပြအကောင့်ကို ဖျက်ပြီး စနစ်ကို စက်ရုံထုတ်အခြေအနေပြန်ယူပါမည်။ အသုံးပြုသူ ဒေတာအားလုံး ရှိတော့မည်မဟုတ်ပါ။"</string>
     <string name="exit_retail_mode_dialog_confirmation_button_text" msgid="3147249675355968649">"သရုပ်ပြမှ ထွက်ရန်"</string>
     <string name="suggestion_dismiss_button" msgid="4539412646977050641">"ပယ်ရန်"</string>
-    <string name="restricted_while_driving" msgid="6217369093121968299">"ကားမောင်းနေစဉ် ဝန်ဆောင်မှု မရနိုင်ပါ။"</string>
-    <string name="add_user_restricted_while_driving" msgid="6384004350628271556">"ကားမောင်းနေစဉ် အသုံးပြုသူကို ထည့်၍မရပါ။"</string>
+    <string name="restricted_while_driving" msgid="6587569249519274524">"ကားမောင်းနေစဉ် ဝန်ဆောင်မှု မရနိုင်ပါ"</string>
+    <string name="add_user_restricted_while_driving" msgid="4754946754222453656">"ကားမောင်းနေစဉ် အသုံးပြုသူကို ထည့်၍မရပါ"</string>
+    <string name="default_search_query" msgid="3137420627428857068">"ရှာရန်"</string>
 </resources>

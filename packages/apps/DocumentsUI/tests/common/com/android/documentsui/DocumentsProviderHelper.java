@@ -20,16 +20,21 @@ import static android.content.ContentResolver.wrap;
 import static android.provider.DocumentsContract.buildChildDocumentsUri;
 import static android.provider.DocumentsContract.buildDocumentUri;
 import static android.provider.DocumentsContract.buildRootsUri;
-import static com.android.documentsui.base.DocumentInfo.getCursorString;
+
 import static androidx.core.util.Preconditions.checkArgument;
+
+import static com.android.documentsui.base.DocumentInfo.getCursorString;
+
 import static junit.framework.Assert.assertEquals;
 import static junit.framework.Assert.assertNotNull;
 import static junit.framework.Assert.fail;
 
 import android.content.ContentProviderClient;
+import android.content.Context;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.FileUtils;
 import android.os.ParcelFileDescriptor;
 import android.os.ParcelFileDescriptor.AutoCloseInputStream;
 import android.os.ParcelFileDescriptor.AutoCloseOutputStream;
@@ -37,23 +42,23 @@ import android.os.RemoteException;
 import android.provider.DocumentsContract;
 import android.provider.DocumentsContract.Document;
 import android.provider.DocumentsContract.Root;
-import androidx.annotation.Nullable;
 import android.test.MoreAsserts;
 import android.text.TextUtils;
 
+import androidx.annotation.Nullable;
+
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.RootInfo;
+import com.android.documentsui.base.UserId;
 import com.android.documentsui.roots.RootCursorWrapper;
 
-import android.os.FileUtils;
-import libcore.io.Streams;
-
 import com.google.common.collect.Lists;
+
+import libcore.io.Streams;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -61,13 +66,15 @@ import java.util.List;
  */
 public class DocumentsProviderHelper {
 
+    private final UserId mUserId;
     private final String mAuthority;
     private final ContentProviderClient mClient;
 
-    public DocumentsProviderHelper(String authority, ContentProviderClient client) {
+    public DocumentsProviderHelper(UserId userId, String authority, Context context, String name) {
         checkArgument(!TextUtils.isEmpty(authority));
+        mUserId = userId;
         mAuthority = authority;
-        mClient = client;
+        mClient = userId.getContentResolver(context).acquireContentProviderClient(name);
     }
 
     public RootInfo getRoot(String documentId) throws RemoteException {
@@ -77,7 +84,7 @@ public class DocumentsProviderHelper {
             cursor = mClient.query(rootsUri, null, null, null, null);
             while (cursor.moveToNext()) {
                 if (documentId.equals(getCursorString(cursor, Root.COLUMN_ROOT_ID))) {
-                    return RootInfo.fromRootsCursor(mAuthority, cursor);
+                    return RootInfo.fromRootsCursor(mUserId, mAuthority, cursor);
                 }
             }
             throw new IllegalArgumentException("Can't find matching root for id=" + documentId);
@@ -147,11 +154,11 @@ public class DocumentsProviderHelper {
         waitForWrite();
     }
 
-    public void writeAppendDocument(Uri documentUri, byte[] contents)
+    public void writeAppendDocument(Uri documentUri, byte[] contents, int length)
             throws RemoteException, IOException {
         ParcelFileDescriptor file = mClient.openFile(documentUri, "wa", null);
         try (AutoCloseOutputStream out = new AutoCloseOutputStream(file)) {
-            out.write(contents);
+            out.write(contents, 0, length);
         }
         waitForWrite();
     }
@@ -288,7 +295,8 @@ public class DocumentsProviderHelper {
         Uri uri = buildChildDocumentsUri(mAuthority, documentId);
         List<DocumentInfo> children = new ArrayList<>();
         try (Cursor cursor = mClient.query(uri, null, null, null, null, null)) {
-            Cursor wrapper = new RootCursorWrapper(mAuthority, "totally-fake", cursor, maxCount);
+            Cursor wrapper = new RootCursorWrapper(mUserId, mAuthority, "totally-fake", cursor,
+                    maxCount);
             while (wrapper.moveToNext()) {
                 children.add(DocumentInfo.fromDirectoryCursor(wrapper));
             }
@@ -340,6 +348,15 @@ public class DocumentsProviderHelper {
         mClient.call("configure", args, configuration);
     }
 
+    public void simulateReadErrorsForFile(String args, Bundle configuration)
+            throws RemoteException {
+        mClient.call("simulateReadErrorsForFile", args, configuration);
+    }
+
+    public void clear(String args, Bundle configuration) throws RemoteException {
+        mClient.call("clear", args, configuration);
+    }
+
     public List<RootInfo> getRootList() throws RemoteException {
         List<RootInfo> list = new ArrayList<>();
         final Uri rootsUri = DocumentsContract.buildRootsUri(mAuthority);
@@ -347,7 +364,7 @@ public class DocumentsProviderHelper {
         try {
             cursor = mClient.query(rootsUri, null, null, null, null);
             while (cursor.moveToNext()) {
-                RootInfo rootInfo = RootInfo.fromRootsCursor(mAuthority, cursor);
+                RootInfo rootInfo = RootInfo.fromRootsCursor(mUserId, mAuthority, cursor);
                 if (rootInfo != null) {
                     list.add(rootInfo);
                 }
@@ -358,5 +375,9 @@ public class DocumentsProviderHelper {
             FileUtils.closeQuietly(cursor);
         }
         return list;
+    }
+
+    public void cleanUp() {
+        mClient.close();
     }
 }

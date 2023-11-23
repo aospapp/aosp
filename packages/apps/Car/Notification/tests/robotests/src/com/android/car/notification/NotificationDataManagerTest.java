@@ -25,6 +25,7 @@ import android.service.notification.StatusBarNotification;
 import com.android.car.notification.testutils.ShadowCarAssistUtils;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import org.junit.After;
 import org.junit.Before;
@@ -51,8 +52,8 @@ public class NotificationDataManagerTest {
     private static final long POST_TIME = 12345l;
     private static final UserHandle USER_HANDLE = new UserHandle(12);
 
-    private StatusBarNotification mMessageNotification;
-    private StatusBarNotification mNonMessageNotification;
+    private AlertEntry mMessageNotification;
+    private AlertEntry mNonMessageNotification;
 
     private NotificationDataManager mNotificationDataManager;
 
@@ -65,12 +66,12 @@ public class NotificationDataManagerTest {
                 .setContentTitle(CONTENT_TITLE)
                 .setCategory(Notification.CATEGORY_MESSAGE);
 
-        mMessageNotification = new StatusBarNotification(PKG_1, OP_PKG,
+        mMessageNotification = new AlertEntry(new StatusBarNotification(PKG_1, OP_PKG,
                 ID, TAG, UID, INITIAL_PID, mNotificationBuilder1.build(), USER_HANDLE,
-                OVERRIDE_GROUP_KEY, POST_TIME);
-        mNonMessageNotification = new StatusBarNotification(PKG_2, OP_PKG,
+                OVERRIDE_GROUP_KEY, POST_TIME));
+        mNonMessageNotification = new AlertEntry (new StatusBarNotification(PKG_2, OP_PKG,
                 ID, TAG, UID, INITIAL_PID, mNotificationBuilder2.build(), USER_HANDLE,
-                OVERRIDE_GROUP_KEY, POST_TIME);
+                OVERRIDE_GROUP_KEY, POST_TIME));
 
         ShadowCarAssistUtils.addMessageNotification(mMessageNotification.getKey());
         mNotificationDataManager = new NotificationDataManager();
@@ -146,7 +147,7 @@ public class NotificationDataManagerTest {
     }
 
     @Test
-    public void setNotificationAsSeen_notificationIsSeen_decrementsUnseenCount() {
+    public void setNotificationsAsSeen_notificationIsSeen() {
         List<NotificationGroup> notificationGroups = new ArrayList<>();
 
         NotificationGroup notificationGroup = new NotificationGroup();
@@ -154,9 +155,42 @@ public class NotificationDataManagerTest {
         notificationGroups.add(notificationGroup);
 
         mNotificationDataManager.updateUnseenNotification(notificationGroups);
-        mNotificationDataManager.setNotificationAsSeen(mMessageNotification);
+        mNotificationDataManager.setNotificationsAsSeen(
+                Collections.singletonList(mMessageNotification));
+
+        assertThat(mNotificationDataManager.getSeenNotifications()).asList().containsExactly(
+                mMessageNotification.getKey());
+    }
+
+    @Test
+    public void setNotificationsAsSeen_notificationIsSeen_decrementsUnseenCount() {
+        List<NotificationGroup> notificationGroups = new ArrayList<>();
+
+        NotificationGroup notificationGroup = new NotificationGroup();
+        notificationGroup.addNotification(mMessageNotification);
+        notificationGroups.add(notificationGroup);
+
+        mNotificationDataManager.updateUnseenNotification(notificationGroups);
+        mNotificationDataManager.setNotificationsAsSeen(
+                Collections.singletonList(mMessageNotification));
 
         assertThat(mNotificationDataManager.getUnseenNotificationCount()).isEqualTo(0);
+    }
+
+    @Test
+    public void setNotificationsAsSeen_notificationIsSeen_notificationIsVisibleToUser() {
+        List<NotificationGroup> notificationGroups = new ArrayList<>();
+
+        NotificationGroup notificationGroup = new NotificationGroup();
+        notificationGroup.addNotification(mMessageNotification);
+        notificationGroups.add(notificationGroup);
+
+        mNotificationDataManager.updateUnseenNotification(notificationGroups);
+        mNotificationDataManager.setNotificationsAsSeen(
+                Collections.singletonList(mMessageNotification));
+
+        assertThat(mNotificationDataManager.getVisibleNotifications()).containsExactly(
+                mMessageNotification);
     }
 
     @Test

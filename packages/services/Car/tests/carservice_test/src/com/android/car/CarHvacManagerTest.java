@@ -16,9 +16,12 @@
 
 package com.android.car;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.testng.Assert.assertThrows;
 
 import android.car.Car;
 import android.car.hardware.CarPropertyValue;
@@ -35,11 +38,13 @@ import android.os.SystemClock;
 import android.util.Log;
 import android.util.MutableInt;
 
+import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.MediumTest;
-import androidx.test.runner.AndroidJUnit4;
 
 import com.android.car.vehiclehal.VehiclePropValueBuilder;
 import com.android.car.vehiclehal.test.MockedVehicleHal.VehicleHalPropertyHandler;
+
+import junit.framework.AssertionFailedError;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -83,6 +88,8 @@ public class CarHvacManagerTest extends MockedCarTestBase {
         super.setUp();
         mAvailable = new Semaphore(0);
         mCarHvacManager = (CarHvacManager) getCar().getCarManager(Car.HVAC_SERVICE);
+        mCarHvacManager.setIntProperty(VehicleProperty.HVAC_FAN_SPEED,
+                VehicleAreaSeat.ROW_1_LEFT, 0);
     }
 
     // Test a boolean property
@@ -99,6 +106,17 @@ public class CarHvacManagerTest extends MockedCarTestBase {
         defrost = mCarHvacManager.getBooleanProperty(CarHvacManager.ID_WINDOW_DEFROSTER_ON,
                 VehicleAreaWindow.FRONT_WINDSHIELD);
         assertFalse(defrost);
+    }
+
+    /**
+     * Test {@link CarHvacManager#isPropertyAvailable(int, int)}
+     */
+    @Test
+    public void testHvacPropertyAvailable() {
+        assertThat(mCarHvacManager.isPropertyAvailable(VehicleProperty.HVAC_AC_ON,
+                VehicleAreaSeat.ROW_1_CENTER)).isFalse();
+        assertThat(mCarHvacManager.isPropertyAvailable(VehicleProperty.HVAC_FAN_SPEED,
+                VehicleAreaSeat.ROW_1_LEFT)).isTrue();
     }
 
     // Test an integer property
@@ -156,7 +174,7 @@ public class CarHvacManagerTest extends MockedCarTestBase {
                 errorLatch.countDown();
             }
         });
-
+        mCarHvacManager.setBooleanProperty(PROP, AREA, true);
         getMockedVehicleHal().injectError(ERR_CODE, PROP, AREA);
         assertTrue(errorLatch.await(DEFAULT_WAIT_TIMEOUT_MS, TimeUnit.MILLISECONDS));
         assertEquals(PROP, propertyIdReceived.value);
@@ -211,6 +229,38 @@ public class CarHvacManagerTest extends MockedCarTestBase {
         assertTrue(mAvailable.tryAcquire(2L, TimeUnit.SECONDS));
         assertEquals(4, mEventIntVal);
         assertEquals(VehicleAreaSeat.ROW_1_LEFT, mEventZoneVal);
+    }
+
+    /**
+     * Test {@link CarHvacManager#unregisterCallback(CarHvacEventCallback)}
+     */
+    @Test
+    public void testUnregisterCallback() throws Exception {
+        EventListener listener = new EventListener();
+        mCarHvacManager.registerCallback(listener);
+        // Wait for events generated on registration
+        assertTrue(mAvailable.tryAcquire(2L, TimeUnit.SECONDS));
+        assertTrue(mAvailable.tryAcquire(2L, TimeUnit.SECONDS));
+        assertTrue(mAvailable.tryAcquire(2L, TimeUnit.SECONDS));
+        assertTrue(mAvailable.tryAcquire(2L, TimeUnit.SECONDS));
+
+        // Inject a boolean event and wait for its callback in onPropertySet.
+        VehiclePropValue v = VehiclePropValueBuilder.newBuilder(VehicleProperty.HVAC_DEFROSTER)
+                .setAreaId(VehicleAreaWindow.FRONT_WINDSHIELD)
+                .setTimestamp(SystemClock.elapsedRealtimeNanos())
+                .addIntValue(1)
+                .build();
+        assertEquals(0, mAvailable.availablePermits());
+        getMockedVehicleHal().injectEvent(v);
+
+        // Verify client get the callback.
+        assertTrue(mAvailable.tryAcquire(2L, TimeUnit.SECONDS));
+        assertTrue(mEventBoolVal);
+        assertEquals(mEventZoneVal, VehicleAreaWindow.FRONT_WINDSHIELD);
+
+        // test unregister callback
+        mCarHvacManager.unregisterCallback(listener);
+        assertThrows(AssertionFailedError.class, () -> getMockedVehicleHal().injectEvent(v));
     }
 
     private class HvacPropertyHandler implements VehicleHalPropertyHandler {

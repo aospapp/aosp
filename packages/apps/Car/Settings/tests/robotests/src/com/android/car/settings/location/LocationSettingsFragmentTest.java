@@ -15,43 +15,53 @@
  */
 package com.android.car.settings.location;
 
+import static com.android.car.ui.core.CarUi.requireToolbar;
+
 import static com.google.common.truth.Truth.assertThat;
 
 import android.app.Service;
 import android.content.Intent;
 import android.location.LocationManager;
-import android.widget.Switch;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
-import com.android.car.settings.R;
-import com.android.car.settings.testutils.BaseTestActivity;
+import com.android.car.settings.testutils.FragmentController;
 import com.android.car.settings.testutils.ShadowLocationManager;
 import com.android.car.settings.testutils.ShadowSecureSettings;
+import com.android.car.ui.core.testsupport.CarUiInstallerRobolectric;
+import com.android.car.ui.toolbar.MenuItem;
+import com.android.car.ui.toolbar.ToolbarController;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.Robolectric;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowApplication;
 
 import java.util.List;
 
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 @Config(shadows = {ShadowSecureSettings.class, ShadowLocationManager.class})
 public class LocationSettingsFragmentTest {
-    private BaseTestActivity mActivity;
+    private FragmentController<LocationSettingsFragment> mFragmentController;
+    private LocationSettingsFragment mFragment;
     private LocationManager mLocationManager;
-    private Switch mLocationSwitch;
+    private MenuItem mLocationSwitch;
 
     @Before
     public void setUp() {
+        Robolectric.getForegroundThreadScheduler().pause();
         mLocationManager = (LocationManager) RuntimeEnvironment.application
                 .getSystemService(Service.LOCATION_SERVICE);
 
-        mActivity = Robolectric.setupActivity(BaseTestActivity.class);
+        // Needed to install Install CarUiLib BaseLayouts Toolbar for test activity
+        CarUiInstallerRobolectric.install();
+
+        mFragment = new LocationSettingsFragment();
+        mFragmentController = FragmentController.of(mFragment);
+        mFragmentController.setup();
     }
 
     @After
@@ -62,7 +72,7 @@ public class LocationSettingsFragmentTest {
     @Test
     public void locationSwitch_toggle_shouldBroadcastLocationModeChangedIntent() {
         initFragment();
-        mLocationSwitch.setChecked(!mLocationSwitch.isChecked());
+        mLocationSwitch.performClick();
 
         List<Intent> intentsFired = ShadowApplication.getInstance().getBroadcastIntents();
         assertThat(intentsFired).hasSize(1);
@@ -73,7 +83,7 @@ public class LocationSettingsFragmentTest {
     @Test
     public void locationSwitch_checked_enablesLocation() {
         initFragment();
-        mLocationSwitch.setChecked(true);
+        mLocationSwitch.performClick();
 
         assertThat(mLocationManager.isLocationEnabled()).isTrue();
     }
@@ -81,13 +91,17 @@ public class LocationSettingsFragmentTest {
     @Test
     public void locationSwitch_unchecked_disablesLocation() {
         initFragment();
-        mLocationSwitch.setChecked(false);
+        mLocationSwitch.performClick();
+
+        assertThat(mLocationManager.isLocationEnabled()).isTrue();
+
+        mLocationSwitch.performClick();
 
         assertThat(mLocationManager.isLocationEnabled()).isFalse();
     }
 
     private void initFragment() {
-        mActivity.launchFragment(new LocationSettingsFragment());
-        mLocationSwitch = (Switch) mActivity.findViewById(R.id.toggle_switch);
+        ToolbarController toolbar = requireToolbar(mFragment.requireActivity());
+        mLocationSwitch = toolbar.getMenuItems().get(0);
     }
 }

@@ -17,7 +17,15 @@
 package com.android.tv.util;
 
 import android.content.Context;
+import android.os.Build;
+import android.os.LocaleList;
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
+import android.support.annotation.Size;
 import android.view.accessibility.CaptioningManager;
+
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 public class CaptionSettings {
@@ -35,6 +43,8 @@ public class CaptionSettings {
                 (CaptioningManager) context.getSystemService(Context.CAPTIONING_SERVICE);
     }
 
+    /** @deprecated use {@link #getSystemPreferenceLanguageList} instead. */
+    @Deprecated
     public final String getSystemLanguage() {
         Locale l = mCaptioningManager.getLocale();
         if (l != null) {
@@ -43,10 +53,31 @@ public class CaptionSettings {
         return null;
     }
 
+    @NonNull
+    @Size(min=1)
+    public final List<String> getSystemPreferenceLanguageList() {
+        List<String> languageList = new ArrayList<>();
+        Locale l = mCaptioningManager.getLocale();
+        if (l != null) {
+            languageList.add(l.getLanguage());
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            LocaleList locales = LocaleList.getDefault();
+            for (int i = 0; i < locales.size() ; i++) {
+                languageList.add(locales.get(i).getLanguage());
+            }
+        } else {
+            languageList.add(Locale.getDefault().getLanguage());
+        }
+        return languageList;
+    }
+
+    /** Returns the language of closed captions based on options. */
+    @Nullable
     public final String getLanguage() {
         switch (mOption) {
             case OPTION_SYSTEM:
-                return getSystemLanguage();
+                return getSystemPreferenceLanguageList().get(0);
             case OPTION_OFF:
                 return null;
             case OPTION_ON:

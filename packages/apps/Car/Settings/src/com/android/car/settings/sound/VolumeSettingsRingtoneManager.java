@@ -26,6 +26,10 @@ import android.os.Looper;
 import android.provider.Settings;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
+
+import com.android.car.settings.R;
+import com.android.car.settings.common.Logger;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -33,11 +37,14 @@ import java.util.Map;
 /** Manges the audio played by the {@link VolumeSettingsPreferenceController}. */
 public class VolumeSettingsRingtoneManager {
 
+    private static final Logger LOG = new Logger(VolumeSettingsRingtoneManager.class);
+
     private static final int AUDIO_FEEDBACK_DURATION_MS = 1000;
 
     private final Context mContext;
     private final Handler mUiHandler;
     private final Map<Integer, Ringtone> mGroupToRingtoneMap = new HashMap<>();
+    private final Map<Integer, Uri> mAttributeUsageToRingtoneUriMap = new HashMap<>();
 
     @Nullable
     private Ringtone mCurrentRingtone;
@@ -45,6 +52,32 @@ public class VolumeSettingsRingtoneManager {
     public VolumeSettingsRingtoneManager(Context context) {
         mContext = context;
         mUiHandler = new Handler(Looper.getMainLooper());
+        populateAttributeUsageToRingtoneUriMap();
+    }
+
+    private void populateAttributeUsageToRingtoneUriMap() {
+        int[] audioAttributeUsages = mContext
+            .getResources()
+            .getIntArray(R.array.config_ringtone_audio_attribute_usages_map_key);
+        String[] ringtoneStrings = mContext
+            .getResources()
+            .getStringArray(R.array.config_ringtone_uri_map_value);
+        if (audioAttributeUsages.length != ringtoneStrings.length) {
+            throw new IllegalArgumentException(
+                "config_ringtone_audio_attribute_usages_map_key and config_ringtone_uri_map_value "
+                + "must have the same number of items");
+        }
+
+        for (int i = 0; i < audioAttributeUsages.length; i++) {
+            @AudioAttributes.AttributeUsage int usage = audioAttributeUsages[i];
+            if (AudioAttributes.usageToString(usage).contains("unknown usage")) {
+                throw new IllegalArgumentException(
+                    "Invalid usage in config_ringtone_audio_attribute_usages_map_key");
+            }
+            Uri ringtoneUri = Uri.parse(ringtoneStrings[i]);
+            LOG.d("Usage " + usage + " mapped to ringtone " + ringtoneUri);
+            mAttributeUsageToRingtoneUriMap.put(usage, ringtoneUri);
+        }
     }
 
     /**
@@ -87,14 +120,9 @@ public class VolumeSettingsRingtoneManager {
     }
 
     // TODO: bundle car-specific audio sample assets in res/raw by usage
-    private Uri getRingtoneUri(@AudioAttributes.AttributeUsage int usage) {
-        switch (usage) {
-            case AudioAttributes.USAGE_NOTIFICATION:
-                return Settings.System.DEFAULT_NOTIFICATION_URI;
-            case AudioAttributes.USAGE_ALARM:
-                return Settings.System.DEFAULT_ALARM_ALERT_URI;
-            default:
-                return Settings.System.DEFAULT_RINGTONE_URI;
-        }
+    @VisibleForTesting
+    Uri getRingtoneUri(@AudioAttributes.AttributeUsage int usage) {
+        return mAttributeUsageToRingtoneUriMap.getOrDefault(
+            usage, Settings.System.DEFAULT_RINGTONE_URI);
     }
 }

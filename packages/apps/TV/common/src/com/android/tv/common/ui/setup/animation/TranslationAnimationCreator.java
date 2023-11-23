@@ -20,7 +20,7 @@ import android.animation.AnimatorListenerAdapter;
 import android.animation.ObjectAnimator;
 import android.animation.TimeInterpolator;
 import android.graphics.Path;
-import android.support.v17.leanback.R;
+import androidx.leanback.R;
 import android.transition.Transition;
 import android.transition.TransitionValues;
 import android.view.View;
@@ -29,9 +29,9 @@ import android.view.View;
  * This class is used by Slide and Explode to create an animator that goes from the start position
  * to the end position. It takes into account the canceled position so that it will not blink out or
  * shift suddenly when the transition is interrupted. The original class is
- * android.support.v17.leanback.transition.TranslationAnimationCreator which is hidden.
+ * androidx.leanback.transition.TranslationAnimationCreator which is hidden.
  */
-// Copied from android.support.v17.leanback.transition.TransltaionAnimationCreator
+// Copied from androidx.leanback.transition.TransltaionAnimationCreator
 class TranslationAnimationCreator {
     /**
      * Creates an animator that can be used for x and/or y translations. When interrupted, it sets a

@@ -15,7 +15,7 @@
  */
 package com.android.providers.blockednumber;
 
-import static android.telecom.Log.piiHandle;
+import static com.android.providers.blockednumber.Utils.piiHandle;
 
 import android.Manifest;
 import android.annotation.NonNull;
@@ -39,6 +39,7 @@ import android.os.Bundle;
 import android.os.CancellationSignal;
 import android.os.PersistableBundle;
 import android.os.Process;
+import android.os.UserHandle;
 import android.os.UserManager;
 import android.provider.BlockedNumberContract;
 import android.provider.BlockedNumberContract.SystemContract;
@@ -451,8 +452,7 @@ public class BlockedNumberProvider extends ContentProvider {
     }
 
     private boolean canCurrentUserBlockUsers() {
-        UserManager userManager = getContext().getSystemService(UserManager.class);
-        return userManager.isPrimaryUser();
+        return getContext().getUserId() == UserHandle.USER_SYSTEM;
     }
 
     private void notifyEmergencyContact() {

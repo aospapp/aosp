@@ -65,6 +65,9 @@ import com.android.car.developeroptions.overlay.FeatureFactory;
 import com.android.car.developeroptions.slices.SettingsSliceProvider;
 import com.android.settingslib.drawer.DashboardCategory;
 import com.android.settingslib.drawer.Tile;
+import com.android.settingslib.search.Indexable;
+import com.android.settingslib.search.SearchIndexableData;
+import com.android.settingslib.search.SearchIndexableRaw;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -219,14 +222,12 @@ public class SettingsSearchIndexablesProvider extends SearchIndexablesProvider {
     }
 
     private List<String> getNonIndexableKeysFromProvider(Context context) {
-        final Collection<Class> values = FeatureFactory.getFactory(context)
+        final Collection<SearchIndexableData> bundles = FeatureFactory.getFactory(context)
                 .getSearchFeatureProvider().getSearchIndexableResources().getProviderValues();
         final List<String> nonIndexableKeys = new ArrayList<>();
-
-        for (Class<?> clazz : values) {
+        for (SearchIndexableData bundle : bundles) {
             final long startTime = System.currentTimeMillis();
-            Indexable.SearchIndexProvider provider = DatabaseIndexingUtils.getSearchIndexProvider(
-                    clazz);
+            Indexable.SearchIndexProvider provider = bundle.getSearchIndexProvider();
 
             List<String> providerNonIndexableKeys;
             try {
@@ -241,7 +242,8 @@ public class SettingsSearchIndexablesProvider extends SearchIndexablesProvider {
                 if (System.getProperty(SYSPROP_CRASH_ON_ERROR) != null) {
                     throw new RuntimeException(e);
                 }
-                Log.e(TAG, "Error trying to get non-indexable keys from: " + clazz.getName(), e);
+                Log.e(TAG, "Error trying to get non-indexable keys from: "
+                        + bundle.getTargetClass().getName(), e);
                 continue;
             }
 
@@ -270,13 +272,11 @@ public class SettingsSearchIndexablesProvider extends SearchIndexablesProvider {
     }
 
     private List<SearchIndexableResource> getSearchIndexableResourcesFromProvider(Context context) {
-        Collection<Class> values = FeatureFactory.getFactory(context)
+        final Collection<SearchIndexableData> bundles = FeatureFactory.getFactory(context)
                 .getSearchFeatureProvider().getSearchIndexableResources().getProviderValues();
         List<SearchIndexableResource> resourceList = new ArrayList<>();
-
-        for (Class<?> clazz : values) {
-            Indexable.SearchIndexProvider provider = DatabaseIndexingUtils.getSearchIndexProvider(
-                    clazz);
+        for (SearchIndexableData bundle : bundles) {
+            Indexable.SearchIndexProvider provider = bundle.getSearchIndexProvider();
 
             final List<SearchIndexableResource> resList =
                     provider.getXmlResourcesToIndex(context, true);
@@ -287,7 +287,7 @@ public class SettingsSearchIndexablesProvider extends SearchIndexablesProvider {
 
             for (SearchIndexableResource item : resList) {
                 item.className = TextUtils.isEmpty(item.className)
-                        ? clazz.getName()
+                        ? bundle.getTargetClass().getName()
                         : item.className;
             }
 
@@ -298,13 +298,11 @@ public class SettingsSearchIndexablesProvider extends SearchIndexablesProvider {
     }
 
     private List<SearchIndexableRaw> getSearchIndexableRawFromProvider(Context context) {
-        final Collection<Class> values = FeatureFactory.getFactory(context)
+        final Collection<SearchIndexableData> bundles = FeatureFactory.getFactory(context)
                 .getSearchFeatureProvider().getSearchIndexableResources().getProviderValues();
         final List<SearchIndexableRaw> rawList = new ArrayList<>();
-
-        for (Class<?> clazz : values) {
-            Indexable.SearchIndexProvider provider = DatabaseIndexingUtils.getSearchIndexProvider(
-                    clazz);
+        for (SearchIndexableData bundle : bundles) {
+            Indexable.SearchIndexProvider provider = bundle.getSearchIndexProvider();
             final List<SearchIndexableRaw> providerRaws = provider.getRawDataToIndex(context,
                     true /* enabled */);
 
@@ -315,7 +313,7 @@ public class SettingsSearchIndexablesProvider extends SearchIndexablesProvider {
             for (SearchIndexableRaw raw : providerRaws) {
                 // The classname and intent information comes from the PreIndexData
                 // This will be more clear when provider conversion is done at PreIndex time.
-                raw.className = clazz.getName();
+                raw.className = bundle.getTargetClass().getName();
 
             }
             rawList.addAll(providerRaws);

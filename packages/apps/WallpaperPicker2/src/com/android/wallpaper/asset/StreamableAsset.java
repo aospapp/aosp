@@ -260,12 +260,6 @@ public abstract class StreamableAsset extends Asset {
                 mTargetWidth = tempHeight;
             }
 
-            InputStream inputStream = openInputStream();
-            // Input stream may be null if there was an error opening it.
-            if (inputStream == null) {
-                return null;
-            }
-
             BitmapFactory.Options options = new BitmapFactory.Options();
 
             Point rawDimensions = calculateRawDimensions();
@@ -277,6 +271,7 @@ public abstract class StreamableAsset extends Asset {
                     rawDimensions.x, rawDimensions.y, mTargetWidth, mTargetHeight);
             options.inPreferredConfig = Config.HARDWARE;
 
+            InputStream inputStream = openInputStream();
             Bitmap bitmap = BitmapFactory.decodeStream(inputStream, null, options);
             closeInputStream(
                     inputStream, "Error closing the input stream used to decode the full bitmap");

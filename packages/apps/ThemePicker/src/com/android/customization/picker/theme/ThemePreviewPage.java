@@ -38,8 +38,7 @@ abstract class ThemePreviewPage extends PreviewPage {
 
     @StringRes
     final int nameResId;
-    @DrawableRes
-    final int iconSrc;
+    final Drawable icon;
     @LayoutRes
     final int contentLayoutRes;
     @ColorInt
@@ -51,7 +50,13 @@ abstract class ThemePreviewPage extends PreviewPage {
             @ColorInt int accentColor) {
         super(null);
         this.nameResId = titleResId;
-        this.iconSrc = iconSrc;
+        if (iconSrc != Resources.ID_NULL) {
+            this.icon = context.getResources().getDrawable(iconSrc, context.getTheme());
+            int size = context.getResources().getDimensionPixelSize(R.dimen.card_header_icon_size);
+            icon.setBounds(0, 0, size, size);
+        } else {
+            this.icon = null;
+        }
         this.contentLayoutRes = contentLayoutRes;
         this.accentColor = accentColor;
         this.inflater = LayoutInflater.from(context);
@@ -61,7 +66,7 @@ abstract class ThemePreviewPage extends PreviewPage {
     public void bindPreviewContent() {
         TextView header = card.findViewById(R.id.theme_preview_card_header);
         header.setText(nameResId);
-        header.setCompoundDrawablesWithIntrinsicBounds(0, iconSrc, 0, 0);
+        header.setCompoundDrawables(null, icon, null, null);
         header.setCompoundDrawableTintList(ColorStateList.valueOf(accentColor));
         card.findViewById(R.id.theme_preview_top_bar).setVisibility(View.GONE);
         card.findViewById(R.id.edit_label).setVisibility(View.GONE);
@@ -215,6 +220,8 @@ abstract class ThemePreviewPage extends PreviewPage {
             TextView editLabel = card.findViewById(R.id.edit_label);
             editLabel.setOnClickListener(mEditClickListener);
             card.setOnClickListener(mEditClickListener);
+            card.setClickable(mEditClickListener != null);
+
             editLabel.setVisibility(mEditClickListener != null
                     ? View.VISIBLE : View.INVISIBLE);
 

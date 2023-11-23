@@ -135,7 +135,7 @@ public class PlayControlsRowViewTest {
         controller.pressKeyCode(KeyEvent.KEYCODE_MEDIA_PAUSE);
         controller.menuHelper.assertWaitForMenu();
         assertButtonHasFocus(BUTTON_ID_PLAY_PAUSE);
-        // Press HOME twice to visit the home screen and return to Live TV.
+        // Press HOME twice to visit the home screen and return to TV app.
         controller.pressHome();
         // Wait until home screen is shown.
         controller.waitForIdle();

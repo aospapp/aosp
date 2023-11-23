@@ -21,9 +21,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
-import android.car.userlib.CarUserManagerHelper;
 import android.content.Context;
 import android.content.pm.ActivityInfo;
 import android.content.pm.ApplicationInfo;
@@ -32,49 +30,40 @@ import android.content.pm.ResolveInfo;
 import androidx.lifecycle.Lifecycle;
 import androidx.preference.Preference;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.common.ConfirmationDialogFragment;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
 import com.android.car.settings.testutils.ShadowApplicationPackageManager;
-import com.android.car.settings.testutils.ShadowCarUserManagerHelper;
 import com.android.settingslib.applications.ApplicationsState;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadow.api.Shadow;
 
 import java.util.Arrays;
 
-@RunWith(CarSettingsRobolectricTestRunner.class)
-@Config(shadows = {ShadowApplicationPackageManager.class, ShadowCarUserManagerHelper.class})
+@RunWith(RobolectricTestRunner.class)
+@Config(shadows = {ShadowApplicationPackageManager.class})
 public class DomainUrlsPreferenceControllerTest {
 
-    private static final int USER_ID = 10;
     private static final String TEST_PACKAGE_NAME = "com.example.test";
     private static final int TEST_PACKAGE_ID = 1;
-    private static final String TEST_LABEL = "Test App";
     private static final String TEST_PATH = "TEST_PATH";
-    private static final String TEST_ACTIVITY = "TestActivity";
 
     private Context mContext;
     private Preference mPreference;
     private PreferenceControllerTestHelper<DomainUrlsPreferenceController> mControllerHelper;
     private DomainUrlsPreferenceController mController;
     private ApplicationsState.AppEntry mAppEntry;
-    @Mock
-    private CarUserManagerHelper mCarUserManagerHelper;
 
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
-        ShadowCarUserManagerHelper.setMockInstance(mCarUserManagerHelper);
-        when(mCarUserManagerHelper.getCurrentProcessUserId()).thenReturn(USER_ID);
 
         mContext = RuntimeEnvironment.application;
         mPreference = new Preference(mContext);
@@ -91,7 +80,6 @@ public class DomainUrlsPreferenceControllerTest {
 
     @After
     public void tearDown() {
-        ShadowCarUserManagerHelper.reset();
         ShadowApplicationPackageManager.reset();
     }
 

@@ -56,6 +56,9 @@ public class RadioOnStateListener {
     @VisibleForTesting
     public static final int MSG_SERVICE_STATE_CHANGED = 2;
     private static final int MSG_RETRY_TIMEOUT = 3;
+    @VisibleForTesting
+    public static final int MSG_RADIO_ON = 4;
+    public static final int MSG_RADIO_OFF_OR_NOT_AVAILABLE = 5;
 
     private final Handler mHandler = new Handler(Looper.getMainLooper()) {
         @Override
@@ -67,13 +70,22 @@ public class RadioOnStateListener {
                         Phone phone = (Phone) args.arg1;
                         RadioOnStateListener.Callback callback =
                                 (RadioOnStateListener.Callback) args.arg2;
-                        startSequenceInternal(phone, callback);
+                        boolean forEmergencyCall = (boolean) args.arg3;
+                        boolean isSelectedPhoneForEmergencyCall = (boolean) args.arg4;
+                        startSequenceInternal(phone, callback, forEmergencyCall,
+                                isSelectedPhoneForEmergencyCall);
                     } finally {
                         args.recycle();
                     }
                     break;
                 case MSG_SERVICE_STATE_CHANGED:
                     onServiceStateChanged((ServiceState) ((AsyncResult) msg.obj).result);
+                    break;
+                case MSG_RADIO_ON:
+                    onRadioOn();
+                    break;
+                case MSG_RADIO_OFF_OR_NOT_AVAILABLE:
+                    registerForRadioOn();
                     break;
                 case MSG_RETRY_TIMEOUT:
                     onRetryTimeout();
@@ -88,6 +100,10 @@ public class RadioOnStateListener {
 
     private Callback mCallback;  // The callback to notify upon completion.
     private Phone mPhone;  // The phone that will attempt to place the call.
+    private boolean mForEmergencyCall; // Whether radio is being turned on for emergency call.
+    // Whether this phone is selected to place emergency call. Can be true only if
+    // mForEmergencyCall is true.
+    private boolean mSelectedPhoneForEmergencyCall;
     private int mNumRetriesSoFar;
 
     /**
@@ -104,7 +120,8 @@ public class RadioOnStateListener {
      * RadioOnStateListener's handler (thus ensuring that the rest of the sequence is entirely
      * serialized, and runs only on the handler thread.)
      */
-    public void waitForRadioOn(Phone phone, Callback callback) {
+    public void waitForRadioOn(Phone phone, Callback callback,
+            boolean forEmergencyCall, boolean isSelectedPhoneForEmergencyCall) {
         Log.d(this, "waitForRadioOn: Phone " + phone.getPhoneId());
 
         if (mPhone != null) {
@@ -115,6 +132,8 @@ public class RadioOnStateListener {
         SomeArgs args = SomeArgs.obtain();
         args.arg1 = phone;
         args.arg2 = callback;
+        args.arg3 = forEmergencyCall;
+        args.arg4 = isSelectedPhoneForEmergencyCall;
         mHandler.obtainMessage(MSG_START_SEQUENCE, args).sendToTarget();
     }
 
@@ -123,7 +142,8 @@ public class RadioOnStateListener {
      *
      * @see #waitForRadioOn
      */
-    private void startSequenceInternal(Phone phone, Callback callback) {
+    private void startSequenceInternal(Phone phone, Callback callback,
+            boolean forEmergencyCall, boolean isSelectedPhoneForEmergencyCall) {
         Log.d(this, "startSequenceInternal: Phone " + phone.getPhoneId());
 
         // First of all, clean up any state left over from a prior RadioOn call sequence. This
@@ -133,8 +153,13 @@ public class RadioOnStateListener {
 
         mPhone = phone;
         mCallback = callback;
+        mForEmergencyCall = forEmergencyCall;
+        mSelectedPhoneForEmergencyCall = isSelectedPhoneForEmergencyCall;
 
         registerForServiceStateChanged();
+        // Register for RADIO_OFF to handle cases where emergency call is dialed before
+        // we receive UNSOL_RESPONSE_RADIO_STATE_CHANGED with RADIO_OFF.
+        registerForRadioOff();
         // Next step: when the SERVICE_STATE_CHANGED event comes in, we'll retry the call; see
         // onServiceStateChanged(). But also, just in case, start a timer to make sure we'll retry
         // the call even if the SERVICE_STATE_CHANGED event never comes in for some reason.
@@ -147,6 +172,7 @@ public class RadioOnStateListener {
      * call with {@link Callback#isOkToCall}
      */
     private void onServiceStateChanged(ServiceState state) {
+        if (mPhone == null) return;
         Log.d(this, "onServiceStateChanged(), new state = %s, Phone = %s", state,
                 mPhone.getPhoneId());
 
@@ -169,6 +195,18 @@ public class RadioOnStateListener {
         }
     }
 
+    private void onRadioOn() {
+        if (mPhone == null) return;
+        ServiceState state =  mPhone.getServiceState();
+        Log.d(this, "onRadioOn, state = %s, Phone = %s", state,
+                mPhone.getPhoneId());
+        if (isOkToCall(state.getState())) {
+            onComplete(true);
+            cleanup();
+        } else {
+            Log.d(this, "onRadioOn: not ready to call yet, keep waiting.");
+        }
+    }
     /**
      * Callback to see if it is okay to call yet, given the current conditions.
      */
@@ -180,6 +218,7 @@ public class RadioOnStateListener {
      * Handles the retry timer expiring.
      */
     private void onRetryTimeout() {
+        if (mPhone == null) return;
         int serviceState = mPhone.getServiceState().getState();
         Log.d(this, "onRetryTimeout():  phone state = %s, service state = %d, retries = %d.",
                 mPhone.getState(), serviceState, mNumRetriesSoFar);
@@ -208,7 +247,8 @@ public class RadioOnStateListener {
                 cleanup();
             } else {
                 Log.d(this, "Trying (again) to turn on the radio.");
-                mPhone.setRadioPower(true);
+                mPhone.setRadioPower(true, mForEmergencyCall, mSelectedPhoneForEmergencyCall,
+                        false);
                 startRetryTimer();
             }
         }
@@ -231,7 +271,7 @@ public class RadioOnStateListener {
      * Note we don't call this method simply after a successful call to placeCall(), since it's
      * still possible the call will disconnect very quickly with an OUT_OF_SERVICE error.
      */
-    private void cleanup() {
+    public void cleanup() {
         Log.d(this, "cleanup()");
 
         // This will send a failure call back if callback has yet to be invoked.  If the callback
@@ -239,6 +279,8 @@ public class RadioOnStateListener {
         onComplete(false);
 
         unregisterForServiceStateChanged();
+        unregisterForRadioOff();
+        unregisterForRadioOn();
         cancelRetryTimer();
 
         // Used for unregisterForServiceStateChanged() so we null it out here instead.
@@ -269,6 +311,31 @@ public class RadioOnStateListener {
             mPhone.unregisterForServiceStateChanged(mHandler);  // Safe even if unnecessary
         }
         mHandler.removeMessages(MSG_SERVICE_STATE_CHANGED);  // Clean up any pending messages too
+    }
+
+    private void registerForRadioOff() {
+        mPhone.mCi.registerForOffOrNotAvailable(mHandler, MSG_RADIO_OFF_OR_NOT_AVAILABLE, null);
+    }
+
+    private void unregisterForRadioOff() {
+        // This method is safe to call even if we haven't set mPhone yet.
+        if (mPhone != null) {
+            mPhone.mCi.unregisterForOffOrNotAvailable(mHandler);  // Safe even if unnecessary
+        }
+        mHandler.removeMessages(MSG_RADIO_OFF_OR_NOT_AVAILABLE);  // Clean up any pending messages
+    }
+
+    private void registerForRadioOn() {
+        unregisterForRadioOff();
+        mPhone.mCi.registerForOn(mHandler, MSG_RADIO_ON, null);
+    }
+
+    private void unregisterForRadioOn() {
+        // This method is safe to call even if we haven't set mPhone yet.
+        if (mPhone != null) {
+            mPhone.mCi.unregisterForOn(mHandler);  // Safe even if unnecessary
+        }
+        mHandler.removeMessages(MSG_RADIO_ON);  // Clean up any pending messages too
     }
 
     private void onComplete(boolean isRadioReady) {

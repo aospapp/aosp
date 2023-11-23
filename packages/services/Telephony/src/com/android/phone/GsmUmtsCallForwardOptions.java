@@ -18,6 +18,7 @@ import com.android.internal.telephony.Phone;
 import java.util.ArrayList;
 
 public class GsmUmtsCallForwardOptions extends TimeConsumingPreferenceActivity {
+    private static final boolean DBG = (PhoneGlobals.DBG_LEVEL >= 2);
     private static final String LOG_TAG = "GsmUmtsCallForwardOptions";
 
     private static final String NUM_PROJECTION[] = {
@@ -62,6 +63,9 @@ public class GsmUmtsCallForwardOptions extends TimeConsumingPreferenceActivity {
         mPhone = mSubscriptionInfoHelper.getPhone();
 
         PersistableBundle b = null;
+        boolean supportCFB = true;
+        boolean supportCFNRc = true;
+        boolean supportCFNRy = true;
         if (mSubscriptionInfoHelper.hasSubId()) {
             b = PhoneGlobals.getInstance().getCarrierConfigForSubId(
                     mSubscriptionInfoHelper.getSubId());
@@ -73,6 +77,12 @@ public class GsmUmtsCallForwardOptions extends TimeConsumingPreferenceActivity {
                     CarrierConfigManager.KEY_CALL_FORWARDING_MAP_NON_NUMBER_TO_VOICEMAIL_BOOL);
             mCallForwardByUssd = b.getBoolean(
                     CarrierConfigManager.KEY_USE_CALL_FORWARDING_USSD_BOOL);
+            supportCFB = b.getBoolean(
+                    CarrierConfigManager.KEY_CALL_FORWARDING_WHEN_BUSY_SUPPORTED_BOOL);
+            supportCFNRc = b.getBoolean(
+                    CarrierConfigManager.KEY_CALL_FORWARDING_WHEN_UNREACHABLE_SUPPORTED_BOOL);
+            supportCFNRy = b.getBoolean(
+                    CarrierConfigManager.KEY_CALL_FORWARDING_WHEN_UNANSWERED_SUPPORTED_BOOL);
         }
 
         PreferenceScreen prefSet = getPreferenceScreen();
@@ -87,9 +97,9 @@ public class GsmUmtsCallForwardOptions extends TimeConsumingPreferenceActivity {
         mButtonCFNRc.setParentActivity(this, mButtonCFNRc.reason);
 
         mPreferences.add(mButtonCFU);
-        mPreferences.add(mButtonCFB);
-        mPreferences.add(mButtonCFNRy);
-        mPreferences.add(mButtonCFNRc);
+        layoutCallForwardItem(supportCFB, mButtonCFB, prefSet);
+        layoutCallForwardItem(supportCFNRy, mButtonCFNRy, prefSet);
+        layoutCallForwardItem(supportCFNRc, mButtonCFNRc, prefSet);
 
         if (mCallForwardByUssd) {
             //the call forwarding ussd command's behavior is similar to the call forwarding when
@@ -114,6 +124,15 @@ public class GsmUmtsCallForwardOptions extends TimeConsumingPreferenceActivity {
         if (actionBar != null) {
             // android.R.id.home will be triggered in onOptionsItemSelected()
             actionBar.setDisplayHomeAsUpEnabled(true);
+        }
+    }
+
+    private void layoutCallForwardItem(boolean support, CallForwardEditPreference preference,
+            PreferenceScreen prefSet) {
+        if (support) {
+            mPreferences.add(preference);
+        } else {
+            prefSet.removePreference(preference);
         }
     }
 

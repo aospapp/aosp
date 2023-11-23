@@ -152,7 +152,6 @@ public class AppNotificationSettings extends NotificationSettingsBase {
         mControllers.add(new DescriptionPreferenceController(context));
         mControllers.add(new NotificationsOffPreferenceController(context));
         mControllers.add(new DeletedChannelsPreferenceController(context, mBackend));
-        mControllers.add(new BubbleSummaryPreferenceController(context, mBackend));
         return new ArrayList<>(mControllers);
     }
 

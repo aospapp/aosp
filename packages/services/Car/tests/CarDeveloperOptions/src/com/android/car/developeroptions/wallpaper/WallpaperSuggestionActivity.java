@@ -29,9 +29,9 @@ import androidx.annotation.VisibleForTesting;
 import com.android.car.developeroptions.R;
 import com.android.car.developeroptions.core.SubSettingLauncher;
 import com.android.car.developeroptions.search.BaseSearchIndexProvider;
-import com.android.car.developeroptions.search.Indexable;
-import com.android.car.developeroptions.search.SearchIndexableRaw;
+import com.android.settingslib.search.Indexable;
 import com.android.settingslib.search.SearchIndexable;
+import com.android.settingslib.search.SearchIndexableRaw;
 
 import com.google.android.setupcompat.util.WizardManagerHelper;
 

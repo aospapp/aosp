@@ -18,7 +18,10 @@ package com.android.car.settings.users;
 
 import android.car.drivingstate.CarUxRestrictions;
 import android.car.userlib.CarUserManagerHelper;
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.UserInfo;
 
 import androidx.annotation.CallSuper;
@@ -35,21 +38,24 @@ import java.util.Objects;
 /** Shared business logic between {@link UsersListFragment} and {@link ChooseNewAdminFragment}. */
 public abstract class UsersBasePreferenceController extends PreferenceController<PreferenceGroup> {
 
-    /** Update screen when users list is updated. */
-    private final CarUserManagerHelper.OnUsersUpdateListener mOnUsersUpdateListener =
-            this::refreshUi;
-
     private UsersPreferenceProvider mPreferenceProvider;
     private CarUserManagerHelper mCarUserManagerHelper;
     private List<Preference> mUsersToDisplay = new ArrayList<>();
+
+    private final BroadcastReceiver mUserUpdateReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            /** Update screen when users list is updated. */
+            refreshUi();
+        }
+    };
 
     public UsersBasePreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
         mCarUserManagerHelper = new CarUserManagerHelper(context);
         UsersPreferenceProvider.UserClickListener userClickListener = this::userClicked;
-        mPreferenceProvider = new UsersPreferenceProvider(context, mCarUserManagerHelper,
-                userClickListener);
+        mPreferenceProvider = new UsersPreferenceProvider(context, userClickListener);
     }
 
     @Override
@@ -64,14 +70,14 @@ public abstract class UsersBasePreferenceController extends PreferenceController
     @Override
     @CallSuper
     protected void onCreateInternal() {
-        mCarUserManagerHelper.registerOnUsersUpdateListener(mOnUsersUpdateListener);
+        registerForUserEvents();
     }
 
     /** Unregister listener to refresh screen on updates. */
     @Override
     @CallSuper
     protected void onDestroyInternal() {
-        mCarUserManagerHelper.unregisterOnUsersUpdateListener(mOnUsersUpdateListener);
+        unregisterForUserEvents();
     }
 
     @Override
@@ -120,5 +126,14 @@ public abstract class UsersBasePreferenceController extends PreferenceController
     private boolean preferencesAreDifferent(Preference lhs, Preference rhs) {
         return !Objects.equals(lhs.getTitle(), rhs.getTitle())
                 || !Objects.equals(lhs.getSummary(), rhs.getSummary());
+    }
+
+    private void registerForUserEvents() {
+        IntentFilter filter = new IntentFilter(Intent.ACTION_USER_INFO_CHANGED);
+        getContext().registerReceiver(mUserUpdateReceiver, filter);
+    }
+
+    private void unregisterForUserEvents() {
+        getContext().unregisterReceiver(mUserUpdateReceiver);
     }
 }

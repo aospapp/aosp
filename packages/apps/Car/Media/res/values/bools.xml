@@ -21,4 +21,7 @@
     <bool name="show_icon_for_now_playing_queue_list_item">false</bool>
     <bool name="switch_to_playback_view_when_playable_item_is_clicked">true</bool>
     <bool name="show_thumbnail_for_queue_list_item">true</bool>
+    <bool name="show_subtitle_for_queue_list_item">false</bool>
+    <!-- Override this flag to show an icon that launches sound settings (equalizer) -->
+    <bool name="show_sound_settings">false</bool>
 </resources>

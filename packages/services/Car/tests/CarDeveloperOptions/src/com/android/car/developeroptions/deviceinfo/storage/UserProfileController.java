@@ -27,13 +27,14 @@ import android.util.SparseArray;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceScreen;
 
-import com.android.internal.util.Preconditions;
 import com.android.car.developeroptions.Utils;
 import com.android.car.developeroptions.core.PreferenceControllerMixin;
 import com.android.car.developeroptions.core.SubSettingLauncher;
 import com.android.car.developeroptions.deviceinfo.StorageItemPreference;
 import com.android.car.developeroptions.deviceinfo.StorageProfileFragment;
 import com.android.settingslib.core.AbstractPreferenceController;
+
+import java.util.Objects;
 
 /**
  * Defines a {@link AbstractPreferenceController} which handles a single profile of the primary
@@ -50,7 +51,7 @@ public class UserProfileController extends AbstractPreferenceController implemen
 
     public UserProfileController(Context context, UserInfo info, int preferenceOrder) {
         super(context);
-        mUser = Preconditions.checkNotNull(info);
+        mUser = Objects.requireNonNull(info);
         mPreferenceOrder = preferenceOrder;
     }
 
@@ -94,7 +95,7 @@ public class UserProfileController extends AbstractPreferenceController implemen
 
     @Override
     public void handleResult(SparseArray<StorageAsyncLoader.AppsStorageResult> stats) {
-        Preconditions.checkNotNull(stats);
+        Objects.requireNonNull(stats);
 
         int userId = mUser.id;
         StorageAsyncLoader.AppsStorageResult result = stats.get(userId);

@@ -21,12 +21,11 @@ import android.view.View;
 
 import androidx.preference.PreferenceViewHolder;
 
-import com.android.car.settings.R;
 import com.android.car.settings.common.PasswordEditTextPreference;
 
 /**
- * A {@link PasswordEditTextPreference} which has a second button which can perform another action
- * defined by {@link OnButtonClickListener}.
+ * A {@link PasswordEditTextPreference} which has a second button which can perform another
+ * action defined by {@link OnButtonClickListener}.
  */
 public class ButtonPasswordEditTextPreference extends PasswordEditTextPreference {
 
@@ -40,7 +39,7 @@ public class ButtonPasswordEditTextPreference extends PasswordEditTextPreference
     }
 
     private void init() {
-        setLayoutResource(R.layout.two_action_preference);
+        setTwoActionLayout();
     }
 
     /**
@@ -61,13 +60,13 @@ public class ButtonPasswordEditTextPreference extends PasswordEditTextPreference
     @Override
     public void onBindViewHolder(PreferenceViewHolder holder) {
         super.onBindViewHolder(holder);
-        View actionConatiner = holder.findViewById(R.id.action_widget_container);
+        View actionContainer = getWidgetActionContainer(holder);
         View widgetFrame = holder.findViewById(android.R.id.widget_frame);
         if (mIsButtonShown) {
-            actionConatiner.setVisibility(View.VISIBLE);
+            actionContainer.setVisibility(View.VISIBLE);
             widgetFrame.setOnClickListener(v -> performButtonClick());
         } else {
-            actionConatiner.setVisibility(View.GONE);
+            actionContainer.setVisibility(View.GONE);
         }
     }
 

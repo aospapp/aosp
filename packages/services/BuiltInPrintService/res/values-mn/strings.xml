@@ -60,6 +60,11 @@
     <string name="forget" msgid="892068061425802502">"Мартах"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"Wi-Fi Шуудаар холбогддог"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"Одоогийн сүлжээгээр <xliff:g id="IP_ADDRESS">%1$s</xliff:g>-д холбогддог"</string>
+    <string name="recommendation_summary" msgid="2979700524954307566">"Стандарт хэвлэлтийн үйлчилгээ энгийн сонголттой байдаг. Энэ хэвлэгчийн бусад сонголт хэвлэлийн өөр үйлчилгээнээс боломжтой байж болзошгүй."</string>
+    <string name="recommendations_heading" msgid="5086762263560605249">"Санал болгосон үйлчилгээ"</string>
+    <string name="recommendation_install_summary" msgid="374785283809791669">"Суулгахын тулд сонгох"</string>
+    <string name="recommendation_enable_summary" msgid="3500907868251326224">"Идэвхжүүлэхийн тулд сонгох"</string>
+    <string name="recommendation_manage" msgid="4683640588502866284">"Үйлчилгээг удирдах"</string>
     <string name="security" msgid="2279008326210305401">"Аюулгүй байдал"</string>
     <string name="certificate_update_request" msgid="1314796413107139475">"Энэ хэвлэгч аюулгүй байдлын шинэ сертификат олгосон эсвэл үүнийг өөр төхөөрөмж хуурамчаар дуурайж байна. Шинэ сертификатыг зөвшөөрөх үү?"</string>
     <string name="not_encrypted_request" msgid="4871472176807381642">"Энэ хэвлэгч шифрлэсэн ажлыг цаашид зөвшөөрөхөө больсон байна. Үргэлжлүүлэн хэвлэх үү?"</string>
@@ -68,4 +73,5 @@
     <string name="connections" msgid="8895413761760117180">"Холболтууд"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Стандарт хэвлэлтийн үйлчилгээнд ойролцоох төхөөрөмжүүдийг олоход байршлын зөвшөөрөл шаардлагатай."</string>
     <string name="fix" msgid="7784394272611365393">"Зөвшөөрлийг хянах"</string>
+    <string name="print" msgid="7851318072404916362">"Хэвлэх"</string>
 </resources>

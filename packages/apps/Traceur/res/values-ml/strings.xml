@@ -25,6 +25,7 @@
     <string name="trace_is_being_recorded" msgid="5947378146009337469">"ട്രെയ്‌സ് റെക്കോർഡ് ചെയ്യുകയാണ്"</string>
     <string name="tap_to_stop_tracing" msgid="6533282719573871806">"ട്രെയ്‌സിംഗ് നിർത്താൻ ടാപ്പ് ചെയ്യുക"</string>
     <string name="clear_saved_traces" msgid="4809195654452260944">"സംരക്ഷിച്ച ട്രെയ്‌സുകൾ മായ്ക്കുക"</string>
+    <string name="clear_saved_traces_summary" msgid="6035923138201219577">"ഒരു മാസത്തിന് ശേഷം അടയാളങ്ങൾ മായ്ക്കുന്നു"</string>
     <string name="clear_saved_traces_question" msgid="2184026613055303818">"സംരക്ഷിച്ച ട്രെയ്‌സുകൾ മായ്ക്കണോ?"</string>
     <string name="all_traces_will_be_deleted" msgid="6646545462206955920">"ഡാറ്റ/ലോക്കൽ/ട്രെയ്‌സുകൾ എന്നിവയിൽ നിന്ന്, എല്ലാ ട്രെയ്‌സുകളും ഇല്ലാതാക്കപ്പെടും"</string>
     <string name="clear" msgid="5484761795406948056">"മായ്ക്കുക"</string>

@@ -45,7 +45,7 @@ public final class Utils {
     private static final String TAG = "BluetoothUtils";
 
     static final boolean V = BluetoothUtils.V; // verbose logging
-    static final boolean D =  BluetoothUtils.D;  // regular logging
+    static final boolean D = BluetoothUtils.D;  // regular logging
 
     private Utils() {
     }
@@ -93,7 +93,8 @@ public final class Utils {
     @VisibleForTesting
     static void showConnectingError(Context context, String name, LocalBluetoothManager manager) {
         FeatureFactory.getFactory(context).getMetricsFeatureProvider().visible(context,
-            SettingsEnums.PAGE_UNKNOWN, SettingsEnums.ACTION_SETTINGS_BLUETOOTH_CONNECT_ERROR);
+                SettingsEnums.PAGE_UNKNOWN, SettingsEnums.ACTION_SETTINGS_BLUETOOTH_CONNECT_ERROR,
+                0);
         showError(context, name, R.string.bluetooth_connecting_error_message, manager);
     }
 
@@ -125,7 +126,7 @@ public final class Utils {
     }
 
     public static String createRemoteName(Context context, BluetoothDevice device) {
-        String mRemoteName = device != null ? device.getAliasName() : null;
+        String mRemoteName = device != null ? device.getAlias() : null;
 
         if (mRemoteName == null) {
             mRemoteName = context.getString(R.string.unknown);

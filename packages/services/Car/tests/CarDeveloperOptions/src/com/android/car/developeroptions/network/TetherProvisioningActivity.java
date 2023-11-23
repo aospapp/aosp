@@ -19,15 +19,11 @@ package com.android.car.developeroptions.network;
 import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.content.res.Resources;
 import android.net.ConnectivityManager;
 import android.os.Bundle;
 import android.os.ResultReceiver;
 import android.os.UserHandle;
-import android.telephony.SubscriptionManager;
 import android.util.Log;
-
-import com.android.car.developeroptions.Utils;
 
 /**
  * Activity which acts as a proxy to the tether provisioning app for sanity checks and permission
@@ -41,6 +37,8 @@ public class TetherProvisioningActivity extends Activity {
     private static final String EXTRA_TETHER_TYPE = "TETHER_TYPE";
     private static final boolean DEBUG = Log.isLoggable(TAG, Log.DEBUG);
     private ResultReceiver mResultReceiver;
+    public static final String EXTRA_TETHER_UI_PROVISIONING_APP_NAME =
+            "android.net.extra.TETHER_UI_PROVISIONING_APP_NAME";
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -51,10 +49,12 @@ public class TetherProvisioningActivity extends Activity {
 
         int tetherType = getIntent().getIntExtra(ConnectivityManager.EXTRA_ADD_TETHER_TYPE,
                 ConnectivityManager.TETHERING_INVALID);
-        final int subId = SubscriptionManager.getDefaultDataSubscriptionId();
-        final Resources res = Utils.getResourcesForSubId(this, subId);
-        final String[] provisionApp = res.getStringArray(
-                com.android.internal.R.array.config_mobile_hotspot_provision_app);
+        String[] provisionApp = getIntent().getStringArrayExtra(
+                EXTRA_TETHER_UI_PROVISIONING_APP_NAME);
+        if (provisionApp == null || provisionApp.length != 2) {
+            Log.e(TAG, "Unexpected provision app configuration");
+            return;
+        }
 
         Intent intent = new Intent(Intent.ACTION_MAIN);
         intent.setClassName(provisionApp[0], provisionApp[1]);

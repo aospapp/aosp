@@ -17,7 +17,7 @@
 package com.android.tv.dvr.ui.browse;
 
 import android.os.Bundle;
-import android.support.v17.leanback.app.DetailsFragment;
+import androidx.leanback.app.DetailsFragment;
 import com.android.tv.TvSingletons;
 import com.android.tv.dvr.data.ScheduledRecording;
 import com.android.tv.ui.DetailsActivity;

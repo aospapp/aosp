@@ -17,22 +17,22 @@
 package com.android.services.telephony;
 
 import android.net.Uri;
-import android.telecom.ConferenceParticipant;
 import android.telecom.Connection;
 import android.telecom.DisconnectCause;
-import android.telecom.PhoneAccount;
-import android.telephony.PhoneNumberUtils;
 import android.telephony.SubscriptionInfo;
 import android.text.TextUtils;
 
-import com.android.internal.annotations.VisibleForTesting;
+import com.android.ims.internal.ConferenceParticipant;
 import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneConstants;
+import com.android.telephony.Rlog;
 
 /**
  * Represents a participant in a conference call.
  */
 public class ConferenceParticipantConnection extends Connection {
+
+    private static final String LOG_TAG = "ConferenceParticipantConnection";
 
     /**
      * The user entity URI For the conference participant.
@@ -88,7 +88,7 @@ public class ConferenceParticipantConnection extends Connection {
      * @param newState The new state.
      */
     public void updateState(int newState) {
-        Log.v(this, "updateState endPoint: %s state: %s", Log.pii(mEndpoint),
+        Log.v(this, "updateState endPoint: %s state: %s", Rlog.pii(LOG_TAG, mEndpoint),
                 Connection.stateToString(newState));
         if (newState == getState()) {
             return;
@@ -183,7 +183,7 @@ public class ConferenceParticipantConnection extends Connection {
         SubscriptionInfo subInfo = TelecomAccountRegistry.getInstance(null).
                 getSubscriptionManager().getActiveSubscriptionInfo(subId);
 
-        if (subInfo == null) {
+        if (subInfo == null || TextUtils.isEmpty(subInfo.getCountryIso())) {
             return null;
         }
         // The SubscriptionInfo reports ISO country codes in lower case.  Convert to upper case,
@@ -203,19 +203,19 @@ public class ConferenceParticipantConnection extends Connection {
         sb.append("[ConferenceParticipantConnection objId:");
         sb.append(System.identityHashCode(this));
         sb.append(" endPoint:");
-        sb.append(Log.pii(mEndpoint));
+        sb.append(Rlog.pii(LOG_TAG, mEndpoint));
         sb.append(" address:");
-        sb.append(Log.pii(getAddress()));
+        sb.append(Rlog.pii(LOG_TAG, getAddress()));
         sb.append(" addressPresentation:");
         sb.append(getAddressPresentation());
         sb.append(" parentConnection:");
-        sb.append(Log.pii(mParentConnection.getAddress()));
+        sb.append(Rlog.pii(LOG_TAG, mParentConnection.getAddress()));
         sb.append(" state:");
         sb.append(Connection.stateToString(getState()));
         sb.append(" connectTime:");
         sb.append(getConnectTimeMillis());
         sb.append(" connectElapsedTime:");
-        sb.append(getConnectElapsedTimeMillis());
+        sb.append(getConnectionStartElapsedRealtimeMillis());
         sb.append("]");
 
         return sb.toString();

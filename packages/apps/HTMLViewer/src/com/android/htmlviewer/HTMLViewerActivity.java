@@ -20,11 +20,11 @@ import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.ContentResolver;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.Browser;
 import android.util.Log;
+import android.view.MenuItem;
 import android.view.View;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
@@ -71,6 +71,7 @@ public class HTMLViewerActivity extends Activity {
         s.setSavePassword(false);
         s.setSaveFormData(false);
         s.setBlockNetworkLoads(true);
+        s.setAllowFileAccess(true);
 
         // Javascript is purposely disabled, so that nothing can be
         // automatically run.
@@ -78,6 +79,7 @@ public class HTMLViewerActivity extends Activity {
         s.setDefaultTextEncodingName("utf-8");
 
         mIntent = getIntent();
+        setBackButton();
         loadUrl();
     }
 
@@ -86,6 +88,21 @@ public class HTMLViewerActivity extends Activity {
             setTitle(mIntent.getStringExtra(Intent.EXTRA_TITLE));
         }
         mWebView.loadUrl(String.valueOf(mIntent.getData()));
+    }
+
+    private void setBackButton() {
+        if (getActionBar() != null) {
+            getActionBar().setDisplayHomeAsUpEnabled(true);
+        }
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == android.R.id.home) {
+            finish();
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
     }
 
     @Override

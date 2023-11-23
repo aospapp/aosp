@@ -24,6 +24,8 @@ import android.util.AttributeSet;
 import android.view.View;
 import android.widget.TextView;
 
+import com.android.car.ui.utils.CarUxRestrictionsUtil;
+
 /**
  * UX Restrictions compliant TextView.
  * This class will automatically listen to Car UXRestrictions and truncate text accordingly.

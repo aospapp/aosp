@@ -50,7 +50,7 @@
     <string name="roaming_title" msgid="6218635014519017734">"Roaming"</string>
     <string name="roaming_summary" msgid="7476127740259728901">"Kumonekta sa mga serbisyo ng data kapag naka-roaming"</string>
     <string name="roaming_alert_title" msgid="4433901635766775763">"Payagan ang data roaming?"</string>
-    <string name="roaming_warning" msgid="5313281900566657209">"Puwede kang magkaroon ng malaking bayarin."</string>
+    <string name="roaming_warning" msgid="4908184914868720704">"Puwedeng magkaroon ng mga singil sa roaming."</string>
     <string name="data_usage_settings" msgid="7877132994777987848">"Paggamit ng data"</string>
     <string name="data_usage_title" msgid="2923515974389203812">"Pangunahing data"</string>
     <string name="data_used_formatted" msgid="6684557577780068339">"<xliff:g id="ID_1">^1</xliff:g> <xliff:g id="ID_2">^2</xliff:g> ang nagamit"</string>
@@ -199,6 +199,8 @@
     <string name="bluetooth_device_picker" msgid="673238198452345475">"Pumili ng Bluetooth device"</string>
     <string name="language_settings" msgid="2079258598337245546">"Mga Wika"</string>
     <string name="languages_and_input_settings" msgid="3672322610529408248">"Mga wika at input"</string>
+    <string name="language_picker_list_suggested_header" msgid="7593893806003415948">"Iminumungkahi"</string>
+    <string name="language_picker_list_all_header" msgid="1577387973934368428">"Lahat ng wika"</string>
     <string name="keyboard_settings" msgid="1959697870618278081">"Keyboard"</string>
     <string name="manage_keyboard" msgid="4045394766282200132">"Pamahalaan ang mga keyboard"</string>
     <string name="text_to_speech_settings" msgid="811985746199507343">"Output ng text-to-speech"</string>
@@ -283,9 +285,11 @@
     <string name="not_installed" msgid="4218816013370552746">"Hindi naka-install para sa user na ito"</string>
     <string name="permissions_label" msgid="2701446753515612685">"Mga Pahintulot"</string>
     <string name="notifications_label" msgid="6586089149665170731">"Mga Notification"</string>
+    <string name="storage_application_label" msgid="5911779903670978586">"Storage at cache"</string>
     <string name="application_version_label" msgid="8556889839783311649">"Bersyon: %1$s"</string>
     <string name="runtime_permissions_summary_no_permissions_granted" msgid="6001439205270250021">"Walang ibinigay na pahintulot"</string>
     <string name="runtime_permissions_summary_no_permissions_requested" msgid="4074220596273432442">"Walang hiniling na pahintulot"</string>
+    <string name="storage_type_internal" msgid="8918688427078709570">"%s sa internal storage"</string>
     <string name="data_usage_summary_title" msgid="4368024763485916986">"Paggamit ng data"</string>
     <string name="data_usage_app_summary_title" msgid="5012851696585421420">"Paggamit ng data ng app"</string>
     <string name="computing_size" msgid="5791407621793083965">"Kinakalkula…"</string>
@@ -344,17 +348,13 @@
     <string name="location_settings_recent_requests_title" msgid="6345634382240930628">"Mga Kamakailang Kahilingan sa Lokasyon"</string>
     <string name="location_settings_recent_requests_empty_message" msgid="7789667070033674910">"Walang kamakailang kahilingan sa lokasyon"</string>
     <string name="location_settings_app_permissions_title" msgid="6446735313354321564">"Mga pahintulot sa antas ng app"</string>
-    <string name="location_settings_scanning_title" msgid="4253945869911300740">"Pag-scan"</string>
     <string name="location_settings_services_title" msgid="1186133632690970468">"Mga Serbisyo ng Lokasyon"</string>
-    <string name="location_settings_wifi_scanning_title" msgid="8021558840074023719">"Pag-scan ng Wi‑Fi"</string>
-    <string name="location_settings_wifi_scanning_summary" msgid="2116283960258671324">"Bigyang-daan ang mga app at serbisyo na mag-scan ng mga Wi-Fi network anumang oras, kahit na naka-off ang Wi-Fi. Magagamit ito, halimbawa, para pahusayin ang mga feature at serbisyong batay sa lokasyon."</string>
-    <string name="location_settings_bluetooth_scanning_title" msgid="2969682902241932059">"Pag-scan ng Bluetooth"</string>
-    <string name="location_settings_bluetooth_scanning_summary" msgid="9158101751700727062">"Bigyang-daan ang mga app at serbisyo na mag-scan ng mga kalapit na device anumang oras, kahit na naka-off ang Bluetooth. Magagamit ito, halimbawa, para pahusayin ang mga feature at serbisyong batay sa lokasyon."</string>
     <string name="system_setting_title" msgid="6864599341809463440">"System"</string>
     <string name="system_update_settings_title" msgid="8448588267784138855">"Mga pag-update ng system"</string>
     <string name="firmware_version" msgid="8491753744549309333">"Bersyon ng Android"</string>
     <string name="security_patch" msgid="4794276590178386903">"Antas ng patch ng seguridad ng Android"</string>
-    <string name="model_info" msgid="4966408071657934452">"Modelo"</string>
+    <string name="hardware_info" msgid="3973165746261507658">"Modelo at hardware"</string>
+    <string name="hardware_info_summary" msgid="8262576443254075921">"Modelo: <xliff:g id="MODEL">%1$s</xliff:g>"</string>
     <string name="baseband_version" msgid="2370088062235041897">"Bersyon ng baseband"</string>
     <string name="kernel_version" msgid="7327212934187011508">"Kernel version"</string>
     <string name="build_number" msgid="3997326631001009102">"Numero ng build"</string>
@@ -378,6 +378,9 @@
     <string name="webview_license_title" msgid="6442372337052056463">"Mga lisensya ng System WebView"</string>
     <string name="wallpaper_attributions" msgid="9201272150014500697">"Mga Wallpaper"</string>
     <string name="wallpaper_attributions_values" msgid="4292446851583307603">"Mga provider ng koleksyon ng imahe na galing sa satellite:\n©2014 CNES / Astrium, DigitalGlobe, Bluesky"</string>
+    <string name="model_info" msgid="4966408071657934452">"Modelo"</string>
+    <string name="status_serial_number" msgid="9158889113131907656">"Serial number"</string>
+    <string name="hardware_revision" msgid="5713759927934872874">"Bersyon ng hardware"</string>
     <string name="regulatory_info_text" msgid="8890339124198005428"></string>
     <string name="settings_license_activity_title" msgid="8499293744313077709">"Mga lisensya ng third party"</string>
     <string name="settings_license_activity_unavailable" msgid="6104592821991010350">"May problema sa pag-load ng mga lisensya."</string>
@@ -478,6 +481,8 @@
     <string name="user_name_label" msgid="3210832645046206845">"Pangalan"</string>
     <string name="user_summary_not_set_up" msgid="1473688119241224145">"Hindi naka-set up"</string>
     <string name="edit_user_name_title" msgid="6890782937520262478">"I-edit ang user name"</string>
+    <string name="name_input_blank_error" msgid="2088850865880984123">"Hindi puwedeng blangko ang field."</string>
+    <string name="name_input_invalid_error" msgid="3523545780580744273">"Invalid ang inilagay na username."</string>
     <string name="users_list_title" msgid="770764290290240909">"Mga User"</string>
     <string name="user_details_admin_title" msgid="3530292857178371891">"Binigyan ng pahintulot si %1$s"</string>
     <string name="storage_settings_title" msgid="8957054192781341797">"Storage"</string>
@@ -497,6 +502,8 @@
     <string name="storage_clear_data_dlg_title" msgid="5863775997588969879">"I-delete ang data ng app?"</string>
     <string name="storage_clear_data_dlg_text" msgid="795055288575727801">"Permanenteng made-delete ang lahat ng data ng app na ito. Kabilang dito ang lahat ng file, setting, account, database, atbp."</string>
     <string name="storage_clear_failed_dlg_text" msgid="6710485971686866306">"Hindi ma-clear ang storage para sa app."</string>
+    <string name="storage_unmount_success" msgid="1553591517580407021">"Na-eject na nang ligtas ang <xliff:g id="NAME">%1$s</xliff:g>"</string>
+    <string name="storage_unmount_failure" msgid="4591934911541762883">"Hindi ma-eject nang ligtas ang <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="accounts_settings_title" msgid="436190037084293471">"Mga Account"</string>
     <string name="user_add_account_menu" msgid="6625351983590713721">"Magdagdag ng account"</string>
     <string name="no_accounts_added" msgid="5148163140691096055">"Walang naidagdag na account"</string>
@@ -528,6 +535,7 @@
     <string name="sync_button_sync_now" msgid="5767643057970371315">"I-sync ngayon"</string>
     <string name="sync_button_sync_cancel" msgid="7739510554513641393">"Kanselahin ang pag-sync"</string>
     <string name="sync_is_failing" msgid="5766255460901806206">"Kasalukuyang nagkakaproblema sa pag-sync. Babalik ito pagkalipas ng ilang sandali."</string>
+    <string name="privacy_settings_title" msgid="3150145262029229572">"Privacy"</string>
     <string name="security_settings_title" msgid="6955331714774709746">"Seguridad"</string>
     <string name="security_settings_subtitle" msgid="2244635550239273229">"Lock ng screen"</string>
     <string name="security_lock_none" msgid="1054645093754839638">"Wala"</string>
@@ -618,26 +626,11 @@
     <string name="lockpassword_pin_no_sequential_digits" msgid="38813552228809240">"Hindi pinapayagan ang pataas, pababa, o paulit-ulit na pagkakasunod-sunod ng mga digit."</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"Mga opsyon sa lock ng screen"</string>
     <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g> : <xliff:g id="NUM_DAYS">%3$s</xliff:g> (na) araw ang nakalipas"</string>
-    <string name="add_device_title" msgid="8452168024017866232">"Magdagdag ng trusted na device"</string>
-    <string name="add_device_summary" msgid="5368217520710573302">"Mag-o-on ang Bluetooth para idagdag ang pinagkakatiwalaang device"</string>
-    <string name="trusted_device" msgid="5637378361866787603">"Trusted na device"</string>
-    <plurals name="trusted_device_subtitle" formatted="false" msgid="462041049834264945">
-      <item quantity="one"><xliff:g id="COUNT_1">%d</xliff:g> device</item>
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> na device</item>
-    </plurals>
-    <string name="remove_device_message" msgid="6447820559674148349">"Maa-unlock ng iyong <xliff:g id="CONNECTED_DEVICE_NAME_0">%1$s</xliff:g> ang kotseng ito kapag nakakonekta ito. Kung may kumuha ng iyong <xliff:g id="CONNECTED_DEVICE_NAME_1">%1$s</xliff:g>, maaari niyang ma-access ang device na ito"</string>
-    <string name="trusted_device_confirm_button" msgid="102354635014627996">"Kumpirmahin"</string>
-    <string name="trusted_device_remove_button" msgid="6140476996063415420">"Mag-alis ng pinagkakatiwalaang device"</string>
-    <string name="trusted_device_done_button" msgid="8481956533222625296">"Tapos na"</string>
-    <string name="add_trusted_device_instruction" msgid="2280382609884918033">"Buksan ang kasamang app para mag-set up ng pinagkakatiwalaang device. Kapag na-set up na, awtomatikong maa-unlock ang iyong profile ng user kapag na-detect na malapit sa sasakyan ang telepono."</string>
-    <string name="trusted_device_download_app" msgid="6971096140154499983">"1. I-download ang kasamang app sa iyong telepono"</string>
-    <string name="trusted_device_select_device" msgid="198902765179270739">"2. Piliin ang <xliff:g id="CAR_NAME">%1$s</xliff:g> sa iyong telepono para ipares ang mga device"</string>
-    <string name="trusted_device_safety_alert" msgid="3834898922112046769">"Ia-unlock ng pinagkakatiwalaang device malapit sa iyong kotse ang profile ng user kapag pinaandar ito, kahit na ibang tao ang humahawak sa device."</string>
-    <string name="trusted_device_pairing_code_dialog_title" msgid="8173792468216796873">"Pakikumpirma kung magkatugma ang mga code ng pagpapares"</string>
-    <string name="trusted_device_success_enrollment_toast" msgid="1238468775285575827">"Matagumpay na na-enroll ang teleponono"</string>
-    <string name="trusted_device_fail_enrollment_toast" msgid="6801324174861209092">"Hindi na-enroll ang <xliff:g id="DEVICE_NAME">%1$s</xliff:g>"</string>
-    <string name="trusted_device_set_authentication_reminder" msgid="5947077589994822305">"Kapag nagdagdag ng pinagkakatiwalaang device, kinakailangan mong magtakda ng paraan ng pag-authenticate. Kung wala sa iyo ang pinagkakatiwalaan mong device, kakailanganin ang pag-authenticate para ma-access ang iyong profile."</string>
-    <string name="trusted_device_disconnected_toast" msgid="2541862946536880255">"Nadiskonekta ang device."</string>
+    <string name="credentials_reset" msgid="873900550885788639">"I-clear ang mga kredensyal"</string>
+    <string name="credentials_reset_summary" msgid="6067911547500459637">"Alisin ang lahat ng certificate"</string>
+    <string name="credentials_reset_hint" msgid="3459271621754137661">"Alisin ang lahat ng content?"</string>
+    <string name="credentials_erased" msgid="2515915439705550379">"Binura ang storage ng kredensyal."</string>
+    <string name="credentials_not_erased" msgid="6118567459076742720">"Hindi mabura ang storage ng kredensyal."</string>
     <string name="forget" msgid="3971143908183848527">"Kalimutan"</string>
     <string name="connect" msgid="5861699594602380150">"Kumonekta"</string>
     <string name="disconnect" msgid="6140789953324820336">"Idiskonekta"</string>
@@ -653,6 +646,7 @@
     <string name="exit_retail_mode_dialog_body" msgid="8314316171782527301">"Ide-delete nito ang demo account at ire-reset ang factory data ng system. Mawawala ang lahat ng data ng user."</string>
     <string name="exit_retail_mode_dialog_confirmation_button_text" msgid="3147249675355968649">"Lumabas sa Demo"</string>
     <string name="suggestion_dismiss_button" msgid="4539412646977050641">"I-DISMISS"</string>
-    <string name="restricted_while_driving" msgid="6217369093121968299">"Hindi available ang feature habang nagmamaneho."</string>
-    <string name="add_user_restricted_while_driving" msgid="6384004350628271556">"Hindi maaaring magdagdag ng user habang nagmamaneho."</string>
+    <string name="restricted_while_driving" msgid="6587569249519274524">"Hindi available ang feature habang nagmamaneho"</string>
+    <string name="add_user_restricted_while_driving" msgid="4754946754222453656">"Hindi makakapagdagdag ng user habang nagmamaneho"</string>
+    <string name="default_search_query" msgid="3137420627428857068">"Hanapin"</string>
 </resources>

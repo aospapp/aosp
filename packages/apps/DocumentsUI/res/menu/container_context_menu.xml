@@ -34,6 +34,10 @@
         <item
             android:id="@+id/dir_menu_select_all"
             android:title="@string/menu_select_all" />
+
+        <item
+            android:id="@+id/dir_menu_deselect_all"
+            android:title="@string/menu_deselect_all" />
     </group>
     <group
         android:id="@+id/menu_extras_group">

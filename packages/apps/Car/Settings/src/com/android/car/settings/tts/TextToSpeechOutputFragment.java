@@ -19,9 +19,13 @@ package com.android.car.settings.tts;
 import androidx.annotation.XmlRes;
 
 import com.android.car.settings.R;
+import com.android.car.settings.common.CarSettingActivities.TextToSpeechOutputActivity;
 import com.android.car.settings.common.SettingsFragment;
+import com.android.car.settings.search.CarBaseSearchIndexProvider;
+import com.android.settingslib.search.SearchIndexable;
 
 /** Fragment to show the TTS settings. */
+@SearchIndexable
 public class TextToSpeechOutputFragment extends SettingsFragment {
 
     @Override
@@ -29,4 +33,11 @@ public class TextToSpeechOutputFragment extends SettingsFragment {
     protected int getPreferenceScreenResId() {
         return R.xml.text_to_speech_output_fragment;
     }
+
+    /**
+     * Data provider for Settings Search.
+     */
+    public static final CarBaseSearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
+            new CarBaseSearchIndexProvider(R.xml.text_to_speech_output_fragment,
+                    TextToSpeechOutputActivity.class);
 }

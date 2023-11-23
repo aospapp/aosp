@@ -17,7 +17,6 @@
 package com.android.managedprovisioning.common;
 
 import static android.provider.Settings.Global.DEVICE_PROVISIONED;
-import static android.provider.Settings.Global.PACKAGE_VERIFIER_ENABLE;
 import static android.provider.Settings.Secure.MANAGED_PROFILE_CONTACT_REMOTE_SEARCH;
 import static android.provider.Settings.Secure.CROSS_PROFILE_CALENDAR_ENABLED;
 import static android.provider.Settings.Secure.USER_SETUP_COMPLETE;
@@ -53,28 +52,6 @@ public class SettingsFacade {
     }
 
     /**
-     * Sets DEVICE_PROVISIONED.
-     */
-    public void setDeviceProvisioned(Context context) {
-        Global.putInt(context.getContentResolver(), DEVICE_PROVISIONED, 1);
-    }
-
-    /**
-     * Sets whether package verification is enabled or not.
-     */
-    public void setPackageVerifierEnabled(Context context, boolean packageVerifierEnabled) {
-        Global.putInt(context.getContentResolver(), PACKAGE_VERIFIER_ENABLE,
-                packageVerifierEnabled ? 1 : 0);
-    }
-
-    /**
-     * Returns whether package verification is enabled or not.
-     */
-    public boolean isPackageVerifierEnabled(Context context) {
-        return Global.getInt(context.getContentResolver(), PACKAGE_VERIFIER_ENABLE, 0) != 0;
-    }
-
-    /**
      * Sets whether profile contact remote search is enabled.
      */
     public void setProfileContactRemoteSearch(Context context, boolean allowed, int userId) {
@@ -96,5 +73,12 @@ public class SettingsFacade {
     public boolean isDuringSetupWizard(Context context) {
         // If the flow is running in SUW, the primary user is not set up at this point
         return !isUserSetupCompleted(context);
+    }
+
+    /**
+     * Returns whether ADB is enabled (developer mode)
+     */
+    public boolean isDeveloperMode(Context context) {
+        return Global.getInt(context.getContentResolver(), Global.ADB_ENABLED, 0) > 0;
     }
 }

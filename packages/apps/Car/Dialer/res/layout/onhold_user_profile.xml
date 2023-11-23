@@ -15,12 +15,15 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:elevation="@dimen/dialer_card_elevation"
     app:cardBackgroundColor="@color/onhold_call_background"
     app:cardCornerRadius="@dimen/onhold_profile_corner_radius">
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:layout_height="match_parent"
+        android:id="@+id/swap_calls_view"
+        android:background="?android:attr/selectableItemBackground">
 
         <androidx.constraintlayout.widget.Guideline
             android:layout_width="wrap_content"
@@ -31,8 +34,8 @@
 
         <ImageView
             android:id="@+id/icon"
-            android:layout_width="@dimen/avatar_icon_size"
-            android:layout_height="@dimen/avatar_icon_size"
+            android:layout_width="@dimen/small_avatar_icon_size"
+            android:layout_height="@dimen/small_avatar_icon_size"
             android:scaleType="centerCrop"
             android:layout_marginStart="@dimen/onhold_profile_avatar_margin"
             app:layout_constraintTop_toTopOf="parent"
@@ -41,38 +44,66 @@
 
         <TextView
             android:id="@+id/title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:theme="@style/Theme.Dialer.BidiText"
+            android:layout_marginEnd="@dimen/onhold_profile_status_margin"
+            android:textAppearance="?android:attr/textAppearanceLarge"
+            android:singleLine="true"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="@id/guideline"
+            app:layout_constraintEnd_toStartOf="@+id/time"/>
+
+        <Chronometer
+            android:id="@id/time"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/onhold_profile_status_margin"
+            android:textAppearance="?android:attr/textAppearanceLarge"
+            android:textColor="@color/onhold_time_color"
+            android:singleLine="true"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toEndOf="@id/title"
+            app:layout_constraintEnd_toStartOf="@+id/separator"/>
+
+        <TextView
+            android:id="@id/separator"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/onhold_profile_status_margin"
+            android:layout_marginEnd="@dimen/onhold_profile_status_margin"
+            android:textAppearance="?android:attr/textAppearanceLarge"
+            android:singleLine="true"
+            android:text="@string/onhold_call_separator"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toEndOf="@id/time"
+            app:layout_constraintEnd_toStartOf="@+id/onhold_label"/>
+
+        <TextView
+            android:id="@id/onhold_label"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:textAppearance="?android:attr/textAppearanceLarge"
             android:singleLine="true"
-            app:layout_constraintVertical_chainStyle="packed"
+            android:text="@string/call_state_hold"
+            android:textColor="@color/onhold_label_color"
             app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toTopOf="@+id/text"
-            app:layout_constraintStart_toStartOf="@id/guideline"
-            app:layout_constraintEnd_toStartOf="@+id/swap_calls_button"/>
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toEndOf="@id/separator"
+            app:layout_constraintEnd_toStartOf="@+id/swap_call"/>
 
         <TextView
-            android:id="@id/text"
-            android:layout_width="0dp"
+            android:id="@id/swap_call"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/onhold_call_label"
-            android:textAppearance="?android:attr/textAppearanceSmall"
+            android:layout_marginEnd="@dimen/onhold_profile_avatar_margin"
+            android:text="@string/swap_call_label"
+            android:textAppearance="?android:attr/textAppearanceLarge"
             android:singleLine="true"
-            app:layout_constraintTop_toBottomOf="@id/title"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintStart_toStartOf="@id/guideline"
-            app:layout_constraintEnd_toStartOf="@+id/swap_calls_button"/>
-
-        <ImageView
-            android:id="@+id/swap_calls_button"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:src="@drawable/ic_swap_calls"
-            android:scaleType="center"
-            android:tint="@color/secondary_icon_color"
-            android:background="?android:attr/selectableItemBackground"
-            android:paddingLeft="@dimen/swap_call_button_margin"
-            android:paddingRight="@dimen/swap_call_button_margin"
+            android:textColor="?android:attr/colorAccent"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"/>

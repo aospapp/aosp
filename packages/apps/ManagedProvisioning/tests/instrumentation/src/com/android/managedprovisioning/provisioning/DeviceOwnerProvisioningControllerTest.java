@@ -27,7 +27,6 @@ import android.content.ComponentName;
 import androidx.test.filters.SmallTest;
 
 import com.android.managedprovisioning.R;
-import com.android.managedprovisioning.finalization.FinalizationController;
 import com.android.managedprovisioning.model.PackageDownloadInfo;
 import com.android.managedprovisioning.model.ProvisioningParams;
 import com.android.managedprovisioning.model.WifiInfo;
@@ -66,7 +65,6 @@ public class DeviceOwnerProvisioningControllerTest extends ProvisioningControlle
             .build();
 
     @Mock private ProvisioningControllerCallback mCallback;
-    @Mock private FinalizationController mFinalizationController;
 
     @SmallTest
     public void testRunAllTasks() throws Exception {
@@ -238,8 +236,7 @@ public class DeviceOwnerProvisioningControllerTest extends ProvisioningControlle
                 getContext(),
                 params,
                 TEST_USER_ID,
-                mCallback,
-                mFinalizationController);
+                mCallback);
     }
 
     private ProvisioningParams.Builder createProvisioningParamsBuilder() {

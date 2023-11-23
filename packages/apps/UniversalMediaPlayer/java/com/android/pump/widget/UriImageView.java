@@ -73,7 +73,8 @@ public class UriImageView extends PlaceholderImageView {
         if (uri == null) {
             return;
         }
-        if (Scheme.isFile(uri) || Scheme.isHttp(uri) || Scheme.isHttps(uri)) {
+        if (Scheme.isContent(uri) || Scheme.isFile(uri)
+                || Scheme.isHttp(uri) || Scheme.isHttps(uri)) {
             mUri = uri;
             loadImage();
         } else {

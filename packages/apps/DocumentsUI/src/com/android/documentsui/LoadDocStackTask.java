@@ -16,17 +16,19 @@
 
 package com.android.documentsui;
 
-import androidx.annotation.Nullable;
 import android.app.Activity;
 import android.net.Uri;
 import android.provider.DocumentsContract;
 import android.provider.DocumentsContract.Path;
 import android.util.Log;
 
+import androidx.annotation.Nullable;
+
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.DocumentStack;
 import com.android.documentsui.base.PairedTask;
 import com.android.documentsui.base.RootInfo;
+import com.android.documentsui.base.UserId;
 import com.android.documentsui.roots.ProvidersAccess;
 
 import java.util.List;
@@ -45,16 +47,19 @@ public class LoadDocStackTask extends PairedTask<Activity, Uri, DocumentStack> {
 
     private final ProvidersAccess mProviders;
     private final DocumentsAccess mDocs;
+    private final UserId mUserId;
     private final LoadDocStackCallback mCallback;
 
     public LoadDocStackTask(
             Activity activity,
             ProvidersAccess providers,
             DocumentsAccess docs,
+            UserId userId,
             LoadDocStackCallback callback) {
         super(activity);
         mProviders = providers;
         mDocs = docs;
+        mUserId = userId;
         mCallback = callback;
     }
 
@@ -72,7 +77,7 @@ public class LoadDocStackTask extends PairedTask<Activity, Uri, DocumentStack> {
             }
 
             try {
-                final Path path = mDocs.findDocumentPath(docUri);
+                final Path path = mDocs.findDocumentPath(docUri, mUserId);
                 if (path != null) {
                     return buildStack(docUri.getAuthority(), path);
                 } else {
@@ -97,13 +102,14 @@ public class LoadDocStackTask extends PairedTask<Activity, Uri, DocumentStack> {
             throw new IllegalStateException("Provider doesn't provider root id.");
         }
 
-        RootInfo root = mProviders.getRootOneshot(authority, path.getRootId());
+        RootInfo root = mProviders.getRootOneshot(mUserId, authority, path.getRootId());
         if (root == null) {
-            throw new IllegalStateException("Failed to load root for authority: " + authority +
-                    " and root ID: " + path.getRootId() + ".");
+            throw new IllegalStateException(
+                    "Failed to load root on user " + root.userId + " for authority: " + authority
+                            + " and root ID: " + path.getRootId() + ".");
         }
 
-        List<DocumentInfo> docs = mDocs.getDocuments(authority, path.getPath());
+        List<DocumentInfo> docs = mDocs.getDocuments(root.userId, authority, path.getPath());
 
         return new DocumentStack(root, docs);
     }

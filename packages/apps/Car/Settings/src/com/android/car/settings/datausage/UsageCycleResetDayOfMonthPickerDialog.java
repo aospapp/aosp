@@ -27,12 +27,12 @@ import android.view.View;
 import android.widget.NumberPicker;
 
 import androidx.annotation.VisibleForTesting;
-import androidx.fragment.app.DialogFragment;
 
 import com.android.car.settings.R;
+import com.android.car.ui.preference.CarUiDialogFragment;
 
 /** Dialog that is used to pick the start day of month to track a data usage cycle. */
-public class UsageCycleResetDayOfMonthPickerDialog extends DialogFragment {
+public class UsageCycleResetDayOfMonthPickerDialog extends CarUiDialogFragment {
 
     private static final String ARG_SELECTED_DAY_OF_MONTH = "arg_selected_day_of_month";
 
@@ -114,6 +114,10 @@ public class UsageCycleResetDayOfMonthPickerDialog extends DialogFragment {
                             }
                         })
                 .create();
+    }
+
+    @Override
+    protected void onDialogClosed(boolean positiveResult) {
     }
 
     /** Gets the current day of month selected by the {@link NumberPicker}. */

@@ -22,39 +22,59 @@
     <string name="bluetooth_disabled" msgid="1275246762067907843">"For å ringe eller motta anrop, slå på Bluetooth."</string>
     <string name="bluetooth_unpaired" msgid="1600552386483652892">"Koble sammen telefonen og bilen for å ringe eller motta anrop."</string>
     <string name="connect_bluetooth_button_text" msgid="293188695227298042">"Koble til Bluetooth"</string>
-    <string name="emergency_button_text" msgid="3467659545392931727">"Nødsituasjon"</string>
+    <string name="emergency_button_text" msgid="3467659545392931727">"Nødssituasjon"</string>
     <string name="emergency_call_description" msgid="6700161437750325693">"Nødanrop"</string>
     <string name="error_contact_deleted" msgid="6356539067659368396">"Denne kontakten kan ha blitt slettet."</string>
     <string name="error_invalid_phone_number" msgid="5349049631580646136">"Kan ikke ringe dette nummeret. Sjekk at det er riktig, og prøv på nytt."</string>
+    <string name="error_telephony_not_available" msgid="8715829862083386178">"Ringing er ikke tilgjengelig. Prøv igjen senere."</string>
     <string name="decline_call" msgid="2505987200485272226">"Avvis"</string>
     <string name="answer_call" msgid="3272474440561548115">"Svar"</string>
     <string name="call_back" msgid="5745638356098600872">"Ring tilbake"</string>
-    <string name="audio_route_vehicle" msgid="6274519162997743620">"Bluetooth i kjøretøyet"</string>
-    <string name="audio_route_phone_speaker" msgid="407520293892557697">"Høyttaler"</string>
-    <string name="audio_route_handset" msgid="1100259514278439355">"Telefon"</string>
+    <string name="audio_route_vehicle" msgid="6250361588960528769">"Bilhøyttalere"</string>
+    <string name="audio_route_phone_speaker" msgid="4608904003558187244">"Telefonhøyttaler"</string>
+    <string name="audio_route_handset" msgid="9133081623895172144">"Telefon"</string>
     <string name="dial_a_number" msgid="7432322177412387160">"Slå et nummer"</string>
     <string name="favorites_title" msgid="4767723901530488145">"Favoritter"</string>
-    <string name="call_history_title" msgid="1495905524218923242">"Anropslogg"</string>
+    <string name="call_history_title" msgid="7997887846276371553">"Nylige"</string>
     <string name="contacts_title" msgid="9201954388634537346">"Kontakter"</string>
     <string name="dialpad_title" msgid="3746259645005208554">"Tastatur"</string>
+    <string name="call_log_header_today" msgid="2069013936632793214">"I dag"</string>
+    <string name="call_log_header_yesterday" msgid="4613686845163357847">"I går"</string>
+    <string name="call_log_header_older" msgid="3971634717537073179">"Eldre"</string>
+    <string name="call_logs_empty" msgid="3084720078894119049">"Ingen nylige"</string>
+    <string name="contact_list_empty" msgid="4225504548491888138">"Ingen kontakter"</string>
+    <string name="available_after_sync" msgid="33765918799197782">"Tilgjengelig etter synkronisering. Sørg for at du har tillatt deling av kontakter på telefonen din."</string>
+    <string name="favorites_empty" msgid="5794510741132758130">"Ingen favoritter"</string>
+    <string name="no_favorites_added" msgid="2359050103464783907">"Du har ikke lagt til noen favoritter ennå"</string>
     <string name="add_favorite_button" msgid="7914955940249767808">"Legg til en favoritt"</string>
-    <string name="favorites_empty" msgid="6712416359691979975">"Du har ikke lagt til noen favoritter ennå"</string>
     <string name="search_title" msgid="5412680850141871664">"Søk i kontakter"</string>
     <string name="search_hint" msgid="3099066132607042439">"Søk i kontakter"</string>
     <string name="type_multiple" msgid="3402949522797441236">"Flere"</string>
     <string name="select_number_dialog_title" msgid="5770700626013782205">"Velg et telefonnummer"</string>
     <string name="select_number_dialog_just_once_button" msgid="1814381354393374660">"Bare én gang"</string>
     <string name="select_number_dialog_always_button" msgid="6862338683635863764">"Alltid"</string>
-    <string name="set_default_number" msgid="5083696228341022224">"Angi standard telefonnummer"</string>
-    <string name="primary_number_description" msgid="7428950659304219592">"<xliff:g id="LABEL">%1$s</xliff:g>  – Standard"</string>
+    <string name="primary_number_description" msgid="1211198148918329509">"<xliff:g id="LABEL">%1$s</xliff:g>, standard"</string>
+    <string name="favorite_number_description" msgid="8175362259853807385">"Favoritt –  <xliff:g id="LABEL">%1$s</xliff:g>"</string>
+    <string name="local_favorite_number_description" msgid="3723823871011997275">"Lokal favoritt – <xliff:g id="LABEL">%1$s</xliff:g>"</string>
+    <string name="phone_favorites" msgid="2257447553252980575">"Favoritter"</string>
+    <string name="local_favorites" msgid="4954852813126882412">"Lokale favoritter"</string>
+    <string name="no_phone_numbers" msgid="8738691115921148445">"Ingen telefonnumre"</string>
     <string name="in_call_notification_channel_name" msgid="1978093630512401778">"Varsel om innkommende anrop"</string>
     <string name="notification_incoming_call" msgid="1722904631804432389">"Innkommende anrop"</string>
     <string name="missed_call_notification_channel_name" msgid="1135686963409691772">"Varsel om tapt anrop"</string>
-    <string name="notification_missed_call" msgid="7127823385811396529">"Tapt anrop"</string>
-    <string name="onhold_call_label" msgid="1937027519810985499">"På vent"</string>
+    <plurals name="notification_missed_call" formatted="false" msgid="1018870358427938752">
+      <item quantity="other">Tapte anrop (<xliff:g id="NUMBER">%1$d</xliff:g>) </item>
+      <item quantity="one">Tapt anrop</item>
+    </plurals>
+    <string name="onhold_call_separator" msgid="2357788035385100805">"•"</string>
+    <string name="swap_call_label" msgid="309322319645637302">"Bytt samtaler"</string>
     <string name="setting_title" msgid="1296639422364732365">"Innstillinger"</string>
-    <string name="pref_start_page_title" msgid="8243884415248971745">"Angi startside"</string>
-    <string name="sort_order_title" msgid="2713804965189046046">"Kontaktrekkefølge"</string>
-    <string name="give_name_first_title" msgid="9036752103567139094">"Fornavn"</string>
+    <string name="pref_start_page_title" msgid="1953465507368478503">"Startskjerm"</string>
+    <string name="sort_order_title" msgid="975104366728292702">"Kontaktrekkefølge"</string>
+    <string name="given_name_first_title" msgid="8072187841056104968">"Fornavn"</string>
     <string name="family_name_first_title" msgid="7721976826282427987">"Etternavn"</string>
+    <string name="audio_route_dialog_title" msgid="2904553846970171054">"Send samtalelyd til:"</string>
+    <string name="audio_route_dialog_subtitle" msgid="8780526104805330121"></string>
+    <string name="ongoing_conf_title" msgid="4161590966144000887">"Konferanse"</string>
+    <string name="ongoing_conf_title_format" msgid="7667048745156395220">"%1$s (%2$d) – "</string>
 </resources>

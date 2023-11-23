@@ -69,7 +69,6 @@
     <string name="upload_succ_ok" msgid="7705428476405478828">"Aceptar"</string>
     <string name="upload_fail_line1" msgid="7899394672421491701">"O ficheiro non se enviou a \"<xliff:g id="RECIPIENT">%1$s</xliff:g>\"."</string>
     <string name="upload_fail_line1_2" msgid="2108129204050841798">"Ficheiro: <xliff:g id="FILE">%1$s</xliff:g>"</string>
-    <string name="upload_fail_ok" msgid="5807702461606714296">"Tentar de novo"</string>
     <string name="upload_fail_cancel" msgid="9118496285835687125">"Pechar"</string>
     <string name="bt_error_btn_ok" msgid="5965151173011534240">"Aceptar"</string>
     <string name="unknown_file" msgid="6092727753965095366">"Ficheiro descoñecido"</string>
@@ -77,7 +76,7 @@
     <string name="not_exist_file" msgid="3489434189599716133">"Ningún ficheiro"</string>
     <string name="not_exist_file_desc" msgid="4059531573790529229">"O ficheiro non existe. \n"</string>
     <string name="enabling_progress_title" msgid="436157952334723406">"Agarda..."</string>
-    <string name="enabling_progress_content" msgid="4601542238119927904">"Activando o Bluetooth..."</string>
+    <string name="enabling_progress_content" msgid="4601542238119927904">"Activando Bluetooth…"</string>
     <string name="bt_toast_1" msgid="972182708034353383">"Recibirase o ficheiro. Comproba o progreso no panel de notificacións."</string>
     <string name="bt_toast_2" msgid="8602553334099066582">"O ficheiro non se pode recibir."</string>
     <string name="bt_toast_3" msgid="6707884165086862518">"Detívose a recepción do ficheiro de \"<xliff:g id="SENDER">%1$s</xliff:g>\""</string>
@@ -134,4 +133,5 @@
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"Desconectouse o audio por Bluetooth"</string>
     <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"Audio por Bluetooth"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="8894450394309084519">"Non se poden transferir ficheiros de máis de 4 GB"</string>
+    <string name="bluetooth_connect_action" msgid="4009848433321657090">"Conectar ao Bluetooth"</string>
 </resources>

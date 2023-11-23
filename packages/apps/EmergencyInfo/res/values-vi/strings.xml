@@ -105,7 +105,7 @@
     <string name="clear_all_message" msgid="1548432000373861295">"Xóa tất cả thông tin và liên hệ?"</string>
     <string name="emergency_info_footer" msgid="8751758742506410146">"Thêm thông tin y tế và liên hệ khẩn cấp có thể giúp ích cho những người ứng cứu đầu tiên trong trường hợp khẩn cấp.\n\nBất cứ ai cũng có thể đọc được thông tin này từ màn hình khóa và quay số gọi cho các liên hệ của bạn bằng cách nhấn vào tên của họ mà không cần mở khóa điện thoại của bạn."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"Thêm thông tin khẩn cấp"</string>
-    <string name="settings_suggestion_body" msgid="5559349261345837716">"Cho phép những người phản hồi đầu tiên xem thông tin"</string>
+    <string name="settings_suggestion_body" msgid="5559349261345837716">"Cho phép những người ứng cứu đầu tiên xem thông tin"</string>
     <string name="user_image_take_photo" msgid="2779924488370750102">"Chụp ảnh"</string>
     <string name="user_image_choose_photo" msgid="2442095378052415700">"Chọn hình ảnh"</string>
     <string name="user_image_photo_selector" msgid="8941966433899876760">"Chọn ảnh"</string>

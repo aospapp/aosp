@@ -16,12 +16,12 @@
 */
 -->
 <resources>
-    <style name="TextAppearance.Car.Body1.SingleLine" parent="TextAppearance.Car.Body1">
+    <style name="TextAppearance.CarUi.Body1.SingleLine" parent="TextAppearance.CarUi.Body1">
         <item name="android:maxLines">1</item>
         <item name="android:ellipsize">marquee</item>
     </style>
 
-    <style name="TextAppearance.Car.Body2.SingleLine" parent="TextAppearance.Car.Body2">
+    <style name="TextAppearance.CarUi.Body2.SingleLine" parent="TextAppearance.CarUi.Body2">
         <item name="android:maxLines">1</item>
         <item name="android:ellipsize">end</item>
     </style>
@@ -34,6 +34,7 @@
         <item name="android:clickable">true</item>
     </style>
 
-    <style name="KitchenSinkActivityTheme" parent="android:Theme.DeviceDefault.NoActionBar">
+    <style name="KitchenSinkActivityTheme" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:textSize">24sp</item>
     </style>
 </resources>

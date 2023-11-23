@@ -18,12 +18,15 @@
 <PreferenceScreen
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:settings="http://schemas.android.com/apk/res-auto"
-    android:title="@string/apps_and_notifications_settings">
+    android:title="@string/apps_and_notifications_settings"
+    android:key="@string/psk_apps_and_notifications">
     <Preference
-        android:fragment="com.android.car.settings.applications.ApplicationsSettingsFragment"
         android:key="@string/pk_applications_settings_screen_entry"
         android:title="@string/all_applications"
-        settings:controller="com.android.car.settings.common.DefaultRestrictionsPreferenceController"/>
+        settings:controller="com.android.car.settings.common.DefaultRestrictionsPreferenceController">
+        <intent android:targetPackage="com.android.car.settings"
+                android:targetClass="com.android.car.settings.common.CarSettingActivities$ApplicationsSettingsActivity"/>
+    </Preference>
     <Preference
         android:key="@string/pk_default_applications_settings_entry"
         android:title="@string/default_applications"
@@ -37,8 +40,10 @@
         <intent android:action="android.intent.action.MANAGE_PERMISSIONS"/>
     </Preference>
     <Preference
-        android:fragment="com.android.car.settings.applications.specialaccess.SpecialAccessSettingsFragment"
         android:key="@string/pk_special_access_entry"
         android:title="@string/special_access"
-        settings:controller="com.android.car.settings.common.DefaultRestrictionsPreferenceController"/>
+        settings:controller="com.android.car.settings.common.DefaultRestrictionsPreferenceController">
+        <intent android:targetPackage="com.android.car.settings"
+                android:targetClass="com.android.car.settings.common.CarSettingActivities$SpecialAccessSettingsActivity"/>
+    </Preference>
 </PreferenceScreen>

@@ -16,8 +16,13 @@
 
 package com.android.tv.settings.connectivity.setup;
 
+import static android.net.wifi.WifiConfiguration.NetworkSelectionStatus.NETWORK_SELECTION_ENABLED;
+
+import android.annotation.Nullable;
 import android.content.Context;
 import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
 import android.net.NetworkInfo;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiInfo;
@@ -26,6 +31,10 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.util.Log;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.TextView;
 
 import androidx.annotation.VisibleForTesting;
 import androidx.fragment.app.Fragment;
@@ -35,7 +44,7 @@ import androidx.lifecycle.ViewModelProviders;
 import com.android.settingslib.wifi.AccessPoint;
 import com.android.tv.settings.R;
 import com.android.tv.settings.connectivity.ConnectivityListener;
-import com.android.tv.settings.connectivity.WifiConfigHelper;
+import com.android.tv.settings.connectivity.security.WifiSecurityHelper;
 import com.android.tv.settings.connectivity.util.State;
 import com.android.tv.settings.connectivity.util.StateMachine;
 
@@ -55,20 +64,8 @@ public class ConnectState implements State {
 
     @Override
     public void processForward() {
-        UserChoiceInfo userChoiceInfo = ViewModelProviders.of(mActivity).get(UserChoiceInfo.class);
-        WifiConfiguration wifiConfig = userChoiceInfo.getWifiConfiguration();
-        String title = mActivity.getString(
-                R.string.wifi_connecting,
-                wifiConfig.getPrintableSsid());
-        mFragment = ConnectToWifiFragment.newInstance(title, true);
-        if (!WifiConfigHelper.isNetworkSaved(wifiConfig)) {
-            AdvancedOptionsFlowInfo advFlowInfo =
-                    ViewModelProviders.of(mActivity).get(AdvancedOptionsFlowInfo.class);
-            if (advFlowInfo.getIpConfiguration() != null) {
-                wifiConfig.setIpConfiguration(advFlowInfo.getIpConfiguration());
-            }
-        }
         FragmentChangeListener listener = (FragmentChangeListener) mActivity;
+        mFragment = ConnectToWifiFragment.newInstance("", true);
         if (listener != null) {
             listener.onFragmentChange(mFragment, true);
         }
@@ -106,6 +103,8 @@ public class ConnectState implements State {
         @VisibleForTesting
         Handler mHandler;
         private ConnectivityListener mConnectivityListener;
+        private ConnectivityManager mConnectivityManager;
+        private UserChoiceInfo mUserChoiceInfo;
 
         /**
          * Obtain a new instance of ConnectToWifiFragment.
@@ -128,9 +127,11 @@ public class ConnectState implements State {
             super.onCreate(icicle);
             mConnectivityListener = new ConnectivityListener(getActivity(), null);
             mConnectivityListener.start();
-            UserChoiceInfo userChoiceInfo = ViewModelProviders
-                    .of(getActivity()).get(UserChoiceInfo.class);
-            mWifiConfiguration = userChoiceInfo.getWifiConfiguration();
+            mConnectivityManager = (ConnectivityManager) getActivity().getSystemService(
+                    Context.CONNECTIVITY_SERVICE);
+
+            mWifiConfiguration = WifiSecurityHelper.getConfig(getActivity());
+
             mStateMachine = ViewModelProviders
                     .of(getActivity()).get(StateMachine.class);
 
@@ -138,6 +139,15 @@ public class ConnectState implements State {
                     .getSystemService(Context.WIFI_SERVICE));
             mHandler = new MessageHandler(this);
             mConnectivityListener.setWifiListener(this);
+        }
+
+        @Override
+        public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle icicle) {
+            View view = super.onCreateView(inflater, container, icicle);
+            ((TextView) view.findViewById(R.id.status_text)).setText(
+                    getContext().getString(R.string.wifi_connecting,
+                            WifiSecurityHelper.getSsid(getActivity())));
+            return view;
         }
 
         @Override
@@ -172,7 +182,7 @@ public class ConnectState implements State {
         public void onWifiListChanged() {
             List<AccessPoint> accessPointList = mConnectivityListener.getAvailableNetworks();
             if (accessPointList != null) {
-                for (AccessPoint accessPoint: accessPointList) {
+                for (AccessPoint accessPoint : accessPointList) {
                     if (accessPoint != null && AccessPoint.convertToQuotedString(
                             accessPoint.getSsidStr()).equals(mWifiConfiguration.SSID)) {
                         inferConnectionStatus(accessPoint);
@@ -186,25 +196,38 @@ public class ConnectState implements State {
             if (configuration == null) {
                 return;
             }
-            if (configuration.getNetworkSelectionStatus().isNetworkEnabled()) {
-                if (isNetworkConnected()) {
-                    notifyListener(StateMachine.RESULT_SUCCESS);
+            if (configuration.getNetworkSelectionStatus().getNetworkSelectionStatus()
+                    == NETWORK_SELECTION_ENABLED) {
+                NetworkCapabilities wifiNetworkCapabilities = getActiveWifiNetworkCapabilities();
+                if (wifiNetworkCapabilities != null) {
+                    if (wifiNetworkCapabilities.hasCapability(
+                            NetworkCapabilities.NET_CAPABILITY_VALIDATED)) {
+                        notifyListener(StateMachine.RESULT_SUCCESS);
+                    } else if (wifiNetworkCapabilities.hasCapability(
+                            NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL)) {
+                        notifyListener(StateMachine.RESULT_CAPTIVE_PORTAL);
+                    }
                 }
             } else {
                 switch (configuration.getNetworkSelectionStatus()
-                            .getNetworkSelectionDisableReason()) {
+                        .getNetworkSelectionDisableReason()) {
                     case WifiConfiguration.NetworkSelectionStatus.DISABLED_AUTHENTICATION_FAILURE:
                     case WifiConfiguration.NetworkSelectionStatus.DISABLED_BY_WRONG_PASSWORD:
-                        notifyListener(StateMachine.RESULT_BAD_AUTH);
-                        break;
-                    case WifiConfiguration.NetworkSelectionStatus.DISABLED_DHCP_FAILURE:
-                    case WifiConfiguration.NetworkSelectionStatus.DISABLED_DNS_FAILURE:
-                        notifyListener(StateMachine.RESULT_UNKNOWN_ERROR);
+                        mUserChoiceInfo.setConnectionFailedStatus(
+                                UserChoiceInfo.ConnectionFailedStatus.AUTHENTICATION);
                         break;
                     case WifiConfiguration.NetworkSelectionStatus.DISABLED_ASSOCIATION_REJECTION:
-                        notifyListener(StateMachine.RESULT_REJECTED_BY_AP);
+                        mUserChoiceInfo.setConnectionFailedStatus(
+                                UserChoiceInfo.ConnectionFailedStatus.REJECTED);
                         break;
+                    case WifiConfiguration.NetworkSelectionStatus.DISABLED_DHCP_FAILURE:
+                        notifyListener(StateMachine.RESULT_UNKNOWN_ERROR);
+                        break;
+                    default:
+                        mUserChoiceInfo.setConnectionFailedStatus(
+                                UserChoiceInfo.ConnectionFailedStatus.UNKNOWN);
                 }
+                notifyListener(StateMachine.RESULT_FAILURE);
                 accessPoint.clearConfig();
             }
         }
@@ -215,9 +238,35 @@ public class ConnectState implements State {
             }
         }
 
+        @Nullable
+        private NetworkCapabilities getActiveWifiNetworkCapabilities() {
+            Network[] networks = mConnectivityManager.getAllNetworks();
+
+            for (Network network : networks) {
+                NetworkInfo networkInfo = mConnectivityManager.getNetworkInfo(network);
+                if (networkInfo.isConnected()
+                        && networkInfo.getType() == ConnectivityManager.TYPE_WIFI) {
+                    return mConnectivityManager.getNetworkCapabilities(network);
+                }
+            }
+            return null;
+        }
+
+        private NetworkInfo getActiveWifiNetworkInfo() {
+            Network[] networks = mConnectivityManager.getAllNetworks();
+
+            for (Network network : networks) {
+                NetworkInfo networkInfo = mConnectivityManager.getNetworkInfo(network);
+                if (networkInfo.isConnected()
+                        && networkInfo.getType() == ConnectivityManager.TYPE_WIFI) {
+                    return networkInfo;
+                }
+            }
+            return null;
+        }
+
         private boolean isNetworkConnected() {
-            ConnectivityManager connMan = getActivity().getSystemService(ConnectivityManager.class);
-            NetworkInfo netInfo = connMan.getActiveNetworkInfo();
+            NetworkInfo netInfo = getActiveWifiNetworkInfo();
             if (netInfo == null) {
                 if (DEBUG) Log.d(TAG, "NetworkInfo is null; network is not connected");
                 return false;
@@ -231,10 +280,8 @@ public class ConnectState implements State {
                             + ((currentConnection == null)
                             ? "nothing" : currentConnection.getSSID()));
                 }
-                if (currentConnection != null
-                        && currentConnection.getSSID().equals(mWifiConfiguration.SSID)) {
-                    return true;
-                }
+                return currentConnection != null
+                        && currentConnection.getSSID().equals(mWifiConfiguration.SSID);
             } else {
                 if (DEBUG) Log.d(TAG, "Network is not connected");
             }
@@ -268,7 +315,11 @@ public class ConnectState implements State {
                     fragment.notifyListener(StateMachine.RESULT_SUCCESS);
                 } else {
                     if (DEBUG) Log.d(TAG, "Timeout is real; telling the listener");
-                    fragment.notifyListener(StateMachine.RESULT_TIMEOUT);
+                    UserChoiceInfo userChoiceInfo = ViewModelProviders
+                            .of(fragment.getActivity()).get(UserChoiceInfo.class);
+                    userChoiceInfo.setConnectionFailedStatus(
+                            UserChoiceInfo.ConnectionFailedStatus.TIMEOUT);
+                    fragment.notifyListener(StateMachine.RESULT_FAILURE);
                 }
             }
         }

@@ -47,7 +47,7 @@
     <string name="apply_theme_error_msg" msgid="791364062636538317">"Se produjo un error al aplicar el estilo"</string>
     <string name="custom_theme_next" msgid="6235420097213197301">"Siguiente"</string>
     <string name="custom_theme_previous" msgid="4941132112640503022">"Anterior"</string>
-    <string name="custom_theme_title" msgid="2192300350332693631">"<xliff:g id="ID_1">%1$d</xliff:g> personalizado"</string>
+    <string name="custom_theme_title" msgid="2192300350332693631">"Personalizado <xliff:g id="ID_1">%1$d</xliff:g>"</string>
     <string name="custom_theme_fragment_title" msgid="6615547284702040280">"Estilo personalizado"</string>
     <string name="custom_theme_delete" msgid="4744494663184126202">"Borrar"</string>
     <string name="font_component_title" msgid="8800340833695292049">"Elegir fuente"</string>

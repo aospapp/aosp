@@ -25,7 +25,9 @@ import android.content.Context;
 import com.android.car.settings.R;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.Logger;
+import com.android.internal.util.ArrayUtils;
 import com.android.settingslib.bluetooth.BluetoothDeviceFilter;
+import com.android.settingslib.bluetooth.BluetoothDeviceFilter.Filter;
 import com.android.settingslib.bluetooth.CachedBluetoothDevice;
 
 /**
@@ -38,6 +40,8 @@ import com.android.settingslib.bluetooth.CachedBluetoothDevice;
 public class BluetoothUnbondedDevicesPreferenceController extends
         BluetoothScanningDevicesGroupPreferenceController {
 
+    private final Filter mUnbondedDeviceTypeFilter = new UnbondedDeviceTypeFilter();
+
     private static final Logger LOG = new Logger(
             BluetoothUnbondedDevicesPreferenceController.class);
 
@@ -48,7 +52,7 @@ public class BluetoothUnbondedDevicesPreferenceController extends
 
     @Override
     protected BluetoothDeviceFilter.Filter getDeviceFilter() {
-        return BluetoothDeviceFilter.UNBONDED_DEVICE_FILTER;
+        return mUnbondedDeviceTypeFilter;
     }
 
     @Override
@@ -70,10 +74,26 @@ public class BluetoothUnbondedDevicesPreferenceController extends
     protected int getAvailabilityStatus() {
         int availabilityStatus = super.getAvailabilityStatus();
         if (availabilityStatus == AVAILABLE
-                && getCarUserManagerHelper().isCurrentProcessUserHasRestriction(
-                DISALLOW_CONFIG_BLUETOOTH)) {
+                && getUserManager().hasUserRestriction(DISALLOW_CONFIG_BLUETOOTH)) {
             return DISABLED_FOR_USER;
         }
         return availabilityStatus;
+    }
+
+    /** Filter that matches only unbonded devices with specific device types. */
+    private class UnbondedDeviceTypeFilter implements Filter {
+        public boolean matches(BluetoothDevice device) {
+            int[] unbondedMajorClassFilter = getContext()
+                    .getResources()
+                    .getIntArray(R.array.config_unbonded_device_filter_whitelist);
+            boolean matches = device.getBondState() != BluetoothDevice.BOND_BONDED;
+            if (matches && unbondedMajorClassFilter.length > 0) {
+                matches = device.getBluetoothClass() != null
+                        && ArrayUtils.contains(
+                        unbondedMajorClassFilter,
+                        device.getBluetoothClass().getMajorDeviceClass());
+            }
+            return matches;
+        }
     }
 }

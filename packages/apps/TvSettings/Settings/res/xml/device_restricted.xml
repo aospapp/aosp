@@ -59,9 +59,4 @@
         android:icon="@drawable/ic_location_on"
         android:key="location"
         android:title="@string/system_location"/>
-    <Preference
-        android:fragment="com.android.tv.settings.system.SecurityFragment"
-        android:icon="@drawable/ic_lock"
-        android:key="security"
-        android:title="@string/system_security"/>
 </PreferenceScreen>

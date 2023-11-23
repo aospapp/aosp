@@ -27,7 +27,7 @@
         android:id="@android:id/list_container"
         android:layout_width="match_parent"
         android:layout_height="match_parent">
-        <com.android.car.apps.common.widget.PagedRecyclerView
+        <com.android.car.ui.recyclerview.CarUiRecyclerView
             android:id="@+id/recycler_view"
             android:layout_width="match_parent"
             android:layout_height="match_parent"

@@ -16,9 +16,9 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_label" msgid="6006277287245076524">"緊急速報メール"</string>
-    <string name="sms_cb_settings" msgid="3795852619005211509">"緊急速報メール"</string>
-    <string name="cell_broadcast_settings_not_available" msgid="2612364350745967915">"緊急速報メールの設定は現在のユーザーでは利用できません"</string>
+    <string name="app_label" msgid="2008319089248760277">"緊急速報メール"</string>
+    <string name="sms_cb_settings" msgid="9021266457863671070">"緊急速報メール"</string>
+    <string name="cell_broadcast_settings_not_available" msgid="3908142962162375221">"このユーザーは緊急速報メール設定を利用できません"</string>
     <string name="button_dismiss" msgid="1234221657930516287">"OK"</string>
     <string name="no_cell_broadcasts" msgid="7554779730107421769">"以前の通知はありません"</string>
     <string name="menu_delete_all" msgid="3940997343921149800">"すべて削除"</string>
@@ -26,6 +26,7 @@
     <string name="menu_view_details" msgid="1040989019045280975">"詳細を表示"</string>
     <string name="menu_delete" msgid="128380070910799366">"削除"</string>
     <string name="view_details_title" msgid="1780427629491781473">"メッセージの詳細"</string>
+    <string name="view_details_debugging_title" msgid="5699927030805114173">"アラートの詳細 - デバッグ用"</string>
     <string name="confirm_delete_broadcast" msgid="2540199303730232322">"このメッセージを削除しますか？"</string>
     <string name="confirm_delete_all_broadcasts" msgid="2924444089047280871">"受信したメッセージをすべて削除しますか？"</string>
     <string name="button_delete" msgid="4672451757925194350">"削除"</string>
@@ -51,11 +52,11 @@
     <string name="emergency_alerts_title" msgid="6605036374197485429">"緊急速報メール"</string>
     <string name="notification_channel_broadcast_messages" msgid="880704362482824524">"ブロードキャスト メッセージ"</string>
     <string name="notification_channel_emergency_alerts" msgid="5008287980979183617">"緊急速報メール"</string>
+    <string name="notification_channel_broadcast_messages_in_voicecall" msgid="3291001780110813190">"音声通話中の緊急アラート"</string>
     <string name="enable_alerts_master_toggle_title" msgid="1457904343636699446">"緊急速報メールの許可"</string>
-    <string name="enable_alerts_master_toggle_summary" msgid="699552922381916044">"緊急速報メールを受信する"</string>
-    <string name="alert_reminder_interval_title" msgid="7466642011937564868">"緊急速報メールの着信音"</string>
-    <string name="enable_alert_speech_title" msgid="8052104771053526941">"受信時にメッセージを読み上げる"</string>
-    <string name="enable_alert_speech_summary" msgid="356086178962268831">"緊急速報メール受信時にメッセージを読み上げる"</string>
+    <string name="enable_alerts_master_toggle_summary" msgid="5583168548073938617">"緊急速報メールの通知を受信する"</string>
+    <string name="alert_reminder_interval_title" msgid="3283595202268218149">"メッセージ受信を再通知する"</string>
+    <string name="alert_reminder_dialog_title" msgid="2299010977651377315">"標準音量でリマインダー音を鳴らす"</string>
     <string name="emergency_alert_history_title" msgid="8310173569237268431">"緊急速報メールの履歴"</string>
     <string name="alert_preferences_title" msgid="6001469026393248468">"緊急速報メールの設定"</string>
     <string name="enable_etws_test_alerts_title" msgid="3593533226735441539">"ETWS のテスト放送"</string>
@@ -74,14 +75,13 @@
     <string name="enable_state_local_test_alerts_summary" msgid="780298327377950187">"国や地方自治体からのテスト メッセージを受信する"</string>
     <string name="enable_emergency_alerts_message_title" msgid="661894007489847468">"緊急速報メール"</string>
     <string name="enable_emergency_alerts_message_summary" msgid="7574617515441602546">"生死にかかわる出来事に関する警告"</string>
-    <string name="enable_cmas_test_alerts_title" msgid="1319231576046146463">"必須の毎月のテスト"</string>
-    <string name="enable_cmas_test_alerts_summary" msgid="588517403520088484">"安全警告システムのテスト メッセージを受信する"</string>
+    <string name="enable_cmas_test_alerts_title" msgid="7194966927004755266">"テストアラート"</string>
+    <string name="enable_cmas_test_alerts_summary" msgid="2083089933271720217">"安全警告システムの携帯通信会社テストと毎月のテストを受信する"</string>
     <string name="enable_alert_vibrate_title" msgid="5421032189422312508">"バイブレーション"</string>
-    <string name="use_full_volume_title" msgid="8581439612945182255">"最大音量を使用する"</string>
-    <string name="use_full_volume_summary" msgid="3560764277281704697">"その他の音量やサイレント モードの設定は無視されます"</string>
+    <string name="override_dnd_title" msgid="5120805993144214421">"常に最大音量で通知音を鳴らす"</string>
+    <string name="override_dnd_summary" msgid="9026675822792800258">"サイレント モードと他の音量設定を無視する"</string>
     <string name="enable_area_update_info_alerts_title" msgid="3442042268424617226">"エリア更新メッセージ"</string>
     <string name="enable_area_update_info_alerts_summary" msgid="6437816607144264910">"SIM ステータスに更新情報を表示します"</string>
-    <string name="category_dev_settings_title" msgid="6194393458398329994">"開発者向けオプション"</string>
     <string name="cmas_category_heading" msgid="3923503130776640717">"警報のカテゴリ:"</string>
     <string name="cmas_category_geo" msgid="4979494217069688527">"地球物理"</string>
     <string name="cmas_category_met" msgid="7563732573851773537">"気象"</string>
@@ -118,7 +118,7 @@
     <string name="notification_multiple_title" msgid="1523638925739947855">"緊急速報メール"</string>
     <string name="show_cmas_opt_out_summary" msgid="6926059266585295440">"警報（国家レベルの警報以外）を初めて表示した後に受信停止選択ダイアログを表示"</string>
     <string name="show_cmas_opt_out_title" msgid="9182104842820171132">"受信停止選択ダイアログを表示"</string>
-    <string name="cmas_opt_out_dialog_text" msgid="7529010670998259128">"現在、緊急速報メールを受信するように設定されています。今後も緊急速報メールを受信しますか？"</string>
+    <string name="cmas_opt_out_dialog_text" msgid="4820577535626084938">"現在、緊急速報メールを受信するように設定されています。今後も緊急速報メールを受信しますか？"</string>
     <string name="cmas_opt_out_button_yes" msgid="7248930667195432936">"はい"</string>
     <string name="cmas_opt_out_button_no" msgid="3110484064328538553">"いいえ"</string>
     <string name="cb_list_activity_title" msgid="1433502151877791724">"緊急速報メールの履歴"</string>
@@ -127,7 +127,26 @@
     <item msgid="9097229303902157183">"2 分毎"</item>
     <item msgid="5718214950343391480">"5 分毎"</item>
     <item msgid="3863339891188103437">"15 分毎"</item>
-    <item msgid="6868848414437854609">"OFF"</item>
+    <item msgid="7388573183644474611">"なし"</item>
   </string-array>
     <string name="emergency_alert_settings_title_watches" msgid="4477073412799894883">"緊急速報メール"</string>
+    <string name="enable_cmas_presidential_alerts_title" msgid="7293800023375154256">"大統領緊急警報"</string>
+    <string name="enable_cmas_presidential_alerts_summary" msgid="7900094335808247024">"大統領からの全国警報メッセージです。OFF にすることはできません。"</string>
+    <string name="receive_cmas_in_second_language_title" msgid="1223260365527361964"></string>
+    <string name="receive_cmas_in_second_language_summary" msgid="7704105502782770718"></string>
+    <string name="alerts_header_summary" msgid="4700985191868591788"></string>
+    <string name="testing_mode_enabled" msgid="8296556666392297467">"緊急速報メールのテストモードが有効になりました。"</string>
+    <string name="testing_mode_disabled" msgid="8381408377958182661">"緊急速報メールのテストモードが無効になりました。"</string>
+    <string name="show_all_messages" msgid="3780970968167139836">"すべてのメッセージを表示"</string>
+    <string name="show_regular_messages" msgid="7376885150513522515">"標準のメッセージを表示"</string>
+    <string name="message_identifier" msgid="5558338496219327850">"識別情報:"</string>
+    <string name="message_serial_number" msgid="3386553658712978964">"シリアル番号:"</string>
+    <string name="data_coding_scheme" msgid="4628901196730870577">"データのコード体系:"</string>
+    <string name="message_content" msgid="6204502929879474632">"メッセージの内容:"</string>
+    <string name="location_check_time" msgid="4105326161240531207">"場所の確認時間:"</string>
+    <string name="message_displayed" msgid="5091678195925617971">"表示するメッセージ:"</string>
+    <string name="message_coordinates" msgid="356333576818059052">"座標:"</string>
+    <string name="maximum_waiting_time" msgid="3504809124079381356">"最大待ち時間:"</string>
+    <string name="seconds" msgid="141450721520515025">"秒"</string>
+    <string name="message_copied" msgid="6922953753733166675">"メッセージをコピーしました"</string>
 </resources>

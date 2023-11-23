@@ -14,13 +14,49 @@
      limitations under the License.
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/directory_header"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginTop="@dimen/action_bar_space_margin"
     android:orientation="vertical">
 
+    <com.android.documentsui.HorizontalBreadcrumb
+        android:id="@+id/horizontal_breadcrumb"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="?android:attr/colorBackground"/>
+
     <!-- used for search chip. -->
     <include layout="@layout/search_chip_row"/>
+
+    <LinearLayout
+        android:id="@+id/tabs_container"
+        android:theme="@style/TabTheme"
+        android:clipToPadding="true"
+        android:clipChildren="true"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <com.google.android.material.tabs.TabLayout
+            android:id="@+id/tabs"
+            android:background="@android:color/transparent"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:tabMaxWidth="0dp"
+            app:tabGravity="fill"
+            app:tabMode="fixed"
+            app:tabIndicatorColor="@color/tab_indicator_color"
+            app:tabSelectedTextColor="@color/tab_indicator_color"
+            app:tabTextAppearance="@style/TabTextAppearance"
+            app:tabTextColor="?android:attr/textColorSecondary"/>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="?android:attr/listDivider"/>
+    </LinearLayout>
 
     <!-- used for apps row. -->
     <include layout="@layout/apps_row"/>

@@ -15,7 +15,10 @@
  */
 package com.android.car.settings.wifi;
 
+import static android.net.wifi.WifiConfiguration.NetworkSelectionStatus.NETWORK_SELECTION_ENABLED;
+
 import android.annotation.DrawableRes;
+import android.annotation.Nullable;
 import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.content.ContentResolver;
@@ -26,6 +29,7 @@ import android.net.NetworkInfo;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiManager;
 import android.provider.Settings;
+import android.text.TextUtils;
 import android.widget.Toast;
 
 import androidx.annotation.StringRes;
@@ -146,6 +150,13 @@ public class WifiUtil {
     }
 
     /**
+     * Returns {@code true} if the network security type doesn't require authentication.
+     */
+    public static boolean isOpenNetwork(int security) {
+        return security == AccessPoint.SECURITY_NONE || security == AccessPoint.SECURITY_OWE;
+    }
+
+    /**
      * Returns {@code true} if the provided NetworkCapabilities indicate a captive portal network.
      */
     public static boolean canSignIntoNetwork(NetworkCapabilities capabilities) {
@@ -154,56 +165,75 @@ public class WifiUtil {
     }
 
     /**
-     * Returns netId. -1 if connection fails.
+     * Attempts to connect to a specified access point
+     * @param listener for callbacks on success or failure of connection attempt (can be null)
      */
-    public static int connectToAccessPoint(Context context, String ssid, int security,
-            String password, boolean hidden) {
+    public static void connectToAccessPoint(Context context, String ssid, int security,
+            String password, boolean hidden, @Nullable WifiManager.ActionListener listener) {
         WifiManager wifiManager = context.getSystemService(WifiManager.class);
+        WifiConfiguration wifiConfig = getWifiConfig(ssid, security, password, hidden);
+        wifiManager.connect(wifiConfig, listener);
+    }
+
+    private static WifiConfiguration getWifiConfig(String ssid, int security,
+            String password, boolean hidden) {
         WifiConfiguration wifiConfig = new WifiConfiguration();
         wifiConfig.SSID = String.format("\"%s\"", ssid);
-        wifiConfig.allowedPairwiseCiphers.set(WifiConfiguration.PairwiseCipher.CCMP);
-        wifiConfig.allowedPairwiseCiphers.set(WifiConfiguration.PairwiseCipher.TKIP);
-        wifiConfig.allowedProtocols.set(WifiConfiguration.Protocol.RSN);
-        wifiConfig.allowedProtocols.set(WifiConfiguration.Protocol.WPA);
-        wifiConfig.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.WEP40);
-        wifiConfig.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.WEP104);
         wifiConfig.hiddenSSID = hidden;
         switch (security) {
             case AccessPoint.SECURITY_NONE:
-                wifiConfig.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE);
-                wifiConfig.allowedAuthAlgorithms.clear();
-                wifiConfig.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.CCMP);
-                wifiConfig.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.TKIP);
+                wifiConfig.setSecurityParams(WifiConfiguration.SECURITY_TYPE_OPEN);
                 break;
             case AccessPoint.SECURITY_WEP:
-                wifiConfig.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE);
-                wifiConfig.allowedAuthAlgorithms.set(WifiConfiguration.AuthAlgorithm.OPEN);
-                wifiConfig.allowedAuthAlgorithms.set(WifiConfiguration.AuthAlgorithm.SHARED);
-                wifiConfig.wepKeys[0] = isHexString(password) ? password
-                        : "\"" + password + "\"";
-                wifiConfig.wepTxKeyIndex = 0;
+                wifiConfig.setSecurityParams(WifiConfiguration.SECURITY_TYPE_WEP);
+                if (!TextUtils.isEmpty(password)) {
+                    int length = password.length();
+                    // WEP-40, WEP-104, and 256-bit WEP (WEP-232?)
+                    if ((length == 10 || length == 26 || length == 58)
+                            && password.matches("[0-9A-Fa-f]*")) {
+                        wifiConfig.wepKeys[0] = password;
+                    } else {
+                        wifiConfig.wepKeys[0] = '"' + password + '"';
+                    }
+                }
                 break;
             case AccessPoint.SECURITY_PSK:
+                wifiConfig.setSecurityParams(WifiConfiguration.SECURITY_TYPE_PSK);
+                if (!TextUtils.isEmpty(password)) {
+                    if (password.matches("[0-9A-Fa-f]{64}")) {
+                        wifiConfig.preSharedKey = password;
+                    } else {
+                        wifiConfig.preSharedKey = '"' + password + '"';
+                    }
+                }
+                break;
             case AccessPoint.SECURITY_EAP:
-                wifiConfig.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA_PSK);
-                wifiConfig.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.CCMP);
-                wifiConfig.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.TKIP);
-                wifiConfig.preSharedKey = String.format("\"%s\"", password);
+            case AccessPoint.SECURITY_EAP_SUITE_B:
+                if (security == AccessPoint.SECURITY_EAP_SUITE_B) {
+                    // allowedSuiteBCiphers will be set according to certificate type
+                    wifiConfig.setSecurityParams(WifiConfiguration.SECURITY_TYPE_EAP_SUITE_B);
+                } else {
+                    wifiConfig.setSecurityParams(WifiConfiguration.SECURITY_TYPE_EAP);
+                }
+                if (!TextUtils.isEmpty(password)) {
+                    wifiConfig.enterpriseConfig.setPassword(password);
+                }
+                break;
+            case AccessPoint.SECURITY_SAE:
+                wifiConfig.setSecurityParams(WifiConfiguration.SECURITY_TYPE_SAE);
+                if (!TextUtils.isEmpty(password)) {
+                    wifiConfig.preSharedKey = '"' + password + '"';
+                }
+                break;
+            case AccessPoint.SECURITY_OWE:
+                wifiConfig.setSecurityParams(WifiConfiguration.SECURITY_TYPE_OWE);
                 break;
             default:
-                throw new IllegalArgumentException("invalid security type");
+                throw new IllegalArgumentException("unknown security type " + security);
         }
-        int netId = wifiManager.addNetwork(wifiConfig);
-        // This only means wifiManager failed writing the new wifiConfig to the db. It doesn't mean
-        // the network is invalid.
-        if (netId == INVALID_NET_ID) {
-            Toast.makeText(context, R.string.wifi_failed_connect_message,
-                    Toast.LENGTH_SHORT).show();
-        } else {
-            wifiManager.enableNetwork(netId, true);
-        }
-        return netId;
+        return wifiConfig;
     }
+
 
     /** Forget the network specified by {@code accessPoint}. */
     public static void forget(Context context, AccessPoint accessPoint) {
@@ -220,8 +250,19 @@ public class WifiUtil {
                 return;
             }
         } else {
-            wifiManager.forget(accessPoint.getConfig().networkId,
-                    new ActionFailedListener(context, R.string.wifi_failed_forget_message));
+            wifiManager.forget(accessPoint.getConfig().networkId, new WifiManager.ActionListener() {
+                @Override
+                public void onSuccess() {
+                    LOG.d("Network successfully forgotten");
+                }
+
+                @Override
+                public void onFailure(int reason) {
+                    LOG.d("Could not forget network. Failure code: " + reason);
+                    Toast.makeText(context, R.string.wifi_failed_forget_message,
+                            Toast.LENGTH_SHORT).show();
+                }
+            });
         }
     }
 
@@ -233,7 +274,8 @@ public class WifiUtil {
         }
         WifiConfiguration.NetworkSelectionStatus networkStatus =
                 config.getNetworkSelectionStatus();
-        if (networkStatus == null || networkStatus.isNetworkEnabled()) {
+        if (networkStatus == null
+                || networkStatus.getNetworkSelectionStatus() == NETWORK_SELECTION_ENABLED) {
             return false;
         }
         return networkStatus.getNetworkSelectionDisableReason()
@@ -242,29 +284,5 @@ public class WifiUtil {
 
     private static boolean isHexString(String password) {
         return HEX_PATTERN.matcher(password).matches();
-    }
-
-    /**
-     * A shared implementation of {@link WifiManager.ActionListener} which shows a failure message
-     * in a toast.
-     */
-    public static class ActionFailedListener implements WifiManager.ActionListener {
-        private final Context mContext;
-        @StringRes
-        private final int mFailureMessage;
-
-        public ActionFailedListener(Context context, @StringRes int failureMessage) {
-            mContext = context;
-            mFailureMessage = failureMessage;
-        }
-
-        @Override
-        public void onSuccess() {
-        }
-
-        @Override
-        public void onFailure(int reason) {
-            Toast.makeText(mContext, mFailureMessage, Toast.LENGTH_SHORT).show();
-        }
     }
 }

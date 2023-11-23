@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<carAudioConfiguration version="1">
+<carAudioConfiguration version="2">
     <zones>
-        <zone name="primary zone" isPrimary="true">
+        <zone name="primary zone" isPrimary="true" audioZoneId="0" occupantZoneId="1">
             <volumeGroups>
                 <group>
                     <device address="bus0_media_out">
@@ -14,15 +14,15 @@
                 <group>
                     <device address="bus1_navigation_out">
                         <context context="navigation"/>
+                        <context context="emergency"/>
+                        <context context="safety"/>
+                        <context context="vehicle_status"/>
+                        <context context="announcement"/>
                     </device>
                 </group>
             </volumeGroups>
-            <displays>
-                <display port="1"/>
-                <display port="2"/>
-            </displays>
         </zone>
-        <zone name="rear seat zone">
+        <zone name="rear seat zone" audioZoneId="2">
             <volumeGroups>
                 <group>
                     <device address="bus100_rear_seat">
@@ -32,8 +32,12 @@
                         <context context="call_ring"/>
                         <context context="call"/>
                         <context context="alarm"/>
-                        <context context="notification"/>
                         <context context="system_sound"/>
+                        <context context="notification"/>
+                        <context context="emergency"/>
+                        <context context="safety"/>
+                        <context context="vehicle_status"/>
+                        <context context="announcement"/>
                     </device>
                 </group>
             </volumeGroups>

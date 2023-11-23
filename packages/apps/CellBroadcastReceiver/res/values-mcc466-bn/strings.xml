@@ -17,4 +17,6 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="public_safety_message" msgid="4052407641316309322">"সতর্কতা মেসেজ"</string>
+    <string name="enable_cmas_test_alerts_title" msgid="4165080207837566277">"প্রয়োজনীয় মাসিক পরীক্ষা"</string>
+    <string name="enable_cmas_test_alerts_summary" msgid="1339769389077152402">"সিকিউরিটি অ্যালার্ট সিস্টেমের জন্য পরীক্ষামূলক মেসেজ পান"</string>
 </resources>

@@ -19,7 +19,6 @@ package com.android.car.telephony.common;
 import android.content.Context;
 import android.database.Cursor;
 import android.provider.CallLog;
-import android.telecom.Log;
 import android.text.TextUtils;
 
 import androidx.annotation.NonNull;
@@ -161,7 +160,7 @@ public class PhoneCallLog {
     public String toString() {
         StringBuilder sb = new StringBuilder();
         sb.append("PhoneNumber: ");
-        sb.append(Log.pii(mPhoneNumberString));
+        sb.append(TelecomUtils.piiLog(mPhoneNumberString));
         sb.append(" CallLog: ");
         sb.append(mCallRecords.size());
         return sb.toString();

@@ -28,7 +28,6 @@ import android.content.Context;
 import androidx.lifecycle.Lifecycle;
 import androidx.preference.ListPreference;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceController;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
@@ -41,10 +40,11 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 @Config(shadows = {ShadowCar.class, ShadowCarUnitsManager.class})
 public class UnitsBasePreferenceControllerTest {
 

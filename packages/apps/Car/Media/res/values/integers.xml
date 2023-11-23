@@ -24,9 +24,6 @@
     <!-- Number of columns in the browse view -->
     <integer name="num_browse_columns">3</integer>
 
-    <!-- The amount of time it takes for the app selector to fade in and out -->
-    <integer name="app_selector_fade_duration">500</integer>
-
     <!-- The amount of time it takes for the fragment playback queue to fade in and out -->
     <integer name="fragment_playback_queue_fade_duration_ms">500</integer>
 
@@ -41,7 +38,29 @@
 
     <!-- Views to hide when opening the custom actions when the queue isn't visible. -->
     <integer-array name="playback_views_to_hide_when_showing_custom_actions">
-        <item>@id/seek_bar</item>
+        <item>@id/seek_bar_container</item>
     </integer-array>
+
+    <!-- Views to hide when the queue is visible (to show when the queue becomes invisible). -->
+    <integer-array name="playback_views_to_hide_when_queue_is_visible">
+        <item>@id/metadata_container</item>
+        <item>@id/seek_bar_container</item>
+    </integer-array>
+
+    <!-- Views to show when the queue is visible (to hide when the queue becomes invisible). -->
+    <integer-array name="playback_views_to_show_when_queue_is_visible">
+        <item>@id/queue_list</item>
+        <item>@id/background_scrim</item>
+    </integer-array>
+
+    <!-- Views to hide "immediately" when the queue is visible (to show "immediately" when the queue
+    becomes invisible). The visibility of these views will be changed without any delay to avoid
+    visual glitch. -->
+    <integer-array name="playback_views_to_hide_immediately_when_queue_is_visible"/>
+
+    <!-- Views to show "immediately" when the queue is visible (to hide "immediately" when the queue
+    becomes invisible). The visibility of these views will be changed without any delay to avoid
+    visual glitch. -->
+    <integer-array name="playback_views_to_show_immediately_when_queue_is_visible"/>
 
 </resources>

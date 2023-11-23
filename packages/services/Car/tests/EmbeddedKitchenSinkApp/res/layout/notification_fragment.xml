@@ -55,13 +55,23 @@
                 android:textSize="30sp"/>
 
             <Button
-                android:id="@+id/category_message_button"
+                android:id="@+id/category_message_diff_person_button"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_margin="10dp"
                 android:background="#ffa9a8"
                 android:foreground="?android:attr/selectableItemBackground"
-                android:text="Message"
+                android:text="Message from diff person"
+                android:textSize="30sp"/>
+
+            <Button
+                android:id="@+id/category_message_same_person_button"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_margin="10dp"
+                android:background="#ffa9a8"
+                android:foreground="?android:attr/selectableItemBackground"
+                android:text="Message from same person"
                 android:textSize="30sp"/>
 
             <Button
@@ -108,6 +118,22 @@
                 android:layout_height="wrap_content"
                 android:layout_margin="10dp"
                 android:text="Progress (Can't dismiss)"
+                android:textSize="30sp"/>
+
+            <Button
+                android:id="@+id/custom_group_summary_button"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_margin="10dp"
+                android:text="Custom Group Summary of 6 (Inbox Style, Should behave the same as phone)"
+                android:textSize="30sp"/>
+
+            <Button
+                android:id="@+id/group_without_summary_button"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_margin="10dp"
+                android:text="Custom Group Without Summary of 6 (Should not group)"
                 android:textSize="30sp"/>
         </LinearLayout>
 
@@ -173,6 +199,7 @@
                 android:background="#ffa9a8"
                 android:foreground="?android:attr/selectableItemBackground"
                 android:text="Car Emergency"
+                android:enabled="false"
                 android:textSize="30sp"/>
 
             <Button
@@ -183,6 +210,7 @@
                 android:background="#ffa9a8"
                 android:foreground="?android:attr/selectableItemBackground"
                 android:text="Car Warning"
+                android:enabled="false"
                 android:textSize="30sp"/>
 
             <Button
@@ -191,6 +219,7 @@
                 android:layout_height="wrap_content"
                 android:layout_margin="10dp"
                 android:text="Car Information"
+                android:enabled="false"
                 android:textSize="30sp"/>
         </LinearLayout>
     </LinearLayout>

@@ -100,4 +100,8 @@ public class CallsManagerListenerBase implements CallsManager.CallsManagerListen
     @Override
     public void onConferenceStateChanged(Call call, boolean isConference) {
     }
+
+    @Override
+    public void onCdmaConferenceSwap(Call call) {
+    }
 }

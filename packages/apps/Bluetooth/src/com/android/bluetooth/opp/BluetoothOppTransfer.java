@@ -54,7 +54,6 @@ import android.util.Log;
 
 import com.android.bluetooth.BluetoothObexTransport;
 
-import java.io.File;
 import java.io.IOException;
 
 import javax.obex.ObexTransport;
@@ -140,9 +139,9 @@ public class BluetoothOppTransfer implements BluetoothOppBatch.BluetoothOppBatch
                 ParcelUuid uuid = intent.getParcelableExtra(BluetoothDevice.EXTRA_UUID);
                 if (D) {
                     Log.d(TAG, "Received UUID: " + uuid.toString());
-                    Log.d(TAG, "expected UUID: " + BluetoothUuid.ObexObjectPush.toString());
+                    Log.d(TAG, "expected UUID: " + BluetoothUuid.OBEX_OBJECT_PUSH.toString());
                 }
-                if (uuid.equals(BluetoothUuid.ObexObjectPush)) {
+                if (uuid.equals(BluetoothUuid.OBEX_OBJECT_PUSH)) {
                     int status = intent.getIntExtra(BluetoothDevice.EXTRA_SDP_SEARCH_STATUS, -1);
                     Log.d(TAG, " -> status: " + status);
                     BluetoothDevice device =
@@ -402,8 +401,8 @@ public class BluetoothOppTransfer implements BluetoothOppBatch.BluetoothOppBatch
                 failReason = mCurrentShare.mStatus;
             }
             if (mCurrentShare.mDirection == BluetoothShare.DIRECTION_INBOUND
-                    && mCurrentShare.mFilename != null) {
-                new File(mCurrentShare.mFilename).delete();
+                    && mCurrentShare.mUri != null) {
+                mContext.getContentResolver().delete(mCurrentShare.mUri, null, null);
             }
         }
 
@@ -429,8 +428,8 @@ public class BluetoothOppTransfer implements BluetoothOppBatch.BluetoothOppBatch
                         updateValues.put(BluetoothShare.MIMETYPE, fileInfo.mMimetype);
                     }
                 } else {
-                    if (info.mStatus < 200 && info.mFilename != null) {
-                        new File(info.mFilename).delete();
+                    if (info.mStatus < 200 && info.mUri != null) {
+                        mContext.getContentResolver().delete(info.mUri, null, null);
                     }
                 }
                 mContext.getContentResolver().update(contentUri, updateValues, null, null);
@@ -474,7 +473,7 @@ public class BluetoothOppTransfer implements BluetoothOppBatch.BluetoothOppBatch
             mBatch.mStatus = Constants.BATCH_STATUS_FAILED;
             return;
         }
-
+        registerConnectionreceiver();
         if (mHandlerThread == null) {
             if (V) {
                 Log.v(TAG, "Create handler thread for batch " + mBatch.mId);
@@ -495,7 +494,7 @@ public class BluetoothOppTransfer implements BluetoothOppBatch.BluetoothOppBatch
                 startObexSession();
             }
         }
-        registerConnectionreceiver();
+
     }
 
     /**
@@ -637,7 +636,7 @@ public class BluetoothOppTransfer implements BluetoothOppBatch.BluetoothOppBatch
 
     private void startConnectSession() {
         mDevice = mBatch.mDestination;
-        if (!mBatch.mDestination.sdpSearch(BluetoothUuid.ObexObjectPush)) {
+        if (!mBatch.mDestination.sdpSearch(BluetoothUuid.OBEX_OBJECT_PUSH)) {
             if (D) {
                 Log.d(TAG, "SDP failed, start rfcomm connect directly");
             }
@@ -722,7 +721,7 @@ public class BluetoothOppTransfer implements BluetoothOppBatch.BluetoothOppBatch
                     return;
                 }
                 mBtSocket = mDevice.createInsecureRfcommSocketToServiceRecord(
-                        BluetoothUuid.ObexObjectPush.getUuid());
+                        BluetoothUuid.OBEX_OBJECT_PUSH.getUuid());
             } catch (IOException e1) {
                 Log.e(TAG, "Rfcomm socket create error", e1);
                 markConnectionFailed(mBtSocket);

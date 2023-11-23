@@ -16,15 +16,19 @@
 
 package com.android.providers.downloads;
 
+import static android.os.Environment.buildExternalStorageAndroidObbDirs;
 import static android.os.Environment.buildExternalStorageAppDataDirs;
 import static android.os.Environment.buildExternalStorageAppMediaDirs;
 import static android.os.Environment.buildExternalStorageAppObbDirs;
 import static android.os.Environment.buildExternalStoragePublicDirs;
+import static android.os.Process.INVALID_UID;
+import static android.provider.Downloads.Impl.COLUMN_DESTINATION;
 import static android.provider.Downloads.Impl.DESTINATION_EXTERNAL;
 import static android.provider.Downloads.Impl.DESTINATION_FILE_URI;
 import static android.provider.Downloads.Impl.DESTINATION_NON_DOWNLOADMANAGER_DOWNLOAD;
 import static android.provider.Downloads.Impl.FLAG_REQUIRES_CHARGING;
 import static android.provider.Downloads.Impl.FLAG_REQUIRES_DEVICE_IDLE;
+import static android.provider.Downloads.Impl._DATA;
 
 import static com.android.providers.downloads.Constants.TAG;
 
@@ -33,6 +37,9 @@ import android.annotation.Nullable;
 import android.app.job.JobInfo;
 import android.app.job.JobScheduler;
 import android.content.ComponentName;
+import android.content.ContentProvider;
+import android.content.ContentResolver;
+import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
 import android.net.Uri;
@@ -46,22 +53,21 @@ import android.os.UserHandle;
 import android.os.storage.StorageManager;
 import android.os.storage.StorageVolume;
 import android.provider.Downloads;
+import android.provider.MediaStore;
 import android.text.TextUtils;
 import android.util.Log;
-import android.util.LongSparseArray;
 import android.util.SparseArray;
-import android.util.SparseBooleanArray;
 import android.webkit.MimeTypeMap;
 
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.ArrayUtils;
-
-import com.google.common.annotations.VisibleForTesting;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Locale;
 import java.util.Random;
-import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -187,9 +193,10 @@ public class Helpers {
             if (info.mCurrentBytes > 0 && !TextUtils.isEmpty(info.mETag)) {
                 // If we're resuming an in-progress download, we only need to
                 // download the remaining bytes.
-                builder.setEstimatedNetworkBytes(info.mTotalBytes - info.mCurrentBytes);
+                builder.setEstimatedNetworkBytes(info.mTotalBytes - info.mCurrentBytes,
+                        JobInfo.NETWORK_BYTES_UNKNOWN);
             } else {
-                builder.setEstimatedNetworkBytes(info.mTotalBytes);
+                builder.setEstimatedNetworkBytes(info.mTotalBytes, JobInfo.NETWORK_BYTES_UNKNOWN);
             }
         }
 
@@ -489,6 +496,23 @@ public class Helpers {
         throw new IOException("Failed to generate an available filename");
     }
 
+    public static Uri convertToMediaStoreDownloadsUri(Uri mediaStoreUri) {
+        final String volumeName = MediaStore.getVolumeName(mediaStoreUri);
+        final long id = android.content.ContentUris.parseId(mediaStoreUri);
+        return MediaStore.Downloads.getContentUri(volumeName, id);
+    }
+
+    public static Uri triggerMediaScan(android.content.ContentProviderClient mediaProviderClient,
+            File file) {
+        return MediaStore.scanFile(ContentResolver.wrap(mediaProviderClient), file);
+    }
+
+    public static final Uri getContentUriForPath(Context context, String path) {
+        final StorageManager sm = context.getSystemService(StorageManager.class);
+        final String volumeName = sm.getStorageVolume(new File(path)).getMediaStoreVolumeName();
+        return MediaStore.Downloads.getContentUri(volumeName);
+    }
+
     public static boolean isFileInExternalAndroidDirs(String filePath) {
         return PATTERN_ANDROID_DIRS.matcher(filePath).matches();
     }
@@ -512,6 +536,19 @@ public class Helpers {
             if (containsCanonical(buildExternalStorageAppDataDirs(packageName), file) ||
                     containsCanonical(buildExternalStorageAppObbDirs(packageName), file) ||
                     containsCanonical(buildExternalStorageAppMediaDirs(packageName), file)) {
+                return true;
+            }
+        } catch (IOException e) {
+            Log.w(TAG, "Failed to resolve canonical path: " + e);
+            return false;
+        }
+
+        return false;
+    }
+
+    static boolean isFilenameValidInExternalObbDir(File file) {
+        try {
+            if (containsCanonical(buildExternalStorageAndroidObbDirs(), file)) {
                 return true;
             }
         } catch (IOException e) {
@@ -578,6 +615,83 @@ public class Helpers {
         return false;
     }
 
+    /**
+     * Shamelessly borrowed from
+     * {@code packages/providers/MediaProvider/src/com/android/providers/media/util/FileUtils.java}.
+     */
+    private static final Pattern PATTERN_RELATIVE_PATH = Pattern.compile(
+            "(?i)^/storage/(?:emulated/[0-9]+/|[^/]+/)(Android/sandbox/([^/]+)/)?");
+
+    /**
+     * Shamelessly borrowed from
+     * {@code packages/providers/MediaProvider/src/com/android/providers/media/util/FileUtils.java}.
+     */
+    private static final Pattern PATTERN_VOLUME_NAME = Pattern.compile(
+            "(?i)^/storage/([^/]+)");
+
+    /**
+     * Shamelessly borrowed from
+     * {@code packages/providers/MediaProvider/src/com/android/providers/media/util/FileUtils.java}.
+     */
+    private static @Nullable String normalizeUuid(@Nullable String fsUuid) {
+        return fsUuid != null ? fsUuid.toLowerCase(Locale.ROOT) : null;
+    }
+
+    /**
+     * Shamelessly borrowed from
+     * {@code packages/providers/MediaProvider/src/com/android/providers/media/util/FileUtils.java}.
+     */
+    public static @Nullable String extractVolumeName(@Nullable String data) {
+        if (data == null) return null;
+        final Matcher matcher = PATTERN_VOLUME_NAME.matcher(data);
+        if (matcher.find()) {
+            final String volumeName = matcher.group(1);
+            if (volumeName.equals("emulated")) {
+                return MediaStore.VOLUME_EXTERNAL_PRIMARY;
+            } else {
+                return normalizeUuid(volumeName);
+            }
+        } else {
+            return MediaStore.VOLUME_INTERNAL;
+        }
+    }
+
+    /**
+     * Shamelessly borrowed from
+     * {@code packages/providers/MediaProvider/src/com/android/providers/media/util/FileUtils.java}.
+     */
+    public static @Nullable String extractRelativePath(@Nullable String data) {
+        if (data == null) return null;
+        final Matcher matcher = PATTERN_RELATIVE_PATH.matcher(data);
+        if (matcher.find()) {
+            final int lastSlash = data.lastIndexOf('/');
+            if (lastSlash == -1 || lastSlash < matcher.end()) {
+                // This is a file in the top-level directory, so relative path is "/"
+                // which is different than null, which means unknown path
+                return "/";
+            } else {
+                return data.substring(matcher.end(), lastSlash + 1);
+            }
+        } else {
+            return null;
+        }
+    }
+
+    /**
+     * Shamelessly borrowed from
+     * {@code packages/providers/MediaProvider/src/com/android/providers/media/util/FileUtils.java}.
+     */
+    public static @Nullable String extractDisplayName(@Nullable String data) {
+        if (data == null) return null;
+        if (data.indexOf('/') == -1) {
+            return data;
+        }
+        if (data.endsWith("/")) {
+            data = data.substring(0, data.length() - 1);
+        }
+        return data.substring(data.lastIndexOf('/') + 1);
+    }
+
     private static boolean containsCanonical(File dir, File file) throws IOException {
         return FileUtils.contains(dir.getCanonicalFile(), file);
     }
@@ -626,38 +740,59 @@ public class Helpers {
         }
     }
 
-    public static void handleRemovedUidEntries(@NonNull Context context, @NonNull Cursor cursor,
-            @NonNull ArrayList<Long> idsToDelete, @NonNull ArrayList<Long> idsToOrphan,
-            @Nullable LongSparseArray<String> idsToGrantPermission) {
+    @VisibleForTesting
+    public static void handleRemovedUidEntries(@NonNull Context context,
+            ContentProvider downloadProvider, int removedUid) {
         final SparseArray<String> knownUids = new SparseArray<>();
-        while (cursor.moveToNext()) {
-            final long downloadId = cursor.getLong(0);
-            final int uid = cursor.getInt(1);
+        final ArrayList<Long> idsToDelete = new ArrayList<>();
+        final ArrayList<Long> idsToOrphan = new ArrayList<>();
+        final String selection = removedUid == INVALID_UID ? Constants.UID + " IS NOT NULL"
+                : Constants.UID + "=" + removedUid;
+        try (Cursor cursor = downloadProvider.query(Downloads.Impl.ALL_DOWNLOADS_CONTENT_URI,
+                new String[] { Downloads.Impl._ID, Constants.UID, COLUMN_DESTINATION, _DATA },
+                selection, null, null)) {
+            while (cursor.moveToNext()) {
+                final long downloadId = cursor.getLong(0);
+                final int uid = cursor.getInt(1);
 
-            final String ownerPackageName;
-            final int index = knownUids.indexOfKey(uid);
-            if (index >= 0) {
-                ownerPackageName = knownUids.valueAt(index);
-            } else {
-                ownerPackageName = getPackageForUid(context, uid);
-                knownUids.put(uid, ownerPackageName);
-            }
-
-            if (ownerPackageName == null) {
-                final int destination = cursor.getInt(2);
-                final String filePath = cursor.getString(3);
-
-                if ((destination == DESTINATION_EXTERNAL
-                        || destination == DESTINATION_FILE_URI
-                        || destination == DESTINATION_NON_DOWNLOADMANAGER_DOWNLOAD)
-                        && isFilenameValidInKnownPublicDir(filePath)) {
-                    idsToOrphan.add(downloadId);
+                final String ownerPackageName;
+                final int index = knownUids.indexOfKey(uid);
+                if (index >= 0) {
+                    ownerPackageName = knownUids.valueAt(index);
                 } else {
-                    idsToDelete.add(downloadId);
+                    ownerPackageName = getPackageForUid(context, uid);
+                    knownUids.put(uid, ownerPackageName);
                 }
-            } else if (idsToGrantPermission != null) {
-                idsToGrantPermission.put(downloadId, ownerPackageName);
+
+                if (ownerPackageName == null) {
+                    final int destination = cursor.getInt(2);
+                    final String filePath = cursor.getString(3);
+
+                    if ((destination == DESTINATION_EXTERNAL
+                            || destination == DESTINATION_FILE_URI
+                            || destination == DESTINATION_NON_DOWNLOADMANAGER_DOWNLOAD)
+                            && isFilenameValidInKnownPublicDir(filePath)) {
+                        idsToOrphan.add(downloadId);
+                    } else {
+                        idsToDelete.add(downloadId);
+                    }
+                }
             }
+        }
+
+        if (idsToOrphan.size() > 0) {
+            Log.i(Constants.TAG, "Orphaning downloads with ids "
+                    + Arrays.toString(idsToOrphan.toArray()) + " as owner package is removed");
+            final ContentValues values = new ContentValues();
+            values.putNull(Constants.UID);
+            downloadProvider.update(Downloads.Impl.ALL_DOWNLOADS_CONTENT_URI, values,
+                    Helpers.buildQueryWithIds(idsToOrphan), null);
+        }
+        if (idsToDelete.size() > 0) {
+            Log.i(Constants.TAG, "Deleting downloads with ids "
+                    + Arrays.toString(idsToDelete.toArray()) + " as owner package is removed");
+            downloadProvider.delete(Downloads.Impl.ALL_DOWNLOADS_CONTENT_URI,
+                    Helpers.buildQueryWithIds(idsToDelete), null);
         }
     }
 
@@ -678,266 +813,5 @@ public class Helpers {
         }
         // For permission related purposes, any package belonging to the given uid should work.
         return packages[0];
-    }
-
-    /**
-     * Checks whether this looks like a legitimate selection parameter
-     */
-    public static void validateSelection(String selection, Set<String> allowedColumns) {
-        try {
-            if (selection == null || selection.isEmpty()) {
-                return;
-            }
-            Lexer lexer = new Lexer(selection, allowedColumns);
-            parseExpression(lexer);
-            if (lexer.currentToken() != Lexer.TOKEN_END) {
-                throw new IllegalArgumentException("syntax error");
-            }
-        } catch (RuntimeException ex) {
-            if (Constants.LOGV) {
-                Log.d(Constants.TAG, "invalid selection [" + selection + "] triggered " + ex);
-            } else if (false) {
-                Log.d(Constants.TAG, "invalid selection triggered " + ex);
-            }
-            throw ex;
-        }
-
-    }
-
-    // expression <- ( expression ) | statement [AND_OR ( expression ) | statement] *
-    //             | statement [AND_OR expression]*
-    private static void parseExpression(Lexer lexer) {
-        for (;;) {
-            // ( expression )
-            if (lexer.currentToken() == Lexer.TOKEN_OPEN_PAREN) {
-                lexer.advance();
-                parseExpression(lexer);
-                if (lexer.currentToken() != Lexer.TOKEN_CLOSE_PAREN) {
-                    throw new IllegalArgumentException("syntax error, unmatched parenthese");
-                }
-                lexer.advance();
-            } else {
-                // statement
-                parseStatement(lexer);
-            }
-            if (lexer.currentToken() != Lexer.TOKEN_AND_OR) {
-                break;
-            }
-            lexer.advance();
-        }
-    }
-
-    // statement <- COLUMN COMPARE VALUE
-    //            | COLUMN IS NULL
-    private static void parseStatement(Lexer lexer) {
-        // both possibilities start with COLUMN
-        if (lexer.currentToken() != Lexer.TOKEN_COLUMN) {
-            throw new IllegalArgumentException("syntax error, expected column name");
-        }
-        lexer.advance();
-
-        // statement <- COLUMN COMPARE VALUE
-        if (lexer.currentToken() == Lexer.TOKEN_COMPARE) {
-            lexer.advance();
-            if (lexer.currentToken() != Lexer.TOKEN_VALUE) {
-                throw new IllegalArgumentException("syntax error, expected quoted string");
-            }
-            lexer.advance();
-            return;
-        }
-
-        // statement <- COLUMN IS NULL
-        if (lexer.currentToken() == Lexer.TOKEN_IS) {
-            lexer.advance();
-            if (lexer.currentToken() != Lexer.TOKEN_NULL) {
-                throw new IllegalArgumentException("syntax error, expected NULL");
-            }
-            lexer.advance();
-            return;
-        }
-
-        // didn't get anything good after COLUMN
-        throw new IllegalArgumentException("syntax error after column name");
-    }
-
-    /**
-     * A simple lexer that recognizes the words of our restricted subset of SQL where clauses
-     */
-    private static class Lexer {
-        public static final int TOKEN_START = 0;
-        public static final int TOKEN_OPEN_PAREN = 1;
-        public static final int TOKEN_CLOSE_PAREN = 2;
-        public static final int TOKEN_AND_OR = 3;
-        public static final int TOKEN_COLUMN = 4;
-        public static final int TOKEN_COMPARE = 5;
-        public static final int TOKEN_VALUE = 6;
-        public static final int TOKEN_IS = 7;
-        public static final int TOKEN_NULL = 8;
-        public static final int TOKEN_END = 9;
-
-        private final String mSelection;
-        private final Set<String> mAllowedColumns;
-        private int mOffset = 0;
-        private int mCurrentToken = TOKEN_START;
-        private final char[] mChars;
-
-        public Lexer(String selection, Set<String> allowedColumns) {
-            mSelection = selection;
-            mAllowedColumns = allowedColumns;
-            mChars = new char[mSelection.length()];
-            mSelection.getChars(0, mChars.length, mChars, 0);
-            advance();
-        }
-
-        public int currentToken() {
-            return mCurrentToken;
-        }
-
-        public void advance() {
-            char[] chars = mChars;
-
-            // consume whitespace
-            while (mOffset < chars.length && chars[mOffset] == ' ') {
-                ++mOffset;
-            }
-
-            // end of input
-            if (mOffset == chars.length) {
-                mCurrentToken = TOKEN_END;
-                return;
-            }
-
-            // "("
-            if (chars[mOffset] == '(') {
-                ++mOffset;
-                mCurrentToken = TOKEN_OPEN_PAREN;
-                return;
-            }
-
-            // ")"
-            if (chars[mOffset] == ')') {
-                ++mOffset;
-                mCurrentToken = TOKEN_CLOSE_PAREN;
-                return;
-            }
-
-            // "?"
-            if (chars[mOffset] == '?') {
-                ++mOffset;
-                mCurrentToken = TOKEN_VALUE;
-                return;
-            }
-
-            // "=" and "=="
-            if (chars[mOffset] == '=') {
-                ++mOffset;
-                mCurrentToken = TOKEN_COMPARE;
-                if (mOffset < chars.length && chars[mOffset] == '=') {
-                    ++mOffset;
-                }
-                return;
-            }
-
-            // ">" and ">="
-            if (chars[mOffset] == '>') {
-                ++mOffset;
-                mCurrentToken = TOKEN_COMPARE;
-                if (mOffset < chars.length && chars[mOffset] == '=') {
-                    ++mOffset;
-                }
-                return;
-            }
-
-            // "<", "<=" and "<>"
-            if (chars[mOffset] == '<') {
-                ++mOffset;
-                mCurrentToken = TOKEN_COMPARE;
-                if (mOffset < chars.length && (chars[mOffset] == '=' || chars[mOffset] == '>')) {
-                    ++mOffset;
-                }
-                return;
-            }
-
-            // "!="
-            if (chars[mOffset] == '!') {
-                ++mOffset;
-                mCurrentToken = TOKEN_COMPARE;
-                if (mOffset < chars.length && chars[mOffset] == '=') {
-                    ++mOffset;
-                    return;
-                }
-                throw new IllegalArgumentException("Unexpected character after !");
-            }
-
-            // columns and keywords
-            // first look for anything that looks like an identifier or a keyword
-            //     and then recognize the individual words.
-            // no attempt is made at discarding sequences of underscores with no alphanumeric
-            //     characters, even though it's not clear that they'd be legal column names.
-            if (isIdentifierStart(chars[mOffset])) {
-                int startOffset = mOffset;
-                ++mOffset;
-                while (mOffset < chars.length && isIdentifierChar(chars[mOffset])) {
-                    ++mOffset;
-                }
-                String word = mSelection.substring(startOffset, mOffset);
-                if (mOffset - startOffset <= 4) {
-                    if (word.equals("IS")) {
-                        mCurrentToken = TOKEN_IS;
-                        return;
-                    }
-                    if (word.equals("OR") || word.equals("AND")) {
-                        mCurrentToken = TOKEN_AND_OR;
-                        return;
-                    }
-                    if (word.equals("NULL")) {
-                        mCurrentToken = TOKEN_NULL;
-                        return;
-                    }
-                }
-                if (mAllowedColumns.contains(word)) {
-                    mCurrentToken = TOKEN_COLUMN;
-                    return;
-                }
-                throw new IllegalArgumentException("unrecognized column or keyword: " + word);
-            }
-
-            // quoted strings
-            if (chars[mOffset] == '\'') {
-                ++mOffset;
-                while (mOffset < chars.length) {
-                    if (chars[mOffset] == '\'') {
-                        if (mOffset + 1 < chars.length && chars[mOffset + 1] == '\'') {
-                            ++mOffset;
-                        } else {
-                            break;
-                        }
-                    }
-                    ++mOffset;
-                }
-                if (mOffset == chars.length) {
-                    throw new IllegalArgumentException("unterminated string");
-                }
-                ++mOffset;
-                mCurrentToken = TOKEN_VALUE;
-                return;
-            }
-
-            // anything we don't recognize
-            throw new IllegalArgumentException("illegal character: " + chars[mOffset]);
-        }
-
-        private static final boolean isIdentifierStart(char c) {
-            return c == '_' ||
-                    (c >= 'A' && c <= 'Z') ||
-                    (c >= 'a' && c <= 'z');
-        }
-
-        private static final boolean isIdentifierChar(char c) {
-            return c == '_' ||
-                    (c >= 'A' && c <= 'Z') ||
-                    (c >= 'a' && c <= 'z') ||
-                    (c >= '0' && c <= '9');
-        }
     }
 }

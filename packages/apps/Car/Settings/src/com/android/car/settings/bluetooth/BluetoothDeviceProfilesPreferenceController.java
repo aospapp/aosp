@@ -39,12 +39,7 @@ public class BluetoothDeviceProfilesPreferenceController extends
                 BluetoothDeviceProfilePreference profilePref =
                         (BluetoothDeviceProfilePreference) preference;
                 LocalBluetoothProfile profile = profilePref.getProfile();
-                profile.setPreferred(profilePref.getCachedDevice().getDevice(), isChecked);
-                if (isChecked) {
-                    getCachedDevice().connectProfile(profile);
-                } else {
-                    getCachedDevice().disconnect(profile);
-                }
+                profile.setEnabled(profilePref.getCachedDevice().getDevice(), isChecked);
                 return true;
             };
 

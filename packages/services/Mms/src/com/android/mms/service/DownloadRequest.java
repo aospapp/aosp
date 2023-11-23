@@ -33,8 +33,7 @@ import android.os.UserHandle;
 import android.os.UserManager;
 import android.provider.Telephony;
 import android.service.carrier.CarrierMessagingService;
-import android.service.carrier.ICarrierMessagingService;
-import android.telephony.CarrierMessagingServiceManager;
+import android.service.carrier.CarrierMessagingServiceWrapper;
 import android.telephony.SmsManager;
 import android.text.TextUtils;
 
@@ -60,8 +59,8 @@ public class DownloadRequest extends MmsRequest {
 
     public DownloadRequest(RequestManager manager, int subId, String locationUrl,
             Uri contentUri, PendingIntent downloadedIntent, String creator,
-            Bundle configOverrides, Context context) {
-        super(manager, subId, creator, configOverrides, context);
+            Bundle configOverrides, Context context, long messageId) {
+        super(manager, subId, creator, configOverrides, context, messageId);
         mLocationUrl = locationUrl;
         mDownloadedIntent = downloadedIntent;
         mContentUri = contentUri;
@@ -73,8 +72,9 @@ public class DownloadRequest extends MmsRequest {
         final String requestId = getRequestId();
         final MmsHttpClient mmsHttpClient = netMgr.getOrCreateHttpClient();
         if (mmsHttpClient == null) {
-            LogUtil.e(requestId, "MMS network is not ready!");
-            throw new MmsHttpException(0/*statusCode*/, "MMS network is not ready");
+            LogUtil.e(requestId, "MMS network is not ready! messageId: " + mMessageId);
+            throw new MmsHttpException(0/*statusCode*/, "MMS network is not ready. messageId: "
+                    + mMessageId);
         }
         return mmsHttpClient.execute(
                 mLocationUrl,
@@ -107,9 +107,9 @@ public class DownloadRequest extends MmsRequest {
         if (!mRequestManager.getAutoPersistingPref()) {
             return null;
         }
-        LogUtil.d(requestId, "persistIfRequired");
+        LogUtil.d(requestId, "persistIfRequired. messageId: " + mMessageId);
         if (response == null || response.length < 1) {
-            LogUtil.e(requestId, "persistIfRequired: empty response");
+            LogUtil.e(requestId, "persistIfRequired: empty response. messageId: " + mMessageId);
             return null;
         }
         final long identity = Binder.clearCallingIdentity();
@@ -118,13 +118,15 @@ public class DownloadRequest extends MmsRequest {
                     mMmsConfig.getBoolean(SmsManager.MMS_CONFIG_SUPPORT_MMS_CONTENT_DISPOSITION);
             final GenericPdu pdu = (new PduParser(response, supportMmsContentDisposition)).parse();
             if (pdu == null || !(pdu instanceof RetrieveConf)) {
-                LogUtil.e(requestId, "persistIfRequired: invalid parsed PDU");
+                LogUtil.e(requestId, "persistIfRequired: invalid parsed PDU. messageId: "
+                        + mMessageId);
                 return null;
             }
             final RetrieveConf retrieveConf = (RetrieveConf) pdu;
             final int status = retrieveConf.getRetrieveStatus();
             if (status != PduHeaders.RETRIEVE_STATUS_OK) {
-                LogUtil.e(requestId, "persistIfRequired: retrieve failed " + status);
+                LogUtil.e(requestId, "persistIfRequired: retrieve failed " + status
+                        + ", messageId: " + mMessageId);
                 // Update the retrieve status of the NotificationInd
                 final ContentValues values = new ContentValues(1);
                 values.put(Telephony.Mms.RETRIEVE_STATUS, status);
@@ -149,7 +151,8 @@ public class DownloadRequest extends MmsRequest {
                     true/*groupMmsEnabled*/,
                     null/*preOpenedFiles*/);
             if (messageUri == null) {
-                LogUtil.e(requestId, "persistIfRequired: can not persist message");
+                LogUtil.e(requestId, "persistIfRequired: can not persist message. messageId: "
+                        + mMessageId);
                 return null;
             }
             // Update some of the properties of the message
@@ -168,7 +171,8 @@ public class DownloadRequest extends MmsRequest {
                     values,
                     null/*where*/,
                     null/*selectionArg*/) != 1) {
-                LogUtil.e(requestId, "persistIfRequired: can not update message");
+                LogUtil.e(requestId, "persistIfRequired: can not update message. messageId: "
+                        + mMessageId);
             }
             // Delete the corresponding NotificationInd
             SqliteWrapper.delete(context,
@@ -182,11 +186,14 @@ public class DownloadRequest extends MmsRequest {
 
             return messageUri;
         } catch (MmsException e) {
-            LogUtil.e(requestId, "persistIfRequired: can not persist message", e);
+            LogUtil.e(requestId, "persistIfRequired: can not persist message. messageId: "
+                    + mMessageId, e);
         } catch (SQLiteException e) {
-            LogUtil.e(requestId, "persistIfRequired: can not update message", e);
+            LogUtil.e(requestId, "persistIfRequired: can not update message. messageId: "
+                    + mMessageId, e);
         } catch (RuntimeException e) {
-            LogUtil.e(requestId, "persistIfRequired: can not parse response", e);
+            LogUtil.e(requestId, "persistIfRequired: can not parse response. messageId: "
+                    + mMessageId, e);
         } finally {
             Binder.restoreCallingIdentity(identity);
         }
@@ -270,7 +277,7 @@ public class DownloadRequest extends MmsRequest {
     /**
      * Downloads the MMS through through the carrier app.
      */
-    private final class CarrierDownloadManager extends CarrierMessagingServiceManager {
+    private final class CarrierDownloadManager extends CarrierMessagingServiceWrapper {
         // Initialized in downloadMms
         private volatile CarrierDownloadCompleteCallback mCarrierDownloadCallback;
 
@@ -278,21 +285,24 @@ public class DownloadRequest extends MmsRequest {
                 CarrierDownloadCompleteCallback carrierDownloadCallback) {
             mCarrierDownloadCallback = carrierDownloadCallback;
             if (bindToCarrierMessagingService(context, carrierMessagingServicePackage)) {
-                LogUtil.v("bindService() for carrier messaging service succeeded");
+                LogUtil.v("bindService() for carrier messaging service succeeded. messageId: "
+                        + mMessageId);
             } else {
-                LogUtil.e("bindService() for carrier messaging service failed");
+                LogUtil.e("bindService() for carrier messaging service failed. messageId: "
+                        + mMessageId);
                 carrierDownloadCallback.onDownloadMmsComplete(
                         CarrierMessagingService.DOWNLOAD_STATUS_RETRY_ON_CARRIER_NETWORK);
             }
         }
 
         @Override
-        protected void onServiceReady(ICarrierMessagingService carrierMessagingService) {
+        public void onServiceReady() {
             try {
-                carrierMessagingService.downloadMms(mContentUri, mSubId, Uri.parse(mLocationUrl),
+                downloadMms(mContentUri, mSubId, Uri.parse(mLocationUrl),
                         mCarrierDownloadCallback);
-            } catch (RemoteException e) {
-                LogUtil.e("Exception downloading MMS using the carrier messaging service: " + e, e);
+            } catch (RuntimeException e) {
+                LogUtil.e("Exception downloading MMS for messageId " + mMessageId
+                        + " using the carrier messaging service: " + e, e);
                 mCarrierDownloadCallback.onDownloadMmsComplete(
                         CarrierMessagingService.DOWNLOAD_STATUS_RETRY_ON_CARRIER_NETWORK);
             }
@@ -316,12 +326,14 @@ public class DownloadRequest extends MmsRequest {
 
         @Override
         public void onSendMmsComplete(int result, byte[] sendConfPdu) {
-            LogUtil.e("Unexpected onSendMmsComplete call with result: " + result);
+            LogUtil.e("Unexpected onSendMmsComplete call with result: " + result
+                    + ", messageId: " + mMessageId);
         }
 
         @Override
         public void onDownloadMmsComplete(int result) {
-            LogUtil.d("Carrier app result for download: " + result);
+            LogUtil.d("Carrier app result for download: " + result
+                    + ", messageId: " + mMessageId);
             mCarrierDownloadManager.disposeConnection(mContext);
 
             if (!maybeFallbackToRegularDelivery(result)) {

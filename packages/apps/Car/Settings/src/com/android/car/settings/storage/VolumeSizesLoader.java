@@ -20,7 +20,7 @@ import android.app.usage.StorageStatsManager;
 import android.content.Context;
 import android.os.storage.VolumeInfo;
 
-import com.android.car.settingslib.loader.AsyncLoader;
+import com.android.car.settings.common.AsyncLoader;
 import com.android.settingslib.deviceinfo.PrivateStorageInfo;
 import com.android.settingslib.deviceinfo.StorageVolumeProvider;
 

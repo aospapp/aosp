@@ -52,7 +52,7 @@ public class ApnPreferenceController extends TelephonyBasePreferenceController i
 
     public ApnPreferenceController(Context context, String key) {
         super(context, key);
-        mCarrierConfigManager = new CarrierConfigManager(context);
+        mCarrierConfigManager = context.getSystemService(CarrierConfigManager.class);
         mDpcApnEnforcedObserver = new DpcApnEnforcedObserver(new Handler(Looper.getMainLooper()));
     }
 
@@ -93,6 +93,9 @@ public class ApnPreferenceController extends TelephonyBasePreferenceController i
     @Override
     public void updateState(Preference preference) {
         super.updateState(preference);
+        if (mPreference == null) {
+            return;
+        }
         ((RestrictedPreference) mPreference).setDisabledByAdmin(
                 MobileNetworkUtils.isDpcApnEnforced(mContext)
                         ? RestrictedLockUtilsInternal.getDeviceOwner(mContext)

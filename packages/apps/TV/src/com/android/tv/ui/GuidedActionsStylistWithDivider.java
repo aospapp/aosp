@@ -17,9 +17,9 @@
 package com.android.tv.ui;
 
 import android.content.Context;
-import android.support.v17.leanback.app.GuidedStepFragment;
-import android.support.v17.leanback.widget.GuidedAction;
-import android.support.v17.leanback.widget.GuidedActionsStylist;
+import androidx.leanback.app.GuidedStepFragment;
+import androidx.leanback.widget.GuidedAction;
+import androidx.leanback.widget.GuidedActionsStylist;
 import com.android.tv.R;
 
 /** Extended stylist class used for {@link GuidedStepFragment} with divider support. */

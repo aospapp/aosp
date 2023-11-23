@@ -39,7 +39,6 @@
     <uses-permission android:name="android.permission.CHANGE_CONFIGURATION" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
 
-    <uses-permission android:name="android.permission.CONNECTIVITY_INTERNAL" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.MASTER_CLEAR" />
     <uses-permission android:name="android.permission.NFC" />
@@ -60,7 +59,7 @@
     <uses-permission android:name="android.permission.NETWORK_MANAGED_PROVISIONING" />
 
     <uses-permission android:name="android.permission.READ_PRIVILEGED_PHONE_STATE" />
-    <uses-permission android:name="android.permission.GRANT_PROFILE_OWNER_DEVICE_IDS_ACCESS" />
+    <uses-permission android:name="android.permission.MARK_DEVICE_ORGANIZATION_OWNED" />
 
     <!-- To set the bg color of the deferred setup notification (without a foreground service) -->
     <uses-permission android:name="android.permission.USE_COLORIZED_NOTIFICATIONS" />
@@ -69,6 +68,10 @@
 
     <!-- Required by setup design library -->
     <uses-permission android:name="com.google.android.setupwizard.SETUP_COMPAT_SERVICE" />
+
+    <uses-permission android:name="android.permission.CONFIGURE_INTERACT_ACROSS_PROFILES" />
+
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
 
     <application
         android:label="@string/app_label"
@@ -139,6 +142,9 @@
             <intent-filter android:priority="10">
                 <action
                     android:name="android.app.action.PROVISION_MANAGED_DEVICE_FROM_TRUSTED_SOURCE"
+                />
+                <action
+                    android:name="android.app.action.PROVISION_FINANCED_DEVICE"
                 />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
@@ -220,7 +226,7 @@
         <service android:name=".finalization.SendDpcBroadcastService" />
         <service android:name=".ota.OtaService" />
 
-        <receiver android:name="com.android.managedprovisioning.preprovisioning.BootReminder">
+        <receiver android:name="com.android.managedprovisioning.BootReminder">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
@@ -244,9 +250,9 @@
             </intent-filter>
         </receiver>
 
-        <!-- TODO: Add permission for setup-wizard to guard access? -->
-        <activity android:name=".finalization.FinalizationActivity"
-                android:theme="@android:style/Theme.NoDisplay"
+        <!-- TODO (b/146135268): Add permission for setup-wizard to guard access? -->
+        <activity android:name=".finalization.FinalizationPostSuwActivity"
+                android:theme="@style/SudThemeGlifV3.Light"
                 android:noHistory="true"
                 android:excludeFromRecents="true"
                 android:exported="true"
@@ -257,8 +263,26 @@
             </intent-filter>
         </activity>
 
+        <!-- TODO (b/146135268): Add permission for setup-wizard to guard access? -->
+        <activity android:name=".finalization.FinalizationInsideSuwActivity"
+                  android:excludeFromRecents="true"
+                  android:exported="true"
+                  android:immersive="true"
+                  android:launchMode="singleTop"
+                  android:theme="@style/SudThemeGlifV3.Light">
+            <intent-filter>
+                <action android:name="android.app.action.PROVISION_FINALIZATION_INSIDE_SUW" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
         <activity
             android:name=".provisioning.LandingActivity"
+            android:theme="@style/SudThemeGlifV3.Light"
+            android:immersive="true" />
+
+        <activity
+            android:name=".provisioning.FinancedDeviceLandingActivity"
             android:theme="@style/SudThemeGlifV3.Light"
             android:immersive="true" />
 

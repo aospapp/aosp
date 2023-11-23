@@ -17,17 +17,14 @@
 <!--
   This configuration is replaced by car_audio_configuration.xml
 
-  Notes on backward compatibility
-  - A new audioUseUnifiedConfiguration flag is added, and the default value
-  is false
-  - If OEM does not explicitly set audioUseUnifiedConfiguration to be true,
-  car_volume_groups.xml will be used, CarAudioService also queries
-  IAudioControl HAL (getBusForContext)
-  - Otherwise, CarAudioService loads the new car_audio_configuration.xml
+  Notes on backward compatibility:
+  If audioUseDynamicRouting is true and no car_audio_configuration.xml file
+  is found in either /vendor/etc or /system/etc, then car_volume_groups.xml will
+  be used and IAudioControl.getBusForContext will be queried
 
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-  Defines the all available volume groups for volume control in a car.
+  Defines all of the available volume groups for volume control in a car.
   One can overlay this configuration to customize the groups.
 
   This configuration will be populated by CarAudioService and
@@ -40,7 +37,7 @@
     - All gain controllers (set on each bus) in one group have same step value
 
   It is fine that there are buses that do not appear in any group, those buses
-  may be reserved for other usages.
+  may be reserved for other purposes.
 
   Important note: when overlaying this configuration,
   make sure the resources are in the same package as CarAudioService.

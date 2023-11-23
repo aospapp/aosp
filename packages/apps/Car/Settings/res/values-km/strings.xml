@@ -50,7 +50,7 @@
     <string name="roaming_title" msgid="6218635014519017734">"រ៉ូ​មីង"</string>
     <string name="roaming_summary" msgid="7476127740259728901">"ភ្ជាប់​សេវាកម្ម​ទិន្នន័យ នៅពេលរ៉ូមីង"</string>
     <string name="roaming_alert_title" msgid="4433901635766775763">"អនុញ្ញាតឱ្យ​ប្រើការ​រ៉ូមីង​ទិន្នន័យ?"</string>
-    <string name="roaming_warning" msgid="5313281900566657209">"អាច​នឹងមាន​ការគិតថ្លៃខ្ពស់​ពីអ្នក។"</string>
+    <string name="roaming_warning" msgid="4908184914868720704">"អាច​មាន​ការគិត​ថ្លៃ​រ៉ូមីង។"</string>
     <string name="data_usage_settings" msgid="7877132994777987848">"ការ​ប្រើ​ទិន្នន័យ"</string>
     <string name="data_usage_title" msgid="2923515974389203812">"ទិន្នន័យ​ចម្បង"</string>
     <string name="data_used_formatted" msgid="6684557577780068339">"បានប្រើ​អស់ <xliff:g id="ID_1">^1</xliff:g> <xliff:g id="ID_2">^2</xliff:g>"</string>
@@ -199,6 +199,8 @@
     <string name="bluetooth_device_picker" msgid="673238198452345475">"ជ្រើសរើស​ឧបករណ៍​ប៊្លូធូស"</string>
     <string name="language_settings" msgid="2079258598337245546">"ភាសា"</string>
     <string name="languages_and_input_settings" msgid="3672322610529408248">"ភាសា និងការបញ្ចូល"</string>
+    <string name="language_picker_list_suggested_header" msgid="7593893806003415948">"សូមណែនាំ"</string>
+    <string name="language_picker_list_all_header" msgid="1577387973934368428">"ភាសាទាំងអស់"</string>
     <string name="keyboard_settings" msgid="1959697870618278081">"ក្ដារចុច"</string>
     <string name="manage_keyboard" msgid="4045394766282200132">"គ្រប់គ្រងក្តារចុច"</string>
     <string name="text_to_speech_settings" msgid="811985746199507343">"លទ្ធផលនៃការបំប្លែងអត្ថបទទៅជាការនិយាយ"</string>
@@ -283,9 +285,11 @@
     <string name="not_installed" msgid="4218816013370552746">"មិន​បាន​ដំឡើង​សម្រាប់​អ្នក​ប្រើប្រាស់​នេះទេ"</string>
     <string name="permissions_label" msgid="2701446753515612685">"ការអនុញ្ញាត"</string>
     <string name="notifications_label" msgid="6586089149665170731">"ការជូនដំណឹង"</string>
+    <string name="storage_application_label" msgid="5911779903670978586">"ទំហំផ្ទុក និង​ឃ្លាំងផ្ទុកទិន្នន័យ"</string>
     <string name="application_version_label" msgid="8556889839783311649">"កំណែ៖ %1$s"</string>
     <string name="runtime_permissions_summary_no_permissions_granted" msgid="6001439205270250021">"មិន​បាន​ផ្តល់សិទ្ធិអនុញ្ញាតទេ"</string>
-    <string name="runtime_permissions_summary_no_permissions_requested" msgid="4074220596273432442">"មិន​បាន​ស្នើសុំសិទ្ធិអនុញ្ញាតទេ"</string>
+    <string name="runtime_permissions_summary_no_permissions_requested" msgid="4074220596273432442">"គ្មានការអនុញ្ញាត​ដែលបានស្នើសុំទេ"</string>
+    <string name="storage_type_internal" msgid="8918688427078709570">"%s នៅក្នុង​ទំហំ​ផ្ទុក​ខាង​ក្នុង"</string>
     <string name="data_usage_summary_title" msgid="4368024763485916986">"ការ​ប្រើ​ទិន្នន័យ"</string>
     <string name="data_usage_app_summary_title" msgid="5012851696585421420">"ការប្រើទិន្នន័យកម្មវិធី"</string>
     <string name="computing_size" msgid="5791407621793083965">"កំពុង​គណនា…"</string>
@@ -344,17 +348,13 @@
     <string name="location_settings_recent_requests_title" msgid="6345634382240930628">"សំណើ​ទីតាំង​ថ្មីៗ"</string>
     <string name="location_settings_recent_requests_empty_message" msgid="7789667070033674910">"គ្មាន​សំណើ​ទីតាំង​ថ្មីៗ​ទេ"</string>
     <string name="location_settings_app_permissions_title" msgid="6446735313354321564">"ការ​អនុញ្ញាត​កម្រិត​កម្មវិធី"</string>
-    <string name="location_settings_scanning_title" msgid="4253945869911300740">"ការស្កេន"</string>
     <string name="location_settings_services_title" msgid="1186133632690970468">"សេវាកម្ម​ទីតាំង"</string>
-    <string name="location_settings_wifi_scanning_title" msgid="8021558840074023719">"ការស្កេន Wi‑Fi"</string>
-    <string name="location_settings_wifi_scanning_summary" msgid="2116283960258671324">"អនុញ្ញាត​ឱ្យ​កម្មវិធី និង​សេវាកម្ម​ស្កេនរក​បណ្ដាញ Wi‑Fi បាន​គ្រប់ពេល ទោះបីជា Wi‑Fi ​បិទក៏ដោយ។ ឧទាហរណ៍ សកម្មភាព​នេះ​អាច​ត្រូវ​បាន​ប្រើ ដើម្បី​កែលម្អ​មុខងារ និង​សេវាកម្មនានា​ដែល​ផ្អែក​លើ​ទីតាំង។"</string>
-    <string name="location_settings_bluetooth_scanning_title" msgid="2969682902241932059">"ការស្កេនប៊្លូធូស"</string>
-    <string name="location_settings_bluetooth_scanning_summary" msgid="9158101751700727062">"អនុញ្ញាត​ឱ្យ​កម្មវិធី និងសេវាកម្ម​ស្កេនរក​ឧបករណ៍ដែល​នៅ​ជិត​បាន​គ្រប់ពេល ទោះបីជា​ប៊្លូធូសបិទ​ក៏ដោយ។ ឧទាហរណ៍ សកម្មភាព​នេះ​អាច​ត្រូវ​បាន​ប្រើ ដើម្បី​កែលម្អ​មុខងារ និងសេវាកម្មនានា​ដែល​ផ្អែក​លើ​ទីតាំង។"</string>
     <string name="system_setting_title" msgid="6864599341809463440">"ប្រព័ន្ធ"</string>
     <string name="system_update_settings_title" msgid="8448588267784138855">"បច្ចុប្បន្នភាព​ប្រព័ន្ធ"</string>
     <string name="firmware_version" msgid="8491753744549309333">"កំណែ Android"</string>
     <string name="security_patch" msgid="4794276590178386903">"កម្រិតបំណះសុវត្ថិភាព Android"</string>
-    <string name="model_info" msgid="4966408071657934452">"ម៉ូដែល"</string>
+    <string name="hardware_info" msgid="3973165746261507658">"ម៉ូដែល និង​ផ្នែករឹង"</string>
+    <string name="hardware_info_summary" msgid="8262576443254075921">"ម៉ូដែល៖ <xliff:g id="MODEL">%1$s</xliff:g>"</string>
     <string name="baseband_version" msgid="2370088062235041897">"កំណែ​មូលដ្ឋាន"</string>
     <string name="kernel_version" msgid="7327212934187011508">"កំណែ​ខឺណែល"</string>
     <string name="build_number" msgid="3997326631001009102">"លេខ​កំណែបង្កើត"</string>
@@ -378,6 +378,9 @@
     <string name="webview_license_title" msgid="6442372337052056463">"អាជ្ញាបណ្ណ System WebView"</string>
     <string name="wallpaper_attributions" msgid="9201272150014500697">"ផ្ទាំង​រូបភាព"</string>
     <string name="wallpaper_attributions_values" msgid="4292446851583307603">"ក្រុមហ៊ុន​ផ្ដល់​សេវារូបភាព​ផ្កាយរណប៖\n©2014 CNES / Astrium, DigitalGlobe, Bluesky"</string>
+    <string name="model_info" msgid="4966408071657934452">"ម៉ូដែល"</string>
+    <string name="status_serial_number" msgid="9158889113131907656">"លេខ​ស៊េរី"</string>
+    <string name="hardware_revision" msgid="5713759927934872874">"កំណែ​ផ្នែករឹង"</string>
     <string name="regulatory_info_text" msgid="8890339124198005428"></string>
     <string name="settings_license_activity_title" msgid="8499293744313077709">"អាជ្ញាបណ្ណភាគីទីបី"</string>
     <string name="settings_license_activity_unavailable" msgid="6104592821991010350">"មាន​បញ្ហា​ក្នុង​ការ​ផ្ទុក​អាជ្ញាបណ្ណ។"</string>
@@ -478,6 +481,8 @@
     <string name="user_name_label" msgid="3210832645046206845">"ឈ្មោះ"</string>
     <string name="user_summary_not_set_up" msgid="1473688119241224145">"មិន​បាន​រៀបចំ"</string>
     <string name="edit_user_name_title" msgid="6890782937520262478">"កែសម្រួល​ឈ្មោះអ្នក​ប្រើប្រាស់"</string>
+    <string name="name_input_blank_error" msgid="2088850865880984123">"កន្លែងបញ្ចូលមិន​អាច​ទទេឡើយ។"</string>
+    <string name="name_input_invalid_error" msgid="3523545780580744273">"ឈ្មោះ​អ្នកប្រើប្រាស់​ដែល​បាន​បញ្ចូល​គឺមិនត្រឹមត្រូវទេ។"</string>
     <string name="users_list_title" msgid="770764290290240909">"អ្នកប្រើប្រាស់"</string>
     <string name="user_details_admin_title" msgid="3530292857178371891">"បានផ្ដល់​ការអនុញ្ញាត​ឱ្យ %1$s"</string>
     <string name="storage_settings_title" msgid="8957054192781341797">"ទំហំផ្ទុក"</string>
@@ -497,6 +502,8 @@
     <string name="storage_clear_data_dlg_title" msgid="5863775997588969879">"លុប​ទិន្នន័យ​កម្មវិធី?"</string>
     <string name="storage_clear_data_dlg_text" msgid="795055288575727801">"ទិន្នន័យ​របស់​កម្មវិធី​នេះ​ទាំងអស់​នឹង​ត្រូវ​បាន​លុប​ជា​អចិន្ត្រៃយ៍។ ទិន្នន័យទាំងនេះរួមមាន ឯកសារ​ទាំងអស់ ការ​កំណត់ គណនី មូលដ្ឋាន​ទិន្នន័យ ។ល។"</string>
     <string name="storage_clear_failed_dlg_text" msgid="6710485971686866306">"មិនអាច​សម្អាត​ទំហំផ្ទុក​សម្រាប់​កម្មវិធី​បានទេ។"</string>
+    <string name="storage_unmount_success" msgid="1553591517580407021">"បានដក <xliff:g id="NAME">%1$s</xliff:g> ចេញដោយសុវត្ថិភាព"</string>
+    <string name="storage_unmount_failure" msgid="4591934911541762883">"មិនអាចដក <xliff:g id="NAME">%1$s</xliff:g> ចេញដោយសុវត្ថិភាពបានទេ"</string>
     <string name="accounts_settings_title" msgid="436190037084293471">"គណនី"</string>
     <string name="user_add_account_menu" msgid="6625351983590713721">"បញ្ចូលគណនី"</string>
     <string name="no_accounts_added" msgid="5148163140691096055">"គ្មាន​គណនីដែលបានបញ្ចូលទេ"</string>
@@ -528,6 +535,7 @@
     <string name="sync_button_sync_now" msgid="5767643057970371315">"ធ្វើសម្មកាលកម្មឥឡូវនេះ"</string>
     <string name="sync_button_sync_cancel" msgid="7739510554513641393">"បោះបង់​ការ​ធ្វើ​សម​កាល​កម្ម"</string>
     <string name="sync_is_failing" msgid="5766255460901806206">"ការធ្វើសម​កាលកម្ម​កំពុងជួបបញ្ហា​ឥឡូវនេះ។ ការធ្វើសមកាលកម្ម​នឹងមានឡើងវិញ​ក្នុងពេលបន្តិច​ទៀត​នេះ។"</string>
+    <string name="privacy_settings_title" msgid="3150145262029229572">"ឯកជនភាព"</string>
     <string name="security_settings_title" msgid="6955331714774709746">"សុវត្ថិភាព"</string>
     <string name="security_settings_subtitle" msgid="2244635550239273229">"ការចាក់សោអេក្រង់"</string>
     <string name="security_lock_none" msgid="1054645093754839638">"គ្មាន"</string>
@@ -618,26 +626,11 @@
     <string name="lockpassword_pin_no_sequential_digits" msgid="38813552228809240">"មិន​អនុញ្ញាត​ឱ្យ​មាន​លេខ​លំដាប់​ឡើង ចុះ ឬ​ដដែលៗ​ទេ។"</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"ជម្រើស​ការចាក់សោអេក្រង់"</string>
     <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\nថ្ងៃ <xliff:g id="DATE">%2$s</xliff:g>៖ <xliff:g id="NUM_DAYS">%3$s</xliff:g> ថ្ងៃមុន"</string>
-    <string name="add_device_title" msgid="8452168024017866232">"បញ្ចូល​ឧបករណ៍​ដែលទុកចិត្ត"</string>
-    <string name="add_device_summary" msgid="5368217520710573302">"ប៊្លូធូសនឹងបើក ដើម្បីបញ្ចូលឧបករណ៍​ដែលទុកចិត្ត"</string>
-    <string name="trusted_device" msgid="5637378361866787603">"ឧបករណ៍​ដែល​ទុកចិត្ត"</string>
-    <plurals name="trusted_device_subtitle" formatted="false" msgid="462041049834264945">
-      <item quantity="other">ឧបករណ៍ <xliff:g id="COUNT_1">%d</xliff:g></item>
-      <item quantity="one">ឧបករណ៍ <xliff:g id="COUNT_0">%d</xliff:g></item>
-    </plurals>
-    <string name="remove_device_message" msgid="6447820559674148349">"<xliff:g id="CONNECTED_DEVICE_NAME_0">%1$s</xliff:g> របស់​អ្នក​នឹង​ដោះសោរថយន្ត​នេះ នៅពេល​ភ្ជាប់។ ប្រសិនបើ​នរណាម្នាក់យក​ <xliff:g id="CONNECTED_DEVICE_NAME_1">%1$s</xliff:g> របស់អ្នក បុគ្គល​នោះ​អាច​នឹងចូលប្រើ​ឧបករណ៍​នេះ​បាន"</string>
-    <string name="trusted_device_confirm_button" msgid="102354635014627996">"បញ្ជាក់"</string>
-    <string name="trusted_device_remove_button" msgid="6140476996063415420">"លុបឧបករណ៍ដែលទុកចិត្ត"</string>
-    <string name="trusted_device_done_button" msgid="8481956533222625296">"រួចរាល់"</string>
-    <string name="add_trusted_device_instruction" msgid="2280382609884918033">"ប្រើ​កម្មវិធី​ដៃគូ ដើម្បី​រៀបចំឧបករណ៍​ដែល​ទុក​ចិត្ត។ បន្ទាប់ពី​រៀបចំ​រួចហើយ កម្រងព័ត៌មាន​អ្នកប្រើប្រាស់​របស់អ្នក​នឹងដោះសោ​ដោយស្វ័យប្រវត្តិ នៅពេល​ចាប់បាន​ទូរសព្ទ​របស់អ្នក​នៅជិត​យានជំនិះ។"</string>
-    <string name="trusted_device_download_app" msgid="6971096140154499983">"1. ទាញយក​កម្មវិធី​ដៃគូ​នៅលើទូរសព្ទរបស់អ្នក"</string>
-    <string name="trusted_device_select_device" msgid="198902765179270739">"2. ជ្រើសរើស​ <xliff:g id="CAR_NAME">%1$s</xliff:g> នៅលើ​ទូរសព្ទ​របស់អ្នក ដើម្បីផ្គូផ្គង​ឧបករណ៍"</string>
-    <string name="trusted_device_safety_alert" msgid="3834898922112046769">"ឧបករណ៍​ទុកចិត្ត​ដែលនៅជិត​រថយន្តរបស់អ្នក​នឹង​ដោះសោ​កម្រងព័ត៌មាន​អ្នកប្រើប្រាស់​នៅពេល​បញ្ឆេះរថយន្ត ទោះបីជា​អ្នកផ្សេង​កំពុងកាន់​ឧបករណ៍នោះ​ក៏ដោយ។"</string>
-    <string name="trusted_device_pairing_code_dialog_title" msgid="8173792468216796873">"សូមបញ្ជាក់ថា​កូដផ្គូផ្គងមានភាពត្រូវគ្នា"</string>
-    <string name="trusted_device_success_enrollment_toast" msgid="1238468775285575827">"បានចុះឈ្មោះ​ទូរសព្ទដោយជោគជ័យ"</string>
-    <string name="trusted_device_fail_enrollment_toast" msgid="6801324174861209092">"មិន​អាច​ចុះឈ្មោះ <xliff:g id="DEVICE_NAME">%1$s</xliff:g> បាន​ទេ​"</string>
-    <string name="trusted_device_set_authentication_reminder" msgid="5947077589994822305">"ការបញ្ចូល​ឧបករណ៍​ដែល​ទុកចិត្ត​តម្រូវឱ្យអ្នក​កំណត់​វិធីផ្ទៀងផ្ទាត់​បន្ទាប់។ ប្រសិនបើអ្នក​គ្មាន​ឧបករណ៍​ដែលទុកចិត្ត​ជាប់ខ្លួនអ្នក​ទេ នោះនឹង​តម្រូវឱ្យ​មានការផ្ទៀងផ្ទាត់ ដើម្បី​ចូលប្រើ​កម្រងព័ត៌មាន​របស់អ្នក។"</string>
-    <string name="trusted_device_disconnected_toast" msgid="2541862946536880255">"បានផ្តាច់​ឧបករណ៍។"</string>
+    <string name="credentials_reset" msgid="873900550885788639">"សម្អាត​ព័ត៌មានផ្ទៀងផ្ទាត់"</string>
+    <string name="credentials_reset_summary" msgid="6067911547500459637">"លុប​វិញ្ញាបនបត្រ​ទាំងអស់"</string>
+    <string name="credentials_reset_hint" msgid="3459271621754137661">"លុបខ្លឹមសារចេញ​ទាំងអស់?"</string>
+    <string name="credentials_erased" msgid="2515915439705550379">"កន្លែង​ផ្ទុក​ព័ត៌មាន​សម្ងាត់ត្រូវបានលុប។"</string>
+    <string name="credentials_not_erased" msgid="6118567459076742720">"មិនអាចលុប​កន្លែងផ្ទុកព័ត៌មាន​សម្ងាត់បានទេ។"</string>
     <string name="forget" msgid="3971143908183848527">"បំភ្លេច"</string>
     <string name="connect" msgid="5861699594602380150">"ភ្ជាប់"</string>
     <string name="disconnect" msgid="6140789953324820336">"ផ្ដាច់"</string>
@@ -653,6 +646,7 @@
     <string name="exit_retail_mode_dialog_body" msgid="8314316171782527301">"ការចាកចេញ​នេះ​នឹង​លុប​គណនីបង្ហាញ​សាកល្បង និងកំណត់​ទិន្នន័យប្រព័ន្ធ​ដូច​ចេញ​ពី​រោងចក្រ។​ ទិន្នន័យ​អ្នក​ប្រើប្រាស់​ទាំងអស់​នឹង​បាត់បង់។"</string>
     <string name="exit_retail_mode_dialog_confirmation_button_text" msgid="3147249675355968649">"ចាក​ចេញ​ពីការបង្ហាញ​សាកល្បង"</string>
     <string name="suggestion_dismiss_button" msgid="4539412646977050641">"ច្រានចោល"</string>
-    <string name="restricted_while_driving" msgid="6217369093121968299">"មិនអាច​ប្រើមុខងារ​នេះបានទេ ខណៈពេល​កំពុង​បើកបរ។"</string>
-    <string name="add_user_restricted_while_driving" msgid="6384004350628271556">"មិនអាច​បញ្ចូល​អ្នកប្រើប្រាស់​ខណៈពេល​បើកបរ​បានទេ។"</string>
+    <string name="restricted_while_driving" msgid="6587569249519274524">"មិនអាច​ប្រើមុខងារ​នេះបានទេ ខណៈពេល​កំពុង​បើកបរ"</string>
+    <string name="add_user_restricted_while_driving" msgid="4754946754222453656">"មិនអាច​បញ្ចូល​អ្នកប្រើប្រាស់​បានទេ ខណៈពេល​កំពុងបើកបរ"</string>
+    <string name="default_search_query" msgid="3137420627428857068">"ស្វែងរក"</string>
 </resources>

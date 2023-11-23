@@ -1529,9 +1529,6 @@
         <item quantity="other">Must be fewer than <xliff:g id="number" example="17">%d</xliff:g> digits</item>
     </plurals>
 
-    <!-- Error shown when in PIN mode and user enters a non-digit -->
-    <string name="lockpassword_pin_contains_non_digits">Must contain only digits 0-9</string>
-
     <!-- Error shown when in PIN mode and PIN has been used recently. Please keep this string short! -->
     <string name="lockpassword_pin_recently_used">Device admin doesn\'t allow using a recent PIN</string>
 
@@ -1584,6 +1581,12 @@
     <plurals name="lockpassword_password_requires_nonletter">
         <item quantity="one">Must contain at least 1 non-letter character</item>
         <item quantity="other">Must contain at least <xliff:g id="count" example="3">%d</xliff:g> non-letter characters</item>
+    </plurals>
+
+    <!-- Error shown when in PASSWORD mode and password doesn't contain the required number of non-numerical characters -->
+    <plurals name="lockpassword_password_requires_nonnumerical">
+        <item quantity="one">Must contain at least 1 non-numerical character</item>
+        <item quantity="other">Must contain at least <xliff:g id="count" example="3">%d</xliff:g> non-numerical characters</item>
     </plurals>
 
     <!-- Error shown when in PASSWORD mode and password has been used recently. Please keep this string short! -->
@@ -10400,6 +10403,11 @@
     <string name="enable_gnss_raw_meas_full_tracking">Force full GNSS measurements</string>
     <!-- UI debug setting: preference summary - describes the behavior of forcing full raw GNSS satellite measurements [CHAR LIMIT=NONE] -->
     <string name="enable_gnss_raw_meas_full_tracking_summary">Track all GNSS constellations and frequencies with no duty cycling</string>
+
+    <!-- UI debug setting: preference title - switch to enable extra debug information when switching user [CHAR LIMIT=60] -->
+    <string name="enable_user_switch_message">Debug user switch</string>
+    <!-- UI debug setting: preference summary - describes the behavior of showing detailed information during user switch [CHAR LIMIT=NONE] -->
+    <string name="enable_user_switch_message_summary">Show detailed information during user switch</string>
 
     <!-- UI debug setting: preference title - allow background activity starts [CHAR LIMIT=60] -->
     <string name="allow_background_activity_starts">Allow background activity starts</string>

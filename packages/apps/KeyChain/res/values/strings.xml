@@ -16,9 +16,6 @@
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_name">Key Chain</string>
 
-    <!-- Dialog title when no certificates were found -->
-    <string name="title_no_certs">No certificates found</string>
-
     <!-- Dialog title when at least one certificate was found -->
     <string name="title_select_cert">Choose certificate</string>
 
@@ -37,4 +34,6 @@
     <!-- Label of button to send the deny the application certificate request -->
     <string name="deny_button">Deny</string>
 
+    <!-- Text to show while the KeyChain activity is loading certificates. -->
+    <string name="loading_certs_message">Loading certificates...</string>
 </resources>

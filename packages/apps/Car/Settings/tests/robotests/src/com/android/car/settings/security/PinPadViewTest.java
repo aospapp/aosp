@@ -23,7 +23,6 @@ import static org.mockito.MockitoAnnotations.initMocks;
 
 import android.view.View;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.R;
 
 import org.junit.Before;
@@ -31,15 +30,17 @@ import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 
 import java.util.Arrays;
 
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 public class PinPadViewTest {
 
     private static int[] sAllKeys =
             Arrays.copyOf(PinPadView.PIN_PAD_DIGIT_KEYS, PinPadView.NUM_KEYS);
+
     static {
         sAllKeys[PinPadView.PIN_PAD_DIGIT_KEYS.length] = R.id.key_backspace;
         sAllKeys[PinPadView.PIN_PAD_DIGIT_KEYS.length + 1] = R.id.key_enter;

@@ -23,7 +23,7 @@
     <string name="brightness" msgid="2919605130898772866">"Рівень яскравості"</string>
     <string name="auto_brightness_title" msgid="9124647862844666581">"Адаптивна яскравість"</string>
     <string name="auto_brightness_summary" msgid="4741887033140384352">"Оптимізація рівня яскравості з урахуванням умов освітлення"</string>
-    <string name="condition_night_display_title" msgid="3777509730126972675">"Нічний режим увімкнено"</string>
+    <string name="condition_night_display_title" msgid="3777509730126972675">"Нічний екран увімкнено"</string>
     <string name="keywords_display" msgid="3978416985146943922">"екран, сенсорний екран"</string>
     <string name="keywords_display_brightness_level" msgid="3956411572536209195">"затемнений екран, сенсорний екран, акумулятор"</string>
     <string name="keywords_display_auto_brightness" msgid="2700310050333468752">"затемнений екран, сенсорний екран, акумулятор"</string>
@@ -52,7 +52,7 @@
     <string name="roaming_title" msgid="6218635014519017734">"Роумінг"</string>
     <string name="roaming_summary" msgid="7476127740259728901">"Підключатися до сервісів передавання даних у роумінгу"</string>
     <string name="roaming_alert_title" msgid="4433901635766775763">"Дозволити роумінг даних?"</string>
-    <string name="roaming_warning" msgid="5313281900566657209">"Може стягуватися значна плата."</string>
+    <string name="roaming_warning" msgid="4908184914868720704">"Може стягуватися плата за роумінг."</string>
     <string name="data_usage_settings" msgid="7877132994777987848">"Використання трафіку"</string>
     <string name="data_usage_title" msgid="2923515974389203812">"Основні дані"</string>
     <string name="data_used_formatted" msgid="6684557577780068339">"Використано: <xliff:g id="ID_1">^1</xliff:g> <xliff:g id="ID_2">^2</xliff:g>"</string>
@@ -116,7 +116,7 @@
     <item msgid="4897376984576812606">"Слабкий"</item>
     <item msgid="7683058295076342057">"Слабкий"</item>
     <item msgid="1639222824821660744">"Задовільний"</item>
-    <item msgid="1838705897358163300">"Добрий"</item>
+    <item msgid="1838705897358163300">"Хороший"</item>
     <item msgid="6067166649320533751">"Чудовий"</item>
   </string-array>
     <string name="link_speed" msgid="7868861844075624445">"%1$d Мбіт/с"</string>
@@ -151,7 +151,7 @@
     <string name="wifi_ap_choose_auto" msgid="3779526909841604566">"Автоматично"</string>
     <string name="wifi_ap_choose_2G" msgid="6356913773766753502">"Діапазон частот 2,4 ГГц"</string>
     <string name="wifi_ap_choose_5G" msgid="8561440488455528673">"Діапазон частот 5,0 ГГц"</string>
-    <string name="wifi_ap_prefer_5G" msgid="8252845223773871750">"Бажано використовувати діапазон частот 5,0 ГГц"</string>
+    <string name="wifi_ap_prefer_5G" msgid="8252845223773871750">"Діапазон 5,0 ГГц (рекомендовано)"</string>
     <string name="wifi_ap_2G" msgid="5364135697314262014">"2,4 ГГц"</string>
     <string name="wifi_ap_5G" msgid="4945574428537860279">"5,0 ГГц"</string>
     <string name="wifi_ap_band_select_one" msgid="615578175244067396">"Виберіть принаймні один діапазон частот для точки доступу Wi-Fi:"</string>
@@ -203,10 +203,12 @@
     <string name="bluetooth_device_picker" msgid="673238198452345475">"Виберіть пристрій Bluetooth"</string>
     <string name="language_settings" msgid="2079258598337245546">"Мови"</string>
     <string name="languages_and_input_settings" msgid="3672322610529408248">"Мови та введення"</string>
+    <string name="language_picker_list_suggested_header" msgid="7593893806003415948">"Пропоновані"</string>
+    <string name="language_picker_list_all_header" msgid="1577387973934368428">"Усі мови"</string>
     <string name="keyboard_settings" msgid="1959697870618278081">"Клавіатура"</string>
     <string name="manage_keyboard" msgid="4045394766282200132">"Керуйте клавіатурами"</string>
     <string name="text_to_speech_settings" msgid="811985746199507343">"Вивід синтезу мовлення"</string>
-    <string name="text_to_speech_preferred_engine_settings" msgid="2766782925699132256">"Бажана система"</string>
+    <string name="text_to_speech_preferred_engine_settings" msgid="2766782925699132256">"Система за умовчанням"</string>
     <string name="text_to_speech_current_engine" msgid="8133107484909612597">"Поточна система"</string>
     <string name="tts_speech_rate" msgid="4512944877291943133">"Темп мовлення"</string>
     <string name="tts_pitch" msgid="2389171233852604923">"Тон"</string>
@@ -287,9 +289,11 @@
     <string name="not_installed" msgid="4218816013370552746">"Не встановлено для цього користувача"</string>
     <string name="permissions_label" msgid="2701446753515612685">"Дозволи"</string>
     <string name="notifications_label" msgid="6586089149665170731">"Сповіщення"</string>
+    <string name="storage_application_label" msgid="5911779903670978586">"Пам\'ять і кеш"</string>
     <string name="application_version_label" msgid="8556889839783311649">"Версія: %1$s"</string>
     <string name="runtime_permissions_summary_no_permissions_granted" msgid="6001439205270250021">"Дозволи не надано"</string>
     <string name="runtime_permissions_summary_no_permissions_requested" msgid="4074220596273432442">"Немає запитів на дозволи"</string>
+    <string name="storage_type_internal" msgid="8918688427078709570">"%s у внутрішній пам\'яті"</string>
     <string name="data_usage_summary_title" msgid="4368024763485916986">"Використання трафіку"</string>
     <string name="data_usage_app_summary_title" msgid="5012851696585421420">"Використання трафіку"</string>
     <string name="computing_size" msgid="5791407621793083965">"Обчислення…"</string>
@@ -350,17 +354,13 @@
     <string name="location_settings_recent_requests_title" msgid="6345634382240930628">"Останні запити на геодані"</string>
     <string name="location_settings_recent_requests_empty_message" msgid="7789667070033674910">"Немає останніх запитів на геодані"</string>
     <string name="location_settings_app_permissions_title" msgid="6446735313354321564">"Дозволи на рівні додатка"</string>
-    <string name="location_settings_scanning_title" msgid="4253945869911300740">"Пошук"</string>
     <string name="location_settings_services_title" msgid="1186133632690970468">"Служби локації"</string>
-    <string name="location_settings_wifi_scanning_title" msgid="8021558840074023719">"Пошук мереж Wi-Fi"</string>
-    <string name="location_settings_wifi_scanning_summary" msgid="2116283960258671324">"Дозволити додаткам і службам будь-коли шукати мережі Wi-Fi, навіть коли Wi-Fi вимкнено. Це може покращити, наприклад, роботу функцій і служб, які використовують геодані."</string>
-    <string name="location_settings_bluetooth_scanning_title" msgid="2969682902241932059">"Пошук пристроїв Bluetooth"</string>
-    <string name="location_settings_bluetooth_scanning_summary" msgid="9158101751700727062">"Дозволити додаткам і службам будь-коли шукати пристрої поруч, навіть коли Bluetooth вимкнено. Це може покращити, наприклад, роботу функцій і служб, які використовують геодані."</string>
     <string name="system_setting_title" msgid="6864599341809463440">"Система"</string>
     <string name="system_update_settings_title" msgid="8448588267784138855">"Оновлення системи"</string>
     <string name="firmware_version" msgid="8491753744549309333">"Версія Android"</string>
     <string name="security_patch" msgid="4794276590178386903">"Рівень виправлення системи безпеки Android"</string>
-    <string name="model_info" msgid="4966408071657934452">"Модель"</string>
+    <string name="hardware_info" msgid="3973165746261507658">"Модель і апаратне забезпечення"</string>
+    <string name="hardware_info_summary" msgid="8262576443254075921">"Модель: <xliff:g id="MODEL">%1$s</xliff:g>"</string>
     <string name="baseband_version" msgid="2370088062235041897">"Версія каналу зв’язку"</string>
     <string name="kernel_version" msgid="7327212934187011508">"Версія ядра"</string>
     <string name="build_number" msgid="3997326631001009102">"Номер складання"</string>
@@ -384,6 +384,9 @@
     <string name="webview_license_title" msgid="6442372337052056463">"Ліцензії WebView"</string>
     <string name="wallpaper_attributions" msgid="9201272150014500697">"Фонові малюнки"</string>
     <string name="wallpaper_attributions_values" msgid="4292446851583307603">"Постачальники супутникових зображень:\n©2014 CNES / Astrium, DigitalGlobe, Bluesky"</string>
+    <string name="model_info" msgid="4966408071657934452">"Модель"</string>
+    <string name="status_serial_number" msgid="9158889113131907656">"Серійний номер"</string>
+    <string name="hardware_revision" msgid="5713759927934872874">"Версія апаратного забезпечення"</string>
     <string name="regulatory_info_text" msgid="8890339124198005428"></string>
     <string name="settings_license_activity_title" msgid="8499293744313077709">"Ліцензії сторонніх розробників"</string>
     <string name="settings_license_activity_unavailable" msgid="6104592821991010350">"Не вдалося завантажити ліцензії."</string>
@@ -488,6 +491,8 @@
     <string name="user_name_label" msgid="3210832645046206845">"Ім’я"</string>
     <string name="user_summary_not_set_up" msgid="1473688119241224145">"Не налаштовано"</string>
     <string name="edit_user_name_title" msgid="6890782937520262478">"Змінити ім’я користувача"</string>
+    <string name="name_input_blank_error" msgid="2088850865880984123">"Поле не може бути порожнім."</string>
+    <string name="name_input_invalid_error" msgid="3523545780580744273">"Введене ім\'я користувача недійсне."</string>
     <string name="users_list_title" msgid="770764290290240909">"Користувачі"</string>
     <string name="user_details_admin_title" msgid="3530292857178371891">"%1$s отримує дозволи"</string>
     <string name="storage_settings_title" msgid="8957054192781341797">"Пам’ять"</string>
@@ -507,6 +512,8 @@
     <string name="storage_clear_data_dlg_title" msgid="5863775997588969879">"Видалити дані додатка?"</string>
     <string name="storage_clear_data_dlg_text" msgid="795055288575727801">"Усі дані цього додатка буде остаточно видалено (файли, налаштування, облікові записи, бази даних тощо)."</string>
     <string name="storage_clear_failed_dlg_text" msgid="6710485971686866306">"Не вдалося очистити пам’ять для додатка."</string>
+    <string name="storage_unmount_success" msgid="1553591517580407021">"Пристрій <xliff:g id="NAME">%1$s</xliff:g> безпечно вийнято"</string>
+    <string name="storage_unmount_failure" msgid="4591934911541762883">"Не вдалося безпечно вийняти пристрій <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="accounts_settings_title" msgid="436190037084293471">"Облікові записи"</string>
     <string name="user_add_account_menu" msgid="6625351983590713721">"Додати обліковий запис"</string>
     <string name="no_accounts_added" msgid="5148163140691096055">"Облікових записів не додано"</string>
@@ -538,6 +545,7 @@
     <string name="sync_button_sync_now" msgid="5767643057970371315">"Синхронізувати"</string>
     <string name="sync_button_sync_cancel" msgid="7739510554513641393">"Скасувати синхронізацію"</string>
     <string name="sync_is_failing" msgid="5766255460901806206">"Виникли проблеми із синхронізацією. Незабаром вона відновиться."</string>
+    <string name="privacy_settings_title" msgid="3150145262029229572">"Конфіденційність"</string>
     <string name="security_settings_title" msgid="6955331714774709746">"Безпека"</string>
     <string name="security_settings_subtitle" msgid="2244635550239273229">"Блокування екрана"</string>
     <string name="security_lock_none" msgid="1054645093754839638">"Немає"</string>
@@ -640,28 +648,11 @@
     <string name="lockpassword_pin_no_sequential_digits" msgid="38813552228809240">"Заборонено однакові цифри або в порядку зростання чи спадання."</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"Способи блокування екрана"</string>
     <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g> : <xliff:g id="NUM_DAYS">%3$s</xliff:g> дн. тому"</string>
-    <string name="add_device_title" msgid="8452168024017866232">"Додати надійний пристрій"</string>
-    <string name="add_device_summary" msgid="5368217520710573302">"Bluetooth увімкнеться, щоб додати надійні пристрої"</string>
-    <string name="trusted_device" msgid="5637378361866787603">"Надійні пристрої"</string>
-    <plurals name="trusted_device_subtitle" formatted="false" msgid="462041049834264945">
-      <item quantity="one"><xliff:g id="COUNT_1">%d</xliff:g> пристрій</item>
-      <item quantity="few"><xliff:g id="COUNT_1">%d</xliff:g> пристрої</item>
-      <item quantity="many"><xliff:g id="COUNT_1">%d</xliff:g> пристроїв</item>
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> пристрою</item>
-    </plurals>
-    <string name="remove_device_message" msgid="6447820559674148349">"<xliff:g id="CONNECTED_DEVICE_NAME_0">%1$s</xliff:g> буде розблоковувати автомобіль, якщо його підключити. <xliff:g id="CONNECTED_DEVICE_NAME_1">%1$s</xliff:g> надає доступ до цього пристрою в будь-чиїх руках"</string>
-    <string name="trusted_device_confirm_button" msgid="102354635014627996">"Підтвердити"</string>
-    <string name="trusted_device_remove_button" msgid="6140476996063415420">"Вилучити надійний пристрій"</string>
-    <string name="trusted_device_done_button" msgid="8481956533222625296">"Готово"</string>
-    <string name="add_trusted_device_instruction" msgid="2280382609884918033">"Налаштуйте надійний пристрій у супутньому додатку. Тоді ваш профіль користувача розблокуватиметься автоматично, коли телефон підключиться до транспортного засобу."</string>
-    <string name="trusted_device_download_app" msgid="6971096140154499983">"1. Завантажте супутній додаток на телефон"</string>
-    <string name="trusted_device_select_device" msgid="198902765179270739">"2. На телефоні виберіть <xliff:g id="CAR_NAME">%1$s</xliff:g>, щоб підключити пристрої"</string>
-    <string name="trusted_device_safety_alert" msgid="3834898922112046769">"Надійний пристрій розблоковує профіль користувача після запалювання, якщо він поруч, навіть в іншої людини."</string>
-    <string name="trusted_device_pairing_code_dialog_title" msgid="8173792468216796873">"Підтвердьте, що коди підключення збігаються"</string>
-    <string name="trusted_device_success_enrollment_toast" msgid="1238468775285575827">"Телефон зареєстровано"</string>
-    <string name="trusted_device_fail_enrollment_toast" msgid="6801324174861209092">"Не вдалося зареєструвати пристрій <xliff:g id="DEVICE_NAME">%1$s</xliff:g>"</string>
-    <string name="trusted_device_set_authentication_reminder" msgid="5947077589994822305">"Додавши надійний пристрій, потрібно налаштувати спосіб автентифікації. Якщо пристрій не з вами, автентифікація знадобиться для доступу в профіль."</string>
-    <string name="trusted_device_disconnected_toast" msgid="2541862946536880255">"Утрачено з’єднання з пристроєм."</string>
+    <string name="credentials_reset" msgid="873900550885788639">"Очистити облікові дані"</string>
+    <string name="credentials_reset_summary" msgid="6067911547500459637">"Вилучити всі сертифікати"</string>
+    <string name="credentials_reset_hint" msgid="3459271621754137661">"Вилучити весь вміст?"</string>
+    <string name="credentials_erased" msgid="2515915439705550379">"Сховище облікових даних очищено."</string>
+    <string name="credentials_not_erased" msgid="6118567459076742720">"Не вдалося очистити сховище облікових даних."</string>
     <string name="forget" msgid="3971143908183848527">"Забути"</string>
     <string name="connect" msgid="5861699594602380150">"Підключити"</string>
     <string name="disconnect" msgid="6140789953324820336">"Від’єднати"</string>
@@ -677,6 +668,7 @@
     <string name="exit_retail_mode_dialog_body" msgid="8314316171782527301">"Буде видалено демонстраційний обліковий запис і відновлено заводські налаштування системи. Усі дані користувача буде втрачено."</string>
     <string name="exit_retail_mode_dialog_confirmation_button_text" msgid="3147249675355968649">"Вийти з демо-режиму"</string>
     <string name="suggestion_dismiss_button" msgid="4539412646977050641">"ЗАКРИТИ"</string>
-    <string name="restricted_while_driving" msgid="6217369093121968299">"Функція недоступна під час руху автомобіля."</string>
-    <string name="add_user_restricted_while_driving" msgid="6384004350628271556">"Неможливо додати користувача під час руху автомобіля."</string>
+    <string name="restricted_while_driving" msgid="6587569249519274524">"Функція недоступна під час руху автомобіля"</string>
+    <string name="add_user_restricted_while_driving" msgid="4754946754222453656">"Неможливо додати користувача під час руху автомобіля"</string>
+    <string name="default_search_query" msgid="3137420627428857068">"Пошук"</string>
 </resources>

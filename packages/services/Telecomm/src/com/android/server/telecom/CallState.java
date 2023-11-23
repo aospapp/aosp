@@ -118,7 +118,19 @@ public final class CallState {
      * Indicates that an incoming call has been answered by the in-call UI, but Telephony hasn't yet
      * set the call to active.
      */
-    public static final int ANSWERED = 11;
+    public static final int ANSWERED = TelecomProtoEnums.ANSWERED; // = 11
+
+    /**
+     * Indicates that the call is undergoing audio processing by a different app in the background.
+     * @see android.telecom.Call#STATE_AUDIO_PROCESSING
+     */
+    public static final int AUDIO_PROCESSING = TelecomProtoEnums.AUDIO_PROCESSING; // = 12
+
+    /**
+     * Indicates that the call is in a fake ringing state.
+     * @see android.telecom.Call#STATE_SIMULATED_RINGING
+     */
+    public static final int SIMULATED_RINGING = TelecomProtoEnums.SIMULATED_RINGING; // = 13
 
     public static String toString(int callState) {
         switch (callState) {
@@ -146,6 +158,10 @@ public final class CallState {
                 return "PULLING";
             case ANSWERED:
                 return "ANSWERED";
+            case AUDIO_PROCESSING:
+                return "AUDIO_PROCESSING";
+            case SIMULATED_RINGING:
+                return "SIMULATED_RINGING";
             default:
                 return "UNKNOWN";
         }

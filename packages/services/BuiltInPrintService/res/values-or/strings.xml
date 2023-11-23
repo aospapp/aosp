@@ -39,8 +39,8 @@
     <string name="media_size_8x10in" msgid="1872576638522812402">"8x10 ଇଞ୍ଚ"</string>
     <string name="media_size_4x6in" msgid="3093276425529958253">"4x6 ଇଞ୍ଚ"</string>
     <string name="printer_description" msgid="8580767673213837142">"%1$s – %2$s"</string>
-    <string name="title_activity_add_printer" msgid="9119216095769228566">"ପ୍ରିଣ୍ଟର୍‌ ଯୋଡ଼ନ୍ତୁ"</string>
-    <string name="add_printer_by_ip" msgid="562864787592910327">"IP ଠିକଣା ମାଧ୍ୟମରେ ପ୍ରିଣ୍ଟର୍‌କୁ ଯୋଡ଼ନ୍ତୁ"</string>
+    <string name="title_activity_add_printer" msgid="9119216095769228566">"ପ୍ରିଣ୍ଟର୍‌ ଯୋଗ କରନ୍ତୁ"</string>
+    <string name="add_printer_by_ip" msgid="562864787592910327">"IP ଠିକଣା ମାଧ୍ୟମରେ ପ୍ରିଣ୍ଟର୍‌କୁ ଯୋଗ କରନ୍ତୁ"</string>
     <string name="hostname_or_ip" msgid="3460546103553992915">"ହୋଷ୍ଟନେମ୍‍ କିମ୍ବା IP ଠିକଣା"</string>
     <string name="ip_hint" msgid="7939777481941979799">"192.168.0.4"</string>
     <string name="add" msgid="1950342261671100906">"ଯୋଡ଼ନ୍ତୁ"</string>
@@ -60,6 +60,11 @@
     <string name="forget" msgid="892068061425802502">"ଭୁଲିଯାଆନ୍ତୁ"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"ୱାଇ-ଫାଇ ଡାଇରେକ୍ଟ ମାଧ୍ୟମରେ କନେକ୍ଟ ହେବ"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"<xliff:g id="IP_ADDRESS">%1$s</xliff:g>ରେ ବର୍ତ୍ତମାନର ନେଟ୍‌ୱର୍କ ମାଧ୍ୟମରେ କନେକ୍ଟ କରାଯାଇଥାଏ"</string>
+    <string name="recommendation_summary" msgid="2979700524954307566">"ଡିଫଲ୍ଟ ପ୍ରିଣ୍ଟ ସେବା ପ୍ରଦାନକାରୀ ମୌଳିକ ବିକଳ୍ପଗୁଡ଼ିକ। ଏହି ଫ୍ରିଣ୍ଟର୍ ପାଇଁ ଅନ୍ୟ ବିକଳ୍ପଗୁଡ଼ିକ ଅନ୍ୟ ପ୍ରିଣ୍ଟ ସେବାରୁ ଉପଲବ୍ଧ ହୋଇପାରେ।"</string>
+    <string name="recommendations_heading" msgid="5086762263560605249">"ସୁପାରିଶ କରାଯାଇଥିବା ସେବାଗୁଡ଼ିକ"</string>
+    <string name="recommendation_install_summary" msgid="374785283809791669">"ଇନ୍‌ଷ୍ଟଲ୍ କରିବା ପାଇଁ ଚୟନ କରନ୍ତୁ"</string>
+    <string name="recommendation_enable_summary" msgid="3500907868251326224">"ସକ୍ଷମ କରିବା ପାଇଁ ଚୟନ କରନ୍ତୁ"</string>
+    <string name="recommendation_manage" msgid="4683640588502866284">"ସେବାଗୁଡ଼ିକ ପରିଚାଳନା କରନ୍ତୁ"</string>
     <string name="security" msgid="2279008326210305401">"ସୁରକ୍ଷା"</string>
     <string name="certificate_update_request" msgid="1314796413107139475">"ଏହି ପ୍ରିଣ୍ଟର୍ ଏକ ନୂଆ ସୁରକ୍ଷା ସାର୍ଟିଫିକେଟ୍ ପ୍ରଦାନ କରିଛି କିମ୍ବା ଅନ୍ୟ ଏକ ଡିଭାଇସ୍ ଏହାକୁ ପ୍ରତିରୂପଣ କରୁଛି। ନୂଆ ସାର୍ଟିଫିକେଟ୍ ସ୍ୱୀକାର କରିବେ?"</string>
     <string name="not_encrypted_request" msgid="4871472176807381642">"ଏହି ପ୍ରିଣ୍ଟର୍‌ ଏନ୍‌କ୍ରିପ୍ଟ ହୋ‍ଇଥିବା କାର୍ଯ୍ୟ ଆଉ ଗ୍ରହଣ କରୁନାହିଁ ପ୍ରିଣ୍ଟିଂ ଜାରି ରଖିବେ?"</string>
@@ -68,4 +73,5 @@
     <string name="connections" msgid="8895413761760117180">"ସଂଯୋଗଗୁଡ଼ିକ"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"ନିକଟସ୍ଥ ଡିଭାଇସ୍‍ଗୁଡ଼ିକୁ ଖୋଜିବା ପାଇଁ ଡିଫଲ୍ଟ ପ୍ରିଣ୍ଟ ସେବା ଲୋକେସନ୍‍ ଅନୁମତି ଆବଶ୍ୟକ କରୁଛି।"</string>
     <string name="fix" msgid="7784394272611365393">"ସମୀକ୍ଷା ଅନୁମତି"</string>
+    <string name="print" msgid="7851318072404916362">"ପ୍ରିଣ୍ଟ କରନ୍ତୁ"</string>
 </resources>

@@ -21,7 +21,10 @@ import static android.os.UserManager.DISALLOW_CONFIG_BLUETOOTH;
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
 
+import androidx.preference.PreferenceGroup;
+
 import com.android.car.settings.R;
+import com.android.car.settings.common.CarUxRestrictionsHelper;
 import com.android.car.settings.common.FragmentController;
 import com.android.settingslib.bluetooth.BluetoothDeviceFilter;
 import com.android.settingslib.bluetooth.CachedBluetoothDevice;
@@ -47,13 +50,9 @@ public class BluetoothBondedDevicesPreferenceController extends
     @Override
     protected BluetoothDevicePreference createDevicePreference(CachedBluetoothDevice cachedDevice) {
         BluetoothDevicePreference pref = super.createDevicePreference(cachedDevice);
-        if (!getCarUserManagerHelper().isCurrentProcessUserHasRestriction(
-                DISALLOW_CONFIG_BLUETOOTH)) {
-            pref.setWidgetLayoutResource(R.layout.details_preference_widget);
-            pref.setOnButtonClickListener(preference -> getFragmentController().launchFragment(
-                    BluetoothDeviceDetailsFragment.newInstance(cachedDevice)));
-            pref.showAction(true);
-        }
+        pref.setWidgetLayoutResource(R.layout.details_preference_widget);
+        pref.setOnButtonClickListener(preference -> getFragmentController().launchFragment(
+                BluetoothDeviceDetailsFragment.newInstance(cachedDevice)));
         return pref;
     }
 
@@ -71,5 +70,28 @@ public class BluetoothBondedDevicesPreferenceController extends
     @Override
     public void onDeviceBondStateChanged(CachedBluetoothDevice cachedDevice, int bondState) {
         refreshUi();
+    }
+
+    @Override
+    protected void updateState(PreferenceGroup preferenceGroup) {
+        super.updateState(preferenceGroup);
+
+        boolean hasUserRestriction = getUserManager().hasUserRestriction(DISALLOW_CONFIG_BLUETOOTH);
+        updateActionVisibility(preferenceGroup, !hasUserRestriction);
+    }
+
+    @Override
+    protected void onApplyUxRestrictions(CarUxRestrictions uxRestrictions) {
+        super.onApplyUxRestrictions(uxRestrictions);
+
+        if (CarUxRestrictionsHelper.isNoSetup(uxRestrictions)) {
+            updateActionVisibility(getPreference(), /* isActionVisible= */ false);
+        }
+    }
+
+    private void updateActionVisibility(PreferenceGroup group, boolean isActionVisible) {
+        for (int i = 0; i < group.getPreferenceCount(); i++) {
+            ((BluetoothDevicePreference) group.getPreference(i)).showAction(isActionVisible);
+        }
     }
 }

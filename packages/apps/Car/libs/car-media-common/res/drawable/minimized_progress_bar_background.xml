@@ -18,14 +18,14 @@
 
     <item android:id="@android:id/background">
         <shape android:shape="line">
-            <stroke android:width="@dimen/minimized_progress_bar_track_height"/>
+            <stroke android:width="@dimen/minimized_progress_bar_track_thickness"/>
         </shape>
     </item>
 
     <item android:id="@android:id/progress">
         <clip>
             <shape android:shape="line">
-                <stroke android:width="@dimen/minimized_progress_bar_track_height"/>
+                <stroke android:width="@dimen/minimized_progress_bar_track_thickness"/>
             </shape>
         </clip>
     </item>

@@ -102,8 +102,16 @@ public class UserProvisioningStateHelper {
                 newProfileState = STATE_USER_SETUP_COMPLETE;
             }
         } else if (userSetupCompleted) {
-            // User setup was previously completed this is an unexpected case.
-            ProvisionLogger.logw("user_setup_complete set, but provisioning was started");
+            if (params.isTransitioningFromRegularToChild) {
+                // During a transition to child, the user had already been through the unmanaged
+                // setup flow once, but now it is going through the DO provisioning flow. Therefore,
+                // update the provisioning state so that the flow can continue.
+                ProvisionLogger.logw("User transitioning to child, updating provisioning state.");
+                newState = STATE_USER_SETUP_COMPLETE;
+            } else {
+                // User setup was previously completed this is an unexpected case.
+                ProvisionLogger.logw("user_setup_complete set, but provisioning was started");
+            }
         } else if (params.skipUserSetup) {
             // DPC requested setup-wizard is skipped, indicate this to SUW.
             newState = STATE_USER_SETUP_COMPLETE;

@@ -17,6 +17,7 @@
 package com.android.tv.settings.system;
 
 import android.app.ActivityManager;
+import android.app.tvsettings.TvSettingsEnums;
 import android.content.Context;
 import android.os.Bundle;
 import android.os.Handler;
@@ -45,6 +46,10 @@ import java.util.Map;
 @Keep
 public class LanguageFragment extends SettingsPreferenceFragment {
     private static final String TAG = "LanguageFragment";
+
+    // Pseudo locales used for internal purposes only should not be shown in the
+    // language picker.
+    private static final String PSEUDO_LOCALE_EN_XC = "en-XC";
 
     private static final String LANGUAGE_RADIO_GROUP = "language";
 
@@ -87,6 +92,9 @@ public class LanguageFragment extends SettingsPreferenceFragment {
         Preference activePref = null;
         for (final LocalePicker.LocaleInfo localeInfo : localeInfoList) {
             final String languageTag = localeInfo.getLocale().toLanguageTag();
+            if (PSEUDO_LOCALE_EN_XC.equals(languageTag)) {
+                continue;
+            }
             mLocaleInfoMap.put(languageTag, localeInfo);
 
             final RadioPreference radioPreference = new RadioPreference(themedContext);
@@ -130,5 +138,10 @@ public class LanguageFragment extends SettingsPreferenceFragment {
     @Override
     public int getMetricsCategory() {
         return MetricsProto.MetricsEvent.SETTINGS_LANGUAGE_CATEGORY;
+    }
+
+    @Override
+    protected int getPageId() {
+        return TvSettingsEnums.SYSTEM_LANGUAGE;
     }
 }

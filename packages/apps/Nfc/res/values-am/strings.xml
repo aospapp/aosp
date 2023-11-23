@@ -49,4 +49,6 @@
     <string name="action_confirm_url_open" msgid="3458322738812921189">"አገናኝ ክፈት"</string>
     <string name="tag_read_error" msgid="2485274498885877547">"የNFC ማንበብ ስህተት። እንደገና ይሞክሩ።"</string>
     <string name="tag_dispatch_failed" msgid="3562984995049738400">"ለዚህ የNFC መለያ የሚደገፍ መተግበሪያ የለም"</string>
+    <string name="nfc_blocking_alert_title" msgid="1086172436984457085">"NFC ሊታገድ ይችላል"</string>
+    <string name="nfc_blocking_alert_message" msgid="7003156052570107490">"እንዴት ማስተካከል እንደሚቻል ለማወቅ መታ ያድርጉ።"</string>
 </resources>

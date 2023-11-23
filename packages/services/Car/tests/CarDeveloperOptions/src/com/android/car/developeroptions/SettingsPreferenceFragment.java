@@ -44,7 +44,6 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.car.developeroptions.core.InstrumentedPreferenceFragment;
 import com.android.car.developeroptions.core.instrumentation.InstrumentedDialogFragment;
-import com.android.car.developeroptions.search.Indexable;
 import com.android.car.developeroptions.search.actionbar.SearchMenuController;
 import com.android.car.developeroptions.support.actionbar.HelpMenuController;
 import com.android.car.developeroptions.support.actionbar.HelpResourceProvider;
@@ -53,7 +52,7 @@ import com.android.car.developeroptions.widget.LoadingViewController;
 import com.android.settingslib.CustomDialogPreferenceCompat;
 import com.android.settingslib.CustomEditTextPreferenceCompat;
 import com.android.settingslib.core.instrumentation.Instrumentable;
-import com.android.settingslib.widget.FooterPreferenceMixinCompat;
+import com.android.settingslib.search.Indexable;
 import com.android.settingslib.widget.LayoutPreference;
 
 import java.util.UUID;
@@ -67,9 +66,6 @@ public abstract class SettingsPreferenceFragment extends InstrumentedPreferenceF
     private static final String TAG = "SettingsPreference";
 
     private static final String SAVE_HIGHLIGHTED_KEY = "android:preference_highlighted";
-
-    protected final FooterPreferenceMixinCompat mFooterPreferenceMixin =
-            new FooterPreferenceMixinCompat(this, getSettingsLifecycle());
 
 
     private static final int ORDER_FIRST = -1;
@@ -310,8 +306,7 @@ public abstract class SettingsPreferenceFragment extends InstrumentedPreferenceF
         if (getPreferenceScreen() != null) {
             final View listContainer = getActivity().findViewById(android.R.id.list_container);
             boolean show = (getPreferenceScreen().getPreferenceCount()
-                    - (mHeader != null ? 1 : 0)
-                    - (mFooterPreferenceMixin.hasFooter() ? 1 : 0)) <= 0
+                    - (mHeader != null ? 1 : 0)) <= 0
                     || (listContainer != null && listContainer.getVisibility() != View.VISIBLE);
             mEmptyView.setVisibility(show ? View.VISIBLE : View.GONE);
         } else {

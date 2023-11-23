@@ -36,6 +36,7 @@
     <string name="menu_share" msgid="4307140947108068356">"Хуваалцах"</string>
     <string name="menu_delete" msgid="1022254131543256626">"Устгах"</string>
     <string name="menu_select_all" msgid="7600576812185570403">"Бүгдийг сонгох"</string>
+    <string name="menu_deselect_all" msgid="7729916068862742979">"Бүх сонголтыг цуцлах"</string>
     <string name="menu_select" msgid="1366061076507142387">"Сонгох"</string>
     <string name="menu_sort" msgid="3362419226163725275">"Дараахаар эрэмбэлэх..."</string>
     <string name="menu_copy" msgid="7404820171352314754">"Дараахад хуулах..."</string>
@@ -44,6 +45,8 @@
     <string name="menu_extract" msgid="8171946945982532262">"Дараахад задлах…"</string>
     <string name="menu_rename" msgid="1883113442688817554">"Нэр өөрчлөх"</string>
     <string name="menu_inspect" msgid="7279855349299446224">"Мэдээлэл авах"</string>
+    <string name="menu_show_hidden_files" msgid="5140676344684492769">"Нуусан файлудыг харуул"</string>
+    <string name="menu_hide_hidden_files" msgid="5654495713350153702">"Нуусан файлуудыг бүү харуул"</string>
     <string name="menu_view_in_owner" msgid="7228948660557554770">"<xliff:g id="SOURCE">%1$s</xliff:g>-д харах"</string>
     <string name="menu_new_window" msgid="2947837751796109126">"Шинэ цонх"</string>
     <string name="menu_cut_to_clipboard" msgid="2878752142015026229">"Таслах"</string>
@@ -61,6 +64,7 @@
     <string name="button_retry" msgid="4011461781916631389">"Дахин оролдох"</string>
     <string name="button_clear" msgid="5412304437764369441">"Устгах"</string>
     <string name="button_show_provider" msgid="6905880493806292753">"Үйлчилгээ үзүүлэгчид харуулах"</string>
+    <string name="button_back" msgid="1888621708934742182">"Буцах"</string>
     <string name="not_sorted" msgid="7813496644889115530">"Эрэмбэлээгүй"</string>
     <string name="sort_dimension_name" msgid="6325591541414177579">"Нэр"</string>
     <string name="sort_dimension_summary" msgid="7724534446881397860">"Хураангуй"</string>
@@ -86,6 +90,18 @@
     <string name="save_error" msgid="8631128801982095782">"Документыг хадгалж чадсангүй"</string>
     <string name="create_error" msgid="3092144450044861994">"Фолдер үүсгэж чадсангүй"</string>
     <string name="query_error" msgid="6625421453613879336">"Агуулгыг ачаалах боломжгүй байна"</string>
+    <string name="quiet_mode_error_title" msgid="9126656325282792843">"Ажлын профайлыг түр зогсоосон"</string>
+    <string name="quiet_mode_button" msgid="6977115032320235420">"Асаах"</string>
+    <string name="cant_select_work_files_error_title" msgid="6688716319549644354">"Ажлын файлуудыг сонгох боломжгүй байна"</string>
+    <string name="cant_select_work_files_error_message" msgid="683480676150690641">"Таны мэдээлэл технологийн админ танд хувийн аппаас ажлын файлуудад хандахыг зөвшөөрөөгүй байна"</string>
+    <string name="cant_select_personal_files_error_title" msgid="3200697170148617742">"Хувийн файлуудыг сонгох боломжгүй байна"</string>
+    <string name="cant_select_personal_files_error_message" msgid="4105905035459118209">"Таны мэдээлэл технологийн админ ажлын аппаас хувийн файлуудад хандахыг танд зөвшөөрөөгүй байна"</string>
+    <string name="cant_save_to_work_error_title" msgid="1351323070040641358">"Ажлын профайлыг хадгалах боломжгүй байна"</string>
+    <string name="cant_save_to_work_error_message" msgid="4975583233814059890">"Таны мэдээлэл технологийн админ танд ажлын профайлдаа хувийн файлууд хадгалахыг зөвшөөрөхгүй байна"</string>
+    <string name="cant_save_to_personal_error_title" msgid="858327493694069780">"Хувийн профайлыг хадгалах боломжгүй байна"</string>
+    <string name="cant_save_to_personal_error_message" msgid="6991758723736381751">"Таны мэдээлэл технологийн админ танд хувийн профайлдаа ажлын файлууд хадгалахыг зөвшөөрөхгүй байна"</string>
+    <string name="cross_profile_action_not_allowed_title" msgid="6611281348716476478">"Энэ үйлдлийг зөвшөөрөөгүй байна"</string>
+    <string name="cross_profile_action_not_allowed_message" msgid="7331275433061690947">"Нэмэлт мэдээлэл авахын тулд мэдээлэл технологийн админтайгаа холбогдоно уу"</string>
     <string name="root_recent" msgid="1080156975424341623">"Саяхны"</string>
     <string name="root_available_bytes" msgid="8269870862691408864">"<xliff:g id="SIZE">%1$s</xliff:g> сул"</string>
     <string name="root_type_service" msgid="6521366147466512289">"Сангийн үйлчилгээ"</string>
@@ -97,6 +113,8 @@
     <string name="toast_no_application" msgid="7555319548595113121">"Файлыг нээх боломжгүй байна"</string>
     <string name="toast_view_in_archives_unsupported" msgid="1923221390170964845">"Архивын файлыг нээх боломжгүй"</string>
     <string name="toast_failed_delete" msgid="3453846588205817591">"Зарим документыг устгах боломжгүй"</string>
+    <string name="toast_share_over_limit" msgid="5805442886537093015">"<xliff:g id="COUNT">%1$d</xliff:g>-с илүү файл хуваалцах боломжгүй"</string>
+    <string name="toast_action_not_allowed" msgid="1329382474450572415">"Үйлдлийг зөвшөөрөөгүй байна"</string>
     <string name="share_via" msgid="8725082736005677161">"Дараахаар хуваалцах"</string>
     <string name="copy_notification_title" msgid="52256435625098456">"Файлыг хуулж байна"</string>
     <string name="compress_notification_title" msgid="6830195148113751021">"Файлыг шахаж байна"</string>
@@ -222,29 +240,42 @@
       <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g>-г сонгосон</item>
       <item quantity="one"><xliff:g id="COUNT_0">%1$d</xliff:g>-г сонгосон</item>
     </plurals>
-    <string name="root_info_header_recent" msgid="8754386597210017725">"Утсан дээрх саяхны файлууд"</string>
-    <string name="root_info_header_global_search" msgid="9099308729787003373">"Утсан дээрх файлууд"</string>
-    <string name="root_info_header_media" msgid="2774453755906260852">"Утсан дээрх <xliff:g id="LABEL">%1$s</xliff:g>"</string>
+    <string name="root_info_header_recent" msgid="5654901877295332262">"Саяхны файлууд"</string>
+    <string name="root_info_header_global_search" msgid="4904078222280496152">"Файлууд"</string>
+    <string name="root_info_header_downloads" msgid="8848161246921154115">"Таталтад байгаа файлууд"</string>
     <string name="root_info_header_storage" msgid="2989014130584927442">"<xliff:g id="DEVICE">%1$s</xliff:g> дээрх файлууд"</string>
+    <string name="root_info_header_folder" msgid="5851172222368049864">"<xliff:g id="FOLDER">%1$s</xliff:g>-д байгаа файл"</string>
     <string name="root_info_header_app" msgid="2125422047558420885">"<xliff:g id="LABEL">%1$s</xliff:g>-н файлууд"</string>
     <string name="root_info_header_app_with_summary" msgid="3223302581236069702">"<xliff:g id="LABEL">%1$s</xliff:g> / <xliff:g id="SUMMARY">%2$s</xliff:g>-н файлууд"</string>
-    <string name="root_info_header_image_recent" msgid="6252335619444758201">"Утсан дээрх саяхны зураг"</string>
-    <string name="root_info_header_image_global_search" msgid="7945533325610533016">"Утсан дээрх зураг"</string>
+    <string name="root_info_header_image_recent" msgid="7494373563753926014">"Саяхны зургууд"</string>
+    <string name="root_info_header_image_global_search" msgid="7307009823489854697">"Зургууд"</string>
+    <string name="root_info_header_image_downloads" msgid="7072252612657612307">"Таталтад байгаа зургууд"</string>
     <string name="root_info_header_image_storage" msgid="5086740886360075930">"<xliff:g id="DEVICE">%1$s</xliff:g> дээрх зураг"</string>
+    <string name="root_info_header_image_folder" msgid="5980430877636279667">"<xliff:g id="FOLDER">%1$s</xliff:g>-д байгаа зураг"</string>
     <string name="root_info_header_image_app" msgid="4858114210851525359">"<xliff:g id="LABEL">%1$s</xliff:g>-н зураг"</string>
     <string name="root_info_header_image_app_with_summary" msgid="6404842960923224778">"<xliff:g id="LABEL">%1$s</xliff:g> / <xliff:g id="SUMMARY">%2$s</xliff:g>-н зураг"</string>
     <string name="chip_title_images" msgid="7838299046109841015">"Зураг"</string>
     <string name="chip_title_audio" msgid="1032801828748235436">"Аудио"</string>
     <string name="chip_title_videos" msgid="7011260091979776447">"Видео"</string>
     <string name="chip_title_documents" msgid="7432457563000753983">"Документ"</string>
+    <string name="chip_title_large_files" msgid="7740269190493883980">"Том файл"</string>
+    <string name="chip_title_from_this_week" msgid="4961536405220379672">"Энэ долоо хоног"</string>
     <string name="input_hint_new_folder" msgid="479672411219725677">"Фолдерын нэр"</string>
     <string name="input_hint_rename" msgid="8390711744270994452">"Шинэ нэр"</string>
     <string name="preview_file" msgid="4056622696305432343">"<xliff:g id="FILENAME">%1$s</xliff:g> файлыг урьдчилан үзэх"</string>
+    <string name="preview_work_file" msgid="4495643735563487273">"<xliff:g id="FILENAME">%1$s</xliff:g> ажлын файлыг урьдчилан үзэх"</string>
     <string name="apps_row_title" msgid="3340490016663092925">"Бусад аппын файлыг үзэх"</string>
     <string name="anonymous_application" msgid="7633027057951625862">"Үл мэдэгдэх"</string>
-    <string name="open_tree_button" msgid="19992834788135845">"\"<xliff:g id="DIRECTORY">%1$s</xliff:g>\"-н хандалтыг зөвшөөрөх"</string>
-    <string name="open_tree_dialog_title" msgid="8429465292253532274">"\"<xliff:g id="DIRECTORY">%1$s</xliff:g>\"-н хандалтыг \"<xliff:g id="ROOT">%2$s</xliff:g>\"-д зөвшөөрөх үү?"</string>
-    <string name="open_tree_dialog_message" msgid="8545093618524340168">"Энэ нь \"<xliff:g id="APPNAME">%1$s</xliff:g>\"-д одоогоор энэ байршилд хадгалсан бүх файл болон үүнд цаашид хадгалах контентод бүрэн хандахыг зөвшөөрнө."</string>
+    <string name="open_tree_button" msgid="6402871398424497776">"Энэ фолдерыг ашиглах"</string>
+    <string name="open_tree_dialog_title" msgid="6339509533852318569">"<xliff:g id="DIRECTORY">%2$s</xliff:g>-д байгаа файлд хандахыг <xliff:g id="APPNAME">%1$s</xliff:g>-д зөвшөөрөх үү?"</string>
+    <string name="open_tree_dialog_message" msgid="4120695398430659628">"Энэ нь <xliff:g id="DIRECTORY">%2$s</xliff:g>-д одоо байгаа болон ирээдүйд хадгалах контентод хандахыг <xliff:g id="APPNAME">%1$s</xliff:g>-д зөвшөөрнө."</string>
+    <string name="directory_blocked_header_title" msgid="1164584889578740066">"Энэ фолдерыг ашиглах боломжгүй байна"</string>
+    <string name="directory_blocked_header_subtitle" msgid="2829150911849033408">"Нууцлалаа хамгаалахын тулд өөр фолдер сонгоно уу"</string>
+    <string name="create_new_folder_button" msgid="8859613309559794890">"Шинэ фолдер үүсгэх"</string>
     <string name="search_bar_hint" msgid="4517366509897977321">"Энэ утсыг хайх"</string>
     <string name="delete_search_history" msgid="2202015025607694515">"Хайлтын түүхийг устгах <xliff:g id="TEXT">%1$s</xliff:g>"</string>
+    <string name="personal_tab" msgid="3878576287868528503">"Хувийн"</string>
+    <string name="work_tab" msgid="7265359366883747413">"Ажлын"</string>
+    <string name="a11y_work" msgid="7504431382825242153">"Ажил"</string>
+    <string name="drag_from_another_app" msgid="8310249276199969905">"Та өөр аппаас файлууд зөөх боломжгүй."</string>
 </resources>

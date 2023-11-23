@@ -102,18 +102,6 @@ public interface RoleManagerAdapter {
     void addOrRemoveTestCallCompanionApp(String packageName, boolean isAdded);
 
     /**
-     * @return Package name of the car more app or {@code null} if there are no apps that match.
-     */
-    String getCarModeDialerApp();
-
-    /**
-     * Override the automotive app with another value. Used for testing purposes only.
-     * @param packageName Package name of the automotive app. Where
-     *                    {@code null}, the override is removed.
-     */
-    void setTestAutoModeApp(String packageName);
-
-    /**
      * Using role manager needs to know the current user handle.  Need to make sure the role manager
      * adapter can pass this to role manager.  As it changes, we'll pass it in.
      * @param currentUserHandle The new user handle.

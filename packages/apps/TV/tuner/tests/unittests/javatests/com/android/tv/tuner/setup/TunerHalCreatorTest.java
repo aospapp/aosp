@@ -21,13 +21,17 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 
 import android.os.AsyncTask;
+
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
+
 import com.android.tv.tuner.api.Tuner;
 import com.android.tv.tuner.setup.BaseTunerSetupActivity.TunerHalCreator;
-import java.util.concurrent.Executor;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
+
+import java.util.concurrent.Executor;
 
 /** Tests for {@link TunerHalCreator}. */
 @SmallTest
@@ -37,7 +41,7 @@ public class TunerHalCreatorTest {
 
     private static class TestTunerHalCreator extends TunerHalCreator {
         private TestTunerHalCreator(Executor executor) {
-            super(null, executor);
+            super(null, executor, null);
         }
 
         @Override

@@ -22,15 +22,19 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothHeadset;
 import android.bluetooth.BluetoothProfile;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.database.Cursor;
 import android.media.AudioManager;
 import android.net.Uri;
+import android.os.Bundle;
+import android.os.CancellationSignal;
 import android.os.HandlerThread;
 import android.os.UserHandle;
 import android.provider.CallLog;
+import android.provider.CallLog.Calls;
 import android.telephony.PhoneStateListener;
 import android.test.mock.MockContentProvider;
 import android.test.mock.MockContentResolver;
@@ -112,8 +116,8 @@ public class HeadsetStateMachineTest {
                 InstrumentationRegistry.getTargetContext().getResources());
         when(mHeadsetService.getPackageManager()).thenReturn(
                 InstrumentationRegistry.getContext().getPackageManager());
-        when(mHeadsetService.getPriority(any(BluetoothDevice.class))).thenReturn(
-                BluetoothProfile.PRIORITY_ON);
+        when(mHeadsetService.getConnectionPolicy(any(BluetoothDevice.class))).thenReturn(
+                BluetoothProfile.CONNECTION_POLICY_ALLOWED);
         when(mHeadsetService.getForceScoAudio()).thenReturn(true);
         when(mHeadsetService.okToAcceptConnection(any(BluetoothDevice.class))).thenReturn(true);
         when(mHeadsetService.isScoAcceptable(any(BluetoothDevice.class))).thenReturn(true);
@@ -832,7 +836,7 @@ public class HeadsetStateMachineTest {
     public void testAtBiaEvent_initialSubscriptionWithUpdates() {
         setUpConnectedState();
         verify(mPhoneState).listenForPhoneState(mTestDevice, PhoneStateListener.LISTEN_SERVICE_STATE
-                | PhoneStateListener.LISTEN_SIGNAL_STRENGTHS);
+                | PhoneStateListener.LISTEN_ALWAYS_REPORTED_SIGNAL_STRENGTH);
         mHeadsetStateMachine.sendMessage(HeadsetStateMachine.STACK_EVENT,
                 new HeadsetStackEvent(HeadsetStackEvent.EVENT_TYPE_BIA,
                         new HeadsetAgIndicatorEnableState(true, true, false, false), mTestDevice));
@@ -842,7 +846,7 @@ public class HeadsetStateMachineTest {
                 new HeadsetStackEvent(HeadsetStackEvent.EVENT_TYPE_BIA,
                         new HeadsetAgIndicatorEnableState(false, true, true, false), mTestDevice));
         verify(mPhoneState, timeout(ASYNC_CALL_TIMEOUT_MILLIS)).listenForPhoneState(mTestDevice,
-                PhoneStateListener.LISTEN_SIGNAL_STRENGTHS);
+                PhoneStateListener.LISTEN_ALWAYS_REPORTED_SIGNAL_STRENGTH);
         mHeadsetStateMachine.sendMessage(HeadsetStateMachine.STACK_EVENT,
                 new HeadsetStackEvent(HeadsetStackEvent.EVENT_TYPE_BIA,
                         new HeadsetAgIndicatorEnableState(false, true, false, false), mTestDevice));
@@ -864,8 +868,8 @@ public class HeadsetStateMachineTest {
         when(cursor.getString(magicNumber)).thenReturn(TEST_PHONE_NUMBER);
         MockContentProvider mockContentProvider = new MockContentProvider() {
             @Override
-            public Cursor query(Uri uri, String[] projection, String selection,
-                    String[] selectionArgs, String sortOrder) {
+            public Cursor query(Uri uri, String[] projection, Bundle queryArgs,
+                        CancellationSignal cancellationSignal) {
                 if (uri == null || !uri.equals(CallLog.Calls.CONTENT_URI)) {
                     return null;
                 }
@@ -873,15 +877,15 @@ public class HeadsetStateMachineTest {
                         CallLog.Calls.NUMBER)) {
                     return null;
                 }
-                if (selection == null || !selection.equals(
-                        CallLog.Calls.TYPE + "=" + CallLog.Calls.OUTGOING_TYPE)) {
+                if (queryArgs == null
+                        || !queryArgs.getString(ContentResolver.QUERY_ARG_SQL_SELECTION).equals(
+                                Calls.TYPE + "=" + Calls.OUTGOING_TYPE)
+                        || !queryArgs.getString(ContentResolver.QUERY_ARG_SQL_SORT_ORDER).equals(
+                                Calls.DEFAULT_SORT_ORDER)
+                        || queryArgs.getInt(ContentResolver.QUERY_ARG_LIMIT) != 1) {
                     return null;
                 }
-                if (selectionArgs != null) {
-                    return null;
-                }
-                if (sortOrder == null || !sortOrder.equals(
-                        CallLog.Calls.DEFAULT_SORT_ORDER + " LIMIT 1")) {
+                if (cancellationSignal != null) {
                     return null;
                 }
                 return cursor;

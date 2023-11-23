@@ -24,8 +24,10 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.UserHandle;
 
 import com.android.car.CarLocalServices;
+import com.android.car.systeminterface.SystemInterface;
 import com.android.internal.annotations.VisibleForTesting;
 
 import java.util.List;
@@ -106,10 +108,10 @@ public class Controller implements CarPowerStateListenerWithCompletion {
     }
 
     /**
-     * @return The names of the jobs that Garage Mode is waiting for
+     * @return Garage Mode's status, including what jobs it is waiting for
      */
-    List<String> pendingGarageModeJobs() {
-        return mGarageMode.pendingJobs();
+    List<String> dump() {
+        return mGarageMode.dump();
     }
 
     /**
@@ -118,8 +120,9 @@ public class Controller implements CarPowerStateListenerWithCompletion {
      * @param i intent that contains broadcast data
      */
     void sendBroadcast(Intent i) {
+        SystemInterface systemInterface = CarLocalServices.getService(SystemInterface.class);
         LOG.d("Sending broadcast with action: " + i.getAction());
-        mContext.sendBroadcast(i);
+        systemInterface.sendBroadcastAsUser(i, UserHandle.ALL);
     }
 
     /**

@@ -183,6 +183,7 @@ public class CallLogProvider extends ContentProvider {
     private CallLogDatabaseHelper mDbHelper;
     private DatabaseUtils.InsertHelper mCallsInserter;
     private boolean mUseStrictPhoneNumberComparation;
+    private int mMinMatch;
     private VoicemailPermissions mVoicemailPermissions;
     private CallLogInsertionHelper mCallLogInsertionHelper;
 
@@ -214,6 +215,9 @@ public class CallLogProvider extends ContentProvider {
         mUseStrictPhoneNumberComparation =
             context.getResources().getBoolean(
                     com.android.internal.R.bool.config_use_strict_phone_number_comparation);
+        mMinMatch =
+            context.getResources().getInteger(
+                    com.android.internal.R.integer.config_phonenumber_compare_min_match);
         mVoicemailPermissions = new VoicemailPermissions(context);
         mCallLogInsertionHelper = createCallLogInsertionHelper(context);
 
@@ -237,6 +241,16 @@ public class CallLogProvider extends ContentProvider {
     @VisibleForTesting
     protected CallLogInsertionHelper createCallLogInsertionHelper(final Context context) {
         return DefaultCallLogInsertionHelper.getInstance(context);
+    }
+
+    @VisibleForTesting
+    public void setMinMatchForTest(int minMatch) {
+        mMinMatch = minMatch;
+    }
+
+    @VisibleForTesting
+    public int getMinMatchForTest() {
+        return mMinMatch;
     }
 
     protected CallLogDatabaseHelper getDatabaseHelper(final Context context) {
@@ -299,6 +313,7 @@ public class CallLogProvider extends ContentProvider {
             Log.v(TAG, "query: uri=" + uri + "  projection=" + Arrays.toString(projection) +
                     "  selection=[" + selection + "]  args=" + Arrays.toString(selectionArgs) +
                     "  order=[" + sortOrder + "] CPID=" + Binder.getCallingPid() +
+                    " CUID=" + Binder.getCallingUid() +
                     " User=" + UserUtils.getCurrentUserHandle(getContext()));
         }
 
@@ -331,7 +346,8 @@ public class CallLogProvider extends ContentProvider {
                 if (!TextUtils.isEmpty(phoneNumber)) {
                     qb.appendWhere("PHONE_NUMBERS_EQUAL(number, ");
                     qb.appendWhereEscapeString(phoneNumber);
-                    qb.appendWhere(mUseStrictPhoneNumberComparation ? ", 1)" : ", 0)");
+                    qb.appendWhere(mUseStrictPhoneNumberComparation ? ", 1)"
+                            : ", 0, " + mMinMatch + ")");
                 } else {
                     qb.appendWhere(Calls.NUMBER_PRESENTATION + "!="
                             + Calls.PRESENTATION_ALLOWED);
@@ -465,7 +481,8 @@ public class CallLogProvider extends ContentProvider {
     private Uri insertInternal(Uri uri, ContentValues values) {
         if (VERBOSE_LOGGING) {
             Log.v(TAG, "insert: uri=" + uri + "  values=[" + values + "]" +
-                    " CPID=" + Binder.getCallingPid());
+                    " CPID=" + Binder.getCallingPid() +
+                    " CUID=" + Binder.getCallingUid());
         }
         waitForAccess(mReadAccessLatch);
         checkForSupportedColumns(sCallsProjectionMap, values);
@@ -498,6 +515,7 @@ public class CallLogProvider extends ContentProvider {
             Log.v(TAG, "update: uri=" + uri +
                     "  selection=[" + selection + "]  args=" + Arrays.toString(selectionArgs) +
                     "  values=[" + values + "] CPID=" + Binder.getCallingPid() +
+                    " CUID=" + Binder.getCallingUid() +
                     " User=" + UserUtils.getCurrentUserHandle(getContext()));
         }
         waitForAccess(mReadAccessLatch);
@@ -534,6 +552,7 @@ public class CallLogProvider extends ContentProvider {
             Log.v(TAG, "delete: uri=" + uri +
                     "  selection=[" + selection + "]  args=" + Arrays.toString(selectionArgs) +
                     " CPID=" + Binder.getCallingPid() +
+                    " CUID=" + Binder.getCallingUid() +
                     " User=" + UserUtils.getCurrentUserHandle(getContext()));
         }
         waitForAccess(mReadAccessLatch);
@@ -728,9 +747,8 @@ public class CallLogProvider extends ContentProvider {
                     mDbHelper.getWritableDatabase().execSQL(
                             UNHIDE_BY_PHONE_ACCOUNT_QUERY, handleArgs);
                 } else {
-                    TelecomManager tm = TelecomManager.from(getContext());
+                    TelecomManager tm = getContext().getSystemService(TelecomManager.class);
                     if (tm != null) {
-
                         PhoneAccount account = tm.getPhoneAccount(handle);
                         if (account != null && account.getAddress() != null) {
                             // We did not find any items for the specific phone account, so run the

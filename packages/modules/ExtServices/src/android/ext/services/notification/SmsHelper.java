@@ -15,17 +15,14 @@
  */
 package android.ext.services.notification;
 
-import static android.provider.Telephony.Sms.Intents.ACTION_DEFAULT_SMS_PACKAGE_CHANGED_INTERNAL;
-
-import android.annotation.Nullable;
 import android.content.BroadcastReceiver;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.provider.Telephony;
 import android.util.Log;
 
-import com.android.internal.telephony.SmsApplication;
+import androidx.annotation.Nullable;
 
 /**
  * A helper class for storing and retrieving the default SMS application.
@@ -33,8 +30,12 @@ import com.android.internal.telephony.SmsApplication;
 public class SmsHelper {
     private static final String TAG = "SmsHelper";
 
+    // TODO: user RoleManager instead of copying this constant
+    private static String ACTION_DEFAULT_SMS_PACKAGE_CHANGED_INTERNAL
+            = "android.provider.action.DEFAULT_SMS_PACKAGE_CHANGED_INTERNAL";
+
     private final Context mContext;
-    private ComponentName mDefaultSmsApplication;
+    private String mDefaultSmsPackage;
     private BroadcastReceiver mBroadcastReceiver;
 
     SmsHelper(Context context) {
@@ -43,13 +44,12 @@ public class SmsHelper {
 
     void initialize() {
         if (mBroadcastReceiver == null) {
-            mDefaultSmsApplication = SmsApplication.getDefaultSmsApplication(mContext, false);
+            mDefaultSmsPackage = Telephony.Sms.getDefaultSmsPackage(mContext);
             mBroadcastReceiver = new BroadcastReceiver() {
                 @Override
                 public void onReceive(Context context, Intent intent) {
                     if (ACTION_DEFAULT_SMS_PACKAGE_CHANGED_INTERNAL.equals(intent.getAction())) {
-                        mDefaultSmsApplication =
-                                SmsApplication.getDefaultSmsApplication(mContext, false);
+                        mDefaultSmsPackage = Telephony.Sms.getDefaultSmsPackage(mContext);
                     } else {
                         Log.w(TAG, "Unknown broadcast received: " + intent.getAction());
                     }
@@ -69,7 +69,7 @@ public class SmsHelper {
     }
 
     @Nullable
-    public ComponentName getDefaultSmsApplication() {
-        return mDefaultSmsApplication;
+    public String getDefaultSmsPackage() {
+        return mDefaultSmsPackage;
     }
 }

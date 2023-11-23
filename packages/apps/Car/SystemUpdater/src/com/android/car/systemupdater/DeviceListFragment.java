@@ -29,14 +29,12 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
-import androidx.appcompat.app.ActionBar;
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.car.widget.ListItem;
-import androidx.car.widget.ListItemAdapter;
-import androidx.car.widget.ListItemProvider;
-import androidx.car.widget.PagedListView;
-import androidx.car.widget.TextListItem;
 import androidx.fragment.app.Fragment;
+
+import com.android.car.ui.recyclerview.CarUiContentListItem;
+import com.android.car.ui.recyclerview.CarUiListItem;
+import com.android.car.ui.recyclerview.CarUiListItemAdapter;
+import com.android.car.ui.recyclerview.CarUiRecyclerView;
 
 import java.io.File;
 import java.io.FileFilter;
@@ -60,9 +58,7 @@ public class DeviceListFragment extends Fragment implements UpFragment {
     private final Stack<File> mFileStack = new Stack<>();
     private StorageManager mStorageManager;
     private SystemUpdater mSystemUpdater;
-    private List<File> mListItems;
-    private ListItemAdapter mAdapter;
-    private FileItemProvider mItemProvider;
+    private CarUiRecyclerView mFolderListView;
     private TextView mCurrentPathView;
 
     private final StorageEventListener mListener = new StorageEventListener() {
@@ -87,9 +83,7 @@ public class DeviceListFragment extends Fragment implements UpFragment {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
         Context context = getContext();
-        mItemProvider = new FileItemProvider(context);
 
         mStorageManager = (StorageManager) context.getSystemService(Context.STORAGE_SERVICE);
         if (mStorageManager == null) {
@@ -104,28 +98,18 @@ public class DeviceListFragment extends Fragment implements UpFragment {
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container,
             Bundle savedInstanceState) {
-        mAdapter = new ListItemAdapter(getContext(), mItemProvider);
         return inflater.inflate(R.layout.folder_list, container, false);
     }
 
     @Override
     public void onViewCreated(@NonNull View view, Bundle savedInstanceState) {
-        PagedListView folderListView = (PagedListView) view.findViewById(R.id.folder_list);
-        folderListView.setMaxPages(PagedListView.ItemCap.UNLIMITED);
-        folderListView.setAdapter(mAdapter);
-
-        mCurrentPathView = (TextView) view.findViewById(R.id.current_path);
+        mFolderListView = view.findViewById(R.id.folder_list);
+        mCurrentPathView = view.findViewById(R.id.current_path);
     }
 
     @Override
     public void onActivityCreated(Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
-        AppCompatActivity activity = (AppCompatActivity) getActivity();
-        ActionBar actionBar = activity.getSupportActionBar();
-        actionBar.setCustomView(R.layout.action_bar_with_button);
-        actionBar.setDisplayShowCustomEnabled(true);
-        actionBar.setDisplayShowTitleEnabled(false);
-
         showMountedVolumes();
     }
 
@@ -168,10 +152,17 @@ public class DeviceListFragment extends Fragment implements UpFragment {
 
     /** Set the list of files shown on the screen. */
     private void setFileList(List<File> files) {
-        mListItems = files;
-        if (mAdapter != null) {
-            mAdapter.notifyDataSetChanged();
+        List<CarUiListItem> fileList = new ArrayList<>();
+        for (File file : files) {
+            CarUiContentListItem item = new CarUiContentListItem(CarUiContentListItem.Action.NONE);
+            item.setTitle(file.getName());
+            item.setOnItemClickedListener(i -> onFileSelected(file));
+            fileList.add(item);
         }
+
+        CarUiListItemAdapter adapter = new CarUiListItemAdapter(fileList);
+        adapter.setMaxItems(CarUiRecyclerView.ItemCap.UNLIMITED);
+        mFolderListView.setAdapter(adapter);
     }
 
     /** Handle user selection of a file. */
@@ -233,36 +224,6 @@ public class DeviceListFragment extends Fragment implements UpFragment {
                 setFileList(Arrays.asList(results));
             }
         }.execute(folder);
-    }
-
-    /** A list item provider to display the list of files on this fragment. */
-    private class FileItemProvider extends ListItemProvider {
-        private final Context mContext;
-
-        FileItemProvider(Context context) {
-            mContext = context;
-        }
-
-        @Override
-        public ListItem get(int position) {
-            if (position < 0 || position >= mListItems.size()) {
-                return null;
-            }
-            TextListItem item = new TextListItem(mContext);
-            File file = mListItems.get(position);
-            if (file != null) {
-                item.setTitle(file.getName());
-                item.setOnClickListener(v -> onFileSelected(file));
-            } else {
-                item.setTitle(getString(R.string.unknown_file));
-            }
-            return item;
-        }
-
-        @Override
-        public int size() {
-            return mListItems == null ? 0 : mListItems.size();
-        }
     }
 
     /** Returns true if a file is considered to contain a system update. */

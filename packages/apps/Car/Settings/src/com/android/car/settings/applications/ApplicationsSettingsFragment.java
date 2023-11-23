@@ -47,7 +47,11 @@ public class ApplicationsSettingsFragment extends AppListFragment {
         StorageManager sm = context.getSystemService(StorageManager.class);
         VolumeInfo volume = maybeInitializeVolume(sm, getArguments());
         mAppListItemManager = new ApplicationListItemManager(volume, getLifecycle(),
-                ApplicationsState.getInstance(application));
+                ApplicationsState.getInstance(application),
+                getContext().getResources().getInteger(
+                        R.integer.millisecond_app_data_update_interval),
+                getContext().getResources().getInteger(
+                        R.integer.millisecond_max_app_load_wait_interval));
         mAppListItemManager.registerListener(
                 use(ApplicationsSettingsPreferenceController.class,
                         R.string.pk_all_applications_settings_list));

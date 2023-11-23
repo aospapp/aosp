@@ -16,18 +16,22 @@
 package android.car.apitest;
 
 import android.car.VehicleAreaMirror;
-import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
 
-@SmallTest
-public class VehicleAreaMirrorTest extends AndroidTestCase{
+import static com.google.common.truth.Truth.assertThat;
 
+import org.junit.Test;
+
+@SmallTest
+public class VehicleAreaMirrorTest {
+
+    @Test
     public void testMatchWithVehicleHal() {
-        assertEquals(android.hardware.automotive.vehicle.V2_0.VehicleAreaMirror.DRIVER_CENTER,
-                VehicleAreaMirror.MIRROR_DRIVER_CENTER);
-        assertEquals(android.hardware.automotive.vehicle.V2_0.VehicleAreaMirror.DRIVER_LEFT,
-                VehicleAreaMirror.MIRROR_DRIVER_LEFT);
-        assertEquals(android.hardware.automotive.vehicle.V2_0.VehicleAreaMirror.DRIVER_RIGHT,
-                VehicleAreaMirror.MIRROR_DRIVER_RIGHT);
+        assertThat(VehicleAreaMirror.MIRROR_DRIVER_CENTER).isEqualTo(
+                android.hardware.automotive.vehicle.V2_0.VehicleAreaMirror.DRIVER_CENTER);
+        assertThat(VehicleAreaMirror.MIRROR_DRIVER_LEFT)
+                .isEqualTo(android.hardware.automotive.vehicle.V2_0.VehicleAreaMirror.DRIVER_LEFT);
+        assertThat(VehicleAreaMirror.MIRROR_DRIVER_RIGHT)
+                .isEqualTo(android.hardware.automotive.vehicle.V2_0.VehicleAreaMirror.DRIVER_RIGHT);
     }
 }

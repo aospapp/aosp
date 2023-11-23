@@ -18,14 +18,20 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
     <fragment
+        android:name="com.android.car.dialer.ui.activecall.IncomingCallFragment"
+        android:id="@+id/incoming_call_fragment"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"/>
+
+    <fragment
         android:name="com.android.car.dialer.ui.activecall.OngoingCallFragment"
         android:id="@+id/ongoing_call_fragment"
         android:layout_width="match_parent"
         android:layout_height="match_parent"/>
 
     <fragment
-        android:name="com.android.car.dialer.ui.activecall.IncomingCallFragment"
-        android:id="@+id/incoming_call_fragment"
+        android:name="com.android.car.dialer.ui.activecall.OngoingConfCallFragment"
+        android:id="@+id/ongoing_conf_call_fragment"
         android:layout_width="match_parent"
         android:layout_height="match_parent"/>
 </FrameLayout>

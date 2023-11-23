@@ -16,6 +16,10 @@
 
 package com.android.bluetooth.hid;
 
+import static com.android.bluetooth.Utils.enforceBluetoothAdminPermission;
+import static com.android.bluetooth.Utils.enforceBluetoothPermission;
+import static com.android.bluetooth.Utils.enforceBluetoothPrivilegedPermission;
+
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothHidHost;
 import android.bluetooth.BluetoothProfile;
@@ -337,6 +341,7 @@ public class HidHostService extends ProfileService {
             if (service == null) {
                 return false;
             }
+            enforceBluetoothPrivilegedPermission(service);
             return service.connect(device);
         }
 
@@ -346,6 +351,7 @@ public class HidHostService extends ProfileService {
             if (service == null) {
                 return false;
             }
+            enforceBluetoothPrivilegedPermission(service);
             return service.disconnect(device);
         }
 
@@ -355,11 +361,17 @@ public class HidHostService extends ProfileService {
             if (service == null) {
                 return BluetoothHidHost.STATE_DISCONNECTED;
             }
+            enforceBluetoothPermission(service);
             return service.getConnectionState(device);
         }
 
         @Override
         public List<BluetoothDevice> getConnectedDevices() {
+            HidHostService service = getService();
+            if (service == null) {
+                return new ArrayList<>();
+            }
+            enforceBluetoothPermission(service);
             return getDevicesMatchingConnectionStates(new int[]{BluetoothProfile.STATE_CONNECTED});
         }
 
@@ -369,25 +381,28 @@ public class HidHostService extends ProfileService {
             if (service == null) {
                 return new ArrayList<BluetoothDevice>(0);
             }
+            enforceBluetoothPermission(service);
             return service.getDevicesMatchingConnectionStates(states);
         }
 
         @Override
-        public boolean setPriority(BluetoothDevice device, int priority) {
+        public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy) {
             HidHostService service = getService();
             if (service == null) {
                 return false;
             }
-            return service.setPriority(device, priority);
+            enforceBluetoothPrivilegedPermission(service);
+            return service.setConnectionPolicy(device, connectionPolicy);
         }
 
         @Override
-        public int getPriority(BluetoothDevice device) {
+        public int getConnectionPolicy(BluetoothDevice device) {
             HidHostService service = getService();
             if (service == null) {
-                return BluetoothProfile.PRIORITY_UNDEFINED;
+                return BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
             }
-            return service.getPriority(device);
+            enforceBluetoothPrivilegedPermission(service);
+            return service.getConnectionPolicy(device);
         }
 
         /* The following APIs regarding test app for compliance */
@@ -397,6 +412,7 @@ public class HidHostService extends ProfileService {
             if (service == null) {
                 return false;
             }
+            enforceBluetoothAdminPermission(service);
             return service.getProtocolMode(device);
         }
 
@@ -406,6 +422,7 @@ public class HidHostService extends ProfileService {
             if (service == null) {
                 return false;
             }
+            enforceBluetoothAdminPermission(service);
             return service.virtualUnplug(device);
         }
 
@@ -415,6 +432,7 @@ public class HidHostService extends ProfileService {
             if (service == null) {
                 return false;
             }
+            enforceBluetoothAdminPermission(service);
             return service.setProtocolMode(device, protocolMode);
         }
 
@@ -425,6 +443,7 @@ public class HidHostService extends ProfileService {
             if (service == null) {
                 return false;
             }
+            enforceBluetoothAdminPermission(service);
             return service.getReport(device, reportType, reportId, bufferSize);
         }
 
@@ -434,6 +453,7 @@ public class HidHostService extends ProfileService {
             if (service == null) {
                 return false;
             }
+            enforceBluetoothAdminPermission(service);
             return service.setReport(device, reportType, report);
         }
 
@@ -443,6 +463,7 @@ public class HidHostService extends ProfileService {
             if (service == null) {
                 return false;
             }
+            enforceBluetoothAdminPermission(service);
             return service.sendData(device, report);
         }
 
@@ -452,6 +473,7 @@ public class HidHostService extends ProfileService {
             if (service == null) {
                 return false;
             }
+            enforceBluetoothAdminPermission(service);
             return service.setIdleTime(device, idleTime);
         }
 
@@ -461,6 +483,7 @@ public class HidHostService extends ProfileService {
             if (service == null) {
                 return false;
             }
+            enforceBluetoothAdminPermission(service);
             return service.getIdleTime(device);
         }
     }
@@ -468,15 +491,21 @@ public class HidHostService extends ProfileService {
     ;
 
     //APIs
-    boolean connect(BluetoothDevice device) {
+
+    /**
+     * Connects the hid host profile for the passed in device
+     *
+     * @param device is the device with which to connect the hid host profile
+     * @return true if connection is successful, false otherwise
+     */
+    public boolean connect(BluetoothDevice device) {
         if (DBG) Log.d(TAG, "connect: " + device.getAddress());
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
         if (getConnectionState(device) != BluetoothHidHost.STATE_DISCONNECTED) {
             Log.e(TAG, "Hid Device not disconnected: " + device);
             return false;
         }
-        if (getPriority(device) == BluetoothHidHost.PRIORITY_OFF) {
-            Log.e(TAG, "Hid Device PRIORITY_OFF: " + device);
+        if (getConnectionPolicy(device) == BluetoothHidHost.CONNECTION_POLICY_FORBIDDEN) {
+            Log.e(TAG, "Hid Device CONNECTION_POLICY_FORBIDDEN: " + device);
             return false;
         }
 
@@ -485,15 +514,29 @@ public class HidHostService extends ProfileService {
         return true;
     }
 
-    boolean disconnect(BluetoothDevice device) {
+    /**
+     * Disconnects the hid host profile from the passed in device
+     *
+     * @param device is the device with which to disconnect the hid host profile
+     * @return true
+     */
+    public boolean disconnect(BluetoothDevice device) {
         if (DBG) Log.d(TAG, "disconnect: " + device.getAddress());
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
         Message msg = mHandler.obtainMessage(MESSAGE_DISCONNECT, device);
         mHandler.sendMessage(msg);
         return true;
     }
 
-    int getConnectionState(BluetoothDevice device) {
+    /**
+     * Get the current connection state of the profile
+     *
+     * @param device is the remote bluetooth device
+     * @return {@link BluetoothProfile#STATE_DISCONNECTED} if this profile is disconnected,
+     * {@link BluetoothProfile#STATE_CONNECTING} if this profile is being connected,
+     * {@link BluetoothProfile#STATE_CONNECTED} if this profile is connected, or
+     * {@link BluetoothProfile#STATE_DISCONNECTING} if this profile is being disconnected
+     */
+    public int getConnectionState(BluetoothDevice device) {
         if (DBG) Log.d(TAG, "getConnectionState: " + device.getAddress());
         if (mInputDevices.get(device) == null) {
             return BluetoothHidHost.STATE_DISCONNECTED;
@@ -503,7 +546,6 @@ public class HidHostService extends ProfileService {
 
     List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states) {
         if (DBG) Log.d(TAG, "getDevicesMatchingConnectionStates()");
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
         List<BluetoothDevice> inputDevices = new ArrayList<BluetoothDevice>();
 
         for (BluetoothDevice device : mInputDevices.keySet()) {
@@ -518,31 +560,60 @@ public class HidHostService extends ProfileService {
         return inputDevices;
     }
 
-    public boolean setPriority(BluetoothDevice device, int priority) {
-        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
+    /**
+     * Set connection policy of the profile and connects it if connectionPolicy is
+     * {@link BluetoothProfile#CONNECTION_POLICY_ALLOWED} or disconnects if connectionPolicy is
+     * {@link BluetoothProfile#CONNECTION_POLICY_FORBIDDEN}
+     *
+     * <p> The device should already be paired.
+     * Connection policy can be one of:
+     * {@link BluetoothProfile#CONNECTION_POLICY_ALLOWED},
+     * {@link BluetoothProfile#CONNECTION_POLICY_FORBIDDEN},
+     * {@link BluetoothProfile#CONNECTION_POLICY_UNKNOWN}
+     *
+     * @param device Paired bluetooth device
+     * @param connectionPolicy is the connection policy to set to for this profile
+     * @return true if connectionPolicy is set, false on error
+     */
+    public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy) {
         if (DBG) {
-            Log.d(TAG, "setPriority: " + device.getAddress());
-        }
-        if (DBG) {
-            Log.d(TAG, "Saved priority " + device + " = " + priority);
+            Log.d(TAG, "setConnectionPolicy: " + device.getAddress());
         }
         AdapterService.getAdapterService().getDatabase()
-                .setProfilePriority(device, BluetoothProfile.HID_HOST, priority);
+                .setProfileConnectionPolicy(device, BluetoothProfile.HID_HOST, connectionPolicy);
+        if (DBG) {
+            Log.d(TAG, "Saved connectionPolicy " + device + " = " + connectionPolicy);
+        }
+        if (connectionPolicy == BluetoothProfile.CONNECTION_POLICY_ALLOWED) {
+            connect(device);
+        } else if (connectionPolicy == BluetoothProfile.CONNECTION_POLICY_FORBIDDEN) {
+            disconnect(device);
+        }
         return true;
     }
 
-    public int getPriority(BluetoothDevice device) {
-        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
+    /**
+     * Get the connection policy of the profile.
+     *
+     * <p> The connection policy can be any of:
+     * {@link BluetoothProfile#CONNECTION_POLICY_ALLOWED},
+     * {@link BluetoothProfile#CONNECTION_POLICY_FORBIDDEN},
+     * {@link BluetoothProfile#CONNECTION_POLICY_UNKNOWN}
+     *
+     * @param device Bluetooth device
+     * @return connection policy of the device
+     * @hide
+     */
+    public int getConnectionPolicy(BluetoothDevice device) {
         if (DBG) {
-            Log.d(TAG, "getPriority: " + device.getAddress());
+            Log.d(TAG, "getConnectionPolicy: " + device.getAddress());
         }
         return AdapterService.getAdapterService().getDatabase()
-                .getProfilePriority(device, BluetoothProfile.HID_HOST);
+                .getProfileConnectionPolicy(device, BluetoothProfile.HID_HOST);
     }
 
     /* The following APIs regarding test app for compliance */
     boolean getProtocolMode(BluetoothDevice device) {
-        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
         if (DBG) {
             Log.d(TAG, "getProtocolMode: " + device.getAddress());
         }
@@ -558,7 +629,6 @@ public class HidHostService extends ProfileService {
     }
 
     boolean virtualUnplug(BluetoothDevice device) {
-        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
         if (DBG) {
             Log.d(TAG, "virtualUnplug: " + device.getAddress());
         }
@@ -572,7 +642,6 @@ public class HidHostService extends ProfileService {
     }
 
     boolean setProtocolMode(BluetoothDevice device, int protocolMode) {
-        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
         if (DBG) {
             Log.d(TAG, "setProtocolMode: " + device.getAddress());
         }
@@ -588,7 +657,6 @@ public class HidHostService extends ProfileService {
     }
 
     boolean getReport(BluetoothDevice device, byte reportType, byte reportId, int bufferSize) {
-        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
         if (DBG) {
             Log.d(TAG, "getReport: " + device.getAddress());
         }
@@ -608,7 +676,6 @@ public class HidHostService extends ProfileService {
     }
 
     boolean setReport(BluetoothDevice device, byte reportType, String report) {
-        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
         if (DBG) {
             Log.d(TAG, "setReport: " + device.getAddress());
         }
@@ -628,7 +695,6 @@ public class HidHostService extends ProfileService {
     }
 
     boolean sendData(BluetoothDevice device, String report) {
-        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
         if (DBG) {
             Log.d(TAG, "sendData: " + device.getAddress());
         }
@@ -641,7 +707,6 @@ public class HidHostService extends ProfileService {
     }
 
     boolean getIdleTime(BluetoothDevice device) {
-        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
         if (DBG) Log.d(TAG, "getIdleTime: " + device.getAddress());
         int state = this.getConnectionState(device);
         if (state != BluetoothHidHost.STATE_CONNECTED) {
@@ -653,7 +718,6 @@ public class HidHostService extends ProfileService {
     }
 
     boolean setIdleTime(BluetoothDevice device, byte idleTime) {
-        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
         if (DBG) Log.d(TAG, "setIdleTime: " + device.getAddress());
         int state = this.getConnectionState(device);
         if (state != BluetoothHidHost.STATE_CONNECTED) {
@@ -812,19 +876,18 @@ public class HidHostService extends ProfileService {
             Log.w(TAG, "okToConnect: return false as quiet mode enabled");
             return false;
         }
-        // Check priority and accept or reject the connection.
-        int priority = getPriority(device);
+        // Check connection policy and accept or reject the connection.
+        int connectionPolicy = getConnectionPolicy(device);
         int bondState = adapterService.getBondState(device);
         // Allow this connection only if the device is bonded. Any attempt to connect while
         // bonding would potentially lead to an unauthorized connection.
         if (bondState != BluetoothDevice.BOND_BONDED) {
             Log.w(TAG, "okToConnect: return false, bondState=" + bondState);
             return false;
-        } else if (priority != BluetoothProfile.PRIORITY_UNDEFINED
-                && priority != BluetoothProfile.PRIORITY_ON
-                && priority != BluetoothProfile.PRIORITY_AUTO_CONNECT) {
-            // Otherwise, reject the connection if priority is not valid.
-            Log.w(TAG, "okToConnect: return false, priority=" + priority);
+        } else if (connectionPolicy != BluetoothProfile.CONNECTION_POLICY_UNKNOWN
+                && connectionPolicy != BluetoothProfile.CONNECTION_POLICY_ALLOWED) {
+            // Otherwise, reject the connection if connectionPolicy is not valid.
+            Log.w(TAG, "okToConnect: return false, connectionPolicy=" + connectionPolicy);
             return false;
         }
         return true;

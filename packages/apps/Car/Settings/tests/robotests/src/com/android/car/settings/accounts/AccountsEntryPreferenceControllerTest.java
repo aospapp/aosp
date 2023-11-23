@@ -23,11 +23,9 @@ import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.Mockito.when;
 
-import android.car.userlib.CarUserManagerHelper;
-
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
-import com.android.car.settings.testutils.ShadowCarUserManagerHelper;
+import com.android.car.settings.testutils.ShadowUserHelper;
+import com.android.car.settings.users.UserHelper;
 
 import org.junit.After;
 import org.junit.Before;
@@ -35,22 +33,23 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 
 /** Unit test for {@link AccountsEntryPreferenceController}. */
-@RunWith(CarSettingsRobolectricTestRunner.class)
-@Config(shadows = {ShadowCarUserManagerHelper.class})
+@RunWith(RobolectricTestRunner.class)
+@Config(shadows = {ShadowUserHelper.class})
 public class AccountsEntryPreferenceControllerTest {
 
     @Mock
-    private CarUserManagerHelper mCarUserManagerHelper;
+    private UserHelper mMockUserHelper;
     private AccountsEntryPreferenceController mController;
 
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
-        ShadowCarUserManagerHelper.setMockInstance(mCarUserManagerHelper);
+        ShadowUserHelper.setInstance(mMockUserHelper);
 
         mController = new PreferenceControllerTestHelper<>(RuntimeEnvironment.application,
                 AccountsEntryPreferenceController.class).getController();
@@ -58,19 +57,19 @@ public class AccountsEntryPreferenceControllerTest {
 
     @After
     public void tearDown() {
-        ShadowCarUserManagerHelper.reset();
+        ShadowUserHelper.reset();
     }
 
     @Test
     public void getAvailabilityStatus_cannotModifyAccounts_disabledForUser() {
-        when(mCarUserManagerHelper.canCurrentProcessModifyAccounts()).thenReturn(false);
+        when(mMockUserHelper.canCurrentProcessModifyAccounts()).thenReturn(false);
 
         assertThat(mController.getAvailabilityStatus()).isEqualTo(DISABLED_FOR_USER);
     }
 
     @Test
     public void getAvailabilityStatus_canModifyAccounts_available() {
-        when(mCarUserManagerHelper.canCurrentProcessModifyAccounts()).thenReturn(true);
+        when(mMockUserHelper.canCurrentProcessModifyAccounts()).thenReturn(true);
 
         assertThat(mController.getAvailabilityStatus()).isEqualTo(AVAILABLE);
     }

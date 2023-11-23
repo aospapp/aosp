@@ -16,6 +16,7 @@
 
 package com.android.managedprovisioning.provisioning;
 
+import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_FINANCED_DEVICE;
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_DEVICE;
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_PROFILE;
 
@@ -47,6 +48,11 @@ public class ProvisioningControllerFactoryTest {
             .setProvisioningAction(ACTION_PROVISION_MANAGED_DEVICE)
             .setDeviceAdminComponentName(ADMIN)
             .build();
+    private static final ProvisioningParams FINANCED_DEVICE_PARAMS =
+            new ProvisioningParams.Builder()
+                    .setProvisioningAction(ACTION_PROVISION_FINANCED_DEVICE)
+                    .setDeviceAdminComponentName(ADMIN)
+                    .build();
 
     private ProvisioningControllerFactory mFactory = new ProvisioningControllerFactory();
     @Mock private ProvisioningControllerCallback mCallback;
@@ -76,5 +82,16 @@ public class ProvisioningControllerFactoryTest {
 
         // THEN the controller should be a device owner controller
         assertTrue(controller instanceof DeviceOwnerProvisioningController);
+    }
+
+    @Test
+    public void testFinancedDevice() {
+        // WHEN calling the factory with a set of financed device params
+        AbstractProvisioningController controller =
+            mFactory.createProvisioningController(InstrumentationRegistry.getTargetContext(),
+                FINANCED_DEVICE_PARAMS, mCallback);
+
+        // THEN the controller should be a financed device controller
+        assertTrue(controller instanceof FinancedDeviceProvisioningController);
     }
 }

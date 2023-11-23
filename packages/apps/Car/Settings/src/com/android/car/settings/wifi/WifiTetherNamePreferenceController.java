@@ -18,7 +18,7 @@ package com.android.car.settings.wifi;
 
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
-import android.net.wifi.WifiConfiguration;
+import android.net.wifi.SoftApConfiguration;
 
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.ValidatedEditTextPreference;
@@ -52,7 +52,7 @@ public class WifiTetherNamePreferenceController extends
     protected void onCreateInternal() {
         super.onCreateInternal();
         getPreference().setValidator(NAME_VALIDATOR);
-        mName = getCarWifiApConfig().SSID;
+        mName = getCarSoftApConfig().getSsid();
     }
 
     @Override
@@ -71,9 +71,10 @@ public class WifiTetherNamePreferenceController extends
     }
 
     private void updateSSID(String ssid) {
-        WifiConfiguration config = getCarWifiApConfig();
-        config.SSID = ssid;
-        setCarWifiApConfig(config);
+        SoftApConfiguration config = new SoftApConfiguration.Builder(getCarSoftApConfig())
+                .setSsid(ssid)
+                .build();
+        setCarSoftApConfig(config);
     }
 
     @Override

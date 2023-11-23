@@ -77,9 +77,9 @@ public class DeviceNameSetCustomFragment extends GuidedStepFragment {
 
     @Override
     public void onCreateActions(@NonNull List<GuidedAction> actions, Bundle savedInstanceState) {
-        mEditAction = new GuidedAction.Builder()
+        mEditAction = new GuidedAction.Builder(getContext())
+                .title("")
                 .editable(true)
-                .editTitle("")
                 .build();
         actions.add(mEditAction);
     }
@@ -98,7 +98,7 @@ public class DeviceNameSetCustomFragment extends GuidedStepFragment {
 
     @Override
     public long onGuidedActionEditedAndProceed(GuidedAction action) {
-        final CharSequence name = action.getEditTitle();
+        final CharSequence name = action.getTitle();
         if (TextUtils.isGraphic(name)) {
             DeviceManager.setDeviceName(getActivity(), name.toString());
             getActivity().setResult(Activity.RESULT_OK);

@@ -16,14 +16,19 @@
 
 package com.android.car.settings.datetime;
 
+import android.provider.Settings;
+
 import androidx.annotation.XmlRes;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.SettingsFragment;
+import com.android.car.settings.search.CarBaseSearchIndexProvider;
+import com.android.settingslib.search.SearchIndexable;
 
 /**
  * Configures date and time.
  */
+@SearchIndexable
 public class DatetimeSettingsFragment extends SettingsFragment {
     // Minimum time is Nov 5, 2007, 0:00.
     public static final long MIN_DATE = 1194220800000L;
@@ -33,4 +38,8 @@ public class DatetimeSettingsFragment extends SettingsFragment {
     protected int getPreferenceScreenResId() {
         return R.xml.datetime_settings_fragment;
     }
+
+    public static final CarBaseSearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
+            new CarBaseSearchIndexProvider(R.xml.datetime_settings_fragment,
+                    Settings.ACTION_DATE_SETTINGS);
 }

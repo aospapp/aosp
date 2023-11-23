@@ -24,7 +24,8 @@ import android.text.TextUtils;
 import android.util.ArraySet;
 import android.util.Log;
 import android.util.SparseArray;
-
+import com.android.tv.common.feature.Model;
+import com.android.tv.tuner.data.Channel.AtscServiceType;
 import com.android.tv.tuner.data.PsiData.PatItem;
 import com.android.tv.tuner.data.PsiData.PmtItem;
 import com.android.tv.tuner.data.PsipData.Ac3AudioDescriptor;
@@ -45,9 +46,8 @@ import com.android.tv.tuner.data.PsipData.ServiceDescriptor;
 import com.android.tv.tuner.data.PsipData.ShortEventDescriptor;
 import com.android.tv.tuner.data.PsipData.TsDescriptor;
 import com.android.tv.tuner.data.PsipData.VctItem;
-import com.android.tv.tuner.data.nano.Channel;
-import com.android.tv.tuner.data.nano.Track.AtscAudioTrack;
-import com.android.tv.tuner.data.nano.Track.AtscCaptionTrack;
+import com.android.tv.tuner.data.Track.AtscAudioTrack;
+import com.android.tv.tuner.data.Track.AtscCaptionTrack;
 import com.android.tv.tuner.util.ByteArrayBuffer;
 import com.android.tv.tuner.util.ConvertUtils;
 import java.io.UnsupportedEncodingException;
@@ -105,7 +105,7 @@ public class SectionParser {
     private static final int RATING_REGION_US_TV = 1;
     private static final int RATING_REGION_KR_TV = 4;
 
-    // The following values are defined in the live channels app.
+    // The following values are defined in the TV app.
     // See https://developer.android.com/reference/android/media/tv/TvContentRating.html.
     private static final String RATING_DOMAIN = "com.android.tv";
     private static final String RATING_REGION_RATING_SYSTEM_US_TV = "US_TV";
@@ -916,8 +916,8 @@ public class SectionParser {
                 Log.d(
                         TAG,
                         String.format(
-                                "Found channel [%s] %s - serviceType: %d tsid: 0x%x program: %d "
-                                        + "channel: %d-%d encrypted: %b hidden: %b, descriptors: %d",
+                                "Found channel [%s] %s - serviceType: %d tsid: 0x%x program: %d"
+                                    + " channel: %d-%d encrypted: %b hidden: %b, descriptors: %d",
                                 shortName,
                                 longName,
                                 serviceType,
@@ -929,14 +929,14 @@ public class SectionParser {
                                 hidden,
                                 descriptors.size()));
             }
-            if (!accessControlled
-                    && !hidden
-                    && (serviceType == Channel.AtscServiceType.SERVICE_TYPE_ATSC_AUDIO
+            if ((serviceType == AtscServiceType.SERVICE_TYPE_ATSC_AUDIO_VALUE
                             || serviceType
-                                    == Channel.AtscServiceType.SERVICE_TYPE_ATSC_DIGITAL_TELEVISION
+                                    == AtscServiceType.SERVICE_TYPE_ATSC_DIGITAL_TELEVISION_VALUE
                             || serviceType
-                                    == Channel.AtscServiceType
-                                            .SERVICE_TYPE_UNASSOCIATED_SMALL_SCREEN_SERVICE)) {
+                                    == AtscServiceType
+                                            .SERVICE_TYPE_UNASSOCIATED_SMALL_SCREEN_SERVICE_VALUE)
+                    && !accessControlled
+                    && !hidden) {
                 // Hide hidden, encrypted, or unsupported ATSC service type channels
                 results.add(
                         new VctItem(
@@ -1212,16 +1212,20 @@ public class SectionParser {
         for (TsDescriptor descriptor : descriptors) {
             if (descriptor instanceof Ac3AudioDescriptor) {
                 Ac3AudioDescriptor audioDescriptor = (Ac3AudioDescriptor) descriptor;
-                AtscAudioTrack audioTrack = new AtscAudioTrack();
+                String language = null;
                 if (audioDescriptor.getLanguage() != null) {
-                    audioTrack.language = audioDescriptor.getLanguage();
+                    language = audioDescriptor.getLanguage();
                 }
-                if (audioTrack.language == null) {
-                    audioTrack.language = "";
+                if (language == null) {
+                    language = "";
                 }
-                audioTrack.audioType = AtscAudioTrack.AudioType.AUDIOTYPE_UNDEFINED;
-                audioTrack.channelCount = audioDescriptor.getNumChannels();
-                audioTrack.sampleRate = audioDescriptor.getSampleRate();
+                AtscAudioTrack audioTrack =
+                        AtscAudioTrack.newBuilder()
+                                .setLanguage(language)
+                                .setAudioType(AtscAudioTrack.AudioType.AUDIOTYPE_UNDEFINED)
+                                .setChannelCount(audioDescriptor.getNumChannels())
+                                .setSampleRate(audioDescriptor.getSampleRate())
+                                .build();
                 ac3Tracks.add(audioTrack);
             }
         }
@@ -1254,26 +1258,27 @@ public class SectionParser {
         }
         int size = Math.max(ac3Tracks.size(), iso639LanguageTracks.size());
         for (int i = 0; i < size; ++i) {
-            AtscAudioTrack audioTrack = null;
+            AtscAudioTrack.Builder audioTrack = null;
             if (i < ac3Tracks.size()) {
-                audioTrack = ac3Tracks.get(i);
+                audioTrack = ac3Tracks.get(i).toBuilder();
             }
             if (i < iso639LanguageTracks.size()) {
                 if (audioTrack == null) {
-                    audioTrack = iso639LanguageTracks.get(i);
+                    audioTrack = iso639LanguageTracks.get(i).toBuilder();
                 } else {
                     AtscAudioTrack iso639LanguageTrack = iso639LanguageTracks.get(i);
-                    if (audioTrack.language == null || TextUtils.equals(audioTrack.language, "")) {
-                        audioTrack.language = iso639LanguageTrack.language;
+                    if (!audioTrack.hasLanguage()
+                            || TextUtils.equals(audioTrack.getLanguage(), "")) {
+                        audioTrack.setLanguage(iso639LanguageTrack.getLanguage());
                     }
-                    audioTrack.audioType = iso639LanguageTrack.audioType;
+                    audioTrack.setAudioType(iso639LanguageTrack.getAudioType());
                 }
             }
-            String language = ISO_LANGUAGE_CODE_MAP.get(audioTrack.language);
+            String language = ISO_LANGUAGE_CODE_MAP.get(audioTrack.getLanguage());
             if (language != null) {
-                audioTrack.language = language;
+                audioTrack = audioTrack.setLanguage(language);
             }
-            tracks.add(audioTrack);
+            tracks.add(audioTrack.build());
         }
         return tracks;
     }
@@ -1592,10 +1597,16 @@ public class SectionParser {
                 return null;
             }
             String language = new String(data, pos, 3);
-            int audioType = data[pos + 3] & 0xff;
-            AtscAudioTrack audioTrack = new AtscAudioTrack();
-            audioTrack.language = language;
-            audioTrack.audioType = audioType;
+            int audioTypeInt = data[pos + 3] & 0xff;
+            AtscAudioTrack.AudioType audioType = AtscAudioTrack.AudioType.forNumber(audioTypeInt);
+            if (audioType == null) {
+                audioType = AtscAudioTrack.AudioType.AUDIOTYPE_UNDEFINED;
+            }
+            AtscAudioTrack audioTrack =
+                    AtscAudioTrack.newBuilder()
+                            .setLanguage(language)
+                            .setAudioType(audioType)
+                            .build();
             audioTracks.add(audioTrack);
             pos += 4;
         }
@@ -1634,11 +1645,13 @@ public class SectionParser {
             reserved[0] |= (byte) ((data[pos + 1] & 0xc0) >>> 6);
             reserved[1] = (byte) ((data[pos + 1] & 0x3f) << 2);
             pos += 2;
-            AtscCaptionTrack captionTrack = new AtscCaptionTrack();
-            captionTrack.language = language;
-            captionTrack.serviceNumber = captionServiceNumber;
-            captionTrack.easyReader = easyReader;
-            captionTrack.wideAspectRatio = wideAspectRatio;
+            AtscCaptionTrack captionTrack =
+                    AtscCaptionTrack.newBuilder()
+                            .setLanguage(language)
+                            .setServiceNumber(captionServiceNumber)
+                            .setEasyReader(easyReader)
+                            .setWideAspectRatio(wideAspectRatio)
+                            .build();
             services.add(captionTrack);
         }
         return new CaptionServiceDescriptor(services);
@@ -2075,6 +2088,11 @@ public class SectionParser {
     }
 
     private static boolean checkSanity(byte[] data) {
+        // Skipping CRC checking on Archer since TS data here was modified without updating CRC
+        // value. For details, see b/28616908.
+        if (Model.ARCHER.isEnabled()) {
+            return true;
+        }
         if (data.length <= 1) {
             return false;
         }

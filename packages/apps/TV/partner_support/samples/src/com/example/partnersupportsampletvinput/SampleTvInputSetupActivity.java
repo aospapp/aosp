@@ -18,7 +18,7 @@ package com.example.partnersupportsampletvinput;
 
 import android.app.Activity;
 import android.os.Bundle;
-import android.support.v17.leanback.app.GuidedStepFragment;
+import androidx.leanback.app.GuidedStepFragment;
 
 /** The setup activity for partner support sample TV input. */
 public class SampleTvInputSetupActivity extends Activity {

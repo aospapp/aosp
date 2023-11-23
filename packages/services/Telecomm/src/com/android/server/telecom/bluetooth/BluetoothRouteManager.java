@@ -645,6 +645,16 @@ public class BluetoothRouteManager extends StateMachine {
             Log.i(this, "No device with address %s available. Using %s instead.",
                     address, actualAddress);
         }
+
+        BluetoothDevice alreadyConnectedDevice = getBluetoothAudioConnectedDevice();
+        if (alreadyConnectedDevice != null && alreadyConnectedDevice.getAddress().equals(
+                actualAddress)) {
+            Log.i(this, "trying to connect to already connected device -- skipping connection"
+                    + " and going into the actual connected state.");
+            transitionToActualState();
+            return null;
+        }
+
         if (!mDeviceManager.connectAudio(actualAddress)) {
             boolean shouldRetry = retryCount < MAX_CONNECTION_RETRIES;
             Log.w(LOG_TAG, "Could not connect to %s. Will %s", actualAddress,

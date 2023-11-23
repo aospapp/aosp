@@ -16,8 +16,8 @@
 
 package com.android.server.telecom.tests;
 
-import com.android.internal.telephony.CallerInfo;
-import com.android.internal.telephony.CallerInfoAsyncQuery;
+import android.telecom.CallerInfo;
+import android.telecom.CallerInfoAsyncQuery;
 import com.android.server.telecom.CallerInfoAsyncQueryFactory;
 
 import android.content.Context;
@@ -27,7 +27,9 @@ import org.mockito.Mockito;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Controls a test {@link CallerInfoAsyncQueryFactory} to abstract away the asynchronous retrieval
@@ -58,14 +60,22 @@ public class CallerInfoAsyncQueryFactoryFixture implements
             r.mCookie = cookie;
             r.mListener = listener;
             mRequests.add(r);
+            if (mStoredResponse != null) {
+                listener.onQueryComplete(token, cookie, mStoredResponse);
+            }
             return Mockito.mock(CallerInfoAsyncQuery.class);
         }
     };
 
     final List<Request> mRequests = Collections.synchronizedList(new ArrayList<Request>());
+    private CallerInfo mStoredResponse;
 
     public CallerInfoAsyncQueryFactoryFixture() throws Exception {
         Log.i(this, "Creating ...");
+    }
+
+    public void setResponse(CallerInfo callerInfo) {
+        mStoredResponse = callerInfo;
     }
 
     @Override

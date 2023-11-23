@@ -16,6 +16,9 @@
 
 package com.android.managedprovisioning.common;
 
+import static android.content.pm.PackageManager.MATCH_HIDDEN_UNTIL_INSTALLED_COMPONENTS;
+import static android.content.pm.PackageManager.MATCH_UNINSTALLED_PACKAGES;
+
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.eq;
@@ -49,6 +52,7 @@ import java.io.FileOutputStream;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Unit-tests for {@link Utils}.
@@ -57,6 +61,7 @@ import java.util.Set;
 public class UtilsTest extends AndroidTestCase {
     private static final String TEST_PACKAGE_NAME_1 = "com.test.packagea";
     private static final String TEST_PACKAGE_NAME_2 = "com.test.packageb";
+    private static final String TEST_PACKAGE_NAME_3 = "com.test.packagec";
     private static final String TEST_DEVICE_ADMIN_NAME = TEST_PACKAGE_NAME_1 + ".DeviceAdmin";
     // Another DeviceAdmin in package 1
     private static final String TEST_DEVICE_ADMIN_NAME_2 = TEST_PACKAGE_NAME_1 + ".DeviceAdmin2";
@@ -97,17 +102,30 @@ public class UtilsTest extends AndroidTestCase {
 
     public void testGetCurrentSystemApps() throws Exception {
         // GIVEN two currently installed apps, one of which is system
-        List<ApplicationInfo> appList = Arrays.asList(
-                createApplicationInfo(TEST_PACKAGE_NAME_1, false),
-                createApplicationInfo(TEST_PACKAGE_NAME_2, true));
+        final List<ApplicationInfo> systemAppsWithHiddenUntilInstalled = Arrays.asList(
+                createApplicationInfo(
+                        TEST_PACKAGE_NAME_1, /* system */ false, /* hiddenUntilInstalled */ false),
+                createApplicationInfo(
+                        TEST_PACKAGE_NAME_2, /* system */ true, /* hiddenUntilInstalled */ false),
+                createApplicationInfo(
+                        TEST_PACKAGE_NAME_3, /* system */ true, /* hiddenUntilInstalled */ true));
+        final List<ApplicationInfo> systemApps =
+                systemAppsWithHiddenUntilInstalled.stream()
+                        .filter(applicationInfo -> !applicationInfo.hiddenUntilInstalled)
+                        .collect(Collectors.toList());
         when(mockIPackageManager.getInstalledApplications(
-                PackageManager.MATCH_UNINSTALLED_PACKAGES, TEST_USER_ID))
-                .thenReturn(new ParceledListSlice<ApplicationInfo>(appList));
+                MATCH_UNINSTALLED_PACKAGES, TEST_USER_ID))
+                .thenReturn(new ParceledListSlice<>(systemApps));
+        when(mockIPackageManager.getInstalledApplications(
+                MATCH_UNINSTALLED_PACKAGES | MATCH_HIDDEN_UNTIL_INSTALLED_COMPONENTS, TEST_USER_ID))
+                .thenReturn(new ParceledListSlice<>(systemAppsWithHiddenUntilInstalled));
+
         // WHEN requesting the current system apps
         Set<String> res = mUtils.getCurrentSystemApps(mockIPackageManager, TEST_USER_ID);
-        // THEN the one system app should be returned
-        assertEquals(1, res.size());
+        // THEN two system apps should be returned
+        assertEquals(2, res.size());
         assertTrue(res.contains(TEST_PACKAGE_NAME_2));
+        assertTrue(res.contains(TEST_PACKAGE_NAME_3));
     }
 
     public void testSetComponentEnabledSetting() throws Exception {
@@ -166,24 +184,44 @@ public class UtilsTest extends AndroidTestCase {
         assertFalse(mUtils.isConnectedToNetwork(mockContext));
     }
 
-    public void testIsConnectedToWifi() throws Exception {
+    public void testIsNetworkTypeWifiConnected() throws Exception {
         // GIVEN the device is currently connected to mobile network
         setCurrentNetworkMock(ConnectivityManager.TYPE_MOBILE, true);
         // WHEN checking whether connected to wifi
         // THEN utils should return false
-        assertFalse(mUtils.isConnectedToWifi(mockContext));
+        assertFalse(mUtils.isNetworkTypeConnected(mockContext, ConnectivityManager.TYPE_WIFI));
 
         // GIVEN the device is currently connected to wifi
         setCurrentNetworkMock(ConnectivityManager.TYPE_WIFI, true);
         // WHEN checking whether connected to wifi
         // THEN utils should return true
-        assertTrue(mUtils.isConnectedToWifi(mockContext));
+        assertTrue(mUtils.isNetworkTypeConnected(mockContext, ConnectivityManager.TYPE_WIFI));
 
         // GIVEN the device is currently disconnected on wifi
         setCurrentNetworkMock(ConnectivityManager.TYPE_WIFI, false);
         // WHEN checking whether connected to wifi
         // THEN utils should return false
-        assertFalse(mUtils.isConnectedToWifi(mockContext));
+        assertFalse(mUtils.isNetworkTypeConnected(mockContext, ConnectivityManager.TYPE_WIFI));
+    }
+
+    public void testIsNetworkTypeEthernetConnected() throws Exception {
+        // GIVEN the device is currently connected to mobile network
+        setCurrentNetworkMock(ConnectivityManager.TYPE_MOBILE, true);
+        // WHEN checking whether connected to wifi
+        // THEN utils should return false
+        assertFalse(mUtils.isNetworkTypeConnected(mockContext, ConnectivityManager.TYPE_ETHERNET));
+
+        // GIVEN the device is currently connected to wifi
+        setCurrentNetworkMock(ConnectivityManager.TYPE_ETHERNET, true);
+        // WHEN checking whether connected to wifi
+        // THEN utils should return true
+        assertTrue(mUtils.isNetworkTypeConnected(mockContext, ConnectivityManager.TYPE_ETHERNET));
+
+        // GIVEN the device is currently disconnected on wifi
+        setCurrentNetworkMock(ConnectivityManager.TYPE_ETHERNET, false);
+        // WHEN checking whether connected to wifi
+        // THEN utils should return false
+        assertFalse(mUtils.isNetworkTypeConnected(mockContext, ConnectivityManager.TYPE_ETHERNET));
     }
 
     public void testGetActiveNetworkInfo() throws Exception {
@@ -392,12 +430,14 @@ public class UtilsTest extends AndroidTestCase {
         assertTrue(mUtils.canResolveIntentAsUser(mockContext, intent, TEST_USER_ID));
     }
 
-    private ApplicationInfo createApplicationInfo(String packageName, boolean system) {
+    private ApplicationInfo createApplicationInfo(
+            String packageName, boolean system, boolean hiddenUntilInstalled) {
         ApplicationInfo ai = new ApplicationInfo();
         ai.packageName = packageName;
         if (system) {
             ai.flags = ApplicationInfo.FLAG_SYSTEM;
         }
+        ai.hiddenUntilInstalled = hiddenUntilInstalled;
         return ai;
     }
 

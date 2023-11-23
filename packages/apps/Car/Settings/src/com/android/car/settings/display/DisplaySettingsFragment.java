@@ -15,14 +15,19 @@
  */
 package com.android.car.settings.display;
 
+import android.provider.Settings;
+
 import androidx.annotation.XmlRes;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.SettingsFragment;
+import com.android.car.settings.search.CarBaseSearchIndexProvider;
+import com.android.settingslib.search.SearchIndexable;
 
 /**
  * Preference fragment to host Display related preferences.
  */
+@SearchIndexable
 public class DisplaySettingsFragment extends SettingsFragment {
 
     @Override
@@ -30,4 +35,8 @@ public class DisplaySettingsFragment extends SettingsFragment {
     protected int getPreferenceScreenResId() {
         return R.xml.display_settings_fragment;
     }
+
+    public static final CarBaseSearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
+            new CarBaseSearchIndexProvider(R.xml.display_settings_fragment,
+                    Settings.ACTION_DISPLAY_SETTINGS);
 }

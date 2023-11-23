@@ -17,13 +17,13 @@
 package com.android.car.settings.applications.assist;
 
 import android.car.drivingstate.CarUxRestrictions;
-import android.car.userlib.CarUserManagerHelper;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.database.ContentObserver;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.UserHandle;
 import android.provider.Settings;
 
 import androidx.preference.TwoStatePreference;
@@ -40,14 +40,12 @@ public abstract class AssistConfigBasePreferenceController extends
 
     private final SettingObserver mSettingObserver;
     private final AssistUtils mAssistUtils;
-    private final CarUserManagerHelper mCarUserManagerHelper;
 
     public AssistConfigBasePreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
         mAssistUtils = new AssistUtils(context);
         mSettingObserver = new SettingObserver(getSettingUris(), this::refreshUi);
-        mCarUserManagerHelper = new CarUserManagerHelper(context);
     }
 
     @Override
@@ -57,9 +55,8 @@ public abstract class AssistConfigBasePreferenceController extends
 
     @Override
     protected int getAvailabilityStatus() {
-        int userId = mCarUserManagerHelper.getCurrentProcessUserId();
-        return mAssistUtils.getAssistComponentForUser(userId) != null ? AVAILABLE
-                : CONDITIONALLY_UNAVAILABLE;
+        return mAssistUtils.getAssistComponentForUser(
+                UserHandle.myUserId()) != null ? AVAILABLE : CONDITIONALLY_UNAVAILABLE;
     }
 
     @Override
@@ -99,7 +96,7 @@ public abstract class AssistConfigBasePreferenceController extends
                 if (mUriList != null) {
                     for (Uri uri : mUriList) {
                         cr.registerContentObserver(uri, /* notifyForDescendants= */ false,
-                                /* observer=*/ this);
+                                /* observer= */ this);
                     }
                 }
             } else {

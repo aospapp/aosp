@@ -20,7 +20,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1527793174155125990">"Поставување работен профил"</string>
-    <string name="provisioning_error_title" msgid="6320515739861578118">"Оф леле!"</string>
+    <string name="provisioning_error_title" msgid="6320515739861578118">"Упс!"</string>
     <string name="setup_work_profile" msgid="1468934631731845267">"Поставување работен профил"</string>
     <string name="company_controls_workspace" msgid="2808025277267917221">"Вашата организација го контролира профилот и го одржува безбеден. Вие контролирате сѐ останато на уредот."</string>
     <string name="company_controls_device" msgid="8230957518758871390">"Организацијата ќе го контролира уредот и ќе го чува безбеден."</string>
@@ -83,8 +83,10 @@
     <string name="reset" msgid="6467204151306265796">"Ресетирај"</string>
     <string name="cant_set_up_profile" msgid="4341825293970158436">"Не може да се постави профил"</string>
     <string name="cant_set_up_device" msgid="4120090138983350714">"Не може да се постави уредот"</string>
+    <string name="something_went_wrong" msgid="3593223774041784329">"Нешто тргна наопаку"</string>
     <string name="couldnt_set_up_device" msgid="5137950404283642302">"Уредот не можеше да се постави. За помош, контактирајте со вашиот IT-администратор."</string>
     <string name="contact_your_admin_for_help" msgid="2009904021552323731">"Контактирајте со вашиот IT-администратор за помош"</string>
+    <string name="reset_device" msgid="5483853913241939262">"Ресетирајте го уредов и поставете го повторно"</string>
     <string name="device_already_set_up" msgid="507881934487140294">"Уредот е веќе поставен"</string>
     <string name="error_wifi" msgid="1850288843966836571">"Не можеше да се поврзе на Wi-Fi"</string>
     <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"На вашиот уред е вклучена заштита од ресетирање. За помош, контактирајте со вашиот IT-администратор."</string>
@@ -161,25 +163,34 @@
     <string name="setup_provisioning_header" msgid="4282483198266806271">"Се подготвува поставувањето на работниот уред…"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"Се поставува апликацијата за администратор"</string>
     <string name="set_up_everything_else" msgid="4407706086957916501">"Поставете сѐ останато"</string>
-    <string name="now_lets_set_up_everything_else" msgid="2905102208584231894">"Сега, ајде да поставиме сѐ останато"</string>
+    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"Додајте лична сметка за да добиете повеќе од вашиот уред"</string>
+    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"Сега кога вашиот работен профил е спремен, може да додадете и лична сметка на Google за да пристапувате до апликациите и содржините."</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"Уредов е во сопственост на организацијата"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"Следнава апликација ќе се користи за управување и следење на телефонов"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"Подготовка за поставување работен профил…"</string>
-    <string name="work_profile_provisioning_accept_header" msgid="462916780311392444">"Прво, ајде да го поставиме вашиот работен профил"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Ајде да го поставиме вашиот работен профил"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"Работните апликации се чуваат во вашиот работен профил"</string>
     <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"Паузирајте ги работните апликации кога ќе завршите за тој ден"</string>
-    <string name="work_profile_provisioning_step_3_header" msgid="7495564624887776704">"Единствено податоците од работниот профил се видливи за вашиот IT-администратор"</string>
+    <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"Податоците во работниот профил се видливи за IT-администраторот"</string>
     <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"Се поставува работниот профил…"</string>
-    <string name="work_profile_provisioning_summary" msgid="3917907344897144246">"Работните апликации се чуваат во вашиот работен профил. Може да ги паузирате кога ќе завршите за тој ден. Единствено податоците од работниот профил се видливи за вашиот IT-администратор."</string>
+    <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"Работните апликации се чуваат во вашиот работен профил. Може да ги паузирате кога ќе завршите за тој ден. Податоците во работниот профил се видливи за IT-администраторот."</string>
     <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"Ајде да го поставиме вашиот работен уред"</string>
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"Имајте лесен пристап до работните апликации"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"Уредов не е приватен"</string>
     <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"Вашиот IT-администратор можеби ќе ги гледа вашите податоци и активноста на уредов."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"Уредот се поставува…"</string>
     <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"Користете го уредов за лесен пристап до работните апликации. Уредов не е приватен, па затоа вашиот IT-администратор можеби ќе ги гледа вашите податоци и активноста. За да дознаете повеќе, контактирајте со вашиот IT-администратор."</string>
+    <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"Работните апликации се чуваат во работниот профил и со нив управува IT-администраторот"</string>
+    <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"Личните апликации се одделни и сокриени од работните апликации"</string>
+    <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"IT-администраторот може да го контролира уредов и да блокира одредени апликации"</string>
+    <string name="cope_provisioning_summary" msgid="993014104601034878">"Работните апликации се чуваат во вашиот работен профил и со нив управува IT-администраторот. Личните апликации се одделени и сокриени од работните апликации. IT-администраторот може да го контролира уредов и да блокира одредени апликации."</string>
+    <string name="just_a_sec" msgid="6244676028626237220">"Само момент…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"Потсетник за приватност"</string>
     <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"Вашиот IT-администратор можеби ќе ги гледа вашите податоци и активноста на уредов"</string>
     <string name="device_provisioning_finished" msgid="3981783240592092906">"Уредот е спремен за користење."</string>
     <string name="done" msgid="7755227776955952318">"Готово"</string>
+    <string name="financed_device_screen_header" msgid="7890706080917322376">"Уредов е купен на кредит од <xliff:g id="CREDITOR_NAME">%1$s</xliff:g>"</string>
+    <string name="creditor_capabilities_header" msgid="6217362648469323253">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> може:"</string>
+    <string name="install_creditor_app_description" msgid="6159751782301108878">"да ја инсталира апликацијата <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> за да може да вршите плаќања за уредов;"</string>
+    <string name="lock_device_description" msgid="2940362560732989166">"да забрани пристап до уредов ако не вршите плаќања."</string>
 </resources>

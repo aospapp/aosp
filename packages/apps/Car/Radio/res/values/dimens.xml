@@ -103,8 +103,8 @@ limitations under the License.
     <dimen name="tab_icon_margin">@*android:dimen/car_padding_1</dimen>
     <dimen name="tab_elevation">8dp</dimen>
     <dimen name="tab_padding">@*android:dimen/car_padding_4</dimen>
-    <dimen name="tab_margin_left">@*android:dimen/car_padding_4</dimen>
-    <dimen name="tab_margin_right">@dimen/radio_margin</dimen>
+    <dimen name="tab_margin_start">@*android:dimen/car_padding_4</dimen>
+    <dimen name="tab_margin_end">@dimen/radio_margin</dimen>
     <dimen name="band_selector_size">@dimen/tab_height</dimen>
 
 </resources>

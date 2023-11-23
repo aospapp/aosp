@@ -29,9 +29,9 @@ import androidx.preference.Preference;
 
 import com.android.car.developeroptions.R;
 import com.android.car.developeroptions.search.BaseSearchIndexProvider;
-import com.android.car.developeroptions.search.Indexable;
 import com.android.car.developeroptions.widget.SeekBarPreference;
 import com.android.car.developeroptions.widget.SwitchBar;
+import com.android.settingslib.search.Indexable;
 import com.android.settingslib.search.SearchIndexable;
 
 import java.util.ArrayList;
@@ -136,8 +136,6 @@ public class ToggleAutoclickPreferenceFragment extends ToggleFeaturePreferenceFr
         mDelay.setMax(delayToSeekBarProgress(MAX_AUTOCLICK_DELAY));
         mDelay.setProgress(delayToSeekBarProgress(delay));
         mDelay.setOnPreferenceChangeListener(this);
-        mFooterPreferenceMixin.createFooterPreference()
-                .setTitle(R.string.accessibility_autoclick_description);
     }
 
     @Override

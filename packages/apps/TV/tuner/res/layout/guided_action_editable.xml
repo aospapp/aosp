@@ -15,13 +15,13 @@
   ~ limitations under the License.
   -->
 
-<android.support.v17.leanback.widget.GuidedActionItemContainer
+<androidx.leanback.widget.GuidedActionItemContainer
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/guidedactions_editable"
     style="?attr/guidedActionItemContainerStyle"
     android:layout_height="88dp">
 
-    <android.support.v17.leanback.widget.NonOverlappingLinearLayout
+    <androidx.leanback.widget.NonOverlappingLinearLayout
         android:id="@+id/guidedactions_item_content"
         style="?attr/guidedActionItemContentStyle" >
 
@@ -32,10 +32,10 @@
             android:textColor="@color/lb_guidedactions_item_unselected_text_color"
             android:textSize="16sp" />
 
-        <android.support.v17.leanback.widget.GuidedActionEditText
+        <androidx.leanback.widget.GuidedActionEditText
             android:id="@+id/guidedactions_item_description"
             style="?attr/guidedActionItemDescriptionStyle" />
 
-    </android.support.v17.leanback.widget.NonOverlappingLinearLayout>
+    </androidx.leanback.widget.NonOverlappingLinearLayout>
 
-</android.support.v17.leanback.widget.GuidedActionItemContainer>
+</androidx.leanback.widget.GuidedActionItemContainer>

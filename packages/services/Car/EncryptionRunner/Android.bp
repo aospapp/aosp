@@ -29,25 +29,3 @@ android_library {
     installable: true,
 }
 
-android_test {
-    name: "EncryptionRunnerTest",
-    min_sdk_version: "23",
-    srcs: [
-        "test/**/*.java",
-    ],
-    product_variables: {
-        pdk: {
-            enabled: false,
-        },
-    },
-    libs: [
-        "android.test.base",
-        "android.test.runner",
-    ],
-    static_libs: [
-        "androidx.test.rules",
-        "EncryptionRunner",
-        "junit",
-        "truth-prebuilt",
-    ],
-}

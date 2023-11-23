@@ -1,9 +1,24 @@
+genrule {
+    name: "statslog-telecom-java-gen",
+    tools: ["stats-log-api-gen"],
+    cmd: "$(location stats-log-api-gen) --java $(out) --module telecom"
+        + " --javaPackage com.android.server.telecom --javaClass TelecomStatsLog",
+    out: ["com/android/server/telecom/TelecomStatsLog.java"],
+}
+
+filegroup {
+    name: "Telecom-srcs",
+    srcs: [
+        "src/**/*.java",
+        ":statslog-telecom-java-gen",
+    ],
+}
+
 // Build the Telecom service.
 android_app {
     name: "Telecom",
-    libs: ["telephony-common"],
     srcs: [
-        "src/**/*.java",
+        ":Telecom-srcs",
         "proto/**/*.proto",
     ],
     resource_dirs: ["res"],
@@ -26,17 +41,18 @@ android_test {
     static_libs: [
         "android-ex-camera2",
         "guava",
-        "mockito-target-inline",
+        "mockito-target-extended",
         "androidx.test.rules",
         "platform-test-annotations",
         "androidx.legacy_legacy-support-core-ui",
         "androidx.legacy_legacy-support-core-utils",
         "androidx.core_core",
         "androidx.fragment_fragment",
+        "androidx.test.ext.junit"
     ],
     srcs: [
         "tests/src/**/*.java",
-        "src/**/*.java",
+        ":Telecom-srcs",
         "proto/**/*.proto",
     ],
     proto: {
@@ -52,10 +68,12 @@ android_test {
         "android.test.mock",
         "android.test.base",
         "android.test.runner",
-        "telephony-common",
     ],
 
-    jni_libs: ["libdexmakerjvmtiagent"],
+    jni_libs: [
+        "libdexmakerjvmtiagent",
+        "libstaticjvmtiagent",
+    ],
 
     aaptflags: [
         "--auto-add-overlay",

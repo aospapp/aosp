@@ -115,7 +115,8 @@ public class WifiConfigurationProviderTest {
         assertTrue(wifiConf.allowedKeyManagement.get(WifiConfiguration.KeyMgmt.WPA_PSK));
         assertTrue(wifiConf.allowedProtocols.get(WifiConfiguration.Protocol.WPA));
         assertEquals("\"" + TEST_PASSWORD + "\"", wifiConf.preSharedKey);
-        assertEquals(IpConfiguration.ProxySettings.UNASSIGNED, wifiConf.getProxySettings());
+        assertEquals(IpConfiguration.ProxySettings.UNASSIGNED,
+                wifiConf.getIpConfiguration().getProxySettings());
     }
 
     @Test
@@ -125,7 +126,8 @@ public class WifiConfigurationProviderTest {
         assertBase(wifiConf);
         assertTrue(wifiConf.allowedKeyManagement.get(WifiConfiguration.KeyMgmt.NONE));
         assertEquals("\"" + TEST_PASSWORD + "\"", wifiConf.wepKeys[0]);
-        assertEquals(IpConfiguration.ProxySettings.UNASSIGNED, wifiConf.getProxySettings());
+        assertEquals(IpConfiguration.ProxySettings.UNASSIGNED,
+                wifiConf.getIpConfiguration().getProxySettings());
     }
 
     @Test
@@ -135,7 +137,8 @@ public class WifiConfigurationProviderTest {
         assertBase(wifiConf);
         assertTrue(wifiConf.allowedKeyManagement.get(WifiConfiguration.KeyMgmt.NONE));
         assertEquals(TEST_PASSWORD_WEP, wifiConf.wepKeys[0]);
-        assertEquals(IpConfiguration.ProxySettings.UNASSIGNED, wifiConf.getProxySettings());
+        assertEquals(IpConfiguration.ProxySettings.UNASSIGNED,
+                wifiConf.getIpConfiguration().getProxySettings());
     }
 
     @Test
@@ -145,7 +148,8 @@ public class WifiConfigurationProviderTest {
         assertBase(wifiConf);
         assertTrue(wifiConf.allowedKeyManagement.get(WifiConfiguration.KeyMgmt.NONE));
         assertTrue(wifiConf.allowedAuthAlgorithms.get(WifiConfiguration.AuthAlgorithm.OPEN));
-        assertEquals(IpConfiguration.ProxySettings.UNASSIGNED, wifiConf.getProxySettings());
+        assertEquals(IpConfiguration.ProxySettings.UNASSIGNED,
+                wifiConf.getIpConfiguration().getProxySettings());
     }
 
     @Test
@@ -155,7 +159,8 @@ public class WifiConfigurationProviderTest {
         assertBase(wifiConf);
         assertTrue(wifiConf.allowedKeyManagement.get(WifiConfiguration.KeyMgmt.NONE));
         assertTrue(wifiConf.allowedAuthAlgorithms.get(WifiConfiguration.AuthAlgorithm.OPEN));
-        assertEquals(IpConfiguration.ProxySettings.UNASSIGNED, wifiConf.getProxySettings());
+        assertEquals(IpConfiguration.ProxySettings.UNASSIGNED,
+                wifiConf.getIpConfiguration().getProxySettings());
     }
 
     @Test
@@ -163,7 +168,8 @@ public class WifiConfigurationProviderTest {
         WifiConfiguration wifiConf = mProvider.generateWifiConfiguration(WIFI_INFO_PAC);
 
         assertBase(wifiConf);
-        assertEquals(IpConfiguration.ProxySettings.PAC, wifiConf.getProxySettings());
+        assertEquals(IpConfiguration.ProxySettings.PAC,
+                wifiConf.getIpConfiguration().getProxySettings());
     }
 
     @Test
@@ -171,7 +177,8 @@ public class WifiConfigurationProviderTest {
         WifiConfiguration wifiConf = mProvider.generateWifiConfiguration(WIFI_INFO_PROXY);
 
         assertBase(wifiConf);
-        assertEquals(IpConfiguration.ProxySettings.STATIC, wifiConf.getProxySettings());
+        assertEquals(IpConfiguration.ProxySettings.STATIC,
+                wifiConf.getIpConfiguration().getProxySettings());
     }
 
     @Test
@@ -378,7 +385,6 @@ public class WifiConfigurationProviderTest {
         assertEquals(TEST_SSID, wifiConf.SSID);
         assertEquals(TEST_HIDDEN, wifiConf.hiddenSSID);
         assertEquals(WifiConfiguration.Status.ENABLED, wifiConf.status);
-        assertEquals(WifiConfiguration.USER_APPROVED, wifiConf.userApproved);
     }
 
     private void assertEnterpriseConfig(WifiConfiguration wifiConf,

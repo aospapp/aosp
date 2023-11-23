@@ -60,6 +60,11 @@
     <string name="forget" msgid="892068061425802502">"ਛੱਡੋ"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"ਵਾਈ-ਫਾਈ ਡਾਇਰੈਕਟ ਰਾਹੀਂ ਕਨੈਕਟ ਕਰਦਾ ਹੈ"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"<xliff:g id="IP_ADDRESS">%1$s</xliff:g> \'ਤੇ ਵਰਤਮਾਨ ਨੈੱਟਵਰਕ ਰਾਹੀਂ ਕਨੈਕਟ ਕਰਦਾ ਹੈ"</string>
+    <string name="recommendation_summary" msgid="2979700524954307566">"ਪੂਰਵ-ਨਿਰਧਾਰਤ ਪ੍ਰਿੰਟ ਸੇਵਾ ਮੂਲ ਵਿਕਲਪ ਪ੍ਰਦਾਨ ਕਰਦੀ ਹੈ। ਇਸ ਪ੍ਰਿੰਟਰ ਲਈ ਹੋਰ ਵਿਕਲਪ ਕਿਸੇ ਹੋਰ ਪ੍ਰਿੰਟ ਸੇਵਾ ਤੋਂ ਉਪਲਬਧ ਹੋ ਸਕਦੇ ਹਨ।"</string>
+    <string name="recommendations_heading" msgid="5086762263560605249">"ਸਿਫ਼ਾਰਸ਼ ਕੀਤੀਆਂ ਸੇਵਾਵਾਂ"</string>
+    <string name="recommendation_install_summary" msgid="374785283809791669">"ਸਥਾਪਤ ਕਰਨ ਲਈ ਚੁਣੋ"</string>
+    <string name="recommendation_enable_summary" msgid="3500907868251326224">"ਚਾਲੂ ਕਰਨ ਲਈ ਚੁਣੋ"</string>
+    <string name="recommendation_manage" msgid="4683640588502866284">"ਸੇਵਾਵਾਂ ਦਾ ਪ੍ਰਬੰਧਨ ਕਰੋ"</string>
     <string name="security" msgid="2279008326210305401">"ਸੁਰੱਖਿਆ"</string>
     <string name="certificate_update_request" msgid="1314796413107139475">"ਇਸ ਪ੍ਰਿੰਟਰ ਨੇ ਇੱਕ ਨਵਾਂ ਸੁਰ ਪ੍ਰਮਾਣ-ਪੱਤਰ ਮੁਹੱਈਆ ਕਰਵਾਇਆ ਹੈ, ਜਾਂ ਕਿਸੇ ਹੋਰ ਡੀਵਾਈਸ ਨੇ ਇਸਦਾ ਪਰਰੂਪਣ ਕੀਤਾ ਹੈ। ਨਵਾਂ ਪ੍ਰਮਾਣ-ਪੱਤਰ ਸਵੀਕਾਰ ਕਰੋ?"</string>
     <string name="not_encrypted_request" msgid="4871472176807381642">"ਇਹ ਪ੍ਰਿੰਟਰ ਹੁਣ ਇਨਕ੍ਰਿਪਟਡ ਜੌਬਾਂ ਸਵੀਕਾਰ ਨਹੀਂ ਕਰਦਾ ਹੈ। ਕੀ ਪ੍ਰਿੰਟਿੰਗ ਜਾਰੀ ਰੱਖਣੀ ਹੈ?"</string>
@@ -68,4 +73,5 @@
     <string name="connections" msgid="8895413761760117180">"ਕਨੈਕਸ਼ਨ"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"ਪੂਰਵ-ਨਿਰਧਾਰਤ ਪ੍ਰਿੰਟ ਸੇਵਾ ਨੂੰ ਨਜ਼ਦੀਕੀ ਡੀਵਾਈਸ ਲੱਭਣ ਲਈ ਟਿਕਾਣਾ ਇਜਾਜ਼ਤ ਦੀ ਲੋੜ ਹੁੰਦੀ ਹੈ।"</string>
     <string name="fix" msgid="7784394272611365393">"ਇਜਾਜ਼ਤ ਦੀ ਸਮੀਖਿਆ ਕਰੋ"</string>
+    <string name="print" msgid="7851318072404916362">"ਪ੍ਰਿੰਟ ਕਰੋ"</string>
 </resources>

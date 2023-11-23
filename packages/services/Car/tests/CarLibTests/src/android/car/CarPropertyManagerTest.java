@@ -26,7 +26,6 @@ import android.car.testapi.CarPropertyController;
 import android.car.testapi.FakeCar;
 
 import androidx.test.core.app.ApplicationProvider;
-import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -34,8 +33,11 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.robolectric.RobolectricTestRunner;
+import org.robolectric.annotation.internal.DoNotInstrument;
 
-@RunWith(AndroidJUnit4.class)
+@RunWith(RobolectricTestRunner.class)
+@DoNotInstrument
 public class CarPropertyManagerTest {
     private static final int FAN_SPEED_VALUE = 42;
     private static final float TEMPERATURE_VALUE = 42.24f;

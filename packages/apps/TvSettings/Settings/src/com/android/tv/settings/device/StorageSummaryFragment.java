@@ -16,6 +16,7 @@
 
 package com.android.tv.settings.device;
 
+import android.app.tvsettings.TvSettingsEnums;
 import android.content.Context;
 import android.os.Bundle;
 import android.os.Handler;
@@ -330,5 +331,10 @@ public class StorageSummaryFragment extends SettingsPreferenceFragment {
     @Override
     public int getMetricsCategory() {
         return MetricsProto.MetricsEvent.SETTINGS_STORAGE_CATEGORY;
+    }
+
+    @Override
+    protected int getPageId() {
+        return TvSettingsEnums.SYSTEM_STORAGE;
     }
 }

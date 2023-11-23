@@ -27,6 +27,7 @@ import androidx.annotation.NonNull;
 import com.android.documentsui.base.Lookup;
 import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.base.State;
+import com.android.documentsui.base.UserId;
 import com.android.documentsui.roots.ProvidersAccess;
 import com.android.documentsui.roots.RootCursorWrapper;
 
@@ -40,6 +41,7 @@ import java.util.concurrent.Executor;
  */
 public class GlobalSearchLoader extends MultiRootDocumentsLoader {
     private final Bundle mQueryArgs;
+    private final UserId mUserId;
 
     /*
      * Create the loader to query multiple roots support
@@ -57,9 +59,10 @@ public class GlobalSearchLoader extends MultiRootDocumentsLoader {
      */
     GlobalSearchLoader(Context context, ProvidersAccess providers, State state,
             Lookup<String, Executor> executors, Lookup<String, String> fileTypeMap,
-            @NonNull Bundle queryArgs) {
+            @NonNull Bundle queryArgs, UserId userId) {
         super(context, providers, state, executors, fileTypeMap);
         mQueryArgs = queryArgs;
+        mUserId = userId;
     }
 
     @Override
@@ -69,13 +72,17 @@ public class GlobalSearchLoader extends MultiRootDocumentsLoader {
             return true;
         }
 
-        // If the value of showAdvanced is true,
-        // don't query media roots and downloads root to avoid showing
-        // duplicated files.
-        if (mState.showAdvanced && (root.isLibrary() || root.isDownloads())) {
+        if (mState.supportsCrossProfile() && root.supportsCrossProfile()
+                && !mQueryArgs.containsKey(DocumentsContract.QUERY_ARG_DISPLAY_NAME)
+                && !mUserId.equals(root.userId)) {
+            // Ignore cross-profile roots if it is not a text search. For example, the user may
+            // just filter documents by mime type.
             return true;
         }
-        return false;
+
+        // To prevent duplicate files on search result, ignore storage root because its almost
+        // files include in media root.
+        return root.isStorage();
     }
 
     @Override
@@ -105,7 +112,8 @@ public class GlobalSearchLoader extends MultiRootDocumentsLoader {
 
         @Override
         protected RootCursorWrapper generateResultCursor(RootInfo rootInfo, Cursor oriCursor) {
-            return new RootCursorWrapper(authority, rootInfo.rootId, oriCursor, -1 /* maxCount */);
+            return new RootCursorWrapper(rootInfo.userId, authority, rootInfo.rootId, oriCursor,
+                    -1 /* maxCount */);
         }
     }
 }

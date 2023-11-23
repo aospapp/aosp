@@ -30,15 +30,19 @@ import android.car.hardware.property.ICarPropertyEventListener;
 import android.content.Context;
 import android.hardware.automotive.vehicle.V2_0.VehicleGear;
 import android.hardware.automotive.vehicle.V2_0.VehicleProperty;
-import android.os.IBinder;
+import android.os.Handler;
+import android.os.HandlerThread;
+import android.os.RemoteCallbackList;
 import android.os.RemoteException;
 import android.os.SystemClock;
 import android.util.Log;
 
+import com.android.internal.annotations.GuardedBy;
+import com.android.internal.annotations.VisibleForTesting;
+
 import java.io.PrintWriter;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * A service that infers the current driving state of the vehicle.  It computes the driving state
@@ -51,25 +55,48 @@ public class CarDrivingStateService extends ICarDrivingState.Stub implements Car
     private static final int PROPERTY_UPDATE_RATE = 5; // Update rate in Hz
     private static final int NOT_RECEIVED = -1;
     private final Context mContext;
-    private CarPropertyService mPropertyService;
+    private final CarPropertyService mPropertyService;
     // List of clients listening to driving state events.
-    private final List<DrivingStateClient> mDrivingStateClients = new CopyOnWriteArrayList<>();
+    private final RemoteCallbackList<ICarDrivingStateChangeListener> mDrivingStateClients =
+            new RemoteCallbackList<>();
     // Array of properties that the service needs to listen to from CarPropertyService for deriving
     // the driving state.
     private static final int[] REQUIRED_PROPERTIES = {
             VehicleProperty.PERF_VEHICLE_SPEED,
             VehicleProperty.GEAR_SELECTION,
             VehicleProperty.PARKING_BRAKE_ON};
-    private CarDrivingStateEvent mCurrentDrivingState;
+    private final HandlerThread mClientDispatchThread = CarServiceUtils.getHandlerThread(
+            getClass().getSimpleName());
+    private final Handler mClientDispatchHandler = new Handler(mClientDispatchThread.getLooper());
+    private final Object mLock = new Object();
+
     // For dumpsys logging
+    @GuardedBy("mLock")
     private final LinkedList<Utils.TransitionLog> mTransitionLogs = new LinkedList<>();
+
+    @GuardedBy("mLock")
     private int mLastGear;
+
+    @GuardedBy("mLock")
     private long mLastGearTimestamp = NOT_RECEIVED;
+
+    @GuardedBy("mLock")
     private float mLastSpeed;
+
+    @GuardedBy("mLock")
     private long mLastSpeedTimestamp = NOT_RECEIVED;
+
+    @GuardedBy("mLock")
     private boolean mLastParkingBrakeState;
+
+    @GuardedBy("mLock")
     private long mLastParkingBrakeTimestamp = NOT_RECEIVED;
+
+    @GuardedBy("mLock")
     private List<Integer> mSupportedGears;
+
+    @GuardedBy("mLock")
+    private CarDrivingStateEvent mCurrentDrivingState;
 
     public CarDrivingStateService(Context context, CarPropertyService propertyService) {
         mContext = context;
@@ -78,26 +105,35 @@ public class CarDrivingStateService extends ICarDrivingState.Stub implements Car
     }
 
     @Override
-    public synchronized void init() {
+    public void init() {
         if (!checkPropertySupport()) {
             Log.e(TAG, "init failure.  Driving state will always be fully restrictive");
             return;
         }
         subscribeToProperties();
-        mCurrentDrivingState = createDrivingStateEvent(inferDrivingStateLocked());
-        addTransitionLog(TAG + " Boot", CarDrivingStateEvent.DRIVING_STATE_UNKNOWN,
-                mCurrentDrivingState.eventValue, mCurrentDrivingState.timeStamp);
+
+        synchronized (mLock) {
+            mCurrentDrivingState = createDrivingStateEvent(inferDrivingStateLocked());
+            addTransitionLogLocked(TAG + " Boot", CarDrivingStateEvent.DRIVING_STATE_UNKNOWN,
+                    mCurrentDrivingState.eventValue, mCurrentDrivingState.timeStamp);
+        }
     }
 
     @Override
-    public synchronized void release() {
+    public void release() {
         for (int property : REQUIRED_PROPERTIES) {
             mPropertyService.unregisterListener(property, mICarPropertyEventListener);
         }
-        for (DrivingStateClient client : mDrivingStateClients) {
-            client.listenerBinder.unlinkToDeath(client, 0);
+        while (mDrivingStateClients.getRegisteredCallbackCount() > 0) {
+            for (int i = mDrivingStateClients.getRegisteredCallbackCount() - 1; i >= 0; i--) {
+                ICarDrivingStateChangeListener client =
+                        mDrivingStateClients.getRegisteredCallbackItem(i);
+                if (client == null) {
+                    continue;
+                }
+                mDrivingStateClients.unregister(client);
+            }
         }
-        mDrivingStateClients.clear();
         mCurrentDrivingState = createDrivingStateEvent(CarDrivingStateEvent.DRIVING_STATE_UNKNOWN);
     }
 
@@ -106,7 +142,7 @@ public class CarDrivingStateService extends ICarDrivingState.Stub implements Car
      *
      * @return {@code true} if supported, {@code false} if not
      */
-    private synchronized boolean checkPropertySupport() {
+    private boolean checkPropertySupport() {
         List<CarPropertyConfig> configs = mPropertyService.getPropertyList();
         for (int propertyId : REQUIRED_PROPERTIES) {
             boolean found = false;
@@ -127,7 +163,7 @@ public class CarDrivingStateService extends ICarDrivingState.Stub implements Car
     /**
      * Subscribe to the {@link CarPropertyService} for required sensors.
      */
-    private synchronized void subscribeToProperties() {
+    private void subscribeToProperties() {
         for (int propertyId : REQUIRED_PROPERTIES) {
             mPropertyService.registerListener(propertyId, PROPERTY_UPDATE_RATE,
                     mICarPropertyEventListener);
@@ -144,46 +180,14 @@ public class CarDrivingStateService extends ICarDrivingState.Stub implements Car
      * @param listener {@link ICarDrivingStateChangeListener}
      */
     @Override
-    public synchronized void registerDrivingStateChangeListener(
-            ICarDrivingStateChangeListener listener) {
+    public void registerDrivingStateChangeListener(ICarDrivingStateChangeListener listener) {
         if (listener == null) {
             if (DBG) {
                 Log.e(TAG, "registerDrivingStateChangeListener(): listener null");
             }
             throw new IllegalArgumentException("Listener is null");
         }
-        // If a new client is registering, create a new DrivingStateClient and add it to the list
-        // of listening clients.
-        DrivingStateClient client = findDrivingStateClient(listener);
-        if (client == null) {
-            client = new DrivingStateClient(listener);
-            try {
-                listener.asBinder().linkToDeath(client, 0);
-            } catch (RemoteException e) {
-                Log.e(TAG, "Cannot link death recipient to binder " + e);
-                return;
-            }
-            mDrivingStateClients.add(client);
-        }
-    }
-
-    /**
-     * Iterates through the list of registered Driving State Change clients -
-     * {@link DrivingStateClient} and finds if the given client is already registered.
-     *
-     * @param listener Listener to look for.
-     * @return the {@link DrivingStateClient} if found, null if not
-     */
-    @Nullable
-    private DrivingStateClient findDrivingStateClient(ICarDrivingStateChangeListener listener) {
-        IBinder binder = listener.asBinder();
-        // Find the listener by comparing the binder object they host.
-        for (DrivingStateClient client : mDrivingStateClients) {
-            if (client.isHoldingBinder(binder)) {
-                return client;
-            }
-        }
-        return null;
+        mDrivingStateClients.register(listener);
     }
 
     /**
@@ -192,21 +196,13 @@ public class CarDrivingStateService extends ICarDrivingState.Stub implements Car
      * @param listener client to unregister
      */
     @Override
-    public synchronized void unregisterDrivingStateChangeListener(
-            ICarDrivingStateChangeListener listener) {
+    public void unregisterDrivingStateChangeListener(ICarDrivingStateChangeListener listener) {
         if (listener == null) {
             Log.e(TAG, "unregisterDrivingStateChangeListener(): listener null");
             throw new IllegalArgumentException("Listener is null");
         }
 
-        DrivingStateClient client = findDrivingStateClient(listener);
-        if (client == null) {
-            Log.e(TAG, "unregisterDrivingStateChangeListener(): listener was not previously "
-                    + "registered");
-            return;
-        }
-        listener.asBinder().unlinkToDeath(client, 0);
-        mDrivingStateClients.remove(client);
+        mDrivingStateClients.unregister(listener);
     }
 
     /**
@@ -216,84 +212,55 @@ public class CarDrivingStateService extends ICarDrivingState.Stub implements Car
      */
     @Override
     @Nullable
-    public synchronized CarDrivingStateEvent getCurrentDrivingState() {
-        return mCurrentDrivingState;
+    public CarDrivingStateEvent getCurrentDrivingState() {
+        synchronized (mLock) {
+            return mCurrentDrivingState;
+        }
     }
 
     @Override
     public void injectDrivingState(CarDrivingStateEvent event) {
         ICarImpl.assertPermission(mContext, Car.PERMISSION_CONTROL_APP_BLOCKING);
 
-        for (DrivingStateClient client : mDrivingStateClients) {
-            client.dispatchEventToClients(event);
-        }
+        dispatchEventToClients(event);
     }
 
-    /**
-     * Class that holds onto client related information - listener interface, process that hosts the
-     * binder object etc.
-     * <p>
-     * It also registers for death notifications of the host.
-     */
-    private class DrivingStateClient implements IBinder.DeathRecipient {
-        private final IBinder listenerBinder;
-        private final ICarDrivingStateChangeListener listener;
-
-        public DrivingStateClient(ICarDrivingStateChangeListener l) {
-            listener = l;
-            listenerBinder = l.asBinder();
-        }
-
-        @Override
-        public void binderDied() {
-            if (DBG) {
-                Log.d(TAG, "Binder died " + listenerBinder);
-            }
-            listenerBinder.unlinkToDeath(this, 0);
-            mDrivingStateClients.remove(this);
-        }
-
-        /**
-         * Returns if the given binder object matches to what this client info holds.
-         * Used to check if the listener asking to be registered is already registered.
-         *
-         * @return true if matches, false if not
-         */
-        public boolean isHoldingBinder(IBinder binder) {
-            return listenerBinder == binder;
-        }
-
-        /**
-         * Dispatch the events to the listener
-         *
-         * @param event {@link CarDrivingStateEvent}.
-         */
-        public void dispatchEventToClients(CarDrivingStateEvent event) {
-            if (event == null) {
-                return;
-            }
-            try {
-                listener.onDrivingStateChanged(event);
-            } catch (RemoteException e) {
-                if (DBG) {
-                    Log.d(TAG, "Dispatch to listener failed");
+    private void dispatchEventToClients(CarDrivingStateEvent event) {
+        boolean success = mClientDispatchHandler.post(() -> {
+            int numClients = mDrivingStateClients.beginBroadcast();
+            for (int i = 0; i < numClients; i++) {
+                ICarDrivingStateChangeListener callback = mDrivingStateClients.getBroadcastItem(i);
+                try {
+                    callback.onDrivingStateChanged(event);
+                } catch (RemoteException e) {
+                    Log.e(TAG,
+                            String.format("Dispatch to listener %s failed for event (%s)", callback,
+                                    event));
                 }
             }
+            mDrivingStateClients.finishBroadcast();
+        });
+
+        if (!success) {
+            Log.e(TAG, String.format("Unable to post (%s) event to dispatch handler", event));
         }
     }
 
     @Override
     public void dump(PrintWriter writer) {
         writer.println("*CarDrivingStateService*");
+        mDrivingStateClients.dump(writer, "Driving State Clients ");
         writer.println("Driving state change log:");
-        for (Utils.TransitionLog tLog : mTransitionLogs) {
-            writer.println(tLog);
-        }
-        writer.println("Current Driving State: " + mCurrentDrivingState.eventValue);
-        if (mSupportedGears != null) {
-            writer.println("Supported gears:");
-            for (Integer gear : mSupportedGears) {
-                writer.print("Gear:" + gear);
+        synchronized (mLock) {
+            for (Utils.TransitionLog tLog : mTransitionLogs) {
+                writer.println(tLog);
+            }
+            writer.println("Current Driving State: " + mCurrentDrivingState.eventValue);
+            if (mSupportedGears != null) {
+                writer.println("Supported gears:");
+                for (Integer gear : mSupportedGears) {
+                    writer.print("Gear:" + gear);
+                }
             }
         }
     }
@@ -306,8 +273,10 @@ public class CarDrivingStateService extends ICarDrivingState.Stub implements Car
             new ICarPropertyEventListener.Stub() {
                 @Override
                 public void onEvent(List<CarPropertyEvent> events) throws RemoteException {
-                    for (CarPropertyEvent event : events) {
-                        handlePropertyEvent(event);
+                    synchronized (mLock) {
+                        for (CarPropertyEvent event : events) {
+                            handlePropertyEventLocked(event);
+                        }
                     }
                 }
             };
@@ -316,7 +285,8 @@ public class CarDrivingStateService extends ICarDrivingState.Stub implements Car
      * Handle events coming from {@link CarPropertyService}.  Compute the driving state, map it to
      * the corresponding UX Restrictions and dispatch the events to the registered clients.
      */
-    private synchronized void handlePropertyEvent(CarPropertyEvent event) {
+    @VisibleForTesting
+    void handlePropertyEventLocked(CarPropertyEvent event) {
         if (event.getEventType() != CarPropertyEvent.PROPERTY_EVENT_PROPERTY_CHANGE) {
             return;
         }
@@ -380,16 +350,17 @@ public class CarDrivingStateService extends ICarDrivingState.Stub implements Car
                     + mCurrentDrivingState.eventValue);
         }
         if (drivingState != mCurrentDrivingState.eventValue) {
-            addTransitionLog(TAG, mCurrentDrivingState.eventValue, drivingState,
+            addTransitionLogLocked(TAG, mCurrentDrivingState.eventValue, drivingState,
                     System.currentTimeMillis());
             // Update if there is a change in state.
             mCurrentDrivingState = createDrivingStateEvent(drivingState);
             if (DBG) {
-                Log.d(TAG, "dispatching to " + mDrivingStateClients.size() + " clients");
+                Log.d(TAG, "dispatching to " + mDrivingStateClients.getRegisteredCallbackCount()
+                        + " clients");
             }
-            for (DrivingStateClient client : mDrivingStateClients) {
-                client.dispatchEventToClients(mCurrentDrivingState);
-            }
+            // Dispatch to clients on a separate thread to prevent a deadlock
+            final CarDrivingStateEvent currentDrivingStateEvent = mCurrentDrivingState;
+            dispatchEventToClients(currentDrivingStateEvent);
         }
     }
 
@@ -403,7 +374,8 @@ public class CarDrivingStateService extends ICarDrivingState.Stub implements Car
         return null;
     }
 
-    private void addTransitionLog(String name, int from, int to, long timestamp) {
+    @GuardedBy("mLock")
+    private void addTransitionLogLocked(String name, int from, int to, long timestamp) {
         if (mTransitionLogs.size() >= MAX_TRANSITION_LOG_SIZE) {
             mTransitionLogs.remove();
         }
@@ -418,9 +390,10 @@ public class CarDrivingStateService extends ICarDrivingState.Stub implements Car
      *
      * @return Current driving state
      */
+    @GuardedBy("mLock")
     @CarDrivingState
     private int inferDrivingStateLocked() {
-        updateVehiclePropertiesIfNeeded();
+        updateVehiclePropertiesIfNeededLocked();
         if (DBG) {
             Log.d(TAG, "Last known Gear:" + mLastGear + " Last known speed:" + mLastSpeed);
         }
@@ -438,7 +411,7 @@ public class CarDrivingStateService extends ICarDrivingState.Stub implements Car
                 3c. if speed unavailable, then driving state is unknown
          */
 
-        if (isVehicleKnownToBeParked()) {
+        if (isVehicleKnownToBeParkedLocked()) {
             return CarDrivingStateEvent.DRIVING_STATE_PARKED;
         }
 
@@ -458,14 +431,15 @@ public class CarDrivingStateService extends ICarDrivingState.Stub implements Car
      * @return true if we have enough information to say the vehicle is parked.
      * false, if the vehicle is either not parked or if we don't have any information.
      */
-    private boolean isVehicleKnownToBeParked() {
+    @GuardedBy("mLock")
+    private boolean isVehicleKnownToBeParkedLocked() {
         // If we know the gear is in park, return true
         if (mLastGearTimestamp != NOT_RECEIVED && mLastGear == VehicleGear.GEAR_PARK) {
             return true;
         } else if (mLastParkingBrakeTimestamp != NOT_RECEIVED) {
             // if gear is not in park or unknown, look for status of parking brake if transmission
             // type is manual.
-            if (isCarManualTransmissionType()) {
+            if (isCarManualTransmissionTypeLocked()) {
                 return mLastParkingBrakeState;
             }
         }
@@ -478,7 +452,8 @@ public class CarDrivingStateService extends ICarDrivingState.Stub implements Car
      * If Supported gears information is available and GEAR_PARK is not one of the supported gears,
      * transmission type is considered to be Manual.  Automatic transmission is assumed otherwise.
      */
-    private boolean isCarManualTransmissionType() {
+    @GuardedBy("mLock")
+    private boolean isCarManualTransmissionTypeLocked() {
         if (mSupportedGears != null
                 && !mSupportedGears.isEmpty()
                 && !mSupportedGears.contains(VehicleGear.GEAR_PARK)) {
@@ -494,7 +469,8 @@ public class CarDrivingStateService extends ICarDrivingState.Stub implements Car
      * on-change only properties, we could be in this situation where we will have to query
      * VHAL.
      */
-    private void updateVehiclePropertiesIfNeeded() {
+    @GuardedBy("mLock")
+    private void updateVehiclePropertiesIfNeededLocked() {
         if (mLastGearTimestamp == NOT_RECEIVED) {
             CarPropertyValue propertyValue = mPropertyService.getProperty(
                     VehicleProperty.GEAR_SELECTION,

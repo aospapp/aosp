@@ -31,15 +31,24 @@ public class RepeatingVectorAnimation {
         new Animatable2.AnimationCallback() {
             @Override
             public void onAnimationEnd(Drawable drawable) {
-                mUiThreadHandler.post(mAnimatedVectorDrawable::start);
+                if (mShouldLoop) {
+                    mUiThreadHandler.post(mAnimatedVectorDrawable::start);
+                }
             }
         };
 
     private final Handler mUiThreadHandler = new Handler();
     private final AnimatedVectorDrawable mAnimatedVectorDrawable;
+    private final boolean mShouldLoop;
 
     public RepeatingVectorAnimation(AnimatedVectorDrawable animatedVectorDrawable) {
+        this(animatedVectorDrawable, /* shouldLoop */ true);
+    }
+
+    public RepeatingVectorAnimation(AnimatedVectorDrawable animatedVectorDrawable,
+            boolean shouldLoop) {
         mAnimatedVectorDrawable = checkNotNull(animatedVectorDrawable);
+        mShouldLoop = shouldLoop;
     }
 
     public void start() {

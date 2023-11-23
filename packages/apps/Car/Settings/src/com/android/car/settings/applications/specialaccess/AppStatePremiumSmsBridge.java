@@ -16,23 +16,21 @@
 
 package com.android.car.settings.applications.specialaccess;
 
-import android.os.RemoteException;
+import android.telephony.SmsManager;
 
-import com.android.internal.telephony.ISms;
-import com.android.internal.telephony.SmsUsageMonitor;
 import com.android.settingslib.applications.ApplicationsState;
 
 import java.util.List;
 
 /**
- * Bridges the value of {@link ISms#getPremiumSmsPermission(String)} into the {@link
+ * Bridges the value of {@link SmsManager#getPremiumSmsConsent(String)} into the {@link
  * ApplicationsState.AppEntry#extraInfo} for each entry's package name.
  */
 public class AppStatePremiumSmsBridge implements AppEntryListManager.ExtraInfoBridge {
 
-    private final ISms mSmsManager;
+    private final SmsManager mSmsManager;
 
-    public AppStatePremiumSmsBridge(ISms smsManager) {
+    public AppStatePremiumSmsBridge(SmsManager smsManager) {
         mSmsManager = smsManager;
     }
 
@@ -44,10 +42,6 @@ public class AppStatePremiumSmsBridge implements AppEntryListManager.ExtraInfoBr
     }
 
     private int getSmsState(String packageName) {
-        try {
-            return mSmsManager.getPremiumSmsPermission(packageName);
-        } catch (RemoteException e) {
-            return SmsUsageMonitor.PREMIUM_SMS_PERMISSION_UNKNOWN;
-        }
+        return mSmsManager.getPremiumSmsConsent(packageName);
     }
 }

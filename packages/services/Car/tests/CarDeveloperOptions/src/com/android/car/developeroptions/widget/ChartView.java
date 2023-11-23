@@ -25,8 +25,9 @@ import android.view.View;
 import android.view.ViewDebug;
 import android.widget.FrameLayout;
 
-import com.android.internal.util.Preconditions;
 import com.android.car.developeroptions.R;
+
+import java.util.Objects;
 
 /**
  * Container for two-dimensional chart, drawn with a combination of
@@ -70,8 +71,8 @@ public class ChartView extends FrameLayout {
     }
 
     void init(ChartAxis horiz, ChartAxis vert) {
-        mHoriz = Preconditions.checkNotNull(horiz, "missing horiz");
-        mVert = Preconditions.checkNotNull(vert, "missing vert");
+        mHoriz = Objects.requireNonNull(horiz, "missing horiz");
+        mVert = Objects.requireNonNull(vert, "missing vert");
     }
 
     public void setOptimalWidth(int optimalWidth, float optimalWidthWeight) {

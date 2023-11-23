@@ -19,6 +19,7 @@ package com.android.documentsui.files;
 import com.android.documentsui.ActivityConfig;
 import com.android.documentsui.base.DocumentStack;
 import com.android.documentsui.base.RootInfo;
+import com.android.documentsui.util.VersionUtils;
 
 /**
  * Provides support for Files activity specific specializations.
@@ -27,11 +28,17 @@ public final class Config extends ActivityConfig {
 
     @Override
     public boolean managedModeEnabled(DocumentStack stack) {
+        // This method helps us understand when to kick in special manage mode behaviors.
+        final RootInfo root = stack.getRoot();
+
+        // When in Files activity, allow External Storage provider to view
+        // Android/[data|obb|sandbox] directories which are otherwise hidden for privacy reasons.
+        if (VersionUtils.isAtLeastR() && root != null && root.isExternalStorage()) {
+            return true;
+        }
         // When in downloads top level directory, we also show active downloads.
         // And while we don't allow folders in Downloads, we do allow Zip files in
         // downloads that themselves can be opened and viewed like directories.
-        // This method helps us understand when to kick in on those special behaviors.
-        final RootInfo root = stack.getRoot();
         return root != null
                 && root.isDownloads()
                 && stack.size() == 1;

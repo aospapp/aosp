@@ -16,6 +16,7 @@
 
 package com.android.car.trust;
 
+import static android.car.Car.PERMISSION_CAR_ENROLL_TRUST;
 import static android.car.trust.CarTrustAgentEnrollmentManager.ENROLLMENT_HANDSHAKE_FAILURE;
 import static android.car.trust.CarTrustAgentEnrollmentManager.ENROLLMENT_NOT_ALLOWED;
 
@@ -33,8 +34,11 @@ import static com.android.car.trust.EventLog.logEnrollmentEvent;
 import android.annotation.IntDef;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
+import android.annotation.RequiresPermission;
 import android.app.ActivityManager;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.le.AdvertiseCallback;
+import android.bluetooth.le.AdvertiseSettings;
 import android.car.encryptionrunner.EncryptionRunner;
 import android.car.encryptionrunner.EncryptionRunnerFactory;
 import android.car.encryptionrunner.HandshakeException;
@@ -49,11 +53,15 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.IBinder;
 import android.os.RemoteException;
+import android.sysprop.CarProperties;
 import android.util.Log;
 
 import com.android.car.BLEStreamProtos.BLEOperationProto.OperationType;
+import com.android.car.ICarImpl;
 import com.android.car.R;
 import com.android.car.Utils;
+import com.android.car.trust.CarTrustAgentBleManager.DataReceivedListener;
+import com.android.car.trust.CarTrustAgentBleManager.SendMessageCallback;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
 
@@ -77,8 +85,13 @@ import java.util.UUID;
  * phone to enroll as a trusted device.  The enrolled phone can then be used for authenticating a
  * user on the HU.  This implements the {@link android.car.trust.CarTrustAgentEnrollmentManager}
  * APIs that an app like Car Settings can call to conduct an enrollment.
+ *
+ * @deprecated Enrollment of a trusted device is no longer a supported feature of car service and
+ * these APIs will be removed in the next Android release.
  */
-public class CarTrustAgentEnrollmentService extends ICarTrustAgentEnrollment.Stub {
+@Deprecated
+public class CarTrustAgentEnrollmentService extends ICarTrustAgentEnrollment.Stub implements
+        DataReceivedListener {
     private static final String TAG = "CarTrustAgentEnroll";
     private static final String TRUSTED_DEVICE_ENROLLMENT_ENABLED_KEY =
             "trusted_device_enrollment_enabled";
@@ -91,7 +104,21 @@ public class CarTrustAgentEnrollmentService extends ICarTrustAgentEnrollment.Stu
     // TrustedDeviceInfo and this delimiter will be removed.
     private static final char DEVICE_INFO_DELIMITER = '#';
 
+    // Device name length is limited by available bytes in BLE advertisement data packet.
+    //
+    // BLE advertisement limits data packet length to 31
+    // Currently we send:
+    // - 18 bytes for 16 chars UUID: 16 bytes + 2 bytes for header;
+    // - 3 bytes for advertisement being connectable;
+    // which leaves 10 bytes.
+    // Subtracting 2 bytes used by header, we have 8 bytes for device name.
+    private static final int DEVICE_NAME_LENGTH_LIMIT = 8;
+    // Limit prefix to 4 chars and fill the rest with randomly generated name. Use random name
+    // to improve uniqueness in paired device name.
+    private static final int DEVICE_NAME_PREFIX_LIMIT = 4;
+
     private final CarTrustedDeviceService mTrustedDeviceService;
+    private final CarCompanionDeviceStorage mCarCompanionDeviceStorage;
     // List of clients listening to Enrollment state change events.
     private final List<EnrollmentStateClient> mEnrollmentStateClients = new ArrayList<>();
     // List of clients listening to BLE state changes events during enrollment.
@@ -107,7 +134,10 @@ public class CarTrustAgentEnrollmentService extends ICarTrustAgentEnrollment.Stu
     private final Map<Long, Boolean> mTokenActiveStateMap = new HashMap<>();
     private String mClientDeviceName;
     private String mClientDeviceId;
+    private final UUID mEnrollmentClientWriteUuid;
     private final Context mContext;
+    private String mEnrollmentDeviceName;
+    private SendMessageCallback mSendMessageCallback = this::terminateEnrollmentHandshake;
 
     private EncryptionRunner mEncryptionRunner = EncryptionRunnerFactory.newRunner();
     private HandshakeMessage mHandshakeMessage;
@@ -140,10 +170,15 @@ public class CarTrustAgentEnrollmentService extends ICarTrustAgentEnrollment.Stu
         mContext = context;
         mTrustedDeviceService = service;
         mCarTrustAgentBleManager = bleService;
+        mEnrollmentClientWriteUuid = UUID.fromString(context
+                .getString(R.string.enrollment_client_write_uuid));
+        mCarCompanionDeviceStorage = new CarCompanionDeviceStorage(context);
     }
 
     public synchronized void init() {
         mCarTrustAgentBleManager.setupEnrollmentBleServer();
+        mCarTrustAgentBleManager.addDataReceivedListener(mEnrollmentClientWriteUuid,
+                this);
     }
 
     /**
@@ -171,8 +206,10 @@ public class CarTrustAgentEnrollmentService extends ICarTrustAgentEnrollment.Stu
      * the enrollment of the trusted device.
      */
     @Override
+    @RequiresPermission(PERMISSION_CAR_ENROLL_TRUST)
     public void startEnrollmentAdvertising() {
-        if (!mTrustedDeviceService.getSharedPrefs()
+        ICarImpl.assertTrustAgentEnrollmentPermission(mContext);
+        if (!mCarCompanionDeviceStorage.getSharedPrefs()
                 .getBoolean(TRUSTED_DEVICE_ENROLLMENT_ENABLED_KEY, true)) {
             Log.e(TAG, "Trusted Device Enrollment disabled");
             dispatchEnrollmentFailure(ENROLLMENT_NOT_ALLOWED);
@@ -184,7 +221,24 @@ public class CarTrustAgentEnrollmentService extends ICarTrustAgentEnrollment.Stu
 
         logEnrollmentEvent(START_ENROLLMENT_ADVERTISING);
         addEnrollmentServiceLog("startEnrollmentAdvertising");
-        mCarTrustAgentBleManager.startEnrollmentAdvertising();
+        mCarTrustAgentBleManager.startEnrollmentAdvertising(getEnrollmentDeviceName(),
+                new AdvertiseCallback() {
+                    @Override
+                    public void onStartSuccess(AdvertiseSettings settingsInEffect) {
+                        super.onStartSuccess(settingsInEffect);
+                        onEnrollmentAdvertiseStartSuccess();
+                        if (Log.isLoggable(TAG, Log.DEBUG)) {
+                            Log.d(TAG, "Successfully started advertising service");
+                        }
+                    }
+
+                    @Override
+                    public void onStartFailure(int errorCode) {
+                        super.onStartFailure(errorCode);
+                        Log.e(TAG, "Failed to advertise, errorCode: " + errorCode);
+                        onEnrollmentAdvertiseStartFailure();
+                    }
+            });
         mEnrollmentState = ENROLLMENT_STATE_NONE;
     }
 
@@ -192,7 +246,9 @@ public class CarTrustAgentEnrollmentService extends ICarTrustAgentEnrollment.Stu
      * Stop BLE advertisement for Enrollment
      */
     @Override
+    @RequiresPermission(PERMISSION_CAR_ENROLL_TRUST)
     public void stopEnrollmentAdvertising() {
+        ICarImpl.assertTrustAgentEnrollmentPermission(mContext);
         logEnrollmentEvent(STOP_ENROLLMENT_ADVERTISING);
         addEnrollmentServiceLog("stopEnrollmentAdvertising");
         mCarTrustAgentBleManager.stopEnrollmentAdvertising();
@@ -205,7 +261,9 @@ public class CarTrustAgentEnrollmentService extends ICarTrustAgentEnrollment.Stu
      * @param device the remote Bluetooth device that will receive the signal.
      */
     @Override
+    @RequiresPermission(PERMISSION_CAR_ENROLL_TRUST)
     public void enrollmentHandshakeAccepted(BluetoothDevice device) {
+        ICarImpl.assertTrustAgentEnrollmentPermission(mContext);
         logEnrollmentEvent(ENROLLMENT_HANDSHAKE_ACCEPTED);
         addEnrollmentServiceLog("enrollmentHandshakeAccepted");
         if (device == null || !device.equals(mRemoteEnrollmentDevice)) {
@@ -215,8 +273,9 @@ public class CarTrustAgentEnrollmentService extends ICarTrustAgentEnrollment.Stu
             mCarTrustAgentBleManager.disconnectRemoteDevice();
             return;
         }
-        mCarTrustAgentBleManager.sendEnrollmentMessage(mRemoteEnrollmentDevice, CONFIRMATION_SIGNAL,
-                OperationType.ENCRYPTION_HANDSHAKE, /* isPayloadEncrypted= */ false);
+        mCarTrustAgentBleManager.sendMessage(CONFIRMATION_SIGNAL,
+                OperationType.ENCRYPTION_HANDSHAKE, /* isPayloadEncrypted= */ false,
+                mSendMessageCallback);
         setEnrollmentHandshakeAccepted();
     }
 
@@ -226,7 +285,9 @@ public class CarTrustAgentEnrollmentService extends ICarTrustAgentEnrollment.Stu
      * navigated away from the app before completing enrollment.
      */
     @Override
+    @RequiresPermission(PERMISSION_CAR_ENROLL_TRUST)
     public void terminateEnrollmentHandshake() {
+        ICarImpl.assertTrustAgentEnrollmentPermission(mContext);
         addEnrollmentServiceLog("terminateEnrollmentHandshake");
         // Disconnect from BLE
         mCarTrustAgentBleManager.disconnectRemoteDevice();
@@ -237,7 +298,8 @@ public class CarTrustAgentEnrollmentService extends ICarTrustAgentEnrollment.Stu
             boolean isHandleActive = pair.getValue();
             if (!isHandleActive) {
                 long handle = pair.getKey();
-                int uid = mTrustedDeviceService.getSharedPrefs().getInt(String.valueOf(handle), -1);
+                int uid = mCarCompanionDeviceStorage.getSharedPrefs().getInt(String.valueOf(handle),
+                        -1);
                 removeEscrowToken(handle, uid);
                 it.remove();
             }
@@ -252,7 +314,9 @@ public class CarTrustAgentEnrollmentService extends ICarTrustAgentEnrollment.Stu
      * @return True if the escrow token is active, false if not
      */
     @Override
+    @RequiresPermission(PERMISSION_CAR_ENROLL_TRUST)
     public boolean isEscrowTokenActive(long handle, int uid) {
+        ICarImpl.assertTrustAgentEnrollmentPermission(mContext);
         if (mTokenActiveStateMap.get(handle) != null) {
             return mTokenActiveStateMap.get(handle);
         }
@@ -266,7 +330,9 @@ public class CarTrustAgentEnrollmentService extends ICarTrustAgentEnrollment.Stu
      * @param uid    user id
      */
     @Override
+    @RequiresPermission(PERMISSION_CAR_ENROLL_TRUST)
     public void removeEscrowToken(long handle, int uid) {
+        ICarImpl.assertTrustAgentEnrollmentPermission(mContext);
         mEnrollmentDelegate.removeEscrowToken(handle, uid);
         addEnrollmentServiceLog("removeEscrowToken (handle:" + handle + " uid:" + uid + ")");
     }
@@ -277,7 +343,9 @@ public class CarTrustAgentEnrollmentService extends ICarTrustAgentEnrollment.Stu
      * @param uid user id
      */
     @Override
+    @RequiresPermission(PERMISSION_CAR_ENROLL_TRUST)
     public void removeAllTrustedDevices(int uid) {
+        ICarImpl.assertTrustAgentEnrollmentPermission(mContext);
         for (TrustedDeviceInfo device : getEnrolledDeviceInfosForUser(uid)) {
             removeEscrowToken(device.getHandle(), uid);
         }
@@ -291,8 +359,10 @@ public class CarTrustAgentEnrollmentService extends ICarTrustAgentEnrollment.Stu
      * @param isEnabled {@code true} to enable; {@code false} to disable the feature.
      */
     @Override
+    @RequiresPermission(PERMISSION_CAR_ENROLL_TRUST)
     public void setTrustedDeviceEnrollmentEnabled(boolean isEnabled) {
-        SharedPreferences.Editor editor = mTrustedDeviceService.getSharedPrefs().edit();
+        ICarImpl.assertTrustAgentEnrollmentPermission(mContext);
+        SharedPreferences.Editor editor = mCarCompanionDeviceStorage.getSharedPrefs().edit();
         editor.putBoolean(TRUSTED_DEVICE_ENROLLMENT_ENABLED_KEY, isEnabled);
         if (!editor.commit()) {
             Log.wtf(TAG,
@@ -308,7 +378,9 @@ public class CarTrustAgentEnrollmentService extends ICarTrustAgentEnrollment.Stu
      *                  back.
      */
     @Override
+    @RequiresPermission(PERMISSION_CAR_ENROLL_TRUST)
     public void setTrustedDeviceUnlockEnabled(boolean isEnabled) {
+        ICarImpl.assertTrustAgentEnrollmentPermission(mContext);
         mTrustedDeviceService.getCarTrustAgentUnlockService()
                 .setTrustedDeviceUnlockEnabled(isEnabled);
     }
@@ -322,8 +394,10 @@ public class CarTrustAgentEnrollmentService extends ICarTrustAgentEnrollment.Stu
      */
     @NonNull
     @Override
+    @RequiresPermission(PERMISSION_CAR_ENROLL_TRUST)
     public List<TrustedDeviceInfo> getEnrolledDeviceInfosForUser(int uid) {
-        Set<String> enrolledDeviceInfos = mTrustedDeviceService.getSharedPrefs().getStringSet(
+        ICarImpl.assertTrustAgentEnrollmentPermission(mContext);
+        Set<String> enrolledDeviceInfos = mCarCompanionDeviceStorage.getSharedPrefs().getStringSet(
                 String.valueOf(uid), new HashSet<>());
         List<TrustedDeviceInfo> trustedDeviceInfos = new ArrayList<>(enrolledDeviceInfos.size());
         for (String deviceInfoWithId : enrolledDeviceInfos) {
@@ -342,7 +416,9 @@ public class CarTrustAgentEnrollmentService extends ICarTrustAgentEnrollment.Stu
      * @param listener {@link ICarTrustAgentEnrollmentCallback}
      */
     @Override
+    @RequiresPermission(PERMISSION_CAR_ENROLL_TRUST)
     public synchronized void registerEnrollmentCallback(ICarTrustAgentEnrollmentCallback listener) {
+        ICarImpl.assertTrustAgentEnrollmentPermission(mContext);
         if (listener == null) {
             throw new IllegalArgumentException("Listener is null");
         }
@@ -404,7 +480,7 @@ public class CarTrustAgentEnrollmentService extends ICarTrustAgentEnrollment.Stu
                 Log.e(TAG, "onEscrowTokenRemoved dispatch failed", e);
             }
         }
-        SharedPreferences sharedPrefs = mTrustedDeviceService.getSharedPrefs();
+        SharedPreferences sharedPrefs = mCarCompanionDeviceStorage.getSharedPrefs();
         SharedPreferences.Editor editor = sharedPrefs.edit();
         editor.remove(String.valueOf(handle));
         Set<String> deviceInfos = sharedPrefs.getStringSet(String.valueOf(uid), new HashSet<>());
@@ -454,7 +530,7 @@ public class CarTrustAgentEnrollmentService extends ICarTrustAgentEnrollment.Stu
 
         // Avoid storing duplicate info for same device by checking if there is already device info
         // and deleting it.
-        SharedPreferences sharedPrefs = mTrustedDeviceService.getSharedPrefs();
+        SharedPreferences sharedPrefs = mCarCompanionDeviceStorage.getSharedPrefs();
         if (sharedPrefs.contains(mClientDeviceId)) {
             removeEscrowToken(sharedPrefs.getLong(mClientDeviceId, -1), uid);
         }
@@ -510,9 +586,10 @@ public class CarTrustAgentEnrollmentService extends ICarTrustAgentEnrollment.Stu
             Log.d(TAG, "Sending handle: " + handle);
         }
         mHandle = handle;
-        mCarTrustAgentBleManager.sendEnrollmentMessage(mRemoteEnrollmentDevice,
+        mCarTrustAgentBleManager.sendMessage(
                 mEncryptionKey.encryptData(Utils.longToBytes(handle)),
-                OperationType.CLIENT_MESSAGE, /* isPayloadEncrypted= */ true);
+                OperationType.CLIENT_MESSAGE, /* isPayloadEncrypted= */ true,
+                mSendMessageCallback);
     }
 
     void onEnrollmentAdvertiseStartSuccess() {
@@ -585,7 +662,8 @@ public class CarTrustAgentEnrollmentService extends ICarTrustAgentEnrollment.Stu
      *
      * @param value received data
      */
-    void onEnrollmentDataReceived(byte[] value) {
+    @Override
+    public void onDataReceived(byte[] value) {
         if (mEnrollmentDelegate == null) {
             if (Log.isLoggable(TAG, Log.DEBUG)) {
                 Log.d(TAG, "Enrollment Delegate not set");
@@ -622,7 +700,7 @@ public class CarTrustAgentEnrollmentService extends ICarTrustAgentEnrollment.Stu
         }
     }
 
-    void onDeviceNameRetrieved(String deviceName) {
+    void onClientDeviceNameRetrieved(String deviceName) {
         mClientDeviceName = deviceName;
     }
 
@@ -636,7 +714,7 @@ public class CarTrustAgentEnrollmentService extends ICarTrustAgentEnrollment.Stu
         if (Log.isLoggable(TAG, Log.DEBUG)) {
             Log.d(TAG, "Received device id: " + mClientDeviceId);
         }
-        UUID uniqueId = mTrustedDeviceService.getUniqueId();
+        UUID uniqueId = mCarCompanionDeviceStorage.getUniqueId();
         if (uniqueId == null) {
             Log.e(TAG, "Cannot get Unique ID for the IHU");
             resetEnrollmentStateOnFailure();
@@ -646,9 +724,10 @@ public class CarTrustAgentEnrollmentService extends ICarTrustAgentEnrollment.Stu
         if (Log.isLoggable(TAG, Log.DEBUG)) {
             Log.d(TAG, "Sending device id: " + uniqueId.toString());
         }
-        mCarTrustAgentBleManager.sendEnrollmentMessage(mRemoteEnrollmentDevice,
+        mCarTrustAgentBleManager.sendMessage(
                 Utils.uuidToBytes(uniqueId), OperationType.CLIENT_MESSAGE,
-                /* isPayloadEncrypted= */ false);
+                /* isPayloadEncrypted= */ false,
+                mSendMessageCallback);
         mEnrollmentState++;
     }
 
@@ -684,9 +763,10 @@ public class CarTrustAgentEnrollmentService extends ICarTrustAgentEnrollment.Stu
 
                 mHandshakeMessage = mEncryptionRunner.respondToInitRequest(message);
                 mEncryptionState = mHandshakeMessage.getHandshakeState();
-                mCarTrustAgentBleManager.sendEnrollmentMessage(
-                        mRemoteEnrollmentDevice, mHandshakeMessage.getNextMessage(),
-                        OperationType.ENCRYPTION_HANDSHAKE, /* isPayloadEncrypted= */ false);
+                mCarTrustAgentBleManager.sendMessage(
+                        mHandshakeMessage.getNextMessage(),
+                        OperationType.ENCRYPTION_HANDSHAKE, /* isPayloadEncrypted= */ false,
+                        mSendMessageCallback);
 
                 logEnrollmentEvent(ENROLLMENT_ENCRYPTION_STATE, mEncryptionState);
                 break;
@@ -709,9 +789,9 @@ public class CarTrustAgentEnrollmentService extends ICarTrustAgentEnrollment.Stu
                     showVerificationCode();
                     return;
                 }
-                mCarTrustAgentBleManager.sendEnrollmentMessage(mRemoteEnrollmentDevice,
+                mCarTrustAgentBleManager.sendMessage(
                         mHandshakeMessage.getNextMessage(), OperationType.ENCRYPTION_HANDSHAKE,
-                        /* isPayloadEncrypted= */ false);
+                        /* isPayloadEncrypted= */ false, mSendMessageCallback);
                 break;
             case HandshakeState.VERIFICATION_NEEDED:
                 Log.w(TAG, "Encountered VERIFICATION_NEEDED state when it should have been "
@@ -800,7 +880,8 @@ public class CarTrustAgentEnrollmentService extends ICarTrustAgentEnrollment.Stu
 
         mEncryptionState = HandshakeState.FINISHED;
         mEncryptionKey = message.getKey();
-        if (!mTrustedDeviceService.saveEncryptionKey(mClientDeviceId, mEncryptionKey.asBytes())) {
+        if (!mCarCompanionDeviceStorage.saveEncryptionKey(mClientDeviceId,
+                mEncryptionKey.asBytes())) {
             resetEnrollmentStateOnFailure();
             dispatchEnrollmentFailure(ENROLLMENT_HANDSHAKE_FAILURE);
             return;
@@ -835,8 +916,10 @@ public class CarTrustAgentEnrollmentService extends ICarTrustAgentEnrollment.Stu
      * @param listener client to unregister
      */
     @Override
+    @RequiresPermission(PERMISSION_CAR_ENROLL_TRUST)
     public synchronized void unregisterEnrollmentCallback(
             ICarTrustAgentEnrollmentCallback listener) {
+        ICarImpl.assertTrustAgentEnrollmentPermission(mContext);
         if (listener == null) {
             throw new IllegalArgumentException("Listener is null");
         }
@@ -858,7 +941,9 @@ public class CarTrustAgentEnrollmentService extends ICarTrustAgentEnrollment.Stu
      * @param listener {@link ICarTrustAgentBleCallback}
      */
     @Override
+    @RequiresPermission(PERMISSION_CAR_ENROLL_TRUST)
     public synchronized void registerBleCallback(ICarTrustAgentBleCallback listener) {
+        ICarImpl.assertTrustAgentEnrollmentPermission(mContext);
         if (listener == null) {
             throw new IllegalArgumentException("Listener is null");
         }
@@ -903,7 +988,9 @@ public class CarTrustAgentEnrollmentService extends ICarTrustAgentEnrollment.Stu
      * @param listener client to unregister
      */
     @Override
+    @RequiresPermission(PERMISSION_CAR_ENROLL_TRUST)
     public synchronized void unregisterBleCallback(ICarTrustAgentBleCallback listener) {
+        ICarImpl.assertTrustAgentEnrollmentPermission(mContext);
         if (listener == null) {
             throw new IllegalArgumentException("Listener is null");
         }
@@ -1102,5 +1189,23 @@ public class CarTrustAgentEnrollmentService extends ICarTrustAgentEnrollment.Stu
                 Log.e(TAG, "onEnrollmentAdvertisementStarted() failed", e);
             }
         }
+    }
+
+    /**
+     * Returns the name that should be used for the device during enrollment of a trusted device.
+     *
+     * <p>The returned name will be a combination of a prefix sysprop and randomized digits.
+     */
+    private String getEnrollmentDeviceName() {
+        if (mEnrollmentDeviceName == null) {
+            String deviceNamePrefix = CarProperties.trusted_device_device_name_prefix().orElse("");
+            deviceNamePrefix = deviceNamePrefix.substring(
+                0, Math.min(deviceNamePrefix.length(), DEVICE_NAME_PREFIX_LIMIT));
+
+            int randomNameLength = DEVICE_NAME_LENGTH_LIMIT - deviceNamePrefix.length();
+            String randomName = Utils.generateRandomNumberString(randomNameLength);
+            mEnrollmentDeviceName = deviceNamePrefix + randomName;
+        }
+        return mEnrollmentDeviceName;
     }
 }

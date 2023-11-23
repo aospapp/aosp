@@ -49,11 +49,12 @@ JNIEXPORT void JNICALL Java_com_android_tv_tuner_TunerHal_nativeFinalize(
 /*
  * Class:     com_android_tv_tuner_TunerHal
  * Method:    nativeTune
- * Signature: (JILjava/lang/String;)Z
+ * Signature: (JILjava/lang/String;I)Z
  */
-JNIEXPORT jboolean JNICALL Java_com_android_tv_tuner_TunerHal_nativeTune(
-    JNIEnv *env, jobject thiz, jlong deviceId, jint frequency,
-    jstring modulation, jint timeout_ms) {
+JNIEXPORT jboolean JNICALL
+    Java_com_android_tv_tuner_TunerHal_nativeTune__JILjava_lang_String_2I(
+        JNIEnv *env, jobject thiz, jlong deviceId, jint frequency,
+        jstring modulation, jint timeout_ms) {
   std::map<jlong, DvbManager *>::iterator it = sDvbManagers.find(deviceId);
   DvbManager *dvbManager;
   if (it == sDvbManagers.end()) {
@@ -65,6 +66,29 @@ JNIEXPORT jboolean JNICALL Java_com_android_tv_tuner_TunerHal_nativeTune(
   int res = dvbManager->tune(env, thiz, frequency,
                              env->GetStringUTFChars(modulation, 0), timeout_ms);
   return (res == 0);
+}
+
+/*
+ * Class:     com_android_tv_tuner_TunerHal
+ * Method:    nativeTune
+ * Signature: (JIILjava/lang/String;I)Z
+ */
+JNIEXPORT jboolean JNICALL
+    Java_com_android_tv_tuner_TunerHal_nativeTune__JIILjava_lang_String_2I(
+        JNIEnv *env, jobject thiz, jlong deviceId, jint deliverySystemType,
+        jint frequency, jstring modulation, jint timeout_ms) {
+    std::map<jlong, DvbManager *>::iterator it = sDvbManagers.find(deviceId);
+    DvbManager *dvbManager;
+    if (it == sDvbManagers.end()) {
+        dvbManager = new DvbManager(env, thiz);
+        sDvbManagers.insert(
+            std::pair<jlong, DvbManager *>(deviceId, dvbManager));
+    } else {
+        dvbManager = it->second;
+    }
+    int res = dvbManager->tune(env, thiz, deliverySystemType, frequency,
+                env->GetStringUTFChars(modulation, 0), timeout_ms);
+    return (res == 0);
 }
 
 /*
@@ -190,4 +214,32 @@ Java_com_android_tv_tuner_TunerHal_nativeGetDeliverySystemType(JNIEnv *env,
     sDvbManagers.insert(std::pair<jlong, DvbManager *>(deviceId, dvbManager));
     return dvbManager->getDeliverySystemType(env, thiz);
   }
+}
+
+/*
+ * Class:     com_android_tv_tuner_TunerHal
+ * Method:    nativeGetDeliverySystemTypes
+ * Signature: (J)I
+ */
+JNIEXPORT jintArray JNICALL
+Java_com_android_tv_tuner_TunerHal_nativeGetDeliverySystemTypes(JNIEnv *env,
+                                                               jobject thiz,
+                                                               jlong deviceId) {
+    jintArray deliverySystemTypes = env->NewIntArray(8);
+    if (deliverySystemTypes == NULL) {
+        ALOGE("Out of memory!");
+        return NULL;
+    }
+    std::map<jlong, DvbManager *>::iterator it = sDvbManagers.find(deviceId);
+    if (it != sDvbManagers.end()) {
+        env->SetIntArrayRegion(deliverySystemTypes, 0, 8,
+        it->second->getDeliverySystemTypes(env, thiz));
+    } else {
+        DvbManager *dvbManager = new DvbManager(env, thiz);
+        sDvbManagers.insert(
+            std::pair<jlong, DvbManager *>(deviceId, dvbManager));
+        env->SetIntArrayRegion(deliverySystemTypes, 0, 8,
+        dvbManager->getDeliverySystemTypes(env, thiz));
+    }
+    return deliverySystemTypes;
 }

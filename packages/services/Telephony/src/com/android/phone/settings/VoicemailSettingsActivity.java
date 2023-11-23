@@ -43,6 +43,7 @@ import android.widget.ListAdapter;
 import android.widget.Toast;
 
 import com.android.internal.telephony.CallForwardInfo;
+import com.android.internal.telephony.CommandsInterface;
 import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneConstants;
 import com.android.internal.telephony.util.NotificationChannelController;
@@ -733,6 +734,7 @@ public class VoicemailSettingsActivity extends PreferenceActivity
             for (int i = 0; i < mForwardingReadResults.length; i++) {
                 mPhone.getCallForwardingOption(
                         VoicemailProviderSettings.FORWARDING_SETTINGS_REASONS[i],
+                        CommandsInterface.SERVICE_CLASS_VOICE,
                         mGetOptionComplete.obtainMessage(EVENT_FORWARDING_GET_COMPLETED, i, 0));
             }
             showDialogIfForeground(VoicemailDialogUtil.VM_FWD_READING_DIALOG);

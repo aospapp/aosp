@@ -65,6 +65,12 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content" />
 
+    <CheckBox android:id="@+id/button_additional_lang_broadcast"
+        android:text="@string/button_additional_lang_broadcast"
+        android:layout_marginLeft="20dp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content" />
+
     <!-- ETWS Alerts -->
     <Button android:id="@+id/button_etws_earthquake_type"
         android:text="@string/button_etws_earthquake_type"
@@ -165,6 +171,12 @@
 
     <Button android:id="@+id/button_gsm_cmas_monthly_test"
         android:text="@string/button_gsm_cmas_monthly_test"
+        android:layout_marginLeft="20dp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content" />
+
+    <Button android:id="@+id/button_gsm_cmas_exercise_test"
+        android:text="@string/button_gsm_cmas_exercise_test"
         android:layout_marginLeft="20dp"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content" />

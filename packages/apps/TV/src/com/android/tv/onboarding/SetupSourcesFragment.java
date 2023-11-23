@@ -16,32 +16,46 @@
 
 package com.android.tv.onboarding;
 
-import android.content.Context;
+import android.app.Activity;
 import android.graphics.Typeface;
 import android.media.tv.TvInputInfo;
 import android.media.tv.TvInputManager.TvInputCallback;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
-import android.support.v17.leanback.widget.GuidanceStylist.Guidance;
-import android.support.v17.leanback.widget.GuidedAction;
-import android.support.v17.leanback.widget.GuidedActionsStylist;
-import android.support.v17.leanback.widget.VerticalGridView;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
+
+import androidx.leanback.widget.GuidanceStylist.Guidance;
+import androidx.leanback.widget.GuidedAction;
+import androidx.leanback.widget.GuidedActionsStylist;
+import androidx.leanback.widget.VerticalGridView;
+
 import com.android.tv.R;
 import com.android.tv.TvSingletons;
 import com.android.tv.common.ui.setup.SetupGuidedStepFragment;
 import com.android.tv.common.ui.setup.SetupMultiPaneFragment;
 import com.android.tv.data.ChannelDataManager;
 import com.android.tv.data.TvInputNewComparator;
+import com.android.tv.tunerinputcontroller.BuiltInTunerManager;
 import com.android.tv.ui.GuidedActionsStylistWithDivider;
 import com.android.tv.util.SetupUtils;
 import com.android.tv.util.TvInputManagerHelper;
+
+import com.google.common.base.Optional;
+
+import dagger.android.AndroidInjection;
+import dagger.android.ContributesAndroidInjector;
+
+import com.android.tv.common.flags.UiFlags;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+
+import javax.inject.Inject;
 
 /** A fragment for channel source info/setup. */
 public class SetupSourcesFragment extends SetupMultiPaneFragment {
@@ -106,9 +120,11 @@ public class SetupSourcesFragment extends SetupMultiPaneFragment {
         private static final int PENDING_ACTION_INPUT_CHANGED = 1;
         private static final int PENDING_ACTION_CHANNEL_CHANGED = 2;
 
-        private TvInputManagerHelper mInputManager;
-        private ChannelDataManager mChannelDataManager;
-        private SetupUtils mSetupUtils;
+        @Inject TvInputManagerHelper mInputManager;
+        @Inject ChannelDataManager mChannelDataManager;
+        @Inject SetupUtils mSetupUtils;
+        @Inject Optional<BuiltInTunerManager> mBuiltInTunerManagerOptional;
+        @Inject UiFlags mUiFlags;
         private List<TvInputInfo> mInputs;
         private int mKnownInputStartIndex;
         private int mDoneInputStartIndex;
@@ -187,37 +203,38 @@ public class SetupSourcesFragment extends SetupMultiPaneFragment {
 
         @Override
         public void onCreate(Bundle savedInstanceState) {
-            Context context = getActivity();
-            TvSingletons singletons = TvSingletons.getSingletons(context);
-            mInputManager = singletons.getTvInputManagerHelper();
-            mChannelDataManager = singletons.getChannelDataManager();
-            mSetupUtils = singletons.getSetupUtils();
+            super.onCreate(savedInstanceState);
+            mParentFragment = (SetupSourcesFragment) getParentFragment();
+        }
+
+        @Override
+        public void onAttach(Activity activity) {
+            AndroidInjection.inject(this);
+            super.onAttach(activity);
             buildInputs();
             mInputManager.addCallback(mInputCallback);
             mChannelDataManager.addListener(mChannelDataManagerListener);
-            super.onCreate(savedInstanceState);
             mParentFragment = (SetupSourcesFragment) getParentFragment();
-            if (singletons.getBuiltInTunerManager().isPresent()) {
-                singletons
-                        .getBuiltInTunerManager()
+            if (mBuiltInTunerManagerOptional.isPresent()) {
+                mBuiltInTunerManagerOptional
                         .get()
                         .getTunerInputController()
-                        .executeNetworkTunerDiscoveryAsyncTask(getContext());
+                        .executeNetworkTunerDiscoveryAsyncTask(activity);
             }
         }
 
         @Override
-        public void onDestroy() {
-            super.onDestroy();
+        public void onDetach() {
             mChannelDataManager.removeListener(mChannelDataManagerListener);
             mInputManager.removeCallback(mInputCallback);
+            super.onDetach();
         }
 
         @NonNull
         @Override
         public Guidance onCreateGuidance(Bundle savedInstanceState) {
             String title = getString(R.string.setup_sources_text);
-            String description = getString(R.string.setup_sources_description);
+            String description = getString(R.string.setup_sources_description2);
             return new Guidance(title, description, null, null);
         }
 
@@ -329,16 +346,17 @@ public class SetupSourcesFragment extends SetupMultiPaneFragment {
                 ++position;
                 actions.add(GuidedActionsStylistWithDivider.createDividerAction(getContext()));
             }
-            // online store action
-            ++position;
-            actions.add(
-                    new GuidedAction.Builder(getActivity())
-                            .id(ACTION_ONLINE_STORE)
-                            .title(getString(R.string.setup_store_action_title))
-                            .description(getString(R.string.setup_store_action_description))
-                            .icon(R.drawable.ic_app_store)
-                            .build());
-
+            if (!TextUtils.isEmpty(mUiFlags.moreChannelsUrl())) {
+                // online store action
+                ++position;
+                actions.add(
+                        new GuidedAction.Builder(getActivity())
+                                .id(ACTION_ONLINE_STORE)
+                                .title(getString(R.string.setup_store_action_title))
+                                .description(getString(R.string.setup_store_action_description))
+                                .icon(R.drawable.ic_app_store)
+                                .build());
+            }
             if (newPosition != -1) {
                 VerticalGridView gridView = getGuidedActionsStylist().getActionsGridView();
                 gridView.setSelectedPosition(newPosition);
@@ -403,6 +421,14 @@ public class SetupSourcesFragment extends SetupMultiPaneFragment {
                 }
                 setAccessibilityDelegate(vh, action);
             }
+        }
+        /**
+         * Exports {@link ContentFragment} for Dagger codegen to create the appropriate injector.
+         */
+        @dagger.Module
+        public abstract static class Module {
+            @ContributesAndroidInjector
+            abstract ContentFragment contributesContentFragment();
         }
     }
 }

@@ -16,64 +16,29 @@
 
 package android.car.apitest;
 
+import static com.google.common.truth.Truth.assertThat;
+
+import static org.junit.Assume.assumeTrue;
+
 import android.car.Car;
 import android.car.diagnostic.CarDiagnosticEvent;
 import android.car.diagnostic.CarDiagnosticManager;
-import android.content.ComponentName;
-import android.content.ServiceConnection;
-import android.os.IBinder;
-import android.os.Looper;
-import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.MediumTest;
-import java.util.concurrent.Semaphore;
-import java.util.concurrent.TimeUnit;
+
+import org.junit.Before;
+import org.junit.Test;
 
 @MediumTest
-public class CarDiagnosticManagerTest extends AndroidTestCase {
-    private static final long DEFAULT_WAIT_TIMEOUT_MS = 5000;
+public class CarDiagnosticManagerTest extends CarApiTestBase {
 
-    private final Semaphore mConnectionWait = new Semaphore(0);
-
-    private Car mCar;
     private CarDiagnosticManager mCarDiagnosticManager;
 
-    private final ServiceConnection mConnectionListener =
-            new ServiceConnection() {
-
-                @Override
-                public void onServiceDisconnected(ComponentName name) {
-                    assertMainThread();
-                }
-
-                @Override
-                public void onServiceConnected(ComponentName name, IBinder service) {
-                    assertMainThread();
-                    mConnectionWait.release();
-                }
-            };
-
-    private void assertMainThread() {
-        assertTrue(Looper.getMainLooper().isCurrentThread());
-    }
-
-    private void waitForConnection(long timeoutMs) throws InterruptedException {
-        mConnectionWait.tryAcquire(timeoutMs, TimeUnit.MILLISECONDS);
-    }
-
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mCar = Car.createCar(getContext(), mConnectionListener);
-        mCar.connect();
-        waitForConnection(DEFAULT_WAIT_TIMEOUT_MS);
-        mCarDiagnosticManager = (CarDiagnosticManager) mCar.getCarManager(Car.DIAGNOSTIC_SERVICE);
-        assertNotNull(mCarDiagnosticManager);
-    }
-
-    @Override
-    protected void tearDown() throws Exception {
-        super.tearDown();
-        mCar.disconnect();
+    @Before
+    public void setUp() throws Exception {
+        Car car = getCar();
+        assumeTrue(car.isFeatureEnabled(Car.DIAGNOSTIC_SERVICE));
+        mCarDiagnosticManager = (CarDiagnosticManager) car.getCarManager(Car.DIAGNOSTIC_SERVICE);
+        assertThat(mCarDiagnosticManager).isNotNull();
     }
 
     /**
@@ -81,11 +46,12 @@ public class CarDiagnosticManagerTest extends AndroidTestCase {
      *
      * @throws Exception
      */
+    @Test
     public void testLiveFrame() throws Exception {
         CarDiagnosticEvent liveFrame = mCarDiagnosticManager.getLatestLiveFrame();
         if (null != liveFrame) {
-            assertTrue(liveFrame.isLiveFrame());
-            assertFalse(liveFrame.isEmptyFrame());
+            assertThat(liveFrame.isLiveFrame()).isTrue();
+            assertThat(liveFrame.isEmptyFrame()).isFalse();
         }
     }
 
@@ -94,16 +60,17 @@ public class CarDiagnosticManagerTest extends AndroidTestCase {
      *
      * @throws Exception
      */
+    @Test
     public void testFreezeFrames() throws Exception {
         long[] timestamps = mCarDiagnosticManager.getFreezeFrameTimestamps();
         if (null != timestamps) {
             for (long timestamp : timestamps) {
                 CarDiagnosticEvent freezeFrame = mCarDiagnosticManager.getFreezeFrame(timestamp);
-                assertNotNull(freezeFrame);
-                assertEquals(timestamp, freezeFrame.timestamp);
-                assertTrue(freezeFrame.isFreezeFrame());
-                assertFalse(freezeFrame.isEmptyFrame());
-                assertNotSame("", freezeFrame.dtc);
+                assertThat(freezeFrame).isNotNull();
+                assertThat(freezeFrame.timestamp).isEqualTo(timestamp);
+                assertThat(freezeFrame.isFreezeFrame()).isTrue();
+                assertThat(freezeFrame.isEmptyFrame()).isFalse();
+                assertThat(freezeFrame.dtc).isNotEmpty();
             }
         }
     }

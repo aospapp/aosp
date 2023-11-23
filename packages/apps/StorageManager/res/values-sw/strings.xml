@@ -40,7 +40,7 @@
     <string name="deletion_helper_clear_dialog_remove" msgid="863575755467985516">"Futa ili upate nafasi"</string>
     <string name="deletion_helper_upsell_title" msgid="8512037674466762017">"Ungependa kudhibiti hifadhi kiotomatiki?"</string>
     <string name="deletion_helper_upsell_summary" msgid="2301597713694474407">"Nafasi ya <xliff:g id="USED">%1$s</xliff:g> sasa inapatikana. Ungependa kuruhusu kidhibiti cha hifadhi kiongeze nafasi kwa kuondoa kiotomatiki maudhui yaliyohifadhiwa nakala kwenye kifaa chako?"</string>
-    <string name="deletion_helper_upsell_cancel" msgid="7084167642850053889">"Hapana, asante"</string>
+    <string name="deletion_helper_upsell_cancel" msgid="7084167642850053889">"Hapana"</string>
     <string name="deletion_helper_upsell_activate" msgid="7157360257760895976">"Washa"</string>
     <string name="deletion_helper_apps_group_title" msgid="2578309121350341258">"Programu zisizotumika mara nyingi"</string>
     <!-- no translation found for deletion_helper_apps_group_summary (360315517252452356) -->
@@ -52,7 +52,7 @@
     <string name="automatic_storage_manager_notification_title" product="default" msgid="8480483265300964701">"Simu yako haina nafasi ya kutosha"</string>
     <string name="automatic_storage_manager_notification_title" product="tablet" msgid="3150907918531844467">"Nafasi kwenye kompyuta kibao ni ndogo"</string>
     <string name="automatic_storage_manager_notification_summary" msgid="2267399886362245822">"Ruhusu Kidhibiti cha Hifadhi kiongeze nafasi kwa kuondoa picha na video za zamani kiotomatiki simu yako inapokaribia kujaa tena."</string>
-    <string name="automatic_storage_manager_cancel_button" msgid="1826365037494962803">"Hapana, asante"</string>
+    <string name="automatic_storage_manager_cancel_button" msgid="1826365037494962803">"Hapana"</string>
     <string name="automatic_storage_manager_activate_button" msgid="6257070263061898041">"Washa"</string>
     <string name="deletion_helper_photos_loading_title" msgid="2768067991066779772">"Picha na video zilizohifadhiwa nakala"</string>
     <string name="deletion_helper_photos_loading_summary" msgid="8203033249458245854">"Inatafuta vipengee..."</string>

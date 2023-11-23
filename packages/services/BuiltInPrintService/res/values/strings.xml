@@ -85,6 +85,18 @@
     <string name="connects_via_network">Connects via current network at
         <xliff:g example="192.168.0.101" id="ip_address">%1$s</xliff:g>
     </string>
+
+    <!-- Explain purpose of recommendation fragment [CHAR LIMIT=UNLIMITED] -->
+    <string name="recommendation_summary">The Default Print Service provides basic options. Other options for this printer may be available from another print service.</string>
+    <!-- Heading for services that are not currently installed, but recommended [CHAR LIMIT=UNLIMITED] -->
+    <string name="recommendations_heading">Recommended services</string>
+    <!-- Summary for recommended services that are not installed [CHAR LIMIT=UNLIMITED] -->
+    <string name="recommendation_install_summary">Select to install</string>
+    <!-- Summary for recommended services that are installed [CHAR LIMIT=UNLIMITED] -->
+    <string name="recommendation_enable_summary">Select to enable</string>
+    <!-- Button to allow user to enable/disable installed print services. [CHAR LIMIT=UNLIMITED] -->
+    <string name="recommendation_manage">Manage services</string>
+
     <!-- Channel name for security-related notifications [CHAR LIMIT=40] -->
     <string name="security">Security</string>
     <!-- Message shown in notification if a printer presented a changes security certificate [CHAR LIMIT=UNLIMITED] -->
@@ -103,4 +115,7 @@
     <string name="wifi_direct_permission_rationale">Default Print Service needs location permission to find nearby devices.</string>
     <!-- Button label in a notification or dialog. This button leads to a request to grant permissions [CHAR LIMIT=20] -->
     <string name="fix">Review permission</string>
+
+    <!-- Share-to-print label [CHAR LIMIT=20] -->
+    <string name="print">Print</string>
 </resources>

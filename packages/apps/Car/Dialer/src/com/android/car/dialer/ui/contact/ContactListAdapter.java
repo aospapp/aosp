@@ -1,4 +1,3 @@
-
 /*
  * Copyright (C) 2018 The Android Open Source Project
  *
@@ -17,6 +16,8 @@
 package com.android.car.dialer.ui.contact;
 
 import android.content.Context;
+import android.text.TextUtils;
+import android.util.Pair;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -25,12 +26,15 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.car.dialer.R;
+import com.android.car.dialer.ui.common.entity.ContactSortingInfo;
 import com.android.car.telephony.common.Contact;
 
 import java.util.ArrayList;
 import java.util.List;
 
-/** Adapter for contact list. */
+/**
+ * Adapter for contact list.
+ */
 public class ContactListAdapter extends RecyclerView.Adapter<ContactListViewHolder> {
     private static final String TAG = "CD.ContactListAdapter";
 
@@ -42,16 +46,22 @@ public class ContactListAdapter extends RecyclerView.Adapter<ContactListViewHold
     private final List<Contact> mContactList = new ArrayList<>();
     private final OnShowContactDetailListener mOnShowContactDetailListener;
 
+    private Integer mSortMethod;
+
     public ContactListAdapter(Context context,
             OnShowContactDetailListener onShowContactDetailListener) {
         mContext = context;
         mOnShowContactDetailListener = onShowContactDetailListener;
     }
 
-    public void setContactList(List<Contact> contactList) {
+    /**
+     * Sets {@link #mContactList} based on live data.
+     */
+    public void setContactList(Pair<Integer, List<Contact>> contactListPair) {
         mContactList.clear();
-        if (contactList != null) {
-            mContactList.addAll(contactList);
+        if (contactListPair != null) {
+            mContactList.addAll(contactListPair.second);
+            mSortMethod = contactListPair.first;
         }
         notifyDataSetChanged();
     }
@@ -67,11 +77,33 @@ public class ContactListAdapter extends RecyclerView.Adapter<ContactListViewHold
     @Override
     public void onBindViewHolder(@NonNull ContactListViewHolder holder, int position) {
         Contact contact = mContactList.get(position);
-        holder.onBind(contact);
+        String header = getHeader(contact);
+
+        boolean showHeader = position == 0
+                || (!header.equals(getHeader(mContactList.get(position - 1))));
+        holder.bind(contact, showHeader, header, mSortMethod);
     }
 
     @Override
     public int getItemCount() {
-        return  mContactList.size();
+        return mContactList.size();
+    }
+
+    @Override
+    public void onViewRecycled(@NonNull ContactListViewHolder holder) {
+        super.onViewRecycled(holder);
+        holder.recycle();
+    }
+
+    private String getHeader(Contact contact) {
+        String label;
+        if (ContactSortingInfo.SORT_BY_LAST_NAME.equals(mSortMethod)) {
+            label = contact.getPhonebookLabelAlt();
+        } else {
+            label = contact.getPhonebookLabel();
+        }
+
+        return !TextUtils.isEmpty(label) ? label
+                : mContext.getString(R.string.header_for_type_other);
     }
 }

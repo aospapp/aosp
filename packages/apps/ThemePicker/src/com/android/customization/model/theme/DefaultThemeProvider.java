@@ -35,7 +35,6 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.pm.ResolveInfo;
-import android.content.res.Resources;
 import android.content.res.Resources.NotFoundException;
 import android.service.wallpaper.WallpaperService;
 import android.text.TextUtils;
@@ -53,6 +52,7 @@ import com.android.wallpaper.asset.ResourceAsset;
 import com.android.wallpaper.model.LiveWallpaperInfo;
 
 import com.bumptech.glide.request.RequestOptions;
+import com.google.android.apps.wallpaper.asset.ThemeBundleThumbAsset;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -204,7 +204,7 @@ public class DefaultThemeProvider extends ResourcesApkProvider implements ThemeB
                         mStubApkResources.getIdentifier(WALLPAPER_ACTION_PREFIX + themeName,
                                 "string", mStubPackageName))
                         .setWallpaperAsset(wallpaperThumbnailResId != ID_NULL ?
-                                getDrawableResourceAsset(WALLPAPER_THUMB_PREFIX, themeName)
+                                getThumbAsset(WALLPAPER_THUMB_PREFIX, themeName)
                                 : getDrawableResourceAsset(WALLPAPER_PREFIX, themeName));
             } else {
                 // Try to see if it's a live wallpaper reference
@@ -234,7 +234,7 @@ public class DefaultThemeProvider extends ResourcesApkProvider implements ThemeB
                             LiveWallpaperInfo liveInfo = new LiveWallpaperInfo(wallpaperInfo);
                             builder.setLiveWallpaperInfo(liveInfo).setWallpaperAsset(
                                     wallpaperThumbnailResId != ID_NULL ?
-                                        getDrawableResourceAsset(WALLPAPER_THUMB_PREFIX, themeName)
+                                            getThumbAsset(WALLPAPER_THUMB_PREFIX, themeName)
                                         : liveInfo.getThumbAsset(mContext))
                                     .setWallpaperOptions(wallpaperOptions);
                         } catch (XmlPullParserException | IOException e) {
@@ -483,5 +483,12 @@ public class DefaultThemeProvider extends ResourcesApkProvider implements ThemeB
                 "drawable", mStubPackageName);
         return drawableResId == 0 ? null : new ResourceAsset(mStubApkResources, drawableResId,
                 RequestOptions.fitCenterTransform());
+    }
+
+    private ThemeBundleThumbAsset getThumbAsset(String prefix, String themeName) {
+        int drawableResId = mStubApkResources.getIdentifier(prefix + themeName,
+                "drawable", mStubPackageName);
+        return drawableResId == 0 ? null : new ThemeBundleThumbAsset(mStubApkResources,
+                drawableResId);
     }
 }

@@ -15,58 +15,56 @@
  */
 package com.android.car.notification;
 
+import android.annotation.NonNull;
 import android.app.Notification;
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
 import android.os.Bundle;
-import android.os.Handler;
-import android.service.notification.StatusBarNotification;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
+import androidx.annotation.Nullable;
+import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.android.car.notification.template.BasicNotificationViewHolder;
-import com.android.car.notification.template.CallNotificationViewHolder;
+import com.android.car.notification.template.CarNotificationBaseViewHolder;
 import com.android.car.notification.template.CarNotificationFooterViewHolder;
 import com.android.car.notification.template.CarNotificationHeaderViewHolder;
-import com.android.car.notification.template.EmergencyNotificationViewHolder;
 import com.android.car.notification.template.GroupNotificationViewHolder;
 import com.android.car.notification.template.GroupSummaryNotificationViewHolder;
-import com.android.car.notification.template.InboxNotificationViewHolder;
 import com.android.car.notification.template.MessageNotificationViewHolder;
-import com.android.car.notification.template.ProgressNotificationViewHolder;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Notification data adapter that binds a notification to the corresponding view.
  */
-public class CarNotificationViewAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
+public class CarNotificationViewAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
+        implements PreprocessingManager.CallStateListener {
     private static final String TAG = "CarNotificationAdapter";
-
-    // Delay in posting notifyDataSetChanged for the adapter in milliseconds.
-    private static final int NOTIFY_DATASET_CHANGED_DELAY = 100;
 
     private final Context mContext;
     private final LayoutInflater mInflater;
     private final int mMaxNumberGroupChildrenShown;
     private final boolean mIsGroupNotificationAdapter;
-    private final Handler mHandler = new Handler();
 
     // book keeping expanded notification groups
     private final List<String> mExpandedNotifications = new ArrayList<>();
+    private final CarNotificationItemController mNotificationItemController;
 
     private List<NotificationGroup> mNotifications = new ArrayList<>();
     private RecyclerView.RecycledViewPool mViewPool;
     private CarUxRestrictions mCarUxRestrictions;
     private NotificationClickHandlerFactory mClickHandlerFactory;
     private NotificationDataManager mNotificationDataManager;
-
-    private Runnable mNotifyDataSetChangedRunnable = this::notifyDataSetChanged;
+    private boolean mIsInCall;
+    // Suppress binding views to child notifications in the process of being removed.
+    private Set<AlertEntry> mChildNotificationsBeingCleared = new HashSet<>();
 
     /**
      * Constructor for a notification adapter.
@@ -74,17 +72,22 @@ public class CarNotificationViewAdapter extends RecyclerView.Adapter<RecyclerVie
      *
      * @param context the context for resources and inflating views
      * @param isGroupNotificationAdapter true if this adapter is used by a grouped notification view
+     * @param notificationItemController shared logic to control notification items.
      */
-    public CarNotificationViewAdapter(Context context, boolean isGroupNotificationAdapter) {
+    public CarNotificationViewAdapter(Context context, boolean isGroupNotificationAdapter,
+            @Nullable CarNotificationItemController notificationItemController) {
         mContext = context;
         mInflater = LayoutInflater.from(context);
         mMaxNumberGroupChildrenShown =
                 mContext.getResources().getInteger(R.integer.max_group_children_number);
         mIsGroupNotificationAdapter = isGroupNotificationAdapter;
+        mNotificationItemController = notificationItemController;
         setHasStableIds(true);
         if (!mIsGroupNotificationAdapter) {
             mViewPool = new RecyclerView.RecycledViewPool();
         }
+
+        PreprocessingManager.getInstance(context).addCallStateListener(this::onCallStateChanged);
     }
 
     @Override
@@ -94,196 +97,58 @@ public class CarNotificationViewAdapter extends RecyclerView.Adapter<RecyclerVie
         switch (viewType) {
             case NotificationViewType.HEADER:
                 view = mInflater.inflate(R.layout.notification_header_template, parent, false);
-                viewHolder = new CarNotificationHeaderViewHolder(view, mClickHandlerFactory);
+                viewHolder = new CarNotificationHeaderViewHolder(mContext, view,
+                        mNotificationItemController);
                 break;
             case NotificationViewType.FOOTER:
                 view = mInflater.inflate(R.layout.notification_footer_template, parent, false);
-                viewHolder = new CarNotificationFooterViewHolder(view, mClickHandlerFactory);
+                viewHolder = new CarNotificationFooterViewHolder(mContext, view,
+                        mNotificationItemController);
                 break;
-            case NotificationViewType.GROUP_EXPANDED:
-            case NotificationViewType.GROUP_COLLAPSED:
-                view = mInflater.inflate(
-                        R.layout.group_notification_template, parent, false);
-                viewHolder = new GroupNotificationViewHolder(view, mClickHandlerFactory);
-                break;
-            case NotificationViewType.GROUP_SUMMARY:
-                view = mInflater
-                        .inflate(R.layout.group_summary_notification_template, parent, false);
-                viewHolder = new GroupSummaryNotificationViewHolder(view, mClickHandlerFactory);
-                break;
-            case NotificationViewType.CALL:
-                view = mInflater
-                        .inflate(R.layout.call_notification_template, parent, false);
-                viewHolder = new CallNotificationViewHolder(view, mClickHandlerFactory);
-                break;
-            case NotificationViewType.CAR_EMERGENCY:
-                view = mInflater.inflate(
-                        R.layout.car_emergency_notification_template, parent, false);
-                viewHolder = new EmergencyNotificationViewHolder(view, mClickHandlerFactory);
-                break;
-            case NotificationViewType.CAR_WARNING:
-                view = mInflater.inflate(
-                        R.layout.car_warning_notification_template, parent, false);
-                // Using the basic view holder because they share the same view binding logic
-                // OEMs should create view holders if needed
-                viewHolder = new BasicNotificationViewHolder(view, mClickHandlerFactory);
-                break;
-            case NotificationViewType.CAR_INFORMATION:
-                view = mInflater.inflate(
-                        R.layout.car_information_notification_template, parent, false);
-                // Using the basic view holder because they share the same view binding logic
-                // OEMs should create view holders if needed
-                viewHolder = new BasicNotificationViewHolder(view, mClickHandlerFactory);
-                break;
-            case NotificationViewType.CAR_INFORMATION_IN_GROUP:
-                view = mInflater.inflate(
-                        R.layout.car_information_notification_template_inner, parent, false);
-                // Using the basic view holder because they share the same view binding logic
-                // OEMs should create view holders if needed
-                viewHolder = new BasicNotificationViewHolder(view, mClickHandlerFactory);
-                break;
-            case NotificationViewType.MESSAGE_IN_GROUP:
-                view = mInflater.inflate(
-                        R.layout.message_notification_template_inner, parent, false);
-                viewHolder = new MessageNotificationViewHolder(view, mClickHandlerFactory);
-                break;
-            case NotificationViewType.MESSAGE:
-                view = mInflater.inflate(R.layout.message_notification_template, parent, false);
-                viewHolder = new MessageNotificationViewHolder(view, mClickHandlerFactory);
-                break;
-            case NotificationViewType.PROGRESS_IN_GROUP:
-                view = mInflater.inflate(
-                        R.layout.progress_notification_template_inner, parent, false);
-                viewHolder = new ProgressNotificationViewHolder(view, mClickHandlerFactory);
-                break;
-            case NotificationViewType.PROGRESS:
-                view = mInflater
-                        .inflate(R.layout.progress_notification_template, parent, false);
-                viewHolder = new ProgressNotificationViewHolder(view, mClickHandlerFactory);
-                break;
-            case NotificationViewType.INBOX_IN_GROUP:
-                view = mInflater
-                        .inflate(R.layout.inbox_notification_template_inner, parent, false);
-                viewHolder = new InboxNotificationViewHolder(view, mClickHandlerFactory);
-                break;
-            case NotificationViewType.INBOX:
-                view = mInflater
-                        .inflate(R.layout.inbox_notification_template, parent, false);
-                viewHolder = new InboxNotificationViewHolder(view, mClickHandlerFactory);
-                break;
-            case NotificationViewType.BASIC_IN_GROUP:
-                view = mInflater
-                        .inflate(R.layout.basic_notification_template_inner, parent, false);
-                viewHolder = new BasicNotificationViewHolder(view, mClickHandlerFactory);
-                break;
-            case NotificationViewType.BASIC:
             default:
-                view = mInflater
-                        .inflate(R.layout.basic_notification_template, parent, false);
-                viewHolder = new BasicNotificationViewHolder(view, mClickHandlerFactory);
-                break;
+                CarNotificationTypeItem carNotificationTypeItem = CarNotificationTypeItem.of(
+                        viewType);
+                view = mInflater.inflate(
+                        carNotificationTypeItem.getNotificationCenterTemplate(), parent, false);
+                viewHolder = carNotificationTypeItem.getViewHolder(view, mClickHandlerFactory);
         }
+
         return viewHolder;
     }
 
     @Override
     public void onBindViewHolder(RecyclerView.ViewHolder holder, int position) {
         NotificationGroup notificationGroup = mNotifications.get(position);
-
-        switch (holder.getItemViewType()) {
+        int viewType = holder.getItemViewType();
+        switch (viewType) {
             case NotificationViewType.HEADER:
                 ((CarNotificationHeaderViewHolder) holder).bind(hasNotifications());
-                break;
+                return;
             case NotificationViewType.FOOTER:
                 ((CarNotificationFooterViewHolder) holder).bind(hasNotifications());
-                break;
+                return;
             case NotificationViewType.GROUP_EXPANDED:
                 ((GroupNotificationViewHolder) holder)
                         .bind(notificationGroup, this, /* isExpanded= */ true);
-                break;
+                return;
             case NotificationViewType.GROUP_COLLAPSED:
                 ((GroupNotificationViewHolder) holder)
                         .bind(notificationGroup, this, /* isExpanded= */ false);
-                break;
+                return;
             case NotificationViewType.GROUP_SUMMARY:
                 ((GroupSummaryNotificationViewHolder) holder).bind(notificationGroup);
-                break;
-            case NotificationViewType.CALL: {
-                StatusBarNotification notification = notificationGroup.getSingleNotification();
-                ((CallNotificationViewHolder) holder)
-                        .bind(notification, /* isInGroup= */ false, /* isHeadsUp= */ false);
-                break;
-            }
-            case NotificationViewType.CAR_EMERGENCY: {
-                StatusBarNotification notification = notificationGroup.getSingleNotification();
-                ((EmergencyNotificationViewHolder) holder)
-                        .bind(notification, /* isInGroup= */ false, /* isHeadsUp= */ false);
-                break;
-            }
-            case NotificationViewType.MESSAGE: {
-                StatusBarNotification notification = notificationGroup.getSingleNotification();
-                if (shouldRestrictMessagePreview()) {
-                    ((MessageNotificationViewHolder) holder)
-                            .bindRestricted(notification, /* isInGroup= */ false, /* isHeadsUp= */
-                                    false);
-                } else {
-                    ((MessageNotificationViewHolder) holder)
-                            .bind(notification, /* isInGroup= */ false, /* isHeadsUp= */ false);
-                }
-                break;
-            }
-            case NotificationViewType.MESSAGE_IN_GROUP: {
-                StatusBarNotification notification = notificationGroup.getSingleNotification();
-                if (shouldRestrictMessagePreview()) {
-                    ((MessageNotificationViewHolder) holder)
-                            .bindRestricted(notification, /* isInGroup= */ true, /* isHeadsUp= */
-                                    false);
-                } else {
-                    ((MessageNotificationViewHolder) holder)
-                            .bind(notification, /* isInGroup= */ true, /* isHeadsUp= */ false);
-                }
-                break;
-            }
-            case NotificationViewType.PROGRESS: {
-                StatusBarNotification notification = notificationGroup.getSingleNotification();
-                ((ProgressNotificationViewHolder) holder)
-                        .bind(notification, /* isInGroup= */ false, false);
-                break;
-            }
-            case NotificationViewType.PROGRESS_IN_GROUP: {
-                StatusBarNotification notification = notificationGroup.getSingleNotification();
-                ((ProgressNotificationViewHolder) holder).bind(notification, /* isInGroup= */
-                        true, false);
-                break;
-            }
-            case NotificationViewType.INBOX: {
-                StatusBarNotification notification = notificationGroup.getSingleNotification();
-                ((InboxNotificationViewHolder) holder).bind(notification, /* isInGroup= */ false,
-                        /* isHeadsUp= */ false);
-                break;
-            }
-            case NotificationViewType.INBOX_IN_GROUP: {
-                StatusBarNotification notification = notificationGroup.getSingleNotification();
-                ((InboxNotificationViewHolder) holder).bind(notification, /* isInGroup= */ true,
-                        /* isHeadsUp= */ false);
-                break;
-            }
-            case NotificationViewType.CAR_INFORMATION_IN_GROUP:
-            case NotificationViewType.BASIC_IN_GROUP: {
-                StatusBarNotification notification = notificationGroup.getSingleNotification();
-                ((BasicNotificationViewHolder) holder).bind(notification, /* isInGroup= */ true,
-                        /* isHeadsUp= */ false);
-                break;
-            }
-            case NotificationViewType.CAR_WARNING:
-            case NotificationViewType.CAR_INFORMATION:
-            case NotificationViewType.BASIC:
-            default: {
-                StatusBarNotification notification = notificationGroup.getSingleNotification();
-                ((BasicNotificationViewHolder) holder).bind(notification, /* isInGroup= */ false,
-                        /* isHeadsUp= */ false);
-                break;
-            }
+                return;
+        }
+
+        CarNotificationTypeItem carNotificationTypeItem = CarNotificationTypeItem.of(viewType);
+        AlertEntry alertEntry = notificationGroup.getSingleNotification();
+
+        if (shouldRestrictMessagePreview() && (viewType == NotificationViewType.MESSAGE
+                || viewType == NotificationViewType.MESSAGE_IN_GROUP)) {
+            ((MessageNotificationViewHolder) holder)
+                    .bindRestricted(alertEntry, /* isInGroup= */ false, /* isHeadsUp= */false);
+        } else {
+            carNotificationTypeItem.bind(alertEntry, false, (CarNotificationBaseViewHolder) holder);
         }
     }
 
@@ -458,13 +323,6 @@ public class CarNotificationViewAdapter extends RecyclerView.Adapter<RecyclerVie
     }
 
     /**
-     * Clear all notifications.
-     */
-    public void clearAllNotifications() {
-        mClickHandlerFactory.clearAllNotifications();
-    }
-
-    /**
      * Updates notifications and update views.
      *
      * @param setRecyclerViewListHeaderAndFooter sets the header and footer on the entire list of
@@ -472,6 +330,10 @@ public class CarNotificationViewAdapter extends RecyclerView.Adapter<RecyclerVie
      */
     public void setNotifications(List<NotificationGroup> notifications,
             boolean setRecyclerViewListHeaderAndFooter) {
+
+        notifications.removeIf(notificationGroup ->
+                mChildNotificationsBeingCleared.contains(notificationGroup.getSingleNotification())
+        );
 
         List<NotificationGroup> notificationGroupList = new ArrayList<>(notifications);
 
@@ -481,11 +343,25 @@ public class CarNotificationViewAdapter extends RecyclerView.Adapter<RecyclerVie
             // add footer as the last item of the list.
             notificationGroupList.add(createNotificationFooter());
         }
-
+        DiffUtil.DiffResult diffResult =
+                DiffUtil.calculateDiff(
+                        new CarNotificationDiff(mContext, mNotifications, notificationGroupList),
+                        /* detectMoves= */ false);
         mNotifications = notificationGroupList;
+        diffResult.dispatchUpdatesTo(this);
+    }
 
-        mHandler.removeCallbacks(mNotifyDataSetChangedRunnable);
-        mHandler.postDelayed(mNotifyDataSetChangedRunnable, NOTIFY_DATASET_CHANGED_DELAY);
+    /**
+     * Sets child notifications of the group notification that is in the process of being cleared.
+     * This prevents these child notifications from appearing briefly while the clearing process is
+     * running.
+     *
+     * <p>NOTE: To reset mChildNotificationsBeingCleared, pass an empty Set instead of null.</p>
+     *
+     * @param notificationsBeingCleared
+     */
+    protected void setChildNotificationsBeingCleared(@NonNull Set notificationsBeingCleared) {
+        mChildNotificationsBeingCleared = notificationsBeingCleared;
     }
 
     /**
@@ -509,6 +385,15 @@ public class CarNotificationViewAdapter extends RecyclerView.Adapter<RecyclerVie
         notificationGroupWithFooter.setFooter(true);
         notificationGroupWithFooter.setGroupKey("notification_footer");
         return notificationGroupWithFooter;
+    }
+
+    /** Implementation of {@link PreprocessingManager.CallStateListener} **/
+    @Override
+    public void onCallStateChanged(boolean isInCall) {
+        if (isInCall != mIsInCall) {
+            mIsInCall = isInCall;
+            notifyDataSetChanged();
+        }
     }
 
     /**
@@ -562,24 +447,21 @@ public class CarNotificationViewAdapter extends RecyclerView.Adapter<RecyclerVie
     }
 
     /**
-     * Set the notification group as seen.
+     * Set notification groups as seen.
      *
-     * @param position Adapter position of the notification group.
+     * @param start Initial adapter position of the notification groups.
+     * @param end Final adapter position of the notification groups.
      */
-    public void setNotificationAsSeen(int position) {
-        NotificationGroup notificationGroup = null;
-
-        try {
-            notificationGroup = mNotifications.get(position);
-        } catch (IndexOutOfBoundsException e) {
-            Log.e(TAG, "trying to mark none existent notification as seen.");
-            return;
-        }
+    /* package */ void setNotificationsAsSeen(int start, int end) {
+        start = Math.max(start, 0);
+        end = Math.min(end, mNotifications.size() - 1);
 
         if (mNotificationDataManager != null) {
-            for (StatusBarNotification notification : notificationGroup.getChildNotifications()) {
-                mNotificationDataManager.setNotificationAsSeen(notification);
+            List<AlertEntry> notifications = new ArrayList();
+            for (int i = start; i <= end; i++) {
+                notifications.addAll(mNotifications.get(i).getChildNotifications());
             }
+            mNotificationDataManager.setNotificationsAsSeen(notifications);
         }
     }
 }

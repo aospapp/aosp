@@ -76,7 +76,8 @@ public class RoamingPreferenceController extends PreferenceController<TwoStatePr
                 (ConfirmationDialogFragment) getFragmentController().findDialogByTag(
                         ConfirmationDialogFragment.TAG),
                 mConfirmListener,
-                /* rejectListener= */ null);
+                /* rejectListener= */ null,
+                /* neutralListener= */ null);
     }
 
     @Override

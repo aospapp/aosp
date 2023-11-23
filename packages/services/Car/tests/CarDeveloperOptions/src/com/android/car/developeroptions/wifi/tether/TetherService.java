@@ -32,7 +32,6 @@ import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
-import android.content.res.Resources;
 import android.net.ConnectivityManager;
 import android.os.IBinder;
 import android.os.ResultReceiver;
@@ -44,10 +43,9 @@ import android.util.Log;
 
 import androidx.annotation.VisibleForTesting;
 
-import com.android.car.developeroptions.Utils;
-
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public class TetherService extends Service {
     private static final String TAG = "TetherService";
@@ -55,6 +53,12 @@ public class TetherService extends Service {
 
     @VisibleForTesting
     public static final String EXTRA_RESULT = "EntitlementResult";
+    @VisibleForTesting
+    public static final String EXTRA_TETHER_PROVISIONING_RESPONSE =
+            "android.net.extra.TETHER_PROVISIONING_RESPONSE";
+    @VisibleForTesting
+    public static final String EXTRA_TETHER_SILENT_PROVISIONING_ACTION =
+            "android.net.extra.TETHER_SILENT_PROVISIONING_ACTION";
 
     // Activity results to match the activity provision protocol.
     // Default to something not ok.
@@ -69,6 +73,10 @@ public class TetherService extends Service {
 
     private int mCurrentTypeIndex;
     private boolean mInProvisionCheck;
+    /** Intent action received from the provisioning app when entitlement check completes. */
+    private String mExpectedProvisionResponseAction = null;
+    /** Intent action sent to the provisioning app to request an entitlement check. */
+    private String mProvisionAction;
     private TetherServiceWrapper mWrapper;
     private ArrayList<Integer> mCurrentTethers;
     private ArrayMap<Integer, List<ResultReceiver>> mPendingCallbacks;
@@ -83,10 +91,6 @@ public class TetherService extends Service {
     public void onCreate() {
         super.onCreate();
         if (DEBUG) Log.d(TAG, "Creating TetherService");
-        String provisionResponse = getResourceForDefaultDataSubId().getString(
-                com.android.internal.R.string.config_mobile_hotspot_provision_response);
-        registerReceiver(mReceiver, new IntentFilter(provisionResponse),
-                android.Manifest.permission.CONNECTIVITY_INTERNAL, null);
         SharedPreferences prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
         mCurrentTethers = stringToTethers(prefs.getString(KEY_TETHERS, ""));
         mCurrentTypeIndex = 0;
@@ -96,6 +100,24 @@ public class TetherService extends Service {
         mPendingCallbacks.put(
                 ConnectivityManager.TETHERING_BLUETOOTH, new ArrayList<ResultReceiver>());
         mHotspotReceiver = new HotspotOffReceiver(this);
+    }
+
+    // Registers the broadcast receiver for the specified response action, first unregistering
+    // the receiver if it was registered for a different response action.
+    private void maybeRegisterReceiver(final String responseAction) {
+        if (Objects.equals(responseAction, mExpectedProvisionResponseAction)) return;
+
+        if (mExpectedProvisionResponseAction != null) unregisterReceiver(mReceiver);
+
+        registerReceiver(mReceiver, new IntentFilter(responseAction),
+                android.Manifest.permission.TETHER_PRIVILEGED, null /* handler */);
+        mExpectedProvisionResponseAction = responseAction;
+        if (DEBUG) Log.d(TAG, "registerReceiver " + responseAction);
+    }
+
+    private int stopSelfAndStartNotSticky() {
+        stopSelf();
+        return START_NOT_STICKY;
     }
 
     @Override
@@ -111,9 +133,9 @@ public class TetherService extends Service {
                     callbacksForType.add(callback);
                 } else {
                     // Invalid tether type. Just ignore this request and report failure.
+                    Log.e(TAG, "Invalid tethering type " + type + ", stopping");
                     callback.send(ConnectivityManager.TETHER_ERROR_UNKNOWN_IFACE, null);
-                    stopSelf();
-                    return START_NOT_STICKY;
+                    return stopSelfAndStartNotSticky();
                 }
             }
 
@@ -122,6 +144,19 @@ public class TetherService extends Service {
                 mCurrentTethers.add(type);
             }
         }
+
+        mProvisionAction = intent.getStringExtra(EXTRA_TETHER_SILENT_PROVISIONING_ACTION);
+        if (mProvisionAction == null) {
+            Log.e(TAG, "null provisioning action, stop ");
+            return stopSelfAndStartNotSticky();
+        }
+
+        final String response = intent.getStringExtra(EXTRA_TETHER_PROVISIONING_RESPONSE);
+        if (response == null) {
+            Log.e(TAG, "null provisioning response, stop ");
+            return stopSelfAndStartNotSticky();
+        }
+        maybeRegisterReceiver(response);
 
         if (intent.hasExtra(ConnectivityManager.EXTRA_REM_TETHER_TYPE)) {
             if (!mInProvisionCheck) {
@@ -132,18 +167,9 @@ public class TetherService extends Service {
                 if (index >= 0) {
                     removeTypeAtIndex(index);
                 }
-                cancelAlarmIfNecessary();
             } else {
                 if (DEBUG) Log.d(TAG, "Don't cancel alarm during provisioning");
             }
-        }
-
-        // Only set the alarm if we have one tether, meaning the one just added,
-        // to avoid setting it when it was already set previously for another
-        // type.
-        if (intent.getBooleanExtra(ConnectivityManager.EXTRA_SET_ALARM, false)
-                && mCurrentTethers.size() == 1) {
-            scheduleAlarm();
         }
 
         if (intent.getBooleanExtra(ConnectivityManager.EXTRA_RUN_PROVISION, false)) {
@@ -151,8 +177,7 @@ public class TetherService extends Service {
         } else if (!mInProvisionCheck) {
             // If we aren't running any provisioning, no reason to stay alive.
             if (DEBUG) Log.d(TAG, "Stopping self.  startid: " + startId);
-            stopSelf();
-            return START_NOT_STICKY;
+            return stopSelfAndStartNotSticky();
         }
         // We want to be started if we are killed accidently, so that we can be sure we finish
         // the check.
@@ -168,14 +193,13 @@ public class TetherService extends Service {
         SharedPreferences prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
         prefs.edit().putString(KEY_TETHERS, tethersToString(mCurrentTethers)).commit();
 
-        unregisterReceivers();
+        if (mExpectedProvisionResponseAction != null) {
+            unregisterReceiver(mReceiver);
+            mExpectedProvisionResponseAction = null;
+        }
+        mHotspotReceiver.unregister();
         if (DEBUG) Log.d(TAG, "Destroying TetherService");
         super.onDestroy();
-    }
-
-    private void unregisterReceivers() {
-        unregisterReceiver(mReceiver);
-        mHotspotReceiver.unregister();
     }
 
     private void removeTypeAtIndex(int index) {
@@ -246,22 +270,22 @@ public class TetherService extends Service {
     }
 
     private void startProvisioning(int index) {
-        if (index < mCurrentTethers.size()) {
-            Intent intent = getProvisionBroadcastIntent(index);
-            setEntitlementAppActive(index);
+        if (index >= mCurrentTethers.size()) return;
+        Intent intent = getProvisionBroadcastIntent(index);
+        setEntitlementAppActive(index);
 
-            if (DEBUG) Log.d(TAG, "Sending provisioning broadcast: " + intent.getAction()
+        if (DEBUG) {
+            Log.d(TAG, "Sending provisioning broadcast: " + intent.getAction()
                     + " type: " + mCurrentTethers.get(index));
-
-            sendBroadcast(intent);
-            mInProvisionCheck = true;
         }
+
+        sendBroadcast(intent);
+        mInProvisionCheck = true;
     }
 
     private Intent getProvisionBroadcastIntent(int index) {
-        String provisionAction = getResourceForDefaultDataSubId().getString(
-                com.android.internal.R.string.config_mobile_hotspot_provision_app_no_ui);
-        Intent intent = new Intent(provisionAction);
+        if (mProvisionAction == null) Log.wtf(TAG, "null provisioning action");
+        Intent intent = new Intent(mProvisionAction);
         int type = mCurrentTethers.get(index);
         intent.putExtra(TETHER_CHOICE, type);
         intent.setFlags(Intent.FLAG_RECEIVER_FOREGROUND
@@ -295,9 +319,7 @@ public class TetherService extends Service {
 
         PendingIntent pendingIntent = PendingIntent.getService(this, 0, intent, 0);
         AlarmManager alarmManager = (AlarmManager) getSystemService(ALARM_SERVICE);
-        int period = getResourceForDefaultDataSubId().getInteger(
-                com.android.internal.R.integer.config_mobile_hotspot_provision_check_period);
-        long periodMs = period * MS_PER_HOUR;
+        long periodMs = 24 * MS_PER_HOUR;
         long firstTime = SystemClock.elapsedRealtime() + periodMs;
         if (DEBUG) Log.d(TAG, "Scheduling alarm at interval " + periodMs);
         alarmManager.setRepeating(AlarmManager.ELAPSED_REALTIME, firstTime, periodMs,
@@ -348,39 +370,47 @@ public class TetherService extends Service {
         @Override
         public void onReceive(Context context, Intent intent) {
             if (DEBUG) Log.d(TAG, "Got provision result " + intent);
-            String provisionResponse = getResourceForDefaultDataSubId().getString(
-                    com.android.internal.R.string.config_mobile_hotspot_provision_response);
+            if (!intent.getAction().equals(mExpectedProvisionResponseAction)) {
+                Log.e(TAG, "Received provisioning response for unexpected action="
+                        + intent.getAction() + ", expected=" + mExpectedProvisionResponseAction);
+                return;
+            }
 
-            if (provisionResponse.equals(intent.getAction())) {
-                if (!mInProvisionCheck) {
-                    Log.e(TAG, "Unexpected provision response " + intent);
-                    return;
-                }
-                int checkType = mCurrentTethers.get(mCurrentTypeIndex);
-                mInProvisionCheck = false;
-                int result = intent.getIntExtra(EXTRA_RESULT, RESULT_DEFAULT);
-                if (result != RESULT_OK) {
-                    switch (checkType) {
-                        case ConnectivityManager.TETHERING_WIFI:
-                            disableWifiTethering();
-                            break;
-                        case ConnectivityManager.TETHERING_BLUETOOTH:
-                            disableBtTethering();
-                            break;
-                        case ConnectivityManager.TETHERING_USB:
-                            disableUsbTethering();
-                            break;
-                    }
-                }
-                fireCallbacksForType(checkType, result);
+            if (!mInProvisionCheck) {
+                Log.e(TAG, "Unexpected provisioning response when not in provisioning check"
+                        + intent);
+                return;
+            }
 
-                if (++mCurrentTypeIndex >= mCurrentTethers.size()) {
-                    // We are done with all checks, time to die.
-                    stopSelf();
-                } else {
-                    // Start the next check in our list.
-                    startProvisioning(mCurrentTypeIndex);
+
+            if (!mInProvisionCheck) {
+                Log.e(TAG, "Unexpected provision response " + intent);
+                return;
+            }
+            int checkType = mCurrentTethers.get(mCurrentTypeIndex);
+            mInProvisionCheck = false;
+            int result = intent.getIntExtra(EXTRA_RESULT, RESULT_DEFAULT);
+            if (result != RESULT_OK) {
+                switch (checkType) {
+                    case ConnectivityManager.TETHERING_WIFI:
+                        disableWifiTethering();
+                        break;
+                    case ConnectivityManager.TETHERING_BLUETOOTH:
+                        disableBtTethering();
+                        break;
+                    case ConnectivityManager.TETHERING_USB:
+                        disableUsbTethering();
+                        break;
                 }
+            }
+            fireCallbacksForType(checkType, result);
+
+            if (++mCurrentTypeIndex >= mCurrentTethers.size()) {
+                // We are done with all checks, time to die.
+                stopSelf();
+            } else {
+                // Start the next check in our list.
+                startProvisioning(mCurrentTypeIndex);
             }
         }
     };
@@ -399,8 +429,7 @@ public class TetherService extends Service {
 
     /**
      * A static helper class used for tests. UsageStatsManager cannot be mocked out because
-     * it's marked final. Static method SubscriptionManager#getResourcesForSubId also cannot
-     * be mocked. This class can be mocked out instead.
+     * it's marked final. This class can be mocked out instead.
      */
     @VisibleForTesting
     public static class TetherServiceWrapper {
@@ -418,11 +447,5 @@ public class TetherService extends Service {
         int getDefaultDataSubscriptionId() {
             return SubscriptionManager.getDefaultDataSubscriptionId();
         }
-    }
-
-    @VisibleForTesting
-    Resources getResourceForDefaultDataSubId() {
-        final int subId = getTetherServiceWrapper().getDefaultDataSubscriptionId();
-        return Utils.getResourcesForSubId(this, subId);
     }
 }

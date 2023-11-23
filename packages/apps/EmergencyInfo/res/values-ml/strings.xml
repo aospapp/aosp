@@ -87,7 +87,7 @@
     <!-- no translation found for organ_donor_entries:0 (4680498266537823362) -->
     <!-- no translation found for organ_donor_entries:1 (4906312680266515592) -->
     <!-- no translation found for organ_donor_entries:2 (9037713957399818892) -->
-    <string name="emergency_contacts_title" msgid="5462202017417821030">"അടിയന്തിര കോൺടാക്റ്റുകൾ"</string>
+    <string name="emergency_contacts_title" msgid="5462202017417821030">"അടിയന്തര കോൺടാക്റ്റുകൾ"</string>
     <string name="add_emergency_contact" msgid="4063577069613981029">"കോൺടാക്റ്റ് ചേർക്കുക"</string>
     <string name="fail_load_contact_picker" msgid="817205483833876726">"കോൺടാക്‌റ്റ് പിക്കർ കണ്ടെത്താനായില്ല"</string>
     <string name="fail_display_contact" msgid="4128854688897045879">"കോൺടാക്‌റ്റ് പ്രദർശിപ്പിക്കാനാവില്ല"</string>

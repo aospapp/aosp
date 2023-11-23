@@ -18,7 +18,8 @@
 <PreferenceScreen
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:settings="http://schemas.android.com/apk/res-auto"
-    android:title="@string/voice_input_settings_title">
+    android:title="@string/voice_input_settings_title"
+    android:key="@string/psk_default_voice_input_picker">
     <com.android.car.settings.common.LogicalPreferenceGroup
         android:key="@string/pk_default_voice_input_options"
         settings:controller="com.android.car.settings.applications.assist.DefaultVoiceInputPickerPreferenceController"/>

@@ -20,11 +20,11 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.os.Bundle;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.R;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.xmlpull.v1.XmlPullParserException;
 
@@ -34,7 +34,7 @@ import java.util.List;
 /**
  * Unit test for {@link PreferenceXmlParser}.
  */
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 public class PreferenceXmlParserTest {
 
     @Test

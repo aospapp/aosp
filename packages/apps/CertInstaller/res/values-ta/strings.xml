@@ -21,8 +21,8 @@
     <string name="pkcs12_password_dialog_title" msgid="5997624645207427161">"சான்றிதழைப் பிரித்தெடு"</string>
     <string name="extracting_pkcs12" msgid="1881267738821799771">"பிரித்தெடுக்கிறது…"</string>
     <string name="pkcs12_file_password_dialog_title" msgid="8102721384767269510">"%s இலிருந்து பிரித்தெடு"</string>
-    <string name="name_credential_dialog_title" msgid="277729846491554437">"சான்றிதழுக்குப் பெயரிடுக"</string>
-    <string name="credential_name" msgid="1974979771369744378">"சான்றிதழ் பெயர்:"</string>
+    <string name="name_credential_dialog_title" msgid="1481964824549786927">"இந்தச் சான்றிதழுக்குப் பெயரிடுக"</string>
+    <string name="certificate_name" msgid="8415893401368824792">"சான்றிதழின் பெயர்"</string>
     <string name="credential_password" msgid="3520176519550993326">"சான்றிதழ்களைப் பிரித்தெடுக்க கடவுச்சொல்லை உள்ளிடவும்."</string>
     <string name="credential_info" msgid="2436768402308470397">"தொகுப்பில் உள்ளவை:"</string>
     <string name="p12_description" msgid="4128352087331630024">"PKCS12 விசைதொகுப்பில் உள்ள சான்றிதழ்கள்."</string>
@@ -41,14 +41,28 @@
     <string name="invalid_cert" msgid="7704228670980743590">"சான்றிதழ் தவறானது."</string>
     <string name="action_missing_private_key" msgid="7543470057312920042">"சான்றிதழை நிறுவ, தனிப்பட்ட குறியீடு தேவை"</string>
     <string name="action_missing_user_cert" msgid="3727411730202316771">"தனிப்பட்ட குறியீட்டை நிறுவ, சான்றிதழ் தேவை"</string>
-    <string name="cert_is_added" msgid="6996557598167000500">"<xliff:g id="CREDENTIAL">%s</xliff:g> நிறுவப்பட்டது."</string>
+    <string name="select_certificate_usage_title" msgid="8853023485944920851">"சான்றிதழின் வகை ஒன்றைத் தேர்ந்தெடுங்கள்"</string>
+    <string name="redirect_ca_certificate_title" msgid="3457516863949244510">"CA சான்றிதழ்களை அமைப்புகளில் நிறுவுங்கள்"</string>
+    <string name="redirect_ca_certificate_with_app_info_message" msgid="934477720755323579">"<xliff:g id="REQUESTING_APP">%1$s</xliff:g> வழங்கிய இந்த சான்றிதழை அமைப்புகளில் நிறுவ வேண்டும். நம்பகமான நிறுவனங்கள் வழங்கும் CA சான்றிதழ்களை மட்டும் நிறுவவும்."</string>
+    <string name="redirect_ca_certificate_close_button" msgid="4291301659747279488">"மூடுக"</string>
+    <string name="invalid_certificate_title" msgid="6500315398016809635">"இந்த ஃபைலைப் பயன்படுத்த முடியாது"</string>
+    <string name="invalid_certificate_close_button" msgid="350986774973653102">"மூடுக"</string>
+    <string name="invalid_certificate_message" msgid="3508065546083182733">"இந்தக் கோப்பை <xliff:g id="CERTIFICATE_USAGE">%1$s</xliff:g> ஆகப் பயன்படுத்த முடியாது"</string>
+    <string name="certificate" msgid="8790577925509962529">"சான்றிதழ்"</string>
+    <string name="ca_certificate" msgid="7397198551290322945">"CA சான்றிதழ்"</string>
+    <string name="user_certificate" msgid="514888069820553128">"VPN &amp; ஆப்ஸ் பயனர் சான்றிதழ்"</string>
+    <string name="wifi_certificate" msgid="5356595832360140989">"வைஃபை சான்றிதழ்"</string>
+    <string name="ca_cert_is_added" msgid="2847081843756291802">"CA சான்றிதழ் நிறுவப்பட்டது"</string>
+    <string name="user_cert_is_added" msgid="3088794616560630823">"பயனர் சான்றிதழ் நிறுவப்பட்டது"</string>
+    <string name="wifi_cert_is_added" msgid="333220613655140428">"வைஃபை சான்றிதழ் நிறுவப்பட்டது"</string>
     <string name="cert_too_large_error" msgid="8715414972725646285">"சான்றிதழின் அளவு மிகப் பெரிதாக இருப்பதால் நிறுவ முடியவில்லை."</string>
     <string name="cert_missing_error" msgid="7040527352278728220">"சான்றிதழ் கோப்பைக் கண்டறிய முடியாததால் நிறுவ முடியவில்லை."</string>
     <string name="cert_read_error" msgid="7353463360652419796">"சான்றிதழ் கோப்பைப் படிக்க முடியாததால் நிறுவ முடியவில்லை."</string>
+    <string name="cert_temp_error" msgid="617276803992714550">"தற்காலிகத் தோல்வி . பிறகு முயலவும்."</string>
     <string name="only_primary_user_allowed" msgid="4005084935023047716">"இந்தச் சாதனத்தின் உரிமையாளர் மட்டுமே சான்றிதழ்களை நிறுவலாம்."</string>
     <string name="credential_usage_label" msgid="1513892208033156805">"நன்சான்றின் பயன்பாடு:"</string>
   <string-array name="credential_usage">
-    <item msgid="375085478373011304">"VPN மற்றும் பயன்பாடுகள்"</item>
+    <item msgid="375085478373011304">"VPN மற்றும் ஆப்ஸ்"</item>
     <item msgid="692322974985472861">"வைஃபை"</item>
   </string-array>
     <string name="certificate_capabilities_warning" msgid="4158609401937799110">"கவனத்திற்கு: இந்தச் சான்றிதழை வழங்குபவர், சாதனத்தைப் பயன்படுத்துவதன் மூலம் கிடைக்கும் ட்ராஃபிக் அனைத்தையும் ஆய்வுசெய்யக்கூடும்."</string>

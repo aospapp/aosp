@@ -22,6 +22,8 @@ import android.view.View;
 
 import androidx.preference.Preference;
 
+import com.android.car.ui.preference.CarUiTwoActionPreference;
+
 /**
  * {@link Preference} with a secondary clickable button on the side.
  * {@link #setLayoutResource(int)} or the {@code widgetLayout} resource may be used to specify
@@ -29,7 +31,7 @@ import androidx.preference.Preference;
  *
  * <p>Note: the button is enabled even when {@link #isEnabled()} is {@code false}.
  */
-public class ButtonPreference extends TwoActionPreference {
+public class ButtonPreference extends CarUiTwoActionPreference {
 
     /**
      * Interface definition for a callback to be invoked when the button is clicked.

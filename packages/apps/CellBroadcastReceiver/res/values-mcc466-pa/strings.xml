@@ -17,4 +17,6 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="public_safety_message" msgid="4052407641316309322">"ਚਿਤਾਵਨੀ ਸੁਨੇਹਾ"</string>
+    <string name="enable_cmas_test_alerts_title" msgid="4165080207837566277">"ਮਹੀਨਾਵਾਰ ਜਾਂਚ ਦੀ ਲੋੜ ਹੈ"</string>
+    <string name="enable_cmas_test_alerts_summary" msgid="1339769389077152402">"ਸੁਰੱਖਿਆ ਸੁਚੇਤਨਾ ਸਿਸਟਮ ਤੋਂ ਜਾਂਚ ਸੁਨੇਹੇ ਪ੍ਰਾਪਤ ਕਰੋ"</string>
 </resources>

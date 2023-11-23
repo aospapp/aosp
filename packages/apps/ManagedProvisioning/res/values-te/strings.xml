@@ -83,8 +83,10 @@
     <string name="reset" msgid="6467204151306265796">"రీసెట్ చేయి"</string>
     <string name="cant_set_up_profile" msgid="4341825293970158436">"ప్రొఫైల్‌ని సెటప్ చేయడం సాధ్యపడదు"</string>
     <string name="cant_set_up_device" msgid="4120090138983350714">"పరికరాన్ని సెటప్ చేయడం సాధ్యపడదు"</string>
+    <string name="something_went_wrong" msgid="3593223774041784329">"ఏదో తప్పు జరిగింది"</string>
     <string name="couldnt_set_up_device" msgid="5137950404283642302">"పరికరాన్ని సెటప్ చేయలేకపోయింది. సహాయం కోసం, మీ IT నిర్వాహకులను సంప్రదించండి."</string>
     <string name="contact_your_admin_for_help" msgid="2009904021552323731">"సహాయం కోసం మీ IT నిర్వాహకులను సంప్రదించండి"</string>
+    <string name="reset_device" msgid="5483853913241939262">"ఈ పరికరాన్ని రీసెట్ చేసి మళ్ళీ సెటప్ చేయడానికి ప్రయత్నించండి"</string>
     <string name="device_already_set_up" msgid="507881934487140294">"పరికరం ఇప్పటికే సెటప్ చేయబడింది"</string>
     <string name="error_wifi" msgid="1850288843966836571">"Wi-Fiకి కనెక్ట్ చేయడం సాధ్యపడలేదు"</string>
     <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"మీ పరికరంలో రీసెట్ రక్షణ ఆన్ చేయబడింది. సహాయం కోసం, మీ IT నిర్వాహకులను సంప్రదించండి."</string>
@@ -111,7 +113,7 @@
     <string name="device_owner_info_with_terms_headers" msgid="1254243288669282977">"ఈ పరికరం <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> ద్వారా నిర్వహించబడుతుంది, పర్యవేక్షించబడుతుంది మరియు సురక్షితంగా ఉంచబడుతుంది. <xliff:g id="TERMS_HEADERS">%2$s</xliff:g> యొక్క నిబంధనలు వర్తిస్తాయి. <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
     <string name="link_isnt_secure_and_cant_be_opened_until_device_setup_finished" msgid="1604497932637832657">"ఈ లింక్ సురక్షితం కాదు మరియు పరికరం సెటప్ పూర్తి అయ్యేంతవరకు దాన్ని తెరవడం సాధ్యపడదు: <xliff:g id="LINK_RAW_TEST">%1$s</xliff:g>"</string>
     <string name="contact_device_provider" msgid="2843488903902493030">"మరింత తెలుసుకోవడానికి, మీ <xliff:g id="IT_ADMIN">%1$s</xliff:g>ను సంప్రదించండి."</string>
-    <string name="if_questions_contact_admin" msgid="3509427015901582047">"మీకు ఏవైనా ప్రశ్నలు ఉంటే, మీ IT నిర్వాహకులను సంప్రదించండి"</string>
+    <string name="if_questions_contact_admin" msgid="3509427015901582047">"మీకు ఏవైనా సందేహాలు ఉంటే, మీ IT అడ్మిన్‌ను సంప్రదించండి"</string>
     <string name="setup_isnt_finished_contact_admin" msgid="8849644190723875952">"సెటప్ పూర్తి కాలేదు. సహాయం కోసం మీ IT నిర్వాహకులను సంప్రదించండి."</string>
     <string name="for_help_contact_admin" msgid="5922538077702487859">"సహాయం కోసం, మీ IT నిర్వాహకులను సంప్రదించండి"</string>
     <string name="organization_admin" msgid="5975914478148511290">"IT నిర్వాహకులు"</string>
@@ -161,25 +163,34 @@
     <string name="setup_provisioning_header" msgid="4282483198266806271">"ఆఫీసు పరికరాన్ని సెటప్ చేయడానికి సన్నద్ధం చేస్తోంది…"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"నిర్వాహక యాప్‌ని సెటప్ చేయడం"</string>
     <string name="set_up_everything_else" msgid="4407706086957916501">"మొత్తం సెటప్ చేసుకోండి"</string>
-    <string name="now_lets_set_up_everything_else" msgid="2905102208584231894">"ఇప్పుడే మొత్తం సెటప్ చేసుకోండి"</string>
+    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"మీ పరికరం నుండి మరిన్ని సేవలను పొందడానికి వ్యక్తిగత ఖాతాను జోడించండి"</string>
+    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"ఇప్పుడు మీ కార్యాలయ ప్రొఫైల్ సిద్ధంగా ఉంది కాబట్టి మీ యాప్‌లు, కంటెంట్‌ను యాక్సెస్ చేయడానికి, మీరు వ్యక్తిగత Google ఖాతాను కూడా జోడించవచ్చు."</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"ఇది మీ సంస్థకు చెందిన పరికరం"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"ఈ ఫోన్‌ని నిర్వహించేందుకు మరియు పర్యవేక్షించడానికి ఈ యాప్‌ ఉపయోగపడుతుంది"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"కార్యాలయ సెటప్ కోసం సిద్ధం చేయబడుతోంది…"</string>
-    <string name="work_profile_provisioning_accept_header" msgid="462916780311392444">"ముందుగా, మీ ఆఫీసు ప్రొఫైల్‌ని సెటప్ చేసుకోండి"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"ముందుగా, మీ కార్యాలయ ప్రొఫైల్‌ను సెటప్ చేయండి"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"కార్యాలయ యాప్‌లు మీ కార్యాలయ ప్రొఫైల్‌లో ఉంచబడతాయి"</string>
     <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"మీ రోజువారీ పని పూర్తయినప్పుడు కార్యాలయ యాప్‌లను పాజ్ చేయండి"</string>
-    <string name="work_profile_provisioning_step_3_header" msgid="7495564624887776704">"మీ కార్యాలయ ప్రొఫైల్‌లోని డేటా మాత్రమే మీ IT నిర్వాహకులకు కనిపిస్తుంది"</string>
-    <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"మీ కార్యాలయ ప్రొఫైల్‌ను సెటప్ చేస్తోంది…"</string>
-    <string name="work_profile_provisioning_summary" msgid="3917907344897144246">"కార్యాలయ యాప్‌లు మీ కార్యాలయ ప్రొఫైల్‌లో ఉంచబడతాయి. మీ రోజువారీ పని పూర్తయినప్పుడు మీ కార్యాలయ యాప్‌లను మీరు పాజ్ చేయవచ్చు. మీ కార్యాలయ ప్రొఫైల్‌లోని డేటా మాత్రమే మీ IT నిర్వాహకులకు కనిపిస్తుంది."</string>
+    <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"మీ ఆఫీస్ ప్రొఫైల్‌లోని డేటా మీ IT అడ్మిన్‌లకు కనిపిస్తుంది"</string>
+    <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"మీ ఆఫీస్ ప్రొఫైల్‌ను సెటప్ చేస్తోంది…"</string>
+    <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"కార్యాలయ యాప్‌లు మీ కార్యాలయ ప్రొఫైల్‌లో ఉంచబడతాయి. మీ రోజువారీ పని పూర్తయినప్పుడు మీ కార్యాలయ యాప్‌లను మీరు పాజ్ చేయవచ్చు. మీ కార్యాలయ ప్రొఫైల్‌లోని డేటా మీ IT అడ్మిన్‌లకు కనిపిస్తుంది"</string>
     <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"మీ కార్యాలయ పరికరాన్ని సెటప్ చేయండి"</string>
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"మీ కార్యాలయ యాప్‌లు సత్వరం యాక్సెస్ చేయగలిగేలా అందుబాటులో ఉంచుకోండి"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"ఈ పరికరం వ్యక్తిగతమైనది కాదు"</string>
     <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"మీ IT నిర్వాహకులు ఈ పరికరంలోని మీ డేటా, కార్యకలాపం చూడగలిగే అవకాశం ఉంటుంది."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"మీ పరికరాన్ని సెటప్ చేస్తోంది…"</string>
     <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"మీ కార్యాలయ యాప్‌లను సులభంగా యాక్సెస్ చేయడానికి ఈ పరికరాన్ని ఉపయోగించండి. ఈ పరికరం వ్యక్తిగతమైనది కాదు, కనుక మీ IT నిర్వాహకులు మీ డేటా, కార్యకలాపం చూడగలిగే అవకాశం ఉంటుంది. మరింత తెలుసుకోవడానికి, మీ IT నిర్వాహకులను సంప్రదించండి."</string>
+    <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"ఆఫీస్ యాప్‌లను అడ్మిన్ నిర్వహిస్తారు &amp; ఆఫీస్ ప్రొఫైల్‌లో ఉంటాయి"</string>
+    <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"వ్యక్తిగత యాప్‌లు విడిగా ఉంటాయి &amp; ఆఫీస్ యాప్‌లకు కనిపించవు"</string>
+    <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"మీ IT అడ్మిన్ ఈ పరికరాన్ని నియంత్రించగలరు &amp; కొన్ని యాప్‌లను బ్లాక్ చేయగలరు"</string>
+    <string name="cope_provisioning_summary" msgid="993014104601034878">"కార్యాలయ యాప్‌లు మీ కార్యాలయ ప్రొఫైల్‌లో ఉంచబడతాయి, అలాగే మీ IT అడ్మిన్ ద్వారా నిర్వహించబడతాయి. వ్యక్తిగత యాప్‌లు అన్నవి విడిగా ఉంటాయి, అలాగే కార్యాలయ యాప్‌లలో కనిపించవు మీ IT అడ్మిన్ ఈ పరికరాన్ని నియంత్రించవచ్చు మరియు కొన్ని యాప్‌లను నిరోధించవచ్చు"</string>
+    <string name="just_a_sec" msgid="6244676028626237220">"ఒక్క క్షణం ఆగండి…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"గోప్యతా రిమైండర్"</string>
     <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"మీ IT నిర్వాహకులు ఈ పరికరంలోని మీ డేటా, కార్యకలాపం చూడగలిగే అవకాశం ఉంటుంది"</string>
     <string name="device_provisioning_finished" msgid="3981783240592092906">"మీ పరికరం ఉపయోగించేందుకు సిద్ధంగా ఉంది!"</string>
     <string name="done" msgid="7755227776955952318">"పూర్తయింది"</string>
+    <string name="financed_device_screen_header" msgid="7890706080917322376">"ఈ పరికరం <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> నుండి క్రెడిట్ రూపంలో కొనుగోలు చేయబడింది"</string>
+    <string name="creditor_capabilities_header" msgid="6217362648469323253">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> వీటిని చేయగలదు:"</string>
+    <string name="install_creditor_app_description" msgid="6159751782301108878">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> యాప్‌ను ఇన్‌స్టాల్ చేస్తే, దాని ద్వారా ఈ పరికర చెల్లింపులను చేయవచ్చు"</string>
+    <string name="lock_device_description" msgid="2940362560732989166">"మీరు చెల్లింపు చేయకపోతే, ఈ పరికరానికి యాక్సెస్‌ను పరిమితం చేయండి"</string>
 </resources>

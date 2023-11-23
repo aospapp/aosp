@@ -28,7 +28,7 @@
     <string name="load_wallpaper_error_message" msgid="7913278480467707374">"No se puede cargar el fondo de pantalla. La imagen está dañada o no está disponible."</string>
     <string name="static_wallpaper_presentation_mode_message" msgid="417940227049360906">"Establecido actualmente"</string>
     <string name="rotating_wallpaper_presentation_mode_message" msgid="3361676041605733288">"Fondo de pantalla diario"</string>
-    <string name="wallpaper_destination_both" msgid="1124197176741944063">"Pantalla principal y bloqueada"</string>
+    <string name="wallpaper_destination_both" msgid="1124197176741944063">"Pantalla principal y de bloqueo"</string>
     <string name="home_screen_message" msgid="106444102822522813">"Pantalla principal"</string>
     <string name="lock_screen_message" msgid="1534506081955058013">"Pantalla bloqueada"</string>
     <string name="home_and_lock_short_label" msgid="2937922943541927983">"Pantalla principal y bloqueada"</string>

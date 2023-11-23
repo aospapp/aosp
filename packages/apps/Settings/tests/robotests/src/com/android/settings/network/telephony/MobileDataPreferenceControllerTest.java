@@ -16,7 +16,7 @@
 
 package com.android.settings.network.telephony;
 
-import static com.android.settings.core.BasePreferenceController.DISABLED_DEPENDENT_SETTING;
+import static com.android.settings.core.BasePreferenceController.AVAILABLE_UNSEARCHABLE;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -88,18 +88,17 @@ public class MobileDataPreferenceControllerTest {
     }
 
     @Test
-    public void getAvailabilityStatus_invalidSubscription_returnDisabledDependentSetting() {
+    public void getAvailabilityStatus_invalidSubscription_returnAvailableUnsearchable() {
         mController.init(mFragmentManager, SubscriptionManager.INVALID_SUBSCRIPTION_ID);
 
-        assertThat(mController.getAvailabilityStatus()).isEqualTo(DISABLED_DEPENDENT_SETTING);
+        assertThat(mController.getAvailabilityStatus()).isEqualTo(AVAILABLE_UNSEARCHABLE);
     }
 
     @Test
     public void isDialogNeeded_disableSingleSim_returnFalse() {
         doReturn(true).when(mTelephonyManager).isDataEnabled();
         doReturn(mSubscriptionInfo).when(mSubscriptionManager).getActiveSubscriptionInfo(SUB_ID);
-        doReturn(mSubscriptionInfo).when(mSubscriptionManager).getDefaultDataSubscriptionInfo();
-        doReturn(1).when(mTelephonyManager).getSimCount();
+        doReturn(1).when(mTelephonyManager).getActiveModemCount();
 
         assertThat(mController.isDialogNeeded()).isFalse();
     }
@@ -110,7 +109,7 @@ public class MobileDataPreferenceControllerTest {
         doReturn(mSubscriptionInfo).when(mSubscriptionManager).getActiveSubscriptionInfo(SUB_ID);
         doReturn(true).when(mSubscriptionManager).isActiveSubscriptionId(SUB_ID_OTHER);
         ShadowSubscriptionManager.setDefaultDataSubscriptionId(SUB_ID_OTHER);
-        doReturn(2).when(mTelephonyManager).getSimCount();
+        doReturn(2).when(mTelephonyManager).getActiveModemCount();
 
         assertThat(mController.isDialogNeeded()).isTrue();
         assertThat(mController.mDialogType).isEqualTo(
@@ -130,8 +129,7 @@ public class MobileDataPreferenceControllerTest {
     public void onPreferenceChange_singleSim_On_shouldEnableData() {
         doReturn(true).when(mTelephonyManager).isDataEnabled();
         doReturn(mSubscriptionInfo).when(mSubscriptionManager).getActiveSubscriptionInfo(SUB_ID);
-        doReturn(mSubscriptionInfo).when(mSubscriptionManager).getDefaultDataSubscriptionInfo();
-        doReturn(1).when(mTelephonyManager).getSimCount();
+        doReturn(1).when(mTelephonyManager).getActiveModemCount();
 
         mController.onPreferenceChange(mPreference, true);
 
@@ -142,8 +140,7 @@ public class MobileDataPreferenceControllerTest {
     public void onPreferenceChange_multiSim_On_shouldEnableData() {
         doReturn(true).when(mTelephonyManager).isDataEnabled();
         doReturn(mSubscriptionInfo).when(mSubscriptionManager).getActiveSubscriptionInfo(SUB_ID);
-        doReturn(mSubscriptionInfo).when(mSubscriptionManager).getDefaultDataSubscriptionInfo();
-        doReturn(2).when(mTelephonyManager).getSimCount();
+        doReturn(2).when(mTelephonyManager).getActiveModemCount();
 
         mController.onPreferenceChange(mPreference, true);
 

@@ -35,6 +35,7 @@ import com.android.server.telecom.CurrentUserProxy;
 import com.android.server.telecom.TelecomSystem;
 import com.android.server.telecom.VideoProviderProxy;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
@@ -67,6 +68,12 @@ public class VideoProviderProxyTest extends TelecomTestCase {
         mVideoProviderProxy = new VideoProviderProxy(mLock, mVideoProvider, mCall,
                 mCurrentUserProxy);
         mVideoProviderProxy.addListener(mListener);
+    }
+
+    @Override
+    @After
+    public void tearDown() throws Exception {
+        super.tearDown();
     }
 
     /**

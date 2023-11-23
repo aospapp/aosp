@@ -28,6 +28,10 @@
     <string name="car_permission_label_energy">access car\u2019s energy information</string>
     <!-- Permission text: can access your car's energy information [CHAR LIMIT=NONE] -->
     <string name="car_permission_desc_energy">Access your car\u2019s energy information.</string>
+    <!-- Permission text: can adjust value of your car's range remaining [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_adjust_range_remaining">adjust car\u2019s range remaining</string>
+    <!-- Permission text: can adjust value of your car's range remaining [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_adjust_range_remaining">Adjust car\u2019s range remaining value.</string>
     <!-- Permission text: apps can control car hvac [CHAR LIMIT=NONE] -->
     <string name="car_permission_label_hvac">access car\u2019s hvac</string>
     <!-- Permission text: apps can control car hvac [CHAR LIMIT=NONE] -->
@@ -102,6 +106,12 @@
     <string name="car_permission_label_car_handle_usb_aoap_device">Communicate with USB device in AOAP mode</string>
     <string name="car_permission_desc_car_handle_usb_aoap_device">Allows an app to communicate with a device in AOAP mode</string>
 
+    <string name="car_permission_label_read_car_occupant_awareness_state">Occupant Awareness System Read Access</string>
+    <string name="car_permission_desc_read_car_occupant_awareness_state">Allows reading status and detection data for Occupant Awareness System</string>
+
+    <string name="car_permission_label_control_car_occupant_awareness_system">Control Occupant Awareness System Graph</string>
+    <string name="car_permission_desc_control_car_occupant_awareness_system">Allows controlling the start and stopping of the Occupant Awareness System detection graph</string>
+
     <!-- Permission text: apps can handle input events [CHAR LIMIT=NONE] -->
     <string name="car_permission_label_bind_input_service">Car Input Service</string>
     <!-- Permission text: apps can handle input events [CHAR LIMIT=NONE] -->
@@ -115,11 +125,15 @@
         box and restart the car</string>
 
     <!-- Blocking activity: Message to show to user when a feature of current application is not allowed. [CHAR LIMIT=120] -->
-    <string name="activity_blocked_text">For your safety, this activity isn\u2019t available while driving.\nTo continue, wait until you\u2019re parked.</string>
+    <string name="activity_blocked_text">You can\u2019t use this feature while driving</string>
     <!-- Blocking activity: Message to accompany the exit_button that restarts the blocked app. [CHAR LIMIT=120] -->
     <string name="exit_button_message">To start over with safe app features, select <xliff:g id="exit_button" example="Back">%s</xliff:g>.</string>
     <!-- Blocking activity: Text for button that restarts the current blocked application. [CHAR LIMIT=15] -->
     <string name="exit_button">Back</string>
+    <!-- Blocking activity: Text for button that closes current blocked application. [CHAR LIMIT=20] -->
+    <string name="exit_button_close_application">Close app</string>
+    <!-- Blocking activity: Text for button that closes current blocked application. [CHAR LIMIT=15] -->
+    <string name="exit_button_go_back">Back</string>
     <!-- Blocking activity: Text for button that shows debug info in non-user build. -->
     <string name="debug_button_text" translatable="false">Debug Info</string>
 
@@ -168,6 +182,11 @@
     <!-- Permission text: apps can access car's fuel door and ev charge port [CHAR LIMIT=NONE] -->
     <string name="car_permission_desc_car_energy_ports">Access car\u2019s fuel door and charge port.</string>
 
+    <!-- Permission text: apps can control car's fuel door and ev charge port [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_control_car_energy_ports">control car\u2019s fuel door and charge port</string>
+    <!-- Permission text: apps can control car's fuel door and ev charge port [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_control_car_energy_ports">Control car\u2019s fuel door and charge port.</string>
+
     <!-- Permission text: apps can access car's VIN information [CHAR LIMIT=NONE] -->
     <string name="car_permission_label_car_identification">read car\u2019s identification</string>
     <!-- Permission text: apps can access car's VIN information [CHAR LIMIT=NONE] -->
@@ -197,6 +216,11 @@
     <string name="car_permission_label_car_info">access car\u2019s basic information</string>
     <!-- Permission text: apps read car's basic information [CHAR LIMIT=NONE] -->
     <string name="car_permission_desc_car_info">Access car\u2019s basic information.</string>
+
+    <!-- Permission text: apps read car's vendor permissions information [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_vendor_permission_info">access car\u2019s vendor permission information</string>
+    <!-- Permission text: apps read car's vendor permissions information [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_vendor_permission_info">Access car\u2019s vendor permission information.</string>
 
     <!-- Permission text: apps access car's exterior lights state [CHAR LIMIT=NONE] -->
     <string name="car_permission_label_car_exterior_lights">read car\u2019s exterior lights state</string>
@@ -256,10 +280,204 @@
     <string name="car_permission_label_enroll_trust">Enroll Trusted Device</string>
     <string name="car_permission_desc_enroll_trust">Allow Trusted Device Enrollment</string>
 
+    <!-- Permission text: Control car's test mode [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_car_test_service">Control car\u2019s test mode</string>
+    <!-- Permission text: Control car's test mode [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_car_test_service">Control car\u2019s test mode</string>
+
+    <!-- Permission text: apps control vendor properties related with window [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_set_car_vendor_category_window" translatable="false">control vendor specific window properties</string>
+    <!-- Permission text: apps control vendor properties related with window [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_set_car_vendor_category_window" translatable="false">Control vendor specific window properties.</string>
+
+    <!-- Permission text: apps access vendor properties related with window [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_get_car_vendor_category_window" translatable="false">access vendor specific window properties</string>
+    <!-- Permission text: apps access vendor properties related with window [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_get_car_vendor_category_window" translatable="false">Access vendor specific window properties.</string>
+
+    <!-- Permission text: apps control vendor properties related with door [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_set_car_vendor_category_door" translatable="false">control vendor specific door properties</string>
+    <!-- Permission text: apps control vendor properties related with door [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_set_car_vendor_category_door" translatable="false">Control vendor specific door properties.</string>
+
+    <!-- Permission text: apps access vendor properties related with door [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_get_car_vendor_category_door" translatable="false">access vendor specific door properties</string>
+    <!-- Permission text: apps access vendor properties related with door [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_get_car_vendor_category_door" translatable="false">Access vendor specific door properties.</string>
+
+    <!-- Permission text: apps control vendor properties related with seat [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_set_car_vendor_category_seat" translatable="false">control vendor specific seat properties</string>
+    <!-- Permission text: apps control vendor properties related with seat [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_set_car_vendor_category_seat" translatable="false">Control vendor specific seat properties.</string>
+
+    <!-- Permission text: apps access vendor properties related with seat [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_get_car_vendor_category_seat" translatable="false">access vendor specific seat properties</string>
+    <!-- Permission text: apps access vendor properties related with seat [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_get_car_vendor_category_seat" translatable="false">Access vendor specific seat properties.</string>
+
+    <!-- Permission text: apps control vendor properties related with mirror [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_set_car_vendor_category_mirror" translatable="false">control vendor specific mirror properties</string>
+    <!-- Permission text: apps control vendor properties related with mirror [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_set_car_vendor_category_mirror" translatable="false">Control vendor specific mirror properties.</string>
+
+    <!-- Permission text: apps access vendor properties related with mirror [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_get_car_vendor_category_mirror" translatable="false">access vendor specific mirror properties</string>
+    <!-- Permission text: apps access vendor properties related with mirror [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_get_car_vendor_category_mirror" translatable="false">Access vendor specific mirror properties.</string>
+
+    <!-- Permission text: apps control vendor properties related with info [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_set_car_vendor_category_info" translatable="false">control vendor specific information properties</string>
+    <!-- Permission text: apps control vendor properties related with info [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_set_car_vendor_category_info" translatable="false">Control vendor specific information properties.</string>
+
+    <!-- Permission text: apps access vendor properties related with info [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_get_car_vendor_category_info" translatable="false">access vendor specific information properties</string>
+    <!-- Permission text: apps access vendor properties related with info [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_get_car_vendor_category_info" translatable="false">Access vendor specific information properties.</string>
+
+    <!-- Permission text: apps control vendor properties related with engine [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_set_car_vendor_category_engine" translatable="false">control vendor specific engine properties</string>
+    <!-- Permission text: apps control vendor properties related with engine [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_set_car_vendor_category_engine" translatable="false">Control vendor specific engine properties.</string>
+
+    <!-- Permission text: apps access vendor properties related with engine [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_get_car_vendor_category_engine" translatable="false">access vendor specific engine properties</string>
+    <!-- Permission text: apps access vendor properties related with engine [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_get_car_vendor_category_engine" translatable="false">Access vendor specific engine properties.</string>
+
+    <!-- Permission text: apps control vendor properties related with hvac [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_set_car_vendor_category_hvac" translatable="false">control vendor specific hvac properties</string>
+    <!-- Permission text: apps control vendor properties related with hvac [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_set_car_vendor_category_hvac" translatable="false">Control vendor specific hvac properties.</string>
+
+    <!-- Permission text: apps access vendor properties related with hvac [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_get_car_vendor_category_hvac" translatable="false">access vendor specific hvac properties</string>
+    <!-- Permission text: apps access vendor properties related with hvac [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_get_car_vendor_category_hvac" translatable="false">Access vendor specific hvac properties.</string>
+
+    <!-- Permission text: apps control vendor properties related with light [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_set_car_vendor_category_light" translatable="false">control vendor specific light properties</string>
+    <!-- Permission text: apps control vendor properties related with light [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_set_car_vendor_category_light" translatable="false">Control vendor specific light properties.</string>
+
+    <!-- Permission text: apps access vendor properties related with light [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_get_car_vendor_category_light" translatable="false">access vendor specific light properties</string>
+    <!-- Permission text: apps access vendor properties related with light [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_get_car_vendor_category_light" translatable="false">Access vendor specific light properties.</string>
+
+    <!-- Permission text: apps access properties in category 1 [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_get_car_vendor_category_1" translatable="false">access vendor specific properties in category 1</string>
+    <!-- Permission text: apps access vendor properties in category 1 [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_get_car_vendor_category_1" translatable="false">Access vendor specific properties in category 1.</string>
+
+    <!-- Permission text: apps access vendor properties in category 2 [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_get_car_vendor_category_2" translatable="false">access vendor specific properties in category 2</string>
+    <!-- Permission text: apps access vendor properties in category 2 [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_get_car_vendor_category_2" translatable="false">Access vendor specific properties in category 2.</string>
+
+    <!-- Permission text: apps access properties in category 3 [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_get_car_vendor_category_3" translatable="false">access vendor specific properties in category 3</string>
+    <!-- Permission text: apps access  properties in category 3 [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_get_car_vendor_category_3" translatable="false">Access vendor specific properties in category 3.</string>
+
+    <!-- Permission text: apps access vendor properties in category 4 [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_get_car_vendor_category_4" translatable="false">access vendor specific properties in category 4</string>
+    <!-- Permission text: apps access vendor properties in category 4 [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_get_car_vendor_category_4" translatable="false">Access vendor specific properties in category 4.</string>
+
+    <!-- Permission text: apps access vendor properties in category 5 [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_get_car_vendor_category_5" translatable="false">access vendor specific properties in category 5</string>
+    <!-- Permission text: apps access vendor properties in category 5 [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_get_car_vendor_category_5" translatable="false">Access vendor specific properties in category 5.</string>
+
+    <!-- Permission text: apps access vendor properties in category 6 [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_get_car_vendor_category_6" translatable="false">access vendor specific properties in category 6</string>
+    <!-- Permission text: apps access and control vendor properties in category 6 [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_get_car_vendor_category_6" translatable="false">Access vendor specific properties in category 6.</string>
+
+    <!-- Permission text: apps access vendor properties in category 7 [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_get_car_vendor_category_7" translatable="false">access vendor specific properties in category 7</string>
+    <!-- Permission text: apps access vendor properties in category 7 [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_get_car_vendor_category_7" translatable="false">Access vendor specific properties in category 7.</string>
+
+    <!-- Permission text: apps access vendor properties in category 8 [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_get_car_vendor_category_8" translatable="false">access vendor specific properties in category 8</string>
+    <!-- Permission text: apps access vendor properties in category 8 [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_get_car_vendor_category_8" translatable="false">Access vendor specific properties in category 8.</string>
+
+    <!-- Permission text: apps access vendor properties in category 9 [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_get_car_vendor_category_9" translatable="false">access vendor specific properties in category 9</string>
+    <!-- Permission text: apps access vendor properties in category 9 [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_get_car_vendor_category_9" translatable="false">Access vendor specific properties in category 9.</string>
+
+    <!-- Permission text: apps access vendor properties in category 10 [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_get_car_vendor_category_10" translatable="false">access vendor specific properties in category 10</string>
+    <!-- Permission text: apps access vendor properties in category 10 [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_get_car_vendor_category_10" translatable="false">Access vendor specific properties in category 10.</string>
+
+    <!-- Permission text: apps control vendor properties in category 1 [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_set_car_vendor_category_1" translatable="false">control vendor specific properties in category 1</string>
+    <!-- Permission text: apps control vendor properties in category 1 [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_set_car_vendor_category_1" translatable="false">Control vendor specific properties in category 1.</string>
+
+    <!-- Permission text: apps control vendor properties in category 2 [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_set_car_vendor_category_2" translatable="false">control vendor specific properties in category 2</string>
+    <!-- Permission text: apps control vendor properties in category 2 [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_set_car_vendor_category_2" translatable="false">Control vendor specific properties in category 2.</string>
+
+    <!-- Permission text: apps control vendor properties in category 3 [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_set_car_vendor_category_3" translatable="false">control vendor specific properties in category 3</string>
+    <!-- Permission text: apps control vendor properties in category 3 [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_set_car_vendor_category_3" translatable="false">Control vendor specific properties in category 3.</string>
+
+    <!-- Permission text: apps control vendor properties in category 4 [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_set_car_vendor_category_4" translatable="false">control vendor specific properties in category 4</string>
+    <!-- Permission text: apps control vendor properties in category 4 [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_set_car_vendor_category_4" translatable="false">Control vendor specific properties in category 4.</string>
+
+    <!-- Permission text: apps control vendor properties in category 5 [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_set_car_vendor_category_5" translatable="false">control vendor specific properties in category 5</string>
+    <!-- Permission text: apps control vendor properties in category 5 [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_set_car_vendor_category_5" translatable="false">Control vendor specific properties in category 5.</string>
+
+    <!-- Permission text: apps control vendor properties in category 6 [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_set_car_vendor_category_6" translatable="false">control vendor specific properties in category 6</string>
+    <!-- Permission text: apps control vendor properties in category 6 [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_set_car_vendor_category_6" translatable="false">Control vendor specific properties in category 6.</string>
+
+    <!-- Permission text: apps control vendor properties in category 7 [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_set_car_vendor_category_7" translatable="false">control vendor specific properties in category 7</string>
+    <!-- Permission text: apps control vendor properties in category 7 [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_set_car_vendor_category_7" translatable="false">Control vendor specific properties in category 7.</string>
+
+    <!-- Permission text: apps control vendor properties in category 8 [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_set_car_vendor_category_8" translatable="false">control vendor specific properties in category 8</string>
+    <!-- Permission text: apps control vendor properties in category 8 [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_set_car_vendor_category_8" translatable="false">Control vendor specific properties in category 8.</string>
+
+    <!-- Permission text: apps control vendor properties in category 9 [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_set_car_vendor_category_9" translatable="false">control vendor specific properties in category 9</string>
+    <!-- Permission text: apps control vendor properties in category 9 [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_set_car_vendor_category_9" translatable="false">Control vendor specific properties in category 9.</string>
+
+    <!-- Permission text: apps control vendor properties in category 10 [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_set_car_vendor_category_10" translatable="false">control vendor specific properties in category 10</string>
+    <!-- Permission text: apps control vendor properties in category 10 [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_set_car_vendor_category_10" translatable="false">Control vendor specific properties in category 10.</string>
+
+    <!-- Permission text: enable or disable car's features [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_control_car_features">Enable or disable car\u2019s features</string>
+    <!-- Permission text: enable or disable car's features [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_control_car_features">Enable or disable car\u2019s features.</string>
+
+    <!-- Permission text: apps use car watchdog [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_use_car_watchdog">use car watchdog</string>
+    <!-- Permission text: apps use car watchdog [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_use_car_watchdog">Use car watchdog.</string>
+
     <!-- The default name of device enrolled as trust device [CHAR LIMIT=NONE] -->
     <string name="trust_device_default_name">My Device</string>
 
-    <!-- The package name of the media application that will be selected as the default [CHAR LIMIT=NONE] -->
-    <string name="default_media_application" translatable="false">com.android.bluetooth</string>
-
+    <!-- Default name for new guest users [CHAR LIMIT=20] -->
+    <string name="default_guest_name">Guest</string>
 </resources>

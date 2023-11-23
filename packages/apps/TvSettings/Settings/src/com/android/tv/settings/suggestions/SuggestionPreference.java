@@ -16,7 +16,10 @@
 
 package com.android.tv.settings.suggestions;
 
+import static com.android.tv.settings.util.InstrumentationUtils.logEntrySelected;
+
 import android.app.PendingIntent;
+import android.app.tvsettings.TvSettingsEnums;
 import android.content.Context;
 import android.service.settings.suggestions.Suggestion;
 import android.util.Log;
@@ -63,21 +66,28 @@ public class SuggestionPreference extends Preference {
     public void onBindViewHolder(final PreferenceViewHolder holder) {
         super.onBindViewHolder(holder);
 
+        holder.itemView.setOnClickListener(v -> launchSuggestion());
         View containerView = holder.itemView.findViewById(R.id.main_container);
-        containerView.setOnClickListener(v -> launchSuggestion());
+        if (containerView != null) {
+            containerView.setOnClickListener(v -> launchSuggestion());
+        }
 
         // In accessibility mode, item_container get focused instead of main_container,
         // so we need to add the same listener to item_container.
         View itemContainerView = holder.itemView.findViewById(R.id.item_container);
-        itemContainerView.setOnClickListener(v -> launchSuggestion());
+        if (itemContainerView != null) {
+            itemContainerView.setOnClickListener(v -> launchSuggestion());
+        }
 
         View dismissButton = holder.itemView.findViewById(R.id.dismiss_button);
-        dismissButton.setOnClickListener(v -> {
-            mSuggestionControllerMixin.dismissSuggestion(mSuggestion);
-            if (mCallback != null) {
-                mCallback.onSuggestionClosed(SuggestionPreference.this);
-            }
-        });
+        if (dismissButton != null) {
+            dismissButton.setOnClickListener(v -> {
+                mSuggestionControllerMixin.dismissSuggestion(mSuggestion);
+                if (mCallback != null) {
+                    mCallback.onSuggestionClosed(SuggestionPreference.this);
+                }
+            });
+        }
 
         mMetricsFeatureProvider.action(getContext(), MetricsEvent.ACTION_SHOW_SETTINGS_SUGGESTION,
                 mId);
@@ -87,6 +97,7 @@ public class SuggestionPreference extends Preference {
         try {
             mSuggestion.getPendingIntent().send();
             mSuggestionControllerMixin.launchSuggestion(mSuggestion);
+            logEntrySelected(TvSettingsEnums.SUGGESTED_SETTINGS);
             mMetricsFeatureProvider.action(getContext(),
                     MetricsEvent.ACTION_SETTINGS_SUGGESTION, mId);
         } catch (PendingIntent.CanceledException e) {

@@ -126,6 +126,11 @@
         <item name="android:lineSpacingExtra">6sp</item>
     </style>
 
+    <style name="Provisioning2Theme.Text.Secondary.SmallerLineSpacing" parent="Provisioning2Theme.Text.Secondary">
+        <item name="android:lineSpacingExtra">4sp</item>
+        <item name="android:letterSpacing">0.01</item>
+    </style>
+
     <style name="Provisioning2Theme.Text.Secondary.Small">
         <!--notice: line height 20sp (textSize + leading)-->
         <item name="android:textSize">12sp</item>

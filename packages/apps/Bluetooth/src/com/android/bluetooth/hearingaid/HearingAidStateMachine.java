@@ -54,9 +54,9 @@ import android.os.Message;
 import android.util.Log;
 
 import com.android.bluetooth.btservice.ProfileService;
+import com.android.bluetooth.statemachine.State;
+import com.android.bluetooth.statemachine.StateMachine;
 import com.android.internal.annotations.VisibleForTesting;
-import com.android.internal.util.State;
-import com.android.internal.util.StateMachine;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
@@ -81,6 +81,7 @@ final class HearingAidStateMachine extends StateMachine {
     private Connecting mConnecting;
     private Disconnecting mDisconnecting;
     private Connected mConnected;
+    private int mConnectionState = BluetoothProfile.STATE_DISCONNECTED;
     private int mLastConnectionState = -1;
 
     private HearingAidService mService;
@@ -132,6 +133,7 @@ final class HearingAidStateMachine extends StateMachine {
         public void enter() {
             Log.i(TAG, "Enter Disconnected(" + mDevice + "): " + messageWhatToString(
                     getCurrentMessage().what));
+            mConnectionState = BluetoothProfile.STATE_DISCONNECTED;
 
             removeDeferredMessages(DISCONNECT);
 
@@ -178,7 +180,7 @@ final class HearingAidStateMachine extends StateMachine {
                         Log.d(TAG, "Disconnected: stack event: " + event);
                     }
                     if (!mDevice.equals(event.device)) {
-                        Log.wtfStack(TAG, "Device(" + mDevice + "): event mismatch: " + event);
+                        Log.wtf(TAG, "Device(" + mDevice + "): event mismatch: " + event);
                     }
                     switch (event.type) {
                         case HearingAidStackEvent.EVENT_TYPE_CONNECTION_STATE_CHANGED:
@@ -239,6 +241,7 @@ final class HearingAidStateMachine extends StateMachine {
             Log.i(TAG, "Enter Connecting(" + mDevice + "): "
                     + messageWhatToString(getCurrentMessage().what));
             sendMessageDelayed(CONNECT_TIMEOUT, sConnectTimeoutMs);
+            mConnectionState = BluetoothProfile.STATE_CONNECTING;
             broadcastConnectionState(BluetoothProfile.STATE_CONNECTING, mLastConnectionState);
         }
 
@@ -282,7 +285,7 @@ final class HearingAidStateMachine extends StateMachine {
                     HearingAidStackEvent event = (HearingAidStackEvent) message.obj;
                     log("Connecting: stack event: " + event);
                     if (!mDevice.equals(event.device)) {
-                        Log.wtfStack(TAG, "Device(" + mDevice + "): event mismatch: " + event);
+                        Log.wtf(TAG, "Device(" + mDevice + "): event mismatch: " + event);
                     }
                     switch (event.type) {
                         case HearingAidStackEvent.EVENT_TYPE_CONNECTION_STATE_CHANGED:
@@ -329,6 +332,7 @@ final class HearingAidStateMachine extends StateMachine {
             Log.i(TAG, "Enter Disconnecting(" + mDevice + "): "
                     + messageWhatToString(getCurrentMessage().what));
             sendMessageDelayed(CONNECT_TIMEOUT, sConnectTimeoutMs);
+            mConnectionState = BluetoothProfile.STATE_DISCONNECTING;
             broadcastConnectionState(BluetoothProfile.STATE_DISCONNECTING, mLastConnectionState);
         }
 
@@ -367,7 +371,7 @@ final class HearingAidStateMachine extends StateMachine {
                     HearingAidStackEvent event = (HearingAidStackEvent) message.obj;
                     log("Disconnecting: stack event: " + event);
                     if (!mDevice.equals(event.device)) {
-                        Log.wtfStack(TAG, "Device(" + mDevice + "): event mismatch: " + event);
+                        Log.wtf(TAG, "Device(" + mDevice + "): event mismatch: " + event);
                     }
                     switch (event.type) {
                         case HearingAidStackEvent.EVENT_TYPE_CONNECTION_STATE_CHANGED:
@@ -426,6 +430,7 @@ final class HearingAidStateMachine extends StateMachine {
         public void enter() {
             Log.i(TAG, "Enter Connected(" + mDevice + "): "
                     + messageWhatToString(getCurrentMessage().what));
+            mConnectionState = BluetoothProfile.STATE_CONNECTED;
             removeDeferredMessages(CONNECT);
             broadcastConnectionState(BluetoothProfile.STATE_CONNECTED, mLastConnectionState);
         }
@@ -460,7 +465,7 @@ final class HearingAidStateMachine extends StateMachine {
                     HearingAidStackEvent event = (HearingAidStackEvent) message.obj;
                     log("Connected: stack event: " + event);
                     if (!mDevice.equals(event.device)) {
-                        Log.wtfStack(TAG, "Device(" + mDevice + "): event mismatch: " + event);
+                        Log.wtf(TAG, "Device(" + mDevice + "): event mismatch: " + event);
                     }
                     switch (event.type) {
                         case HearingAidStackEvent.EVENT_TYPE_CONNECTION_STATE_CHANGED:
@@ -496,20 +501,7 @@ final class HearingAidStateMachine extends StateMachine {
     }
 
     int getConnectionState() {
-        String currentState = getCurrentState().getName();
-        switch (currentState) {
-            case "Disconnected":
-                return BluetoothProfile.STATE_DISCONNECTED;
-            case "Connecting":
-                return BluetoothProfile.STATE_CONNECTING;
-            case "Connected":
-                return BluetoothProfile.STATE_CONNECTED;
-            case "Disconnecting":
-                return BluetoothProfile.STATE_DISCONNECTING;
-            default:
-                Log.e(TAG, "Bad currentState: " + currentState);
-                return BluetoothProfile.STATE_DISCONNECTED;
-        }
+        return mConnectionState;
     }
 
     BluetoothDevice getDevice() {
@@ -517,7 +509,7 @@ final class HearingAidStateMachine extends StateMachine {
     }
 
     synchronized boolean isConnected() {
-        return getCurrentState() == mConnected;
+        return (getConnectionState() == BluetoothProfile.STATE_CONNECTED);
     }
 
     // This method does not check for error condition (newState == prevState)

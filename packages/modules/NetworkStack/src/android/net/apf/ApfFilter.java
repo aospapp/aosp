@@ -31,8 +31,8 @@ import static com.android.server.util.NetworkStackConstants.ICMPV6_ECHO_REQUEST_
 import static com.android.server.util.NetworkStackConstants.ICMPV6_NEIGHBOR_ADVERTISEMENT;
 import static com.android.server.util.NetworkStackConstants.ICMPV6_ROUTER_ADVERTISEMENT;
 import static com.android.server.util.NetworkStackConstants.ICMPV6_ROUTER_SOLICITATION;
+import static com.android.server.util.NetworkStackConstants.IPV6_ADDR_LEN;
 
-import android.annotation.Nullable;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -56,8 +56,9 @@ import android.system.ErrnoException;
 import android.system.Os;
 import android.text.format.DateUtils;
 import android.util.Log;
-import android.util.Pair;
 import android.util.SparseArray;
+
+import androidx.annotation.Nullable;
 
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
@@ -104,6 +105,7 @@ public class ApfFilter {
         public boolean multicastFilter;
         public boolean ieee802_3Filter;
         public int[] ethTypeBlackList;
+        public int minRdnssLifetimeSec;
     }
 
     // Enums describing the outcome of receiving an RA packet.
@@ -357,6 +359,9 @@ public class ApfFilter {
     private final boolean mDrop802_3Frames;
     private final int[] mEthTypeBlackList;
 
+    // Ignore non-zero RDNSS lifetimes below this value.
+    private final int mMinRdnssLifetimeSec;
+
     // Detects doze mode state transitions.
     private final BroadcastReceiver mDeviceIdleReceiver = new BroadcastReceiver() {
         @Override
@@ -387,6 +392,7 @@ public class ApfFilter {
         mInterfaceParams = ifParams;
         mMulticastFilter = config.multicastFilter;
         mDrop802_3Frames = config.ieee802_3Filter;
+        mMinRdnssLifetimeSec = config.minRdnssLifetimeSec;
         mContext = context;
 
         if (mApfCapabilities.hasDataAccess()) {
@@ -476,8 +482,7 @@ public class ApfFilter {
                 installNewProgramLocked();
             }
             socket = Os.socket(AF_PACKET, SOCK_RAW, ETH_P_IPV6);
-            SocketAddress addr = makePacketSocketAddress(
-                    (short) ETH_P_IPV6, mInterfaceParams.index);
+            SocketAddress addr = makePacketSocketAddress(ETH_P_IPV6, mInterfaceParams.index);
             Os.bind(socket, addr);
             NetworkStackUtils.attachRaFilter(socket, mApfCapabilities.apfPacketFormat);
         } catch(SocketException|ErrnoException e) {
@@ -497,6 +502,44 @@ public class ApfFilter {
     public static class InvalidRaException extends Exception {
         public InvalidRaException(String m) {
             super(m);
+        }
+    }
+
+    /**
+     *  Class to keep track of a section in a packet.
+     */
+    private static class PacketSection {
+        public enum Type {
+            MATCH,     // A field that should be matched (e.g., the router IP address).
+            IGNORE,    // An ignored field such as the checksum of the flow label. Not matched.
+            LIFETIME,  // A lifetime. Not matched, and generally counts toward minimum RA lifetime.
+        }
+
+        /** The type of section. */
+        public final Type type;
+        /** Offset into the packet at which this section begins. */
+        public final int start;
+        /** Length of this section in bytes. */
+        public final int length;
+        /** If this is a lifetime, the ICMP option that defined it. 0 for router lifetime. */
+        public final int option;
+        /** If this is a lifetime, the lifetime value. */
+        public final long lifetime;
+
+        PacketSection(int start, int length, Type type, int option, long lifetime) {
+            this.start = start;
+            this.length = length;
+            this.type = type;
+            this.option = option;
+            this.lifetime = lifetime;
+        }
+
+        public String toString() {
+            if (type == Type.LIFETIME) {
+                return String.format("%s: (%d, %d) %d %d", type, start, length, option, lifetime);
+            } else {
+                return String.format("%s: (%d, %d)", type, start, length);
+            }
         }
     }
 
@@ -534,10 +577,10 @@ public class ApfFilter {
 
         // Note: mPacket's position() cannot be assumed to be reset.
         private final ByteBuffer mPacket;
-        // List of binary ranges that include the whole packet except the lifetimes.
-        // Pairs consist of offset and length.
-        private final ArrayList<Pair<Integer, Integer>> mNonLifetimes =
-                new ArrayList<Pair<Integer, Integer>>();
+
+        // List of sections in the packet.
+        private final ArrayList<PacketSection> mPacketSections = new ArrayList<>();
+
         // Minimum lifetime in packet
         long mMinLifetime;
         // When the packet was last captured, in seconds since Unix Epoch
@@ -548,6 +591,9 @@ public class ApfFilter {
 
         // For debugging only. Offsets into the packet where RDNSS options are.
         private final ArrayList<Integer> mRdnssOptionOffsets = new ArrayList<>();
+
+        // For debugging only. Offsets into the packet where RIO options are.
+        private final ArrayList<Integer> mRioOptionOffsets = new ArrayList<>();
 
         // For debugging only. How many times this RA was seen.
         int seenCount = 0;
@@ -599,6 +645,28 @@ public class ApfFilter {
             for (int server = 0; server < numServers; server++) {
                 sb.append(" ").append(IPv6AddresstoString(offset + 8 + 16 * server));
             }
+            sb.append(" ");
+        }
+
+        private void rioOptionToString(StringBuffer sb, int offset) {
+            int optLen = getUint8(mPacket, offset + 1) * 8;
+            if (optLen < 8 || optLen > 24) return;  // Malformed or empty.
+            int prefixLen = getUint8(mPacket, offset + 2);
+            long lifetime = getUint32(mPacket, offset + 4);
+
+            // This read is variable length because the prefix can be 0, 8 or 16 bytes long.
+            // We can't use any of the ByteBuffer#get methods here because they all start reading
+            // from the buffer's current position.
+            byte[] prefix = new byte[IPV6_ADDR_LEN];
+            System.arraycopy(mPacket.array(), offset + 8, prefix, 0, optLen - 8);
+            sb.append("RIO ").append(lifetime).append("s ");
+            try {
+                InetAddress address = (Inet6Address) InetAddress.getByAddress(prefix);
+                sb.append(address.getHostAddress());
+            } catch (UnknownHostException impossible) {
+                sb.append("???");
+            }
+            sb.append("/").append(prefixLen).append(" ");
         }
 
         public String toString() {
@@ -614,6 +682,9 @@ public class ApfFilter {
                 for (int i: mRdnssOptionOffsets) {
                     rdnssOptionToString(sb, i);
                 }
+                for (int i: mRioOptionOffsets) {
+                    rioOptionToString(sb, i);
+                }
                 return sb.toString();
             } catch (BufferUnderflowException|IndexOutOfBoundsException e) {
                 return "<Malformed RA>";
@@ -621,27 +692,78 @@ public class ApfFilter {
         }
 
         /**
-         * Add a binary range of the packet that does not include a lifetime to mNonLifetimes.
-         * Assumes mPacket.position() is as far as we've parsed the packet.
-         * @param lastNonLifetimeStart offset within packet of where the last binary range of
-         *                             data not including a lifetime.
-         * @param lifetimeOffset offset from mPacket.position() to the next lifetime data.
-         * @param lifetimeLength length of the next lifetime data.
-         * @return offset within packet of where the next binary range of data not including
-         *         a lifetime. This can be passed into the next invocation of this function
-         *         via {@code lastNonLifetimeStart}.
+         * Add a packet section that should be matched, starting from the current position.
+         * @param length the length of the section
          */
-        private int addNonLifetime(int lastNonLifetimeStart, int lifetimeOffset,
-                int lifetimeLength) {
-            lifetimeOffset += mPacket.position();
-            mNonLifetimes.add(new Pair<Integer, Integer>(lastNonLifetimeStart,
-                    lifetimeOffset - lastNonLifetimeStart));
-            return lifetimeOffset + lifetimeLength;
+        private void addMatchSection(int length) {
+            // Don't generate JNEBS instruction for 0 bytes as they will fail the
+            // ASSERT_FORWARD_IN_PROGRAM(pc + cmp_imm - 1) check (where cmp_imm is
+            // the number of bytes to compare) and immediately pass the packet.
+            // The code does not attempt to generate such matches, but add a safety
+            // check to prevent doing so in the presence of bugs or malformed or
+            // truncated packets.
+            if (length == 0) return;
+            mPacketSections.add(
+                    new PacketSection(mPacket.position(), length, PacketSection.Type.MATCH, 0, 0));
+            mPacket.position(mPacket.position() + length);
         }
 
-        private int addNonLifetimeU32(int lastNonLifetimeStart) {
-            return addNonLifetime(lastNonLifetimeStart,
-                    ICMP6_4_BYTE_LIFETIME_OFFSET, ICMP6_4_BYTE_LIFETIME_LEN);
+        /**
+         * Add a packet section that should be matched, starting from the current position.
+         * @param end the offset in the packet before which the section ends
+         */
+        private void addMatchUntil(int end) {
+            addMatchSection(end - mPacket.position());
+        }
+
+        /**
+         * Add a packet section that should be ignored, starting from the current position.
+         * @param length the length of the section in bytes
+         */
+        private void addIgnoreSection(int length) {
+            mPacketSections.add(
+                    new PacketSection(mPacket.position(), length, PacketSection.Type.IGNORE, 0, 0));
+            mPacket.position(mPacket.position() + length);
+        }
+
+        /**
+         * Add a packet section that represents a lifetime, starting from the current position.
+         * @param length the length of the section in bytes
+         * @param optionType the RA option containing this lifetime, or 0 for router lifetime
+         * @param lifetime the lifetime
+         */
+        private void addLifetimeSection(int length, int optionType, long lifetime) {
+            mPacketSections.add(
+                    new PacketSection(mPacket.position(), length, PacketSection.Type.LIFETIME,
+                            optionType, lifetime));
+            mPacket.position(mPacket.position() + length);
+        }
+
+        /**
+         * Adds packet sections for an RA option with a 4-byte lifetime 4 bytes into the option
+         * @param optionType the RA option that is being added
+         * @param optionLength the length of the option in bytes
+         */
+        private long add4ByteLifetimeOption(int optionType, int optionLength) {
+            addMatchSection(ICMP6_4_BYTE_LIFETIME_OFFSET);
+            final long lifetime = getUint32(mPacket, mPacket.position());
+            addLifetimeSection(ICMP6_4_BYTE_LIFETIME_LEN, optionType, lifetime);
+            addMatchSection(optionLength - ICMP6_4_BYTE_LIFETIME_OFFSET
+                    - ICMP6_4_BYTE_LIFETIME_LEN);
+            return lifetime;
+        }
+
+        // http://b/66928272 http://b/65056012
+        // DnsServerRepository ignores RDNSS servers with lifetimes that are too low. Ignore these
+        // lifetimes for the purpose of filter lifetime calculations.
+        private boolean shouldIgnoreLifetime(int optionType, long lifetime) {
+            return optionType == ICMP6_RDNSS_OPTION_TYPE
+                    && lifetime != 0 && lifetime < mMinRdnssLifetimeSec;
+        }
+
+        private boolean isRelevantLifetime(PacketSection section) {
+            return section.type == PacketSection.Type.LIFETIME
+                    && !shouldIgnoreLifetime(section.option, section.lifetime);
         }
 
         // Note that this parses RA and may throw InvalidRaException (from
@@ -650,7 +772,7 @@ public class ApfFilter {
         // specifications.
         Ra(byte[] packet, int length) throws InvalidRaException {
             if (length < ICMP6_RA_OPTION_OFFSET) {
-                throw new InvalidRaException("Not an ICMP6 router advertisement");
+                throw new InvalidRaException("Not an ICMP6 router advertisement: too short");
             }
 
             mPacket = ByteBuffer.wrap(Arrays.copyOf(packet, length));
@@ -668,23 +790,22 @@ public class ApfFilter {
             RaEvent.Builder builder = new RaEvent.Builder();
 
             // Ignore the flow label and low 4 bits of traffic class.
-            int lastNonLifetimeStart = addNonLifetime(0,
-                    IPV6_FLOW_LABEL_OFFSET,
-                    IPV6_FLOW_LABEL_LEN);
+            addMatchUntil(IPV6_FLOW_LABEL_OFFSET);
+            addIgnoreSection(IPV6_FLOW_LABEL_LEN);
 
-            // Ignore the checksum.
-            lastNonLifetimeStart = addNonLifetime(lastNonLifetimeStart,
-                    ICMP6_RA_CHECKSUM_OFFSET,
-                    ICMP6_RA_CHECKSUM_LEN);
+            // Ignore checksum.
+            addMatchUntil(ICMP6_RA_CHECKSUM_OFFSET);
+            addIgnoreSection(ICMP6_RA_CHECKSUM_LEN);
 
             // Parse router lifetime
-            lastNonLifetimeStart = addNonLifetime(lastNonLifetimeStart,
-                    ICMP6_RA_ROUTER_LIFETIME_OFFSET,
-                    ICMP6_RA_ROUTER_LIFETIME_LEN);
-            builder.updateRouterLifetime(getUint16(mPacket, ICMP6_RA_ROUTER_LIFETIME_OFFSET));
+            addMatchUntil(ICMP6_RA_ROUTER_LIFETIME_OFFSET);
+            final long routerLifetime = getUint16(mPacket, ICMP6_RA_ROUTER_LIFETIME_OFFSET);
+            addLifetimeSection(ICMP6_RA_ROUTER_LIFETIME_LEN, 0, routerLifetime);
+            builder.updateRouterLifetime(routerLifetime);
 
-            // Ensures that the RA is not truncated.
-            mPacket.position(ICMP6_RA_OPTION_OFFSET);
+            // Add remaining fields (reachable time and retransmission timer) to match section.
+            addMatchUntil(ICMP6_RA_OPTION_OFFSET);
+
             while (mPacket.hasRemaining()) {
                 final int position = mPacket.position();
                 final int optionType = getUint8(mPacket, position);
@@ -692,63 +813,62 @@ public class ApfFilter {
                 long lifetime;
                 switch (optionType) {
                     case ICMP6_PREFIX_OPTION_TYPE:
-                        // Parse valid lifetime
-                        lastNonLifetimeStart = addNonLifetime(lastNonLifetimeStart,
-                                ICMP6_PREFIX_OPTION_VALID_LIFETIME_OFFSET,
-                                ICMP6_PREFIX_OPTION_VALID_LIFETIME_LEN);
-                        lifetime = getUint32(mPacket,
-                                position + ICMP6_PREFIX_OPTION_VALID_LIFETIME_OFFSET);
-                        builder.updatePrefixValidLifetime(lifetime);
-                        // Parse preferred lifetime
-                        lastNonLifetimeStart = addNonLifetime(lastNonLifetimeStart,
-                                ICMP6_PREFIX_OPTION_PREFERRED_LIFETIME_OFFSET,
-                                ICMP6_PREFIX_OPTION_PREFERRED_LIFETIME_LEN);
-                        lifetime = getUint32(mPacket,
-                                position + ICMP6_PREFIX_OPTION_PREFERRED_LIFETIME_OFFSET);
-                        builder.updatePrefixPreferredLifetime(lifetime);
                         mPrefixOptionOffsets.add(position);
+
+                        // Parse valid lifetime
+                        addMatchSection(ICMP6_PREFIX_OPTION_VALID_LIFETIME_OFFSET);
+                        lifetime = getUint32(mPacket, mPacket.position());
+                        addLifetimeSection(ICMP6_PREFIX_OPTION_VALID_LIFETIME_LEN,
+                                ICMP6_PREFIX_OPTION_TYPE, lifetime);
+                        builder.updatePrefixValidLifetime(lifetime);
+
+                        // Parse preferred lifetime
+                        lifetime = getUint32(mPacket, mPacket.position());
+                        addLifetimeSection(ICMP6_PREFIX_OPTION_PREFERRED_LIFETIME_LEN,
+                                ICMP6_PREFIX_OPTION_TYPE, lifetime);
+                        builder.updatePrefixPreferredLifetime(lifetime);
+
+                        addMatchSection(4);       // Reserved bytes
+                        addMatchSection(IPV6_ADDR_LEN);  // The prefix itself
                         break;
                     // These three options have the same lifetime offset and size, and
-                    // are processed with the same specialized addNonLifetimeU32:
+                    // are processed with the same specialized add4ByteLifetimeOption:
                     case ICMP6_RDNSS_OPTION_TYPE:
                         mRdnssOptionOffsets.add(position);
-                        lastNonLifetimeStart = addNonLifetimeU32(lastNonLifetimeStart);
-                        lifetime = getUint32(mPacket, position + ICMP6_4_BYTE_LIFETIME_OFFSET);
+                        lifetime = add4ByteLifetimeOption(optionType, optionLength);
                         builder.updateRdnssLifetime(lifetime);
                         break;
                     case ICMP6_ROUTE_INFO_OPTION_TYPE:
-                        lastNonLifetimeStart = addNonLifetimeU32(lastNonLifetimeStart);
-                        lifetime = getUint32(mPacket, position + ICMP6_4_BYTE_LIFETIME_OFFSET);
+                        mRioOptionOffsets.add(position);
+                        lifetime = add4ByteLifetimeOption(optionType, optionLength);
                         builder.updateRouteInfoLifetime(lifetime);
                         break;
                     case ICMP6_DNSSL_OPTION_TYPE:
-                        lastNonLifetimeStart = addNonLifetimeU32(lastNonLifetimeStart);
-                        lifetime = getUint32(mPacket, position + ICMP6_4_BYTE_LIFETIME_OFFSET);
+                        lifetime = add4ByteLifetimeOption(optionType, optionLength);
                         builder.updateDnsslLifetime(lifetime);
                         break;
                     default:
-                        // RFC4861 section 4.2 dictates we ignore unknown options for fowards
+                        // RFC4861 section 4.2 dictates we ignore unknown options for forwards
                         // compatibility.
+                        mPacket.position(position + optionLength);
                         break;
                 }
                 if (optionLength <= 0) {
                     throw new InvalidRaException(String.format(
                         "Invalid option length opt=%d len=%d", optionType, optionLength));
                 }
-                mPacket.position(position + optionLength);
             }
-            // Mark non-lifetime bytes since last lifetime.
-            addNonLifetime(lastNonLifetimeStart, 0, 0);
-            mMinLifetime = minLifetime(packet, length);
+            mMinLifetime = minLifetime();
             mMetricsLog.log(builder.build());
         }
 
-        // Ignoring lifetimes (which may change) does {@code packet} match this RA?
+        // Considering only the MATCH sections, does {@code packet} match this RA?
         boolean matches(byte[] packet, int length) {
             if (length != mPacket.capacity()) return false;
             byte[] referencePacket = mPacket.array();
-            for (Pair<Integer, Integer> nonLifetime : mNonLifetimes) {
-                for (int i = nonLifetime.first; i < (nonLifetime.first + nonLifetime.second); i++) {
+            for (PacketSection section : mPacketSections) {
+                if (section.type != PacketSection.Type.MATCH) continue;
+                for (int i = section.start; i < (section.start + section.length); i++) {
                     if (packet[i] != referencePacket[i]) return false;
                 }
             }
@@ -757,36 +877,12 @@ public class ApfFilter {
 
         // What is the minimum of all lifetimes within {@code packet} in seconds?
         // Precondition: matches(packet, length) already returned true.
-        long minLifetime(byte[] packet, int length) {
+        long minLifetime() {
             long minLifetime = Long.MAX_VALUE;
-            // Wrap packet in ByteBuffer so we can read big-endian values easily
-            ByteBuffer byteBuffer = ByteBuffer.wrap(packet);
-            for (int i = 0; (i + 1) < mNonLifetimes.size(); i++) {
-                int offset = mNonLifetimes.get(i).first + mNonLifetimes.get(i).second;
-
-                // The flow label is in mNonLifetimes, but it's not a lifetime.
-                if (offset == IPV6_FLOW_LABEL_OFFSET) {
-                    continue;
+            for (PacketSection section : mPacketSections) {
+                if (isRelevantLifetime(section)) {
+                    minLifetime = Math.min(minLifetime, section.lifetime);
                 }
-
-                // The checksum is in mNonLifetimes, but it's not a lifetime.
-                if (offset == ICMP6_RA_CHECKSUM_OFFSET) {
-                    continue;
-                }
-
-                final int lifetimeLength = mNonLifetimes.get(i+1).first - offset;
-                final long optionLifetime;
-                switch (lifetimeLength) {
-                    case 2:
-                        optionLifetime = getUint16(byteBuffer, offset);
-                        break;
-                    case 4:
-                        optionLifetime = getUint32(byteBuffer, offset);
-                        break;
-                    default:
-                        throw new IllegalStateException("bogus lifetime size " + lifetimeLength);
-                }
-                minLifetime = Math.min(minLifetime, optionLifetime);
             }
             return minLifetime;
         }
@@ -815,38 +911,25 @@ public class ApfFilter {
             // Skip filter if expired
             gen.addLoadFromMemory(Register.R0, gen.FILTER_AGE_MEMORY_SLOT);
             gen.addJumpIfR0GreaterThan(filterLifetime, nextFilterLabel);
-            for (int i = 0; i < mNonLifetimes.size(); i++) {
-                // Generate code to match the packet bytes
-                Pair<Integer, Integer> nonLifetime = mNonLifetimes.get(i);
-                // Don't generate JNEBS instruction for 0 bytes as it always fails the
-                // ASSERT_FORWARD_IN_PROGRAM(pc + cmp_imm - 1) check where cmp_imm is
-                // the number of bytes to compare. nonLifetime is zero between the
-                // valid and preferred lifetimes in the prefix option.
-                if (nonLifetime.second != 0) {
-                    gen.addLoadImmediate(Register.R0, nonLifetime.first);
+            for (PacketSection section : mPacketSections) {
+                // Generate code to match the packet bytes.
+                if (section.type == PacketSection.Type.MATCH) {
+                    gen.addLoadImmediate(Register.R0, section.start);
                     gen.addJumpIfBytesNotEqual(Register.R0,
-                            Arrays.copyOfRange(mPacket.array(), nonLifetime.first,
-                                               nonLifetime.first + nonLifetime.second),
+                            Arrays.copyOfRange(mPacket.array(), section.start,
+                                    section.start + section.length),
                             nextFilterLabel);
                 }
-                // Generate code to test the lifetimes haven't gone down too far
-                if ((i + 1) < mNonLifetimes.size()) {
-                    Pair<Integer, Integer> nextNonLifetime = mNonLifetimes.get(i + 1);
-                    int offset = nonLifetime.first + nonLifetime.second;
 
-                    // Skip the Flow label.
-                    if (offset == IPV6_FLOW_LABEL_OFFSET) {
-                        continue;
-                    }
-                    // Skip the checksum.
-                    if (offset == ICMP6_RA_CHECKSUM_OFFSET) {
-                        continue;
-                    }
-                    int length = nextNonLifetime.first - offset;
-                    switch (length) {
-                        case 4: gen.addLoad32(Register.R0, offset); break;
-                        case 2: gen.addLoad16(Register.R0, offset); break;
-                        default: throw new IllegalStateException("bogus lifetime size " + length);
+                // Generate code to test the lifetimes haven't gone down too far.
+                // The packet is accepted if any non-ignored lifetime is lower than filterLifetime.
+                if (isRelevantLifetime(section)) {
+                    switch (section.length) {
+                        case 4: gen.addLoad32(Register.R0, section.start); break;
+                        case 2: gen.addLoad16(Register.R0, section.start); break;
+                        default:
+                            throw new IllegalStateException(
+                                    "bogus lifetime size " + section.length);
                     }
                     gen.addJumpIfR0LessThan(filterLifetime, nextFilterLabel);
                 }
@@ -1560,7 +1643,11 @@ public class ApfFilter {
             for (Ra ra : mRas) {
                 ra.generateFilterLocked(gen);
                 // Stop if we get too big.
-                if (gen.programLengthOverEstimate() > maximumApfProgramSize) break;
+                if (gen.programLengthOverEstimate() > maximumApfProgramSize) {
+                    if (VDBG) Log.d(TAG, "Past maximum program size, skipping RAs");
+                    break;
+                }
+
                 rasToFilter.add(ra);
             }
 
@@ -1649,7 +1736,7 @@ public class ApfFilter {
                 if (VDBG) log("matched RA " + ra);
                 // Update lifetimes.
                 ra.mLastSeen = currentTimeSeconds();
-                ra.mMinLifetime = ra.minLifetime(packet, length);
+                ra.mMinLifetime = ra.minLifetime();
                 ra.seenCount++;
 
                 // Keep mRas in LRU order so as to prioritize generating filters for recently seen
@@ -1845,6 +1932,7 @@ public class ApfFilter {
         pw.println("Capabilities: " + mApfCapabilities);
         pw.println("Receive thread: " + (mReceiveThread != null ? "RUNNING" : "STOPPED"));
         pw.println("Multicast: " + (mMulticastFilter ? "DROP" : "ALLOW"));
+        pw.println("Minimum RDNSS lifetime: " + mMinRdnssLifetimeSec);
         try {
             pw.println("IPv4 address: " + InetAddress.getByAddress(mIPv4Address).getHostAddress());
         } catch (UnknownHostException|NullPointerException e) {}

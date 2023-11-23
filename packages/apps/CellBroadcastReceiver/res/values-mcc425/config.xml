@@ -15,8 +15,49 @@
 -->
 
 <resources>
-    <string-array name="public_safety_messages_channels_range_strings" translatable="false">
-        <!-- Channel 919 ~ 928 are required by Israel government -->
-        <item>0x0397-0x03A0:type=other, emergency=false</item>
+    <!-- None -->
+    <string-array name="cmas_presidential_alerts_channels_range_strings" translatable="false">
     </string-array>
+    <!-- 4370 -->
+    <string-array name="cmas_alert_extreme_channels_range_strings" translatable="false">
+        <item>0x1112:rat=gsm, emergency=true</item>
+        <!-- additional language -->
+        <item>0x111F:rat=gsm, emergency=true, filter_language=true</item>
+    </string-array>
+    <!-- 4371-4372 -->
+    <string-array name="cmas_alerts_severe_range_strings" translatable="false">
+        <item>0x1113-0x1114:rat=gsm, emergency=false</item>
+        <!-- additional language -->
+        <item>0x1120-0x1121:rat=gsm, emergency=false, filter_language=true</item>
+        <item>0x397-0x39A:rat=gsm, emergency=false, filter_language=true</item>
+    </string-array>
+    <!-- 4373~4378, 4386~4391 -->
+    <string-array name="public_safety_messages_channels_range_strings" translatable="false">
+        <item>0x1115-0x111A:rat=gsm, emergency=false</item>
+        <!-- additional language -->
+        <item>0x1122-0x1127:rat=gsm, emergency=false, filter_language=true</item>
+    </string-array>
+    <!-- 4380, 4393 -->
+    <string-array name="required_monthly_test_range_strings" translatable="false">
+        <item>0x111C:rat=gsm, emergency=false</item>
+        <!-- additional language -->
+        <item>0x1129:rat=gsm, emergency=false, filter_language=true</item>
+    </string-array>
+    <!-- 4381, 4394 -->
+    <string-array name="exercise_alert_range_strings" translatable="false">
+        <item>0x111D:rat=gsm, emergency=false</item>
+        <!-- additional language -->
+        <item>0x112A:rat=gsm, emergency=false, filter_language=true</item>
+    </string-array>
+    <!-- 4379, 4392-->
+    <string-array name="cmas_amber_alerts_channels_range_strings" translatable="false">
+        <item>0x111B:rat=gsm, emergency=false</item>
+        <!-- additional language -->
+        <item>0x1128:rat=gsm, emergency=false, filter_language=true</item>
+    </string-array>
+    <string-array name="operator_defined_alert_range_strings" translatable="false"></string-array>
+    <string-array name="etws_test_alerts_range_strings" translatable="false"></string-array>
+
+    <!-- Amber alerts toggle default value -->
+    <bool name="amber_alerts_enabled_default">false</bool>
 </resources>

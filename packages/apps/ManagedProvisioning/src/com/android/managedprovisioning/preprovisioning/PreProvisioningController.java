@@ -16,12 +16,12 @@
 
 package com.android.managedprovisioning.preprovisioning;
 
+import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_FINANCED_DEVICE;
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_DEVICE;
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_DEVICE_FROM_TRUSTED_SOURCE;
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_PROFILE;
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_SHAREABLE_DEVICE;
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_USER;
-import static android.app.admin.DevicePolicyManager.CODE_ADD_MANAGED_PROFILE_DISALLOWED;
 import static android.app.admin.DevicePolicyManager.CODE_CANNOT_ADD_MANAGED_PROFILE;
 import static android.app.admin.DevicePolicyManager.CODE_HAS_DEVICE_OWNER;
 import static android.app.admin.DevicePolicyManager.CODE_MANAGED_USERS_NOT_SUPPORTED;
@@ -35,6 +35,9 @@ import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_ADMIN_EXT
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_IMEI;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_SERIAL_NUMBER;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_SKIP_EDUCATION_SCREENS;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_TRIGGER;
+import static android.app.admin.DevicePolicyManager.PROVISIONING_TRIGGER_QR_CODE;
+import static android.app.admin.DevicePolicyManager.PROVISIONING_TRIGGER_UNSPECIFIED;
 import static android.nfc.NfcAdapter.ACTION_NDEF_DISCOVERED;
 
 import static com.android.internal.logging.nano.MetricsProto.MetricsEvent.PROVISIONING_PREPROVISIONING_ACTIVITY_TIME_MS;
@@ -56,11 +59,14 @@ import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.UserInfo;
+import android.net.ConnectivityManager;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.PersistableBundle;
 import android.os.SystemClock;
+import android.os.SystemProperties;
 import android.os.UserManager;
+import android.provider.Settings;
 import android.service.persistentdata.PersistentDataBlockManager;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
@@ -194,9 +200,16 @@ public class PreProvisioningController {
 
         void prepareAdminIntegratedFlow(ProvisioningParams params);
 
+        void prepareFinancedDeviceFlow(ProvisioningParams params);
+
         void showFactoryResetDialog(Integer titleId, int messageId);
 
         void initiateUi(UiParams uiParams);
+
+        /**
+         *  Abort provisioning and close app
+         */
+        void abortProvisioning();
     }
 
     /**
@@ -258,6 +271,10 @@ public class PreProvisioningController {
         mSharedPreferences.writeProvisioningStartedTimestamp(SystemClock.elapsedRealtime());
         mProvisioningAnalyticsTracker.logProvisioningSessionStarted(mContext);
 
+        if (!isProvisioningAllowed()) {
+            return;
+        }
+
         if (!tryParseParameters(intent, params)) {
             return;
         }
@@ -272,15 +289,23 @@ public class PreProvisioningController {
 
         // PO preconditions
         if (isProfileOwnerProvisioning()) {
-            // If there is already a managed profile, setup the profile deletion dialog.
+            // If there is already a managed profile, first check it may be removed.
+            // If so, setup the profile deletion dialog.
+
             int existingManagedProfileUserId = mUtils.alreadyHasManagedProfile(mContext);
             if (existingManagedProfileUserId != -1) {
-                ComponentName mdmPackageName = mDevicePolicyManager
-                        .getProfileOwnerAsUser(existingManagedProfileUserId);
-                String domainName = mDevicePolicyManager
-                        .getProfileOwnerNameAsUser(existingManagedProfileUserId);
-                mUi.showDeleteManagedProfileDialog(mdmPackageName, domainName,
-                        existingManagedProfileUserId);
+                if (isRemovingManagedProfileDisallowed()) {
+                    mUi.showErrorAndClose(R.string.cant_replace_or_remove_work_profile,
+                            R.string.work_profile_cant_be_added_contact_admin,
+                            "Cannot remove existing work profile");
+                } else {
+                    ComponentName mdmPackageName = mDevicePolicyManager
+                            .getProfileOwnerAsUser(existingManagedProfileUserId);
+                    String domainName = mDevicePolicyManager
+                            .getProfileOwnerNameAsUser(existingManagedProfileUserId);
+                    mUi.showDeleteManagedProfileDialog(mdmPackageName, domainName,
+                            existingManagedProfileUserId);
+                }
                 return;
             }
         }
@@ -288,9 +313,7 @@ public class PreProvisioningController {
         if (isDeviceOwnerProvisioning()) {
             // TODO: make a general test based on deviceAdminDownloadInfo field
             // PO doesn't ever initialize that field, so OK as a general case
-            if (!mUtils.isConnectedToNetwork(mContext) && mParams.wifiInfo == null
-                    && mParams.deviceAdminDownloadInfo != null
-                    && !mParams.useMobileData) {
+            if (shouldShowWifiPicker(intent)) {
                 // Have the user pick a wifi network if necessary.
                 // It is not possible to ask the user to pick a wifi network if
                 // the screen is locked.
@@ -316,6 +339,8 @@ public class PreProvisioningController {
 
         if (mParams.isOrganizationOwnedProvisioning) {
             mUi.prepareAdminIntegratedFlow(mParams);
+        } else if (mUtils.isFinancedDeviceAction(mParams.provisioningAction)) {
+            mUi.prepareFinancedDeviceFlow(mParams);
         } else {
             // skipUserConsent can only be set from a device owner provisioning to a work profile.
             if (mParams.skipUserConsent || Utils.isSilentProvisioning(mContext, mParams)) {
@@ -326,10 +351,47 @@ public class PreProvisioningController {
         }
     }
 
+    private boolean isNfcProvisioning(Intent intent) {
+        return ACTION_NDEF_DISCOVERED.equals(intent.getAction());
+    }
+
+    private boolean isQrCodeProvisioning(Intent intent) {
+        if (!ACTION_PROVISION_MANAGED_DEVICE_FROM_TRUSTED_SOURCE.equals(intent.getAction())) {
+            return false;
+        }
+        final int provisioningTrigger = intent.getIntExtra(EXTRA_PROVISIONING_TRIGGER,
+                PROVISIONING_TRIGGER_UNSPECIFIED);
+        return provisioningTrigger == PROVISIONING_TRIGGER_QR_CODE;
+    }
+
+    private boolean shouldShowWifiPicker(Intent intent) {
+        if (mParams.wifiInfo != null) {
+            return false;
+        }
+        if (mParams.deviceAdminDownloadInfo == null) {
+            return false;
+        }
+        if (mUtils.isNetworkTypeConnected(mContext, ConnectivityManager.TYPE_WIFI,
+                ConnectivityManager.TYPE_ETHERNET)) {
+            return false;
+        }
+        // we intentionally disregard whether mobile is connected for QR and NFC
+        // provisioning. b/153442588 for context
+        if (mParams.useMobileData && (isQrCodeProvisioning(intent) || isNfcProvisioning(intent))) {
+            return false;
+        }
+        if (mParams.useMobileData) {
+            return !mUtils.isMobileNetworkConnectedToInternet(mContext);
+        }
+        return true;
+    }
+
     void showUserConsentScreen() {
         // Check whether provisioning is allowed for the current action
         if (!checkDevicePolicyPreconditions()) {
             if (mParams.isOrganizationOwnedProvisioning) {
+                ProvisionLogger.loge(
+                        "Provisioning preconditions failed for organization-owned provisioning.");
                 mUi.showFactoryResetDialog(R.string.cant_set_up_device,
                         R.string.contact_your_admin_for_help);
             } else {
@@ -469,6 +531,9 @@ public class PreProvisioningController {
         }
 
         if (isProfileOwnerProvisioning()) { // PO case
+            if (mParams.isOrganizationOwnedProvisioning) {
+                mProvisioningAnalyticsTracker.logOrganizationOwnedManagedProfileProvisioning();
+            }
             // Check whether the current launcher supports managed profiles.
             if (!mUtils.currentLauncherSupportsManagedProfiles(mContext)) {
                 mUi.showCurrentLauncherInvalid();
@@ -588,7 +653,8 @@ public class PreProvisioningController {
             return verifyActivityAlias(intent, "PreProvisioningActivityAfterEncryption");
         } else if (ACTION_NDEF_DISCOVERED.equals(intent.getAction())) {
             return verifyActivityAlias(intent, "PreProvisioningActivityViaNfc");
-        } else if (ACTION_PROVISION_MANAGED_DEVICE_FROM_TRUSTED_SOURCE.equals(intent.getAction())) {
+        } else if (ACTION_PROVISION_MANAGED_DEVICE_FROM_TRUSTED_SOURCE.equals(intent.getAction())
+                || ACTION_PROVISION_FINANCED_DEVICE.equals(intent.getAction())) {
             return verifyActivityAlias(intent, "PreProvisioningActivityViaTrustedApp");
         } else {
             return verifyCaller(callingPackage);
@@ -794,7 +860,6 @@ public class PreProvisioningController {
         ProvisionLogger.logw("DevicePolicyManager.checkProvisioningPreCondition returns code: "
                 + provisioningPreCondition);
         switch (provisioningPreCondition) {
-            case CODE_ADD_MANAGED_PROFILE_DISALLOWED:
             case CODE_MANAGED_USERS_NOT_SUPPORTED:
                 mUi.showErrorAndClose(R.string.cant_add_work_profile,
                         R.string.work_profile_cant_be_added_contact_admin,
@@ -853,5 +918,20 @@ public class PreProvisioningController {
         }
         mUi.showErrorAndClose(R.string.cant_set_up_device, R.string.contact_your_admin_for_help,
                 "Device Owner provisioning not allowed for an unknown reason.");
+    }
+
+    /**
+     *  Checks if provisioning is allowed while regular usage (non-developer/CTS) if device
+     *   has overlayed config value (default is true)
+     */
+    private boolean isProvisioningAllowed() {
+        boolean isDeveloperMode = mSettingsFacade.isDeveloperMode(mContext);
+        boolean isProvisioningAllowedForNormalUsers = SystemProperties.getBoolean("ro.config.allowuserprovisioning", true);
+
+        if (!isDeveloperMode && !isProvisioningAllowedForNormalUsers) {
+            mUi.abortProvisioning();
+            return false;
+        }
+        return true;
     }
 }

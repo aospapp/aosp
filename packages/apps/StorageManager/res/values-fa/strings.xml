@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="963247385700831716">"مدیریت حافظه"</string>
+    <string name="app_name" msgid="963247385700831716">"مدیریت فضای ذخیره‌سازی"</string>
     <string name="cancel" msgid="7021218262867558825">"لغو"</string>
     <string name="storage_menu_free" msgid="1878247401436882778">"آزاد کردن فضا"</string>
     <string name="deletion_helper_title" msgid="3526170325226275927">"حذف موارد"</string>
@@ -38,8 +38,8 @@
     <string name="deletion_helper_clear_dialog_title" msgid="9169670752655850967">"فضا آزاد کنید"</string>
     <string name="deletion_helper_clear_dialog_message" msgid="5196490478187120700">"<xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> محتوا از دستگاهتان حذف خواهد شد"</string>
     <string name="deletion_helper_clear_dialog_remove" msgid="863575755467985516">"فضا آزاد کنید"</string>
-    <string name="deletion_helper_upsell_title" msgid="8512037674466762017">"حافظه به‌طور خودکار مدیریت شود؟"</string>
-    <string name="deletion_helper_upsell_summary" msgid="2301597713694474407">"اکنون <xliff:g id="USED">%1$s</xliff:g> آزاد است. به «مدیر حافظه» امکان می‌دهید با حذف محتوای پشتیبان‌گیری‌شده از دستگاهتان، به‌طور خودکار فضا آزاد کند؟"</string>
+    <string name="deletion_helper_upsell_title" msgid="8512037674466762017">"فضای ذخیره‌سازی به‌طور خودکار مدیریت شود؟"</string>
+    <string name="deletion_helper_upsell_summary" msgid="2301597713694474407">"اکنون <xliff:g id="USED">%1$s</xliff:g> آزاد است. به مدیر «فضای ذخیره‌سازی» امکان می‌دهید با حذف محتوای پشتیبان‌گیری‌شده از دستگاهتان، به‌طور خودکار فضا آزاد کند؟"</string>
     <string name="deletion_helper_upsell_cancel" msgid="7084167642850053889">"نه سپاسگزارم"</string>
     <string name="deletion_helper_upsell_activate" msgid="7157360257760895976">"روشن کردن"</string>
     <string name="deletion_helper_apps_group_title" msgid="2578309121350341258">"برنامه‌های کم‌استفاده"</string>
@@ -48,10 +48,10 @@
     <string name="deletion_helper_automatic_title" msgid="4610119358490679299">"خودکار"</string>
     <string name="deletion_helper_manual_title" msgid="3905192395039688529">"دستی"</string>
     <string name="deletion_helper_preference_title" msgid="803484286872745892">"خالی کردن حافظه در این لحظه"</string>
-    <string name="automatic_storage_manager_service_label" msgid="648592272375278978">"سرویس مدیریت خودکار حافظه"</string>
+    <string name="automatic_storage_manager_service_label" msgid="648592272375278978">"سرویس مدیریت خودکار فضای ذخیره‌سازی"</string>
     <string name="automatic_storage_manager_notification_title" product="default" msgid="8480483265300964701">"فضای تلفنتان کم است"</string>
     <string name="automatic_storage_manager_notification_title" product="tablet" msgid="3150907918531844467">"فضای خالی رایانه لوحی‌تان کم است"</string>
-    <string name="automatic_storage_manager_notification_summary" msgid="2267399886362245822">"به «مدیریت حافظه» اجازه دهید با حذف خودکار عکس‌ها و ویدیوهای قدیمی در مواقعی که حافظه دستگاهتان پر است، فضا آزاد کند."</string>
+    <string name="automatic_storage_manager_notification_summary" msgid="2267399886362245822">"به «ذخیره‌سازی هوشمند» اجازه دهید با حذف خودکار عکس‌ها و ویدیوهای قدیمی در مواقعی که حافظه دستگاهتان پر است، فضا آزاد کند."</string>
     <string name="automatic_storage_manager_cancel_button" msgid="1826365037494962803">"نه سپاسگزارم"</string>
     <string name="automatic_storage_manager_activate_button" msgid="6257070263061898041">"روشن کردن"</string>
     <string name="deletion_helper_photos_loading_title" msgid="2768067991066779772">"عکس‌ها و ویدیوهای پشتیبان‌گیری‌شده"</string>
@@ -59,7 +59,7 @@
     <string name="deletion_helper_no_threshold" msgid="6943179204098250444">"نمایش همه موارد"</string>
     <string name="deletion_helper_default_threshold" msgid="8410389370069021113">"پنهان کردن موارد اخیر"</string>
     <string name="deletion_helper_clear_dialog_message_first_time" msgid="686530413183529901">"<xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> محتوا از دستگاهتان حذف خواهد شد"</string>
-    <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"حافظه شما اکنون توسط مدیر حافظه مدیریت می‌شود"</string>
+    <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"مدیر فضای ذخیره‌سازی اکنون فضای ذخیره‌سازی شما را مدیریت می‌کند"</string>
     <string name="empty_state_title" msgid="4033285438176545309">"موردی برای پاک کردن موجود نیست"</string>
     <string name="empty_state_review_items_link" msgid="8411186441239304545">"مرور موارد اخیر"</string>
     <string name="empty_state_summary" msgid="8439893007424243790">"فایل قدیمی‌تری برای پاک کردن موجود نیست. برای ایجاد فضای خالی، عکس‌ها، ویدیوها و برنامه‌های اخیر را پاک کنید."</string>

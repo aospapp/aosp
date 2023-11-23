@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 The Android Open Source Project
+ * Copyright 2019 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,12 +23,14 @@ import android.widget.TextView;
 import androidx.preference.EditTextPreference;
 import androidx.preference.PreferenceViewHolder;
 
+import com.android.car.ui.preference.CarUiEditTextPreference;
+import com.android.car.ui.preference.EditTextPreferenceDialogFragment;
+
 /**
  * Extends {@link EditTextPreference} to add optional {@link Validator} logic. Validator is passed
  * on to {@link ValidatedEditTextPreferenceDialogFragment} to be attached to its View.
  */
-public class ValidatedEditTextPreference extends EditTextPreference {
-
+public class ValidatedEditTextPreference extends CarUiEditTextPreference {
     /** Defines the validation logic used in this preference. */
     public interface Validator {
         /** Returns true only if the value provided meets validation criteria. */

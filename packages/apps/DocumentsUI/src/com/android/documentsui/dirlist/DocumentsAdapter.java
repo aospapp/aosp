@@ -21,6 +21,7 @@ import static com.android.documentsui.base.DocumentInfo.getCursorString;
 import android.content.Context;
 import android.database.Cursor;
 import android.provider.DocumentsContract.Document;
+
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -89,6 +90,7 @@ public abstract class DocumentsAdapter extends RecyclerView.Adapter<DocumentHold
         boolean isInSearchMode();
         boolean isSelected(String id);
         Model getModel();
+        String getCallingAppName();
         boolean isDocumentEnabled(String mimeType, int flags);
         void initDocumentHolder(DocumentHolder holder);
         void onBindDocumentHolder(DocumentHolder holder, Cursor cursor);

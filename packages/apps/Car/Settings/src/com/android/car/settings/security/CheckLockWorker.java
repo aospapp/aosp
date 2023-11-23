@@ -24,6 +24,7 @@ import com.android.car.settings.common.Logger;
 import com.android.internal.widget.LockPatternChecker;
 import com.android.internal.widget.LockPatternUtils;
 import com.android.internal.widget.LockPatternView;
+import com.android.internal.widget.LockscreenCredential;
 
 import java.util.List;
 
@@ -87,20 +88,21 @@ public class CheckLockWorker extends Fragment implements LockPatternChecker.OnCh
         }
 
         mCheckInProgress = true;
-        LockPatternChecker.checkPattern(mLockPatternUtils, pattern, userId, this);
+        LockPatternChecker.checkCredential(mLockPatternUtils,
+                LockscreenCredential.createPattern(pattern), userId, this);
     }
 
     /**
      * Checks lock PIN/password asynchronously.  To receive callback when check is completed,
      * implement {@link Listener} and call {@link #setListener(Listener)}.
      */
-    public final void checkPinPassword(int userId, byte[] password) {
+    public final void checkPinPassword(int userId, LockscreenCredential password) {
         if (mCheckInProgress) {
             LOG.w("Check pin/password request issued while one is still running");
             return;
         }
         mCheckInProgress = true;
-        LockPatternChecker.checkPassword(mLockPatternUtils, password, userId, this);
+        LockPatternChecker.checkCredential(mLockPatternUtils, password, userId, this);
     }
 
     /**

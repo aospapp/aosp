@@ -17,6 +17,7 @@ package com.android.car.assist.client;
 
 import static com.android.car.assist.CarVoiceInteractionSession.KEY_ACTION;
 import static com.android.car.assist.CarVoiceInteractionSession.KEY_EXCEPTION;
+import static com.android.car.assist.CarVoiceInteractionSession.KEY_FALLBACK_ASSISTANT_ENABLED;
 import static com.android.car.assist.CarVoiceInteractionSession.KEY_NOTIFICATION;
 import static com.android.car.assist.CarVoiceInteractionSession.VOICE_ACTION_HANDLE_EXCEPTION;
 import static com.android.car.assist.CarVoiceInteractionSession.VOICE_ACTION_READ_NOTIFICATION;
@@ -66,10 +67,12 @@ class BundleBuilder {
      * @return The bundle that can be sent to Assistant.
      */
     static Bundle buildAssistantHandleExceptionBundle(
-            @ExceptionValue String exception) {
+            @ExceptionValue String exception,
+            boolean fallbackAssistantEnabled) {
         Bundle args = new Bundle();
         args.putString(KEY_ACTION, VOICE_ACTION_HANDLE_EXCEPTION);
         args.putString(KEY_EXCEPTION, exception);
+        args.putBoolean(KEY_FALLBACK_ASSISTANT_ENABLED, fallbackAssistantEnabled);
         return args;
     }
 }

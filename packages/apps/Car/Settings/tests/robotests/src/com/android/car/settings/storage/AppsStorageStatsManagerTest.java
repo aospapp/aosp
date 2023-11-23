@@ -27,7 +27,6 @@ import android.os.Bundle;
 
 import androidx.loader.app.LoaderManager;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.settingslib.applications.StorageStatsSource;
 
 import org.junit.Before;
@@ -37,10 +36,11 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 
 /** Unit test for {@link AppsStorageStatsManager}. */
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 public class AppsStorageStatsManagerTest {
 
     private static final int USER_ID = 10;

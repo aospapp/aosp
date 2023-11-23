@@ -29,6 +29,7 @@
     <string name="trace_is_being_recorded" msgid="5947378146009337469">"يتم تسجيل التتبّع"</string>
     <string name="tap_to_stop_tracing" msgid="6533282719573871806">"انقر لإيقاف التتبّع"</string>
     <string name="clear_saved_traces" msgid="4809195654452260944">"محو بيانات التتبّع المحفوظة"</string>
+    <string name="clear_saved_traces_summary" msgid="6035923138201219577">"تتم إزالة ملفات التتبُع بعد شهر."</string>
     <string name="clear_saved_traces_question" msgid="2184026613055303818">"محو آثار الأنشطة المحفوظة"</string>
     <string name="all_traces_will_be_deleted" msgid="6646545462206955920">"‏سيتم حذف جميع آثار الأنشطة من /data/local/traces"</string>
     <string name="clear" msgid="5484761795406948056">"محو"</string>

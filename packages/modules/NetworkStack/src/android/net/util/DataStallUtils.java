@@ -16,14 +16,30 @@
 
 package android.net.util;
 
+import android.annotation.IntDef;
+
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+
 /**
  * Collection of utilities for data stall.
  */
 public class DataStallUtils {
-    /**
-     * Detect data stall via using dns timeout counts.
-     */
-    public static final int DATA_STALL_EVALUATION_TYPE_DNS = 1;
+    public static final int DATA_STALL_EVALUATION_TYPE_NONE = 0;
+    /** Detect data stall using dns timeout counts. */
+    public static final int DATA_STALL_EVALUATION_TYPE_DNS = 1 << 0;
+    /** Detect data stall using tcp connection fail rate. */
+    public static final int DATA_STALL_EVALUATION_TYPE_TCP = 1 << 1;
+
+    @IntDef(prefix = { "DATA_STALL_EVALUATION_TYPE_" }, value = {
+        DATA_STALL_EVALUATION_TYPE_NONE,
+        DATA_STALL_EVALUATION_TYPE_DNS,
+        DATA_STALL_EVALUATION_TYPE_TCP,
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface EvaluationType {
+    }
+
     // Default configuration values for data stall detection.
     public static final int DEFAULT_CONSECUTIVE_DNS_TIMEOUT_THRESHOLD = 5;
     public static final int DEFAULT_DATA_STALL_MIN_EVALUATE_TIME_MS = 60 * 1000;
@@ -60,13 +76,55 @@ public class DataStallUtils {
      * Type: int
      * Valid values:
      *   {@link #DATA_STALL_EVALUATION_TYPE_DNS} : Use dns as a signal.
+     *   {@link #DATA_STALL_EVALUATION_TYPE_TCP} : Use tcp info as a signal.
      */
     public static final String CONFIG_DATA_STALL_EVALUATION_TYPE = "data_stall_evaluation_type";
-    public static final int DEFAULT_DATA_STALL_EVALUATION_TYPES = DATA_STALL_EVALUATION_TYPE_DNS;
+    public static final int DEFAULT_DATA_STALL_EVALUATION_TYPES =
+            DATA_STALL_EVALUATION_TYPE_DNS | DATA_STALL_EVALUATION_TYPE_TCP;
     // The default number of DNS events kept of the log kept for dns signal evaluation. Each event
     // is represented by a {@link com.android.server.connectivity.NetworkMonitor#DnsResult} objects.
     // It's also the size of array of {@link com.android.server.connectivity.nano.DnsEvent} kept in
     // metrics. Note that increasing the size may cause statsd log buffer bust. Need to check the
     // design in statsd when you try to increase the size.
     public static final int DEFAULT_DNS_LOG_SIZE = 20;
+
+    /**
+     * The time interval for polling tcp info to observe the tcp health.
+     */
+    public static String CONFIG_DATA_STALL_TCP_POLLING_INTERVAL = "data_stall_tcp_polling_interval";
+
+    /**
+     * Default polling interval to observe the tcp health.
+     */
+    public static int DEFAULT_TCP_POLLING_INTERVAL_MS = 20_000;
+
+    /**
+     * Default tcp packets fail rate to suspect as a data stall.
+     *
+     * Calculated by ((# of packets lost)+(# of packets retrans))/(# of packets sent)*100. Ideally,
+     * the percentage should be 100%. However, the ongoing packets may not be considered as neither
+     * lost or retrans yet. It will cause the percentage lower.
+     */
+    public static final int DEFAULT_TCP_PACKETS_FAIL_PERCENTAGE = 80;
+
+    /**
+     * The percentage of tcp packets fail rate to be suspected as a data stall.
+     *
+     * Type: int
+     * Valid values: 0 to 100.
+     */
+    public static final String CONFIG_TCP_PACKETS_FAIL_PERCENTAGE = "tcp_packets_fail_percentage";
+
+    /** Corresponds to enum from bionic/libc/include/netinet/tcp.h. */
+    public static final int TCP_ESTABLISHED = 1;
+    public static final int TCP_SYN_SENT = 2;
+    public static final int TCP_SYN_RECV = 3;
+    public static final int TCP_MONITOR_STATE_FILTER =
+            (1 << TCP_ESTABLISHED) | (1 << TCP_SYN_SENT) | (1 << TCP_SYN_RECV);
+
+    /**
+     * Threshold for the minimal tcp packets count to evaluate data stall via tcp info.
+     */
+    public static final int DEFAULT_DATA_STALL_MIN_PACKETS_THRESHOLD = 10;
+    public static final String CONFIG_MIN_PACKETS_THRESHOLD = "tcp_min_packets_threshold";
 }

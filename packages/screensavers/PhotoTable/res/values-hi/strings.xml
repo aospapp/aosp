@@ -22,7 +22,7 @@
     <string name="posts_album_name" msgid="5628151551239729515">"पोस्ट से फ़ोटो"</string>
     <string name="unknown_album_name" msgid="2135521368192091267">"अनाम एल्बम"</string>
     <string name="stock_photo_album_name" msgid="3150527596227525460">"स्टॉक फ़ोटो"</string>
-    <string name="local_source_name" msgid="6487253091085518505">"डिवाइस पर फ़ोटो"</string>
+    <string name="local_source_name" msgid="6487253091085518505">"डिवाइस में मौजूद फ़ोटो"</string>
     <string name="need_to_configure" msgid="1269102638159389032">"कोई फ़ोटो नहीं चुना गया."</string>
     <string name="photodream_select_all" msgid="6364858563337927827">"सभी को चुनें"</string>
     <string name="photodream_select_none" msgid="8816452124894525861">"सभी अचयनित करें"</string>

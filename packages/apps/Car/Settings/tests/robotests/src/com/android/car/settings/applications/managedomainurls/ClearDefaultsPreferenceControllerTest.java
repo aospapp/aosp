@@ -21,7 +21,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import android.car.userlib.CarUserManagerHelper;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -29,14 +28,13 @@ import android.content.IntentFilter;
 import android.content.pm.ApplicationInfo;
 import android.hardware.usb.IUsbManager;
 import android.os.RemoteException;
+import android.os.UserHandle;
 
 import androidx.lifecycle.Lifecycle;
 import androidx.preference.Preference;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
 import com.android.car.settings.testutils.ShadowApplicationPackageManager;
-import com.android.car.settings.testutils.ShadowCarUserManagerHelper;
 import com.android.car.settings.testutils.ShadowIUsbManager;
 import com.android.settingslib.applications.AppUtils;
 import com.android.settingslib.applications.ApplicationsState;
@@ -47,37 +45,32 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadow.api.Shadow;
 
-@RunWith(CarSettingsRobolectricTestRunner.class)
-@Config(shadows = {ShadowCarUserManagerHelper.class, ShadowApplicationPackageManager.class,
-        ShadowIUsbManager.class})
+@RunWith(RobolectricTestRunner.class)
+@Config(shadows = {ShadowApplicationPackageManager.class, ShadowIUsbManager.class})
 public class ClearDefaultsPreferenceControllerTest {
 
-    private static final int USER_ID = 10;
     private static final String TEST_PACKAGE_NAME = "com.example.test";
     private static final int TEST_PACKAGE_ID = 1;
-    private static final String TEST_LABEL = "Test App";
     private static final String TEST_PATH = "TEST_PATH";
     private static final String TEST_ACTIVITY = "TestActivity";
+    private final int mUserId = UserHandle.myUserId();
 
     private Context mContext;
     private Preference mPreference;
     private PreferenceControllerTestHelper<ClearDefaultsPreferenceController> mControllerHelper;
     private ClearDefaultsPreferenceController mController;
     @Mock
-    private CarUserManagerHelper mCarUserManagerHelper;
-    @Mock
     private IUsbManager mIUsbManager;
 
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
-        ShadowCarUserManagerHelper.setMockInstance(mCarUserManagerHelper);
         ShadowIUsbManager.setInstance(mIUsbManager);
-        when(mCarUserManagerHelper.getCurrentProcessUserId()).thenReturn(USER_ID);
 
         mContext = RuntimeEnvironment.application;
         mPreference = new Preference(mContext);
@@ -99,7 +92,6 @@ public class ClearDefaultsPreferenceControllerTest {
 
     @After
     public void tearDown() {
-        ShadowCarUserManagerHelper.reset();
         ShadowIUsbManager.reset();
         ShadowApplicationPackageManager.reset();
     }
@@ -118,7 +110,7 @@ public class ClearDefaultsPreferenceControllerTest {
 
     @Test
     public void refreshUi_isDefaultBrowser_hasSummary() {
-        mContext.getPackageManager().setDefaultBrowserPackageNameAsUser(TEST_PACKAGE_NAME, USER_ID);
+        mContext.getPackageManager().setDefaultBrowserPackageNameAsUser(TEST_PACKAGE_NAME, mUserId);
         mController.refreshUi();
 
         assertThat(mPreference.getSummary().toString()).isNotEmpty();
@@ -126,7 +118,7 @@ public class ClearDefaultsPreferenceControllerTest {
 
     @Test
     public void refreshUi_hasUsbDefaults_hasSummary() throws RemoteException {
-        when(mIUsbManager.hasDefaults(TEST_PACKAGE_NAME, USER_ID)).thenReturn(true);
+        when(mIUsbManager.hasDefaults(TEST_PACKAGE_NAME, mUserId)).thenReturn(true);
         mController.refreshUi();
 
         assertThat(mPreference.getSummary().toString()).isNotEmpty();
@@ -156,23 +148,23 @@ public class ClearDefaultsPreferenceControllerTest {
 
     @Test
     public void performClick_hasUsbManager_isDefaultBrowser_clearsDefaultBrowser() {
-        mContext.getPackageManager().setDefaultBrowserPackageNameAsUser(TEST_PACKAGE_NAME, USER_ID);
+        mContext.getPackageManager().setDefaultBrowserPackageNameAsUser(TEST_PACKAGE_NAME, mUserId);
         assertThat(mContext.getPackageManager().getDefaultBrowserPackageNameAsUser(
-                USER_ID)).isNotNull();
+                mUserId)).isNotNull();
         mController.refreshUi();
         mPreference.performClick();
 
         assertThat(
-                mContext.getPackageManager().getDefaultBrowserPackageNameAsUser(USER_ID)).isNull();
+                mContext.getPackageManager().getDefaultBrowserPackageNameAsUser(mUserId)).isNull();
     }
 
     @Test
     public void performClick_hasUsbDefaults_clearsUsbDefaults() throws RemoteException {
-        when(mIUsbManager.hasDefaults(TEST_PACKAGE_NAME, USER_ID)).thenReturn(true);
+        when(mIUsbManager.hasDefaults(TEST_PACKAGE_NAME, mUserId)).thenReturn(true);
         mController.refreshUi();
         mPreference.performClick();
 
-        verify(mIUsbManager).clearDefaults(TEST_PACKAGE_NAME, USER_ID);
+        verify(mIUsbManager).clearDefaults(TEST_PACKAGE_NAME, mUserId);
     }
 
     private ShadowApplicationPackageManager getShadowPackageManager() {

@@ -83,8 +83,10 @@
     <string name="reset" msgid="6467204151306265796">"ਰੀਸੈੱਟ ਕਰੋ"</string>
     <string name="cant_set_up_profile" msgid="4341825293970158436">"ਪ੍ਰੋਫਾਈਲ ਸਥਾਪਤ ਨਹੀਂ ਕੀਤਾ ਜਾ ਸਕਦਾ"</string>
     <string name="cant_set_up_device" msgid="4120090138983350714">"ਡੀਵਾਈਸ ਸਥਾਪਤ ਨਹੀਂ ਕੀਤੀ ਜਾ ਸਕਦੀ"</string>
+    <string name="something_went_wrong" msgid="3593223774041784329">"ਕੋਈ ਗੜਬੜ ਹੋਈ"</string>
     <string name="couldnt_set_up_device" msgid="5137950404283642302">"ਡੀਵਾਈਸ ਨੂੰ ਸੈੱਟਅੱਪ ਨਹੀਂ ਕੀਤਾ ਜਾ ਸਕਿਆ। ਮਦਦ ਲਈ, ਆਪਣੇ ਆਈ.ਟੀ. ਪ੍ਰਸ਼ਾਸਕ ਨਾਲ ਸੰਪਰਕ ਕਰੋ।"</string>
     <string name="contact_your_admin_for_help" msgid="2009904021552323731">"ਮਦਦ ਲਈ ਆਪਣੇ ਆਈ.ਟੀ. ਪ੍ਰਸ਼ਾਸਕ ਨਾਲ ਸੰਪਰਕ ਕਰੋ"</string>
+    <string name="reset_device" msgid="5483853913241939262">"ਇਸ ਡੀਵਾਈਸ ਨੂੰ ਰੀਸੈੱਟ ਕਰਕੇ ਦੁਬਾਰਾ ਸੈੱਟਅੱਪ ਕਰਨ ਦੀ ਕੋਸ਼ਿਸ਼ ਕਰੋ"</string>
     <string name="device_already_set_up" msgid="507881934487140294">"ਡੀਵਾਈਸ ਪਹਿਲਾਂ ਤੋਂ ਹੀ ਸਥਾਪਤ ਕੀਤਾ ਹੋਇਆ ਹੈ"</string>
     <string name="error_wifi" msgid="1850288843966836571">"ਵਾਈ-ਫਾਈ ਨਾਲ ਕਨੈਕਟ ਨਹੀਂ ਕੀਤਾ ਜਾ ਸਕਿਆ"</string>
     <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"ਤੁਹਾਡੇ ਡੀਵਾਈਸ ਵਿੱਚ ਰੀਸੈੱਟ ਕਰਨ ਸੰਬੰਧੀ ਸੁਰੱਖਿਆ ਚਾਲੂ ਹੈ। ਮਦਦ ਲਈ, ਆਪਣੇ ਆਈ.ਟੀ. ਪ੍ਰਸ਼ਾਸਕ ਨਾਲ ਸੰਪਰਕ ਕਰੋ।"</string>
@@ -161,25 +163,34 @@
     <string name="setup_provisioning_header" msgid="4282483198266806271">"ਕਾਰਜ ਪ੍ਰੋਫਾਈਲ ਵਾਲੇ ਡੀਵਾਈਸ ਦੇ ਸੈੱਟਅੱਪ ਦੀ ਤਿਆਰੀ ਹੋ ਰਹੀ ਹੈ…"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"ਪ੍ਰਸ਼ਾਸਕ ਐਪ ਸੈੱਟਅੱਪ ਕੀਤੀ ਜਾ ਰਹੀ ਹੈ"</string>
     <string name="set_up_everything_else" msgid="4407706086957916501">"ਬਾਕੀ ਸਭ ਚੀਜ਼ਾਂ ਦਾ ਸੈੱਟਅੱਪ ਕਰੋ"</string>
-    <string name="now_lets_set_up_everything_else" msgid="2905102208584231894">"ਹੁਣ, ਚਲੋ ਬਾਕੀ ਸਭ ਚੀਜ਼ਾਂ ਸੈੱਟਅੱਪ ਕਰੀਏ"</string>
+    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"ਆਪਣੇ ਡੀਵਾਈਸ ਦਾ ਵੱਧ ਤੋਂ ਵੱਧ ਲਾਹਾ ਲੈਣ ਲਈ ਕੋਈ ਨਿੱਜੀ ਖਾਤਾ ਸ਼ਾਮਲ ਕਰੋ"</string>
+    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"ਹੁਣ ਤੁਹਾਡਾ ਕਾਰਜ ਪ੍ਰੋਫਾਈਲ ਤਿਆਰ ਹੈ, ਤੁਸੀਂ ਆਪਣੀਆਂ ਐਪਾਂ ਅਤੇ ਸਮੱਗਰੀ ਤੱਕ ਪਹੁੰਚ ਕਰਨ ਲਈ ਕੋਈ ਨਿੱਜੀ Google ਖਾਤਾ ਵੀ ਸ਼ਾਮਲ ਕਰ ਸਕਦੇ ਹੋ।"</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"ਇਹ ਡੀਵਾਈਸ ਤੁਹਾਡੀ ਸੰਸਥਾ ਨਾਲ ਸੰਬੰਧਿਤ ਹੈ"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"ਅੱਗੇ ਦਿੱਤੀ ਐਪ ਦੀ ਵਰਤੋਂ ਇਸ ਫ਼ੋਨ ਦਾ ਪ੍ਰਬੰਧਨ ਅਤੇ ਨਿਗਰਾਨੀ ਕਰਨ ਲਈ ਕੀਤੀ ਜਾਵੇਗੀ"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"ਕਾਰਜ ਸੈੱਟਅੱਪ ਲਈ ਤਿਆਰੀ ਕੀਤੀ ਜਾ ਰਹੀ ਹੈ…"</string>
-    <string name="work_profile_provisioning_accept_header" msgid="462916780311392444">"ਪਹਿਲਾਂ, ਚਲੋ ਤੁਹਾਡਾ ਕਾਰਜ ਪ੍ਰੋਫਾਈਲ ਸੈੱਟਅੱਪ ਕਰੀਏ"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"ਚਲੋ ਤੁਹਾਡਾ ਕਾਰਜ ਪ੍ਰੋਫਾਈਲ ਸੈੱਟਅੱਪ ਕਰੀਏ"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"ਕਾਰਜ-ਸਥਾਨ ਐਪਾਂ ਤੁਹਾਡੇ ਕਾਰਜ ਪ੍ਰੋਫਾਈਲ ਵਿੱਚ ਰੱਖੀਆਂ ਜਾਂਦੀਆਂ ਹਨ"</string>
     <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"ਕੰਮ ਪੂਰਾ ਹੋਣ \'ਤੇ ਕਾਰਜ ਐਪਾਂ ਇੱਕ ਦਿਨ ਲਈ ਰੋਕੋ"</string>
-    <string name="work_profile_provisioning_step_3_header" msgid="7495564624887776704">"ਤੁਹਾਡੇ ਕਾਰਜ ਪ੍ਰੋਫਾਈਲ ਵਿੱਚ ਸਿਰਫ਼ ਡਾਟਾ ਤੁਹਾਡੇ ਆਈ.ਟੀ. ਪ੍ਰਸ਼ਾਸਕ ਨੂੰ ਦਿਸੇਗਾ"</string>
-    <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"ਤੁਹਾਡਾ ਕਾਰਜ ਪ੍ਰੋਫਾਈਲ ਸੈੱਟਅੱਪ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ…"</string>
-    <string name="work_profile_provisioning_summary" msgid="3917907344897144246">"ਕਾਰਜ-ਸਥਾਨ ਐਪਾਂ ਤੁਹਾਡੇ ਕਾਰਜ ਪ੍ਰੋਫਾਈਲ ਵਿੱਚ ਰੱਖੀਆਂ ਜਾਂਦੀਆਂ ਹਨ। ਦਿਨ ਦਾ ਕੰਮ ਪੂਰਾ ਹੋਣ \'ਤੇ ਤੁਸੀਂ ਆਪਣੀਆਂ ਕਾਰਜ ਐਪਾਂ ਨੂੰ ਰੋਕ ਸਕਦੇ ਹੋ। ਤੁਹਾਡੇ ਕਾਰਜ ਪ੍ਰੋਫਾਈਲ ਵਿੱਚ ਸਿਰਫ਼ ਡਾਟਾ ਤੁਹਾਡੇ ਆਈ.ਟੀ. ਪ੍ਰਸ਼ਾਸਕ ਨੂੰ ਦਿਸੇਗਾ।"</string>
+    <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"ਤੁਹਾਡੇ ਕਾਰਜ ਪ੍ਰੋਫਾਈਲ ਵਿਚਲਾ ਡਾਟਾ ਤੁਹਾਡੇ ਆਈ.ਟੀ. ਪ੍ਰਸ਼ਾਸਕ ਨੂੰ ਦਿਸੇਗਾ"</string>
+    <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"ਤੁਹਾਡੇ ਕਾਰਜ ਪ੍ਰੋਫਾਈਲ ਦਾ ਸੈੱਟਅੱਪ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ…"</string>
+    <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"ਕੰਮ ਸੰਬੰਧੀ ਐਪਾਂ ਤੁਹਾਡੇ ਕਾਰਜ ਪ੍ਰੋਫਾਈਲ ਵਿੱਚ ਰੱਖੀਆਂ ਜਾਂਦੀਆਂ ਹਨ। ਦਿਨ ਦਾ ਕੰਮ ਪੂਰਾ ਹੋਣ \'ਤੇ ਤੁਸੀਂ ਆਪਣੀਆਂ ਕੰਮ ਸੰਬੰਧੀ ਐਪਾਂ ਨੂੰ ਰੋਕ ਸਕਦੇ ਹੋ। ਤੁਹਾਡੇ ਕਾਰਜ ਪ੍ਰੋਫਾਈਲ ਵਿੱਚ ਡਾਟਾ ਤੁਹਾਡੇ ਆਈ.ਟੀ. ਪ੍ਰਸ਼ਾਸਕ ਨੂੰ ਦਿਸੇਗਾ।"</string>
     <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"ਚਲੋ ਤੁਹਾਡਾ ਕਾਰਜ ਪ੍ਰੋਫਾਈਲ ਵਾਲਾ ਡੀਵਾਈਸ ਸੈੱਟਅੱਪ ਕਰੀਏ"</string>
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"ਆਪਣੀਆਂ ਕਾਰਜ ਐਪਾਂ ਆਪਣੇ ਕੋਲ ਰੱਖੋ"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"ਇਹ ਡੀਵਾਈਸ ਨਿੱਜੀ ਨਹੀਂ ਹੈ"</string>
     <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"ਸ਼ਾਇਦ ਤੁਹਾਡਾ ਆਈ.ਟੀ. ਪ੍ਰਸ਼ਾਸਕ ਇਸ ਡੀਵਾਈਸ \'ਤੇ ਤੁਹਾਡਾ ਡਾਟਾ ਅਤੇ ਸਰਗਰਮੀ ਦੇਖ ਸਕਦਾ ਹੈ।"</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"ਤੁਹਾਡੇ ਡੀਵਾਈਸ ਨੂੰ ਸੈੱਟਅੱਪ ਕਰ ਰਿਹਾ ਹੈ…"</string>
     <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"ਤੁਹਾਡੀਆਂ ਕਾਰਜ-ਸਥਾਨ ਐਪਾਂ ਤੱਕ ਆਸਾਨੀ ਨਾਲ ਪਹੁੰਚ ਕਰਨ ਲਈ ਇਹ ਡੀਵਾਈਸ ਵਰਤੋ। ਇਹ ਡੀਵਾਈਸ ਨਿੱਜੀ ਨਹੀਂ ਹੈ, ਇਸ ਲਈ ਸ਼ਾਇਦ ਤੁਹਾਡਾ ਆਈ.ਟੀ. ਪ੍ਰਸ਼ਾਸਕ ਤੁਹਾਡਾ ਡਾਟਾ ਅਤੇ ਸਰਗਰਮੀ ਦੇਖ ਸਕਦਾ ਹੈ। ਹੋਰ ਜਾਣਨ ਲਈ, ਆਪਣੇ IT ਪ੍ਰਸ਼ਾਸਕ ਨਾਲ ਸੰਪਰਕ ਕਰੋ।"</string>
+    <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"ਕੰਮ ਸੰਬੰਧੀ ਐਪਾਂ ਨੂੰ ਕਾਰਜ ਪ੍ਰੋਫਾਈਲ ਵਿੱਚ ਰੱਖਿਆ ਅਤੇ IT ਪ੍ਰਸ਼ਾਸਕ ਵੱਲੋਂ ਪ੍ਰਬੰਧਿਤ ਕੀਤਾ ਜਾਂਦਾ ਹੈ"</string>
+    <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"ਨਿੱਜੀ ਐਪ ਕੰਮ ਸੰਬੰਧੀ ਐਪਾਂ ਤੋਂ ਵੱਖਰੀਆਂ ਅਤੇ ਲੁਕਵੀਆਂ ਹੁੰਦੀਆਂ ਹਨ"</string>
+    <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"ਤੁਹਾਡਾ IT ਪ੍ਰਸ਼ਾਸਕ ਡੀਵਾਈਸ ਕੰਟਰੋਲ ਅਤੇ ਕੁਝ ਐਪ ਬਲਾਕ ਕਰ ਸਕਦਾ ਹੈ"</string>
+    <string name="cope_provisioning_summary" msgid="993014104601034878">"ਕੰਮ ਸੰਬੰਧੀ ਐਪਾਂ ਤੁਹਾਡੇ ਕਾਰਜ ਪ੍ਰੋਫਾਈਲ ਵਿੱਚ ਰੱਖੀਆਂ ਜਾਂਦੀਆਂ ਹਨ ਅਤੇ ਤੁਹਾਡੇ ਆਈ.ਟੀ. ਪ੍ਰਸ਼ਾਸਕ ਵੱਲੋਂ ਪ੍ਰਬੰਧਿਤ ਕੀਤੀਆਂ ਜਾਂਦੀਆਂ ਹਨ। ਨਿੱਜੀ ਐਪਾਂ ਕੰਮ ਸੰਬੰਧੀ ਐਪਾਂ ਤੋਂ ਵੱਖਰੀਆਂ ਅਤੇ ਲੁਕਵੀਆਂ ਹੁੰਦੀਆਂ ਹਨ। ਤੁਹਾਡਾ ਆਈ.ਟੀ. ਪ੍ਰਸ਼ਾਸਕ ਇਸ ਡੀਵਾਈਸ ਨੂੰ ਕੰਟਰੋਲ ਕਰ ਸਕਦਾ ਹੈ ਅਤੇ ਕੁਝ ਐਪਾਂ ਨੂੰ ਬਲਾਕ ਕਰ ਸਕਦਾ ਹੈ।"</string>
+    <string name="just_a_sec" msgid="6244676028626237220">"ਬੱਸ ਇੱਕ ਸਕਿੰਟ…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"ਪਰਦੇਦਾਰੀ ਯਾਦ-ਸੂਚਨਾ"</string>
     <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"ਸ਼ਾਇਦ ਤੁਹਾਡਾ ਆਈ.ਟੀ. ਪ੍ਰਸ਼ਾਸਕ ਇਸ ਡੀਵਾਈਸ \'ਤੇ ਤੁਹਾਡਾ ਡਾਟਾ ਅਤੇ ਸਰਗਰਮੀ ਦੇਖ ਸਕਦਾ ਹੈ"</string>
     <string name="device_provisioning_finished" msgid="3981783240592092906">"ਤੁਹਾਡਾ ਡੀਵਾਈਸ ਵਰਤਣ ਲਈ ਤਿਆਰ ਹੈ!"</string>
     <string name="done" msgid="7755227776955952318">"ਹੋ ਗਿਆ"</string>
+    <string name="financed_device_screen_header" msgid="7890706080917322376">"ਇਹ ਡੀਵਾਈਸ <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> ਤੋਂ ਕ੍ਰੈਡਿਟ \'ਤੇ ਖਰੀਦਿਆ ਗਿਆ ਸੀ"</string>
+    <string name="creditor_capabilities_header" msgid="6217362648469323253">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> ਵੱਲੋਂ ਇਹ ਕੀਤਾ ਜਾ ਸਕਦਾ ਹੈ:"</string>
+    <string name="install_creditor_app_description" msgid="6159751782301108878">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> ਐਪ ਸਥਾਪਤ ਕਰੋ ਤਾਂ ਕਿ ਤੁਸੀਂ ਇਸ ਡੀਵਾਈਸ ਲਈ ਭੁਗਤਾਨ ਕਰ ਸਕੋ"</string>
+    <string name="lock_device_description" msgid="2940362560732989166">"ਜੇ ਤੁਸੀਂ ਭੁਗਤਾਨ ਨਹੀਂ ਕਰਦੇ ਹੋ ਤਾਂ ਇਸ ਡੀਵਾਈਸ \'ਤੇ ਪਹੁੰਚ ਨੂੰ ਪ੍ਰਤਿਬੰਧਿਤ ਕਰ ਦਿੱਤਾ ਜਾਵੇਗਾ"</string>
 </resources>

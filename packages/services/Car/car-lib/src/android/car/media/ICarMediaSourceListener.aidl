@@ -16,11 +16,13 @@
 
 package android.car.media;
 
+import android.content.ComponentName;
+
 /**
  * Binder interface to listen for media source changes
  *
  * @hide
  */
 oneway interface ICarMediaSourceListener {
-    void onMediaSourceChanged(in String newSource) = 0;
+    void onMediaSourceChanged(in ComponentName newSource) = 0;
 }

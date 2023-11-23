@@ -18,7 +18,10 @@ package com.android.car.pm;
 
 import static android.content.Context.BIND_AUTO_CREATE;
 
-import android.car.userlib.CarUserManagerHelper;
+import android.app.ActivityManager;
+import android.car.user.CarUserManager;
+import android.car.user.CarUserManager.UserLifecycleEvent;
+import android.car.user.CarUserManager.UserLifecycleListener;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -52,7 +55,7 @@ import java.util.Objects;
  * possible pass {@link #mHandler} when subscribe for callbacks otherwise redirect code to the
  * handler.
  */
-class VendorServiceController implements CarUserService.UserCallback {
+class VendorServiceController implements UserLifecycleListener {
     private static final boolean DBG = true;
 
     private static final int MSG_SWITCH_USER = 1;
@@ -64,15 +67,12 @@ class VendorServiceController implements CarUserService.UserCallback {
     private final Context mContext;
     private final UserManager mUserManager;
     private final Handler mHandler;
-    private final CarUserManagerHelper mUserManagerHelper;
     private CarUserService mCarUserService;
 
 
-    VendorServiceController(Context context, Looper looper,
-            CarUserManagerHelper userManagerHelper) {
+    VendorServiceController(Context context, Looper looper) {
         mContext = context;
         mUserManager = context.getSystemService(UserManager.class);
-        mUserManagerHelper = userManagerHelper;
         mHandler = new Handler(looper) {
             @Override
             public void handleMessage(Message msg) {
@@ -105,14 +105,14 @@ class VendorServiceController implements CarUserService.UserCallback {
         }
 
         mCarUserService = CarLocalServices.getService(CarUserService.class);
-        mCarUserService.addUserCallback(this);
+        mCarUserService.addUserLifecycleListener(this);
 
         startOrBindServicesIfNeeded();
     }
 
     void release() {
         if (mCarUserService != null) {
-            mCarUserService.removeUserCallback(this);
+            mCarUserService.removeUserLifecycleListener(this);
         }
 
         for (ConnectionKey key : mConnections.keySet()) {
@@ -122,9 +122,32 @@ class VendorServiceController implements CarUserService.UserCallback {
         mConnections.clear();
     }
 
+    @Override
+    public void onEvent(UserLifecycleEvent event) {
+        if (Log.isLoggable(CarLog.TAG_PACKAGE, Log.DEBUG)) {
+            Log.d(CarLog.TAG_PACKAGE, "onEvent(" + event + ")");
+        }
+        // TODO(b/152069895): Use USER_LIFECYCLE_EVENT_TYPE_UNLOCKED and not care about the
+        //     deprecated unlock=false scenario.
+        if (CarUserManager.USER_LIFECYCLE_EVENT_TYPE_UNLOCKING == event.getEventType()) {
+            Message msg = mHandler.obtainMessage(
+                    MSG_USER_LOCK_CHANGED,
+                    event.getUserId(),
+                    /* unlocked= */ 1);
+            mHandler.executeOrSendMessage(msg);
+        } else if (CarUserManager.USER_LIFECYCLE_EVENT_TYPE_SWITCHING == event.getEventType()) {
+            mHandler.removeMessages(MSG_SWITCH_USER);
+            Message msg = mHandler.obtainMessage(
+                    MSG_SWITCH_USER,
+                    event.getUserId(),
+                    /* unlocked= */ 0);
+            mHandler.executeOrSendMessage(msg);
+        }
+    }
+
     private void doSwitchUser(int userId) {
         // Stop all services which which do not run under foreground or system user.
-        final int fgUser = mUserManagerHelper.getCurrentForegroundUserId();
+        final int fgUser = ActivityManager.getCurrentUser();
         if (fgUser != userId) {
             Log.w(CarLog.TAG_PACKAGE, "Received userSwitch event for user " + userId
                     + " while current foreground user is " + fgUser + "."
@@ -147,7 +170,7 @@ class VendorServiceController implements CarUserService.UserCallback {
     }
 
     private void doUserLockChanged(int userId, boolean unlocked) {
-        final int currentUserId = mUserManagerHelper.getCurrentForegroundUserId();
+        final int currentUserId = ActivityManager.getCurrentUser();
 
         if (DBG) {
             Log.i(CarLog.TAG_PACKAGE, "onUserLockedChanged, user: " + userId
@@ -180,24 +203,11 @@ class VendorServiceController implements CarUserService.UserCallback {
     }
 
     private void startOrBindServicesIfNeeded() {
-        int userId = mUserManagerHelper.getCurrentForegroundUserId();
+        int userId = ActivityManager.getCurrentUser();
         startOrBindServicesForUser(UserHandle.SYSTEM);
         if (userId > 0) {
             startOrBindServicesForUser(UserHandle.of(userId));
         }
-    }
-
-    @Override
-    public void onUserLockChanged(int userId, boolean unlocked) {
-        Message msg = mHandler.obtainMessage(MSG_USER_LOCK_CHANGED, userId, unlocked ? 1 : 0);
-        mHandler.executeOrSendMessage(msg);
-    }
-
-    @Override
-    public void onSwitchUser(int userId) {
-        mHandler.removeMessages(MSG_SWITCH_USER);
-        Message msg = mHandler.obtainMessage(MSG_SWITCH_USER, userId, 0);
-        mHandler.executeOrSendMessage(msg);
     }
 
     private void startOrBindService(VendorServiceInfo service, UserHandle user) {
@@ -220,8 +230,8 @@ class VendorServiceController implements CarUserService.UserCallback {
     private VendorServiceConnection getOrCreateConnection(ConnectionKey key) {
         VendorServiceConnection connection = mConnections.get(key);
         if (connection == null) {
-            connection = new VendorServiceConnection(mContext, mHandler, mUserManagerHelper,
-                    key.mVendorServiceInfo, key.mUserHandle);
+            connection = new VendorServiceConnection(mContext, mHandler, key.mVendorServiceInfo,
+                    key.mUserHandle);
             mConnections.put(key, connection);
         }
 
@@ -251,7 +261,7 @@ class VendorServiceController implements CarUserService.UserCallback {
      * Represents connection to the vendor service.
      */
     private static class VendorServiceConnection implements ServiceConnection {
-        private static final int REBIND_DELAY_MS = 1000;
+        private static final int REBIND_DELAY_MS = 5000;
         private static final int MAX_RECENT_FAILURES = 5;
         private static final int FAILURE_COUNTER_RESET_TIMEOUT = 5 * 60 * 1000; // 5 min.
         private static final int MSG_REBIND = 0;
@@ -266,14 +276,11 @@ class VendorServiceController implements CarUserService.UserCallback {
         private final UserHandle mUser;
         private final Handler mHandler;
         private final Handler mFailureHandler;
-        private final CarUserManagerHelper mUserManagerHelper;
 
         VendorServiceConnection(Context context, Handler handler,
-                CarUserManagerHelper userManagerHelper, VendorServiceInfo vendorServiceInfo,
-                UserHandle user) {
+                VendorServiceInfo vendorServiceInfo, UserHandle user) {
             mContext = context;
             mHandler = handler;
-            mUserManagerHelper = userManagerHelper;
             mVendorServiceInfo = vendorServiceInfo;
             mUser = user;
 
@@ -351,7 +358,7 @@ class VendorServiceController implements CarUserService.UserCallback {
                 return;
             }
 
-            if (UserHandle.of(mUserManagerHelper.getCurrentForegroundUserId()).equals(mUser)
+            if (UserHandle.of(ActivityManager.getCurrentUser()).equals(mUser)
                     || UserHandle.SYSTEM.equals(mUser)) {
                 mFailureHandler.sendMessageDelayed(
                         mFailureHandler.obtainMessage(MSG_REBIND), REBIND_DELAY_MS);

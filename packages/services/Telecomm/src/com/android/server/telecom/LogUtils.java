@@ -17,8 +17,12 @@
 package com.android.server.telecom;
 
 import android.content.Context;
+import android.os.SystemClock;
 import android.telecom.Logging.EventManager;
 import android.telecom.Logging.EventManager.TimedEventPair;
+
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Temporary location of new Logging class
@@ -31,15 +35,43 @@ public class LogUtils {
 
     public static final boolean SYSTRACE_DEBUG = false; /* STOP SHIP if true */
 
+    public static class EventTimer {
+        private long mLastElapsedMillis;
+        private Map<String, Long> mTimings = new HashMap<>();
+
+        public EventTimer() {
+            mLastElapsedMillis = SystemClock.elapsedRealtime();
+        }
+
+        public void record(String label) {
+            long newElapsedMillis = SystemClock.elapsedRealtime();
+            mTimings.put(label, newElapsedMillis - mLastElapsedMillis);
+            mLastElapsedMillis = newElapsedMillis;
+        }
+
+        @Override
+        public String toString() {
+            StringBuilder sb = new StringBuilder();
+            for (Map.Entry<String, Long> entry : mTimings.entrySet()) {
+                sb.append(entry.getKey()).append(": ").append(entry.getValue()).append(", ");
+            }
+            return sb.toString();
+        }
+    }
+
     public static final class Sessions {
         public static final String ICA_ANSWER_CALL = "ICA.aC";
         public static final String ICA_DEFLECT_CALL = "ICA.defC";
         public static final String ICA_REJECT_CALL = "ICA.rC";
+        public static final String ICA_TRANSFER_CALL = "ICA.tC";
+        public static final String ICA_CONSULTATIVE_TRANSFER = "ICA.cT";
         public static final String ICA_DISCONNECT_CALL = "ICA.dC";
         public static final String ICA_HOLD_CALL = "ICA.hC";
         public static final String ICA_UNHOLD_CALL = "ICA.uC";
         public static final String ICA_MUTE = "ICA.m";
         public static final String ICA_SET_AUDIO_ROUTE = "ICA.sAR";
+        public static final String ICA_ENTER_AUDIO_PROCESSING = "ICA.enBAP";
+        public static final String ICA_EXIT_AUDIO_PROCESSING = "ICA.exBAP";
         public static final String ICA_CONFERENCE = "ICA.c";
         public static final String CSW_HANDLE_CREATE_CONNECTION_COMPLETE = "CSW.hCCC";
         public static final String CSW_SET_ACTIVE = "CSW.sA";
@@ -73,8 +105,13 @@ public class LogUtils {
         public static final String REQUEST_UNHOLD = "REQUEST_UNHOLD";
         public static final String REQUEST_DISCONNECT = "REQUEST_DISCONNECT";
         public static final String REQUEST_ACCEPT = "REQUEST_ACCEPT";
+        public static final String REQUEST_SIMULATED_ACCEPT = "REQUEST_SIMULATED_ACCEPT";
+        public static final String REQUEST_PICKUP_FOR_AUDIO_PROCESSING =
+                "REQUEST_PICKUP_FOR_AUDIO_PROCESSING";
         public static final String REQUEST_DEFLECT = "REQUEST_DEFLECT";
         public static final String REQUEST_REJECT = "REQUEST_REJECT";
+        public static final String REQUEST_TRANSFER = "REQUEST_TRANSFER";
+        public static final String REQUEST_CONSULTATIVE_TRANSFER = "REQUEST_CONSULTATIVE_TRANSFER";
         public static final String START_DTMF = "START_DTMF";
         public static final String STOP_DTMF = "STOP_DTMF";
         public static final String START_RINGER = "START_RINGER";
@@ -87,15 +124,19 @@ public class LogUtils {
         public static final String STOP_CALL_WAITING_TONE = "STOP_CALL_WAITING_TONE";
         public static final String START_CONNECTION = "START_CONNECTION";
         public static final String CREATE_CONNECTION_FAILED = "CREATE_CONNECTION_FAILED";
+        public static final String START_CONFERENCE = "START_CONFERENCE";
+        public static final String CREATE_CONFERENCE_FAILED = "CREATE_CONFERENCE_FAILED";
         public static final String BIND_CS = "BIND_CS";
         public static final String CS_BOUND = "CS_BOUND";
         public static final String CONFERENCE_WITH = "CONF_WITH";
         public static final String SPLIT_FROM_CONFERENCE = "CONF_SPLIT";
         public static final String SWAP = "SWAP";
+        public static final String ADD_PARTICIPANT = "ADD_PARTICIPANT";
         public static final String ADD_CHILD = "ADD_CHILD";
         public static final String REMOVE_CHILD = "REMOVE_CHILD";
         public static final String SET_PARENT = "SET_PARENT";
         public static final String CONF_STATE_CHANGED = "CONF_STATE_CHANGED";
+        public static final String CALL_DIRECTION_CHANGED = "CALL_DIRECTION_CHANGED";
         public static final String MUTE = "MUTE";
         public static final String UNMUTE = "UNMUTE";
         public static final String AUDIO_ROUTE = "AUDIO_ROUTE";
@@ -109,6 +150,7 @@ public class LogUtils {
         public static final String BIND_SCREENING = "BIND_SCREENING";
         public static final String SCREENING_BOUND = "SCREENING_BOUND";
         public static final String SCREENING_SENT = "SCREENING_SENT";
+        public static final String SCREENING_SKIPPED = "SCREENING_SKIPPED";
         public static final String CONTROLLER_SCREENING_COMPLETED =
                 "CONTROLLER_SCREENING_COMPLETED";
         public static final String SCREENING_COMPLETED = "SCREENING_COMPLETED";

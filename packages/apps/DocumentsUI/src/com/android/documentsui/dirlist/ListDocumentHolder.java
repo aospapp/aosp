@@ -16,9 +16,9 @@
 
 package com.android.documentsui.dirlist;
 
+import static com.android.documentsui.base.DocumentInfo.getCursorInt;
 import static com.android.documentsui.base.DocumentInfo.getCursorString;
 
-import androidx.annotation.Nullable;
 import android.content.Context;
 import android.database.Cursor;
 import android.graphics.Rect;
@@ -30,11 +30,14 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import androidx.annotation.Nullable;
+
 import com.android.documentsui.R;
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.Lookup;
 import com.android.documentsui.base.Shared;
 import com.android.documentsui.base.State;
+import com.android.documentsui.base.UserId;
 import com.android.documentsui.roots.RootCursorWrapper;
 import com.android.documentsui.ui.Views;
 
@@ -50,6 +53,7 @@ final class ListDocumentHolder extends DocumentHolder {
     private final ImageView mIconMime;
     private final ImageView mIconThumb;
     private final ImageView mIconCheck;
+    private final ImageView mIconBriefcase;
     private final View mIconLayout;
     final View mPreviewIcon;
 
@@ -62,10 +66,11 @@ final class ListDocumentHolder extends DocumentHolder {
             Lookup<String, String> fileTypeLookup) {
         super(context, parent, R.layout.item_doc_list);
 
-        mIconLayout = itemView.findViewById(android.R.id.icon);
+        mIconLayout = itemView.findViewById(R.id.icon);
         mIconMime = (ImageView) itemView.findViewById(R.id.icon_mime);
         mIconThumb = (ImageView) itemView.findViewById(R.id.icon_thumb);
         mIconCheck = (ImageView) itemView.findViewById(R.id.icon_check);
+        mIconBriefcase = (ImageView) itemView.findViewById(R.id.icon_briefcase);
         mTitle = (TextView) itemView.findViewById(android.R.id.title);
         mSize = (TextView) itemView.findViewById(R.id.size);
         mDate = (TextView) itemView.findViewById(R.id.date);
@@ -125,11 +130,19 @@ final class ListDocumentHolder extends DocumentHolder {
             mPreviewIcon.setVisibility(show ? View.VISIBLE : View.GONE);
             if (show) {
                 mPreviewIcon.setContentDescription(
-                        itemView.getResources().getString(R.string.preview_file, mDoc.displayName));
+                        itemView.getResources().getString(
+                                mIconHelper.shouldShowBadge(mDoc.userId.getIdentifier())
+                                        ? R.string.preview_work_file
+                                        : R.string.preview_file, mDoc.displayName));
                 mPreviewIcon.setAccessibilityDelegate(
                         new PreviewAccessibilityDelegate(clickCallback));
             }
         }
+    }
+
+    @Override
+    public void bindBriefcaseIcon(boolean show) {
+        mIconBriefcase.setVisibility(show ? View.VISIBLE : View.GONE);
     }
 
     @Override
@@ -179,7 +192,9 @@ final class ListDocumentHolder extends DocumentHolder {
 
         mModelId = modelId;
 
-        mDoc.updateFromCursor(cursor, getCursorString(cursor, RootCursorWrapper.COLUMN_AUTHORITY));
+        mDoc.updateFromCursor(cursor,
+                UserId.of(getCursorInt(cursor, RootCursorWrapper.COLUMN_USER_ID)),
+                getCursorString(cursor, RootCursorWrapper.COLUMN_AUTHORITY));
 
         mIconHelper.stopLoading(mIconThumb);
 

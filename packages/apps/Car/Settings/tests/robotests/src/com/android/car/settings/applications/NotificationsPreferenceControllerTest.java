@@ -31,7 +31,6 @@ import androidx.lifecycle.Lifecycle;
 import androidx.preference.SwitchPreference;
 import androidx.preference.TwoStatePreference;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
 
 import org.junit.Before;
@@ -39,9 +38,10 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 public class NotificationsPreferenceControllerTest {
     private static final String PKG_NAME = "package.name";
     private static final int UID = 1001010;
@@ -118,7 +118,7 @@ public class NotificationsPreferenceControllerTest {
         when(mMockManager.onlyHasDefaultChannel(PKG_NAME, UID)).thenReturn(true);
         when(mMockManager
                 .getNotificationChannelForPackage(
-                        PKG_NAME, UID, NotificationChannel.DEFAULT_CHANNEL_ID, true))
+                        PKG_NAME, UID, NotificationChannel.DEFAULT_CHANNEL_ID, null, true))
                 .thenReturn(mMockChannel);
 
         mTwoStatePreference.callChangeListener(true);

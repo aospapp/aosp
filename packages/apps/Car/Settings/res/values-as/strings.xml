@@ -50,7 +50,7 @@
     <string name="roaming_title" msgid="6218635014519017734">"ৰ’মিং"</string>
     <string name="roaming_summary" msgid="7476127740259728901">"ৰ’মিঙৰ সময়ত ডেটা সেৱাৰ সৈতে সংযোগ কৰক"</string>
     <string name="roaming_alert_title" msgid="4433901635766775763">"ডেটা ৰ’মিঙৰ অনুমতি দিবনে?"</string>
-    <string name="roaming_warning" msgid="5313281900566657209">"আপুনি যথেষ্ট পৰিমাণৰ খৰচ বহন কৰিবলগীয়া হ’ব পাৰে।"</string>
+    <string name="roaming_warning" msgid="4908184914868720704">"ৰ’মিঙৰ মাচুলসমূহ প্ৰযোজ্য হ’ব পাৰে।"</string>
     <string name="data_usage_settings" msgid="7877132994777987848">"ডেটা ব্যৱহাৰ"</string>
     <string name="data_usage_title" msgid="2923515974389203812">"মুখ্য ডেটা"</string>
     <string name="data_used_formatted" msgid="6684557577780068339">"<xliff:g id="ID_1">^1</xliff:g> <xliff:g id="ID_2">^2</xliff:g> ব্যৱহাৰ কৰা হৈছে"</string>
@@ -199,6 +199,8 @@
     <string name="bluetooth_device_picker" msgid="673238198452345475">"ব্লুটুথ ডিভাইচ বাছনি কৰক"</string>
     <string name="language_settings" msgid="2079258598337245546">"ভাষা"</string>
     <string name="languages_and_input_settings" msgid="3672322610529408248">"ভাষা আৰু ইনপুট"</string>
+    <string name="language_picker_list_suggested_header" msgid="7593893806003415948">"প্ৰস্তাৱিত"</string>
+    <string name="language_picker_list_all_header" msgid="1577387973934368428">"সকলো ভাষা"</string>
     <string name="keyboard_settings" msgid="1959697870618278081">"কীব’ৰ্ড"</string>
     <string name="manage_keyboard" msgid="4045394766282200132">"কীব’ৰ্ড পৰিচালনা কৰক"</string>
     <string name="text_to_speech_settings" msgid="811985746199507343">"পাঠৰ পৰা কথনৰ আউটপুট"</string>
@@ -283,9 +285,11 @@
     <string name="not_installed" msgid="4218816013370552746">"এই ব্যৱহাৰকাৰীজনৰ বাবে ইনষ্টল কৰা হোৱা নাই"</string>
     <string name="permissions_label" msgid="2701446753515612685">"অনুমতি"</string>
     <string name="notifications_label" msgid="6586089149665170731">"জাননী"</string>
+    <string name="storage_application_label" msgid="5911779903670978586">"ষ্ট’ৰেজ আৰু কেশ্ব"</string>
     <string name="application_version_label" msgid="8556889839783311649">"সংস্কৰণ: %1$s"</string>
     <string name="runtime_permissions_summary_no_permissions_granted" msgid="6001439205270250021">"কোনো অনুমতি দিয়া হোৱা নাই"</string>
     <string name="runtime_permissions_summary_no_permissions_requested" msgid="4074220596273432442">"অনুমতি বিচৰা হোৱা নাই"</string>
+    <string name="storage_type_internal" msgid="8918688427078709570">"%s অভ্যন্তৰীণ ষ্ট’ৰেজত আছে"</string>
     <string name="data_usage_summary_title" msgid="4368024763485916986">"ডেটাৰ ব্যৱহাৰ"</string>
     <string name="data_usage_app_summary_title" msgid="5012851696585421420">"এপ্ ডেটাৰ ব্যৱহাৰ"</string>
     <string name="computing_size" msgid="5791407621793083965">"গণনা কৰি থকা হৈছে…"</string>
@@ -344,17 +348,13 @@
     <string name="location_settings_recent_requests_title" msgid="6345634382240930628">"শেহতীয়া অৱস্থানৰ অনুৰোধ"</string>
     <string name="location_settings_recent_requests_empty_message" msgid="7789667070033674910">"শেহতীয়াকৈ কোনো এপে অৱস্থানৰ অনুৰোধ প্ৰেৰণ কৰা নাই"</string>
     <string name="location_settings_app_permissions_title" msgid="6446735313354321564">"এপ্‌-স্তৰৰ অনুমতি"</string>
-    <string name="location_settings_scanning_title" msgid="4253945869911300740">"স্কেন কৰি থকা হৈছে…"</string>
     <string name="location_settings_services_title" msgid="1186133632690970468">"অৱস্থান সেৱা"</string>
-    <string name="location_settings_wifi_scanning_title" msgid="8021558840074023719">"ৱাই-ফাই স্কেনিং"</string>
-    <string name="location_settings_wifi_scanning_summary" msgid="2116283960258671324">"ব্লুটুথ অফ থকা অৱস্থাতো এপ্ আৰু সেৱাসমূহক যিকোনো সময়ত নিকটৱৰ্তী ডিভাইচবোৰ স্কেন কৰিবলৈ দিয়ক। ইয়াক অৱস্থান-নিৰ্ভৰ সুবিধা আৰু সেৱাসমূহ উন্নত কৰা আদি কাৰ্যত ব্যৱহাৰ কৰিব পাৰি।"</string>
-    <string name="location_settings_bluetooth_scanning_title" msgid="2969682902241932059">"ব্লুটুথ স্কেনিং"</string>
-    <string name="location_settings_bluetooth_scanning_summary" msgid="9158101751700727062">"ব্লুটুথ অফ থকা অৱস্থাতো এপ্ আৰু সেৱাসমূহক যিকোনো সময়ত নিকটৱৰ্তী ডিভাইচবোৰ স্কেন কৰিবলৈ দিয়ক। ইয়াক অৱস্থান-নিৰ্ভৰ সুবিধা আৰু সেৱাসমূহ উন্নত কৰা আদি কাৰ্যত ব্যৱহাৰ কৰিব পাৰি।"</string>
     <string name="system_setting_title" msgid="6864599341809463440">"ছিষ্টেম"</string>
     <string name="system_update_settings_title" msgid="8448588267784138855">"ছিষ্টেম আপডে’ট"</string>
     <string name="firmware_version" msgid="8491753744549309333">"Android সংস্কৰণ"</string>
     <string name="security_patch" msgid="4794276590178386903">"Android সুৰক্ষা পেচ্চ স্তৰ"</string>
-    <string name="model_info" msgid="4966408071657934452">"ম\'ডেল"</string>
+    <string name="hardware_info" msgid="3973165746261507658">"মডেল আৰু হাৰ্ডৱেৰ"</string>
+    <string name="hardware_info_summary" msgid="8262576443254075921">"মডেল: <xliff:g id="MODEL">%1$s</xliff:g>"</string>
     <string name="baseband_version" msgid="2370088062235041897">"বেইছবেণ্ডৰ সংস্কৰণ"</string>
     <string name="kernel_version" msgid="7327212934187011508">"কাৰ্ণেলৰ সংস্কৰণ"</string>
     <string name="build_number" msgid="3997326631001009102">"বিল্ড নম্বৰ"</string>
@@ -378,6 +378,9 @@
     <string name="webview_license_title" msgid="6442372337052056463">"ছিষ্টেম ৱেবভিউ অনুজ্ঞাপত্ৰ"</string>
     <string name="wallpaper_attributions" msgid="9201272150014500697">"ৱালপেপাৰ"</string>
     <string name="wallpaper_attributions_values" msgid="4292446851583307603">"উপগ্ৰহ ছবি যোগানকাৰী:\n©2014 CNES / Astrium, DigitalGlobe, Bluesky"</string>
+    <string name="model_info" msgid="4966408071657934452">"ম\'ডেল"</string>
+    <string name="status_serial_number" msgid="9158889113131907656">"ক্ৰমিক নম্বৰ"</string>
+    <string name="hardware_revision" msgid="5713759927934872874">"হাৰ্ডৱেৰৰ সংস্কৰণ"</string>
     <string name="regulatory_info_text" msgid="8890339124198005428"></string>
     <string name="settings_license_activity_title" msgid="8499293744313077709">"তৃতীয় পক্ষৰ অনুজ্ঞাপত্ৰ"</string>
     <string name="settings_license_activity_unavailable" msgid="6104592821991010350">"অনুজ্ঞাপত্ৰসমূহ ল\'ড কৰাত সমস্যা।"</string>
@@ -478,12 +481,14 @@
     <string name="user_name_label" msgid="3210832645046206845">"নাম"</string>
     <string name="user_summary_not_set_up" msgid="1473688119241224145">"ছেট আপ কৰা হোৱা নাই"</string>
     <string name="edit_user_name_title" msgid="6890782937520262478">"ব্যৱহাৰকাৰীৰ নাম সম্পাদনা কৰক"</string>
+    <string name="name_input_blank_error" msgid="2088850865880984123">"খালী ঠাই পূৰ নকৰাকৈ এৰিব নোৱাৰি।"</string>
+    <string name="name_input_invalid_error" msgid="3523545780580744273">"প্ৰদত্ত ব্যৱহাৰকাৰীৰ নাম মান্য নহয়।"</string>
     <string name="users_list_title" msgid="770764290290240909">"ব্যৱহাৰকাৰীসকল"</string>
     <string name="user_details_admin_title" msgid="3530292857178371891">"%1$sক অনুমতি প্ৰদান কৰা হ’ল"</string>
     <string name="storage_settings_title" msgid="8957054192781341797">"ষ্ট’ৰেজ"</string>
     <string name="storage_music_audio" msgid="7827147379976134040">"সংগীত আৰু ধ্বনি"</string>
     <string name="storage_other_apps" msgid="945509804756782640">"অন্যান্য এপ্‌"</string>
-    <string name="storage_files" msgid="6382081694781340364">"ফাইল"</string>
+    <string name="storage_files" msgid="6382081694781340364">"Files"</string>
     <string name="storage_system" msgid="1271345630248014010">"ছিষ্টেম"</string>
     <string name="storage_detail_dialog_system" msgid="796365720531622361">"ছিষ্টেমত Android সংস্কৰণ <xliff:g id="VERSION">%s</xliff:g> চলাবলৈ ব্যৱহাৰ কৰা ফাইল অন্তৰ্ভুক্ত হৈ আছে"</string>
     <string name="storage_audio_files_title" msgid="5183170457027181700">"অডিঅ’ ফাইলসমূহ"</string>
@@ -497,6 +502,8 @@
     <string name="storage_clear_data_dlg_title" msgid="5863775997588969879">"এপ্ ডেটা মচিবনে?"</string>
     <string name="storage_clear_data_dlg_text" msgid="795055288575727801">"এই এপ্‌টোৰ সকলো ডেটা স্থায়ীভাৱে মচা হ’ব। সেই ডেটাসমূহৰ ভিতৰত সকলো ফাইল, ছেটিংসমূহ, একাউণ্টবোৰ, ডেটাবেছসমূহ আদি অন্তৰ্ভুক্ত থাকে।"</string>
     <string name="storage_clear_failed_dlg_text" msgid="6710485971686866306">"এপৰ ষ্ট’ৰেজ মচিব পৰা নগ’ল।"</string>
+    <string name="storage_unmount_success" msgid="1553591517580407021">"<xliff:g id="NAME">%1$s</xliff:g>ক সুৰক্ষিতভাৱে গুচোৱা হ’ল"</string>
+    <string name="storage_unmount_failure" msgid="4591934911541762883">"<xliff:g id="NAME">%1$s</xliff:g>ক সুৰক্ষিতভাৱে গুচাব পৰা নগ’ল"</string>
     <string name="accounts_settings_title" msgid="436190037084293471">"একাউণ্টসমূহ"</string>
     <string name="user_add_account_menu" msgid="6625351983590713721">"একাউণ্ট যোগ কৰক"</string>
     <string name="no_accounts_added" msgid="5148163140691096055">"কোনো একাউণ্ট যোগ কৰা হোৱা নাই"</string>
@@ -528,6 +535,7 @@
     <string name="sync_button_sync_now" msgid="5767643057970371315">"এতিয়া ছিংক কৰক"</string>
     <string name="sync_button_sync_cancel" msgid="7739510554513641393">"ছিংক বাতিল কৰক"</string>
     <string name="sync_is_failing" msgid="5766255460901806206">"ছিংকে সমস্যাৰ সন্মুখীন হৈছে। ই অলপ পিছতে ঠিক হ’ব।"</string>
+    <string name="privacy_settings_title" msgid="3150145262029229572">"গোপনীয়তা"</string>
     <string name="security_settings_title" msgid="6955331714774709746">"সুৰক্ষা"</string>
     <string name="security_settings_subtitle" msgid="2244635550239273229">"স্ক্ৰীণ লক"</string>
     <string name="security_lock_none" msgid="1054645093754839638">"নাই"</string>
@@ -618,26 +626,11 @@
     <string name="lockpassword_pin_no_sequential_digits" msgid="38813552228809240">"সংখ্যাবোৰৰ ঊৰ্ধ্বগামী, অধোগামী বা পুনৰাবৃত্তি ক্ৰমক অনুমতি দিয়া নহয়।"</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"স্ক্ৰীণ লক সম্পৰ্কীয় বিকল্প"</string>
     <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g> : <xliff:g id="NUM_DAYS">%3$s</xliff:g> দিন আগত"</string>
-    <string name="add_device_title" msgid="8452168024017866232">"বিশ্বাসী ডিভাইচ যোগ কৰক"</string>
-    <string name="add_device_summary" msgid="5368217520710573302">"বিশ্বাসী ডিভাইচ যোগ কৰিবলৈ ব্লুটুথ অন কৰা হ’ব"</string>
-    <string name="trusted_device" msgid="5637378361866787603">"বিশ্বাসী ডিভাইচ"</string>
-    <plurals name="trusted_device_subtitle" formatted="false" msgid="462041049834264945">
-      <item quantity="one"><xliff:g id="COUNT_1">%d</xliff:g>টা ডিভাইচ</item>
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g>টা ডিভাইচ</item>
-    </plurals>
-    <string name="remove_device_message" msgid="6447820559674148349">"আপোনাৰ <xliff:g id="CONNECTED_DEVICE_NAME_0">%1$s</xliff:g>এ সংযোগ হ\'লে এই গাড়ীখন আনলক কৰিব। আপোনাৰ <xliff:g id="CONNECTED_DEVICE_NAME_1">%1$s</xliff:g> ব্যৱহাৰ কৰা লোকসকলে এই ডিভাইচলৈ এক্সেছ পাব পাৰে"</string>
-    <string name="trusted_device_confirm_button" msgid="102354635014627996">"নিশ্চিত কৰক"</string>
-    <string name="trusted_device_remove_button" msgid="6140476996063415420">"বিশ্বাসী ডিভাইচ আঁতৰাওক"</string>
-    <string name="trusted_device_done_button" msgid="8481956533222625296">"কৰা হ’ল"</string>
-    <string name="add_trusted_device_instruction" msgid="2280382609884918033">"এটা বিশ্বাসী ডিভাইচ ছেট আপ কৰিবলৈ সহযোগী এপ্‌টো ব্যৱহাৰ কৰক। ছেট আপ কৰাৰ পিছত, গাড়ীখনৰ ওচৰত আপোনাৰ ফ’নটো চিনাক্ত কৰিলে আপোনাৰ ব্যৱহাৰকাৰী প্ৰ’ফাইলটো স্বয়ংক্ৰিয়ভাৱে আনলক হ\'ব।"</string>
-    <string name="trusted_device_download_app" msgid="6971096140154499983">"১. আপোনাৰ ফ’নটোত সহযোগী এপ্‌টো ডাউনল’ড কৰক"</string>
-    <string name="trusted_device_select_device" msgid="198902765179270739">"২. ডিভাইচকেইটা যোৰা লগাবলৈ আপোনাৰ ফ’নটোত <xliff:g id="CAR_NAME">%1$s</xliff:g> বাছনি কৰক"</string>
-    <string name="trusted_device_safety_alert" msgid="3834898922112046769">"আপোনাৰ গাড়ীখনৰ আশে পাশে থকা কোনো বিশ্বাসী ডিভাইচে গাড়ীখন ষ্টার্ট হ\'লে ব্যৱহাৰকাৰী প্ৰ\'ফাইলটো আনলক কৰিব, আনকি অন্য কোনো লোকে ডিভাইচটো লৈ থাকিলেও।"</string>
-    <string name="trusted_device_pairing_code_dialog_title" msgid="8173792468216796873">"অনুগ্ৰহ কৰি যোৰা লগোৱা ক\'ডসমূহৰ মিল আছে বুলি নিশ্চিত কৰক"</string>
-    <string name="trusted_device_success_enrollment_toast" msgid="1238468775285575827">"ফ\'নটো পঞ্জীয়ন কৰা হ\'ল"</string>
-    <string name="trusted_device_fail_enrollment_toast" msgid="6801324174861209092">"<xliff:g id="DEVICE_NAME">%1$s</xliff:g> যোৰা লগাব পৰা নগ’ল"</string>
-    <string name="trusted_device_set_authentication_reminder" msgid="5947077589994822305">"আপুনি কোনো বিশ্বাসী ডিভাইচ যোগ কৰিলে তাৰ পিছত এটা বিশ্বাসযোগ্যতা প্ৰমাণীকৰণ পদ্ধতি ছেট কৰাৰ প্ৰয়োজন হ’ব। যদি বিশ্বাসী ডিভাইচটো আপোনাৰ সৈতে নাই তেন্তে আপোনাৰ প্ৰ’ফাইলটো এক্সেছ কৰিবলৈ বিশ্বাসযোগ্যতা প্ৰমাণীকৰণৰ প্ৰয়োজন হ’ব।"</string>
-    <string name="trusted_device_disconnected_toast" msgid="2541862946536880255">"ডিভাইচৰ সংযোগ বিচ্ছিন্ন কৰা হ’ল।"</string>
+    <string name="credentials_reset" msgid="873900550885788639">"ক্ৰেডেনশ্বিয়েল মচক"</string>
+    <string name="credentials_reset_summary" msgid="6067911547500459637">"সকলো প্ৰমাণপত্ৰ আঁতৰাওক"</string>
+    <string name="credentials_reset_hint" msgid="3459271621754137661">"সকলো সমল আঁতৰাবনে?"</string>
+    <string name="credentials_erased" msgid="2515915439705550379">"ক্ৰেডেনশ্বিয়েল ষ্ট’ৰেজ মচা হ’ল।"</string>
+    <string name="credentials_not_erased" msgid="6118567459076742720">"ক্ৰেডেনশ্বিয়েল ষ্ট’ৰেজ মচিব পৰা নগ’ল।"</string>
     <string name="forget" msgid="3971143908183848527">"পাহৰক"</string>
     <string name="connect" msgid="5861699594602380150">"সংযোগ কৰক"</string>
     <string name="disconnect" msgid="6140789953324820336">"সংযোগ বিচ্ছিন্ন কৰক"</string>
@@ -653,6 +646,7 @@
     <string name="exit_retail_mode_dialog_body" msgid="8314316171782527301">"এই কামে ডেম\' একাউণ্টটো মচি পেলাব আৰু ছিষ্টেমটোৰ ফেক্টৰী ডেটা ৰিছেট কৰিব। সকলো ব্যৱহাৰকাৰীৰ ডেটা হেৰাব।"</string>
     <string name="exit_retail_mode_dialog_confirmation_button_text" msgid="3147249675355968649">"ডেম\'ৰ পৰা বাহিৰ হওক"</string>
     <string name="suggestion_dismiss_button" msgid="4539412646977050641">"অগ্ৰাহ্য কৰক"</string>
-    <string name="restricted_while_driving" msgid="6217369093121968299">"ড্ৰাইভিং কৰা সময়ত এই সুবিধাটো নাথাকে।"</string>
-    <string name="add_user_restricted_while_driving" msgid="6384004350628271556">"ড্ৰাইভিং কৰিথকা সময়ত ব্য়ৱহাৰকাৰী যোগ কৰিব নোৱাৰি।"</string>
+    <string name="restricted_while_driving" msgid="6587569249519274524">"গাড়ী চলাই থকা সময়ত এই সুবিধাটো উপলব্ধ নহয়"</string>
+    <string name="add_user_restricted_while_driving" msgid="4754946754222453656">"গাড়ী চলাই থকা সময়ত ব্য়ৱহাৰকাৰীক যোগ কৰিব নোৱাৰি"</string>
+    <string name="default_search_query" msgid="3137420627428857068">"সন্ধান কৰক"</string>
 </resources>

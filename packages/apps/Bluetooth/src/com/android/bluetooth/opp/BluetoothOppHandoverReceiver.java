@@ -32,7 +32,8 @@ public class BluetoothOppHandoverReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
         String action = intent.getAction();
-
+        if (D) Log.d(TAG, "Action :" + action);
+        if (action == null) return;
         if (action.equals(Constants.ACTION_HANDOVER_SEND) || action.equals(
                 Constants.ACTION_HANDOVER_SEND_MULTIPLE)) {
             final BluetoothDevice device =

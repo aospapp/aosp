@@ -50,13 +50,13 @@ public final class CarDiagnosticEvent implements Parcelable {
      * Sparse array that contains the mapping of OBD2 diagnostic properties to their values for
      * integer valued properties
      */
-    private final SparseIntArray intValues;
+    private final SparseIntArray mIntValues;
 
     /**
      * Sparse array that contains the mapping of OBD2 diagnostic properties to their values for
      * float valued properties
      */
-    private final SparseArray<Float> floatValues;
+    private final SparseArray<Float> mFloatValues;
 
     /**
      * Diagnostic Troubleshooting Code (DTC) that was detected and caused this frame to be stored
@@ -68,18 +68,18 @@ public final class CarDiagnosticEvent implements Parcelable {
         frameType = in.readInt();
         timestamp = in.readLong();
         int len = in.readInt();
-        floatValues = new SparseArray<>(len);
+        mFloatValues = new SparseArray<>(len);
         for (int i = 0; i < len; ++i) {
             int key = in.readInt();
             float value = in.readFloat();
-            floatValues.put(key, value);
+            mFloatValues.put(key, value);
         }
         len = in.readInt();
-        intValues = new SparseIntArray(len);
+        mIntValues = new SparseIntArray(len);
         for (int i = 0; i < len; ++i) {
             int key = in.readInt();
             int value = in.readInt();
-            intValues.put(key, value);
+            mIntValues.put(key, value);
         }
         dtc = (String) in.readValue(String.class.getClassLoader());
         // version 1 up to here
@@ -94,17 +94,17 @@ public final class CarDiagnosticEvent implements Parcelable {
     public void writeToParcel(Parcel dest, int flags) {
         dest.writeInt(frameType);
         dest.writeLong(timestamp);
-        dest.writeInt(floatValues.size());
-        for (int i = 0; i < floatValues.size(); ++i) {
-            int key = floatValues.keyAt(i);
+        dest.writeInt(mFloatValues.size());
+        for (int i = 0; i < mFloatValues.size(); ++i) {
+            int key = mFloatValues.keyAt(i);
             dest.writeInt(key);
-            dest.writeFloat(floatValues.get(key));
+            dest.writeFloat(mFloatValues.get(key));
         }
-        dest.writeInt(intValues.size());
-        for (int i = 0; i < intValues.size(); ++i) {
-            int key = intValues.keyAt(i);
+        dest.writeInt(mIntValues.size());
+        for (int i = 0; i < mIntValues.size(); ++i) {
+            int key = mIntValues.keyAt(i);
             dest.writeInt(key);
-            dest.writeInt(intValues.get(key));
+            dest.writeInt(mIntValues.get(key));
         }
         dest.writeValue(dtc);
     }
@@ -141,19 +141,19 @@ public final class CarDiagnosticEvent implements Parcelable {
         jsonWriter.name("timestamp").value(timestamp);
 
         jsonWriter.name("intValues").beginArray();
-        for (int i = 0; i < intValues.size(); ++i) {
+        for (int i = 0; i < mIntValues.size(); ++i) {
             jsonWriter.beginObject();
-            jsonWriter.name("id").value(intValues.keyAt(i));
-            jsonWriter.name("value").value(intValues.valueAt(i));
+            jsonWriter.name("id").value(mIntValues.keyAt(i));
+            jsonWriter.name("value").value(mIntValues.valueAt(i));
             jsonWriter.endObject();
         }
         jsonWriter.endArray();
 
         jsonWriter.name("floatValues").beginArray();
-        for (int i = 0; i < floatValues.size(); ++i) {
+        for (int i = 0; i < mFloatValues.size(); ++i) {
             jsonWriter.beginObject();
-            jsonWriter.name("id").value(floatValues.keyAt(i));
-            jsonWriter.name("value").value(floatValues.valueAt(i));
+            jsonWriter.name("id").value(mFloatValues.keyAt(i));
+            jsonWriter.name("value").value(mFloatValues.valueAt(i));
             jsonWriter.endObject();
         }
         jsonWriter.endArray();
@@ -184,8 +184,8 @@ public final class CarDiagnosticEvent implements Parcelable {
             String dtc) {
         this.frameType = frameType;
         this.timestamp = timestamp;
-        this.floatValues = floatValues;
-        this.intValues = intValues;
+        mFloatValues = floatValues;
+        mIntValues = intValues;
         this.dtc = dtc;
     }
 
@@ -308,16 +308,16 @@ public final class CarDiagnosticEvent implements Parcelable {
      * @hide
      */
     public CarDiagnosticEvent withVendorSensorsRemoved() {
-        SparseIntArray newIntValues = intValues.clone();
-        SparseArray<Float> newFloatValues = floatValues.clone();
-        for (int i = 0; i < intValues.size(); ++i) {
-            int key = intValues.keyAt(i);
+        SparseIntArray newIntValues = mIntValues.clone();
+        SparseArray<Float> newFloatValues = mFloatValues.clone();
+        for (int i = 0; i < mIntValues.size(); ++i) {
+            int key = mIntValues.keyAt(i);
             if (key >= android.car.diagnostic.IntegerSensorIndex.LAST_SYSTEM) {
                 newIntValues.delete(key);
             }
         }
-        for (int i = 0; i < floatValues.size(); ++i) {
-            int key = floatValues.keyAt(i);
+        for (int i = 0; i < mFloatValues.size(); ++i) {
+            int key = mFloatValues.keyAt(i);
             if (key >= android.car.diagnostic.FloatSensorIndex.LAST_SYSTEM) {
                 newFloatValues.delete(key);
             }
@@ -337,8 +337,8 @@ public final class CarDiagnosticEvent implements Parcelable {
 
     /** @hide */
     public boolean isEmptyFrame() {
-        boolean empty = (0 == intValues.size());
-        empty &= (0 == floatValues.size());
+        boolean empty = (0 == mIntValues.size());
+        empty &= (0 == mFloatValues.size());
         if (isFreezeFrame()) empty &= dtc.isEmpty();
         return empty;
     }
@@ -372,37 +372,42 @@ public final class CarDiagnosticEvent implements Parcelable {
         if (!(otherObject instanceof CarDiagnosticEvent)) {
             return false;
         }
-        CarDiagnosticEvent otherEvent = (CarDiagnosticEvent)otherObject;
-        if (otherEvent.frameType != frameType)
+        CarDiagnosticEvent otherEvent = (CarDiagnosticEvent) otherObject;
+        if (otherEvent.frameType != frameType) {
             return false;
-        if (otherEvent.timestamp != timestamp)
+        }
+        if (otherEvent.timestamp != timestamp) {
             return false;
-        if (otherEvent.intValues.size() != intValues.size())
+        }
+        if (otherEvent.mIntValues.size() != mIntValues.size()) {
             return false;
-        if (otherEvent.floatValues.size() != floatValues.size())
+        }
+        if (otherEvent.mFloatValues.size() != mFloatValues.size()) {
             return false;
-        if (!Objects.equals(dtc, otherEvent.dtc))
+        }
+        if (!Objects.equals(dtc, otherEvent.dtc)) {
             return false;
-        for (int i = 0; i < intValues.size(); ++i) {
-            int key = intValues.keyAt(i);
-            int otherKey = otherEvent.intValues.keyAt(i);
+        }
+        for (int i = 0; i < mIntValues.size(); ++i) {
+            int key = mIntValues.keyAt(i);
+            int otherKey = otherEvent.mIntValues.keyAt(i);
             if (key != otherKey) {
                 return false;
             }
-            int value = intValues.valueAt(i);
-            int otherValue = otherEvent.intValues.valueAt(i);
+            int value = mIntValues.valueAt(i);
+            int otherValue = otherEvent.mIntValues.valueAt(i);
             if (value != otherValue) {
                 return false;
             }
         }
-        for (int i = 0; i < floatValues.size(); ++i) {
-            int key = floatValues.keyAt(i);
-            int otherKey = otherEvent.floatValues.keyAt(i);
+        for (int i = 0; i < mFloatValues.size(); ++i) {
+            int key = mFloatValues.keyAt(i);
+            int otherKey = otherEvent.mFloatValues.keyAt(i);
             if (key != otherKey) {
                 return false;
             }
-            float value = floatValues.valueAt(i);
-            float otherValue = otherEvent.floatValues.valueAt(i);
+            float value = mFloatValues.valueAt(i);
+            float otherValue = otherEvent.mFloatValues.valueAt(i);
             if (value != otherValue) {
                 return false;
             }
@@ -412,22 +417,22 @@ public final class CarDiagnosticEvent implements Parcelable {
 
     @Override
     public int hashCode() {
-        Integer[] intKeys = new Integer[intValues.size()];
-        Integer[] floatKeys = new Integer[floatValues.size()];
+        Integer[] intKeys = new Integer[mIntValues.size()];
+        Integer[] floatKeys = new Integer[mFloatValues.size()];
         Integer[] intValues = new Integer[intKeys.length];
         Float[] floatValues = new Float[floatKeys.length];
         for (int i = 0; i < intKeys.length; ++i) {
-            intKeys[i] = this.intValues.keyAt(i);
-            intValues[i] = this.intValues.valueAt(i);
+            intKeys[i] = mIntValues.keyAt(i);
+            intValues[i] = mIntValues.valueAt(i);
         }
         for (int i = 0; i < floatKeys.length; ++i) {
-            floatKeys[i] = this.floatValues.keyAt(i);
-            floatValues[i] = this.floatValues.valueAt(i);
+            floatKeys[i] = mFloatValues.keyAt(i);
+            floatValues[i] = mFloatValues.valueAt(i);
         }
-        int intKeysHash = Objects.hash((Object[])intKeys);
-        int intValuesHash = Objects.hash((Object[])intValues);
-        int floatKeysHash = Objects.hash((Object[])floatKeys);
-        int floatValuesHash = Objects.hash((Object[])floatValues);
+        int intKeysHash = Objects.hash((Object[]) intKeys);
+        int intValuesHash = Objects.hash((Object[]) intValues);
+        int floatKeysHash = Objects.hash((Object[]) floatKeys);
+        int floatValuesHash = Objects.hash((Object[]) floatValues);
         return Objects.hash(frameType,
                 timestamp,
                 dtc,
@@ -443,13 +448,13 @@ public final class CarDiagnosticEvent implements Parcelable {
                 "%s diagnostic frame {\n"
                         + "\ttimestamp: %d, "
                         + "DTC: %s\n"
-                        + "\tintValues: %s\n"
-                        + "\tfloatValues: %s\n}",
+                        + "\tmIntValues: %s\n"
+                        + "\tmFloatValues: %s\n}",
                 isLiveFrame() ? "live" : "freeze",
                 timestamp,
                 dtc,
-                intValues.toString(),
-                floatValues.toString());
+                mIntValues.toString(),
+                mFloatValues.toString());
     }
 
     /**
@@ -458,7 +463,7 @@ public final class CarDiagnosticEvent implements Parcelable {
      */
     public int getSystemIntegerSensor(
             @android.car.diagnostic.IntegerSensorIndex.SensorIndex int sensor, int defaultValue) {
-        return intValues.get(sensor, defaultValue);
+        return mIntValues.get(sensor, defaultValue);
     }
 
     /**
@@ -467,7 +472,7 @@ public final class CarDiagnosticEvent implements Parcelable {
      */
     public float getSystemFloatSensor(
             @android.car.diagnostic.FloatSensorIndex.SensorIndex int sensor, float defaultValue) {
-        return floatValues.get(sensor, defaultValue);
+        return mFloatValues.get(sensor, defaultValue);
     }
 
     /**
@@ -475,7 +480,7 @@ public final class CarDiagnosticEvent implements Parcelable {
      * Returns defaultValue otherwise.
      */
     public int getVendorIntegerSensor(int sensor, int defaultValue) {
-        return intValues.get(sensor, defaultValue);
+        return mIntValues.get(sensor, defaultValue);
     }
 
     /**
@@ -483,7 +488,7 @@ public final class CarDiagnosticEvent implements Parcelable {
      * Returns defaultValue otherwise.
      */
     public float getVendorFloatSensor(int sensor, float defaultValue) {
-        return floatValues.get(sensor, defaultValue);
+        return mFloatValues.get(sensor, defaultValue);
     }
 
     /**
@@ -492,9 +497,9 @@ public final class CarDiagnosticEvent implements Parcelable {
      */
     public @Nullable Integer getSystemIntegerSensor(
             @android.car.diagnostic.IntegerSensorIndex.SensorIndex int sensor) {
-        int index = intValues.indexOfKey(sensor);
+        int index = mIntValues.indexOfKey(sensor);
         if (index < 0) return null;
-        return intValues.valueAt(index);
+        return mIntValues.valueAt(index);
     }
 
     /**
@@ -503,9 +508,9 @@ public final class CarDiagnosticEvent implements Parcelable {
      */
     public @Nullable Float getSystemFloatSensor(
             @android.car.diagnostic.FloatSensorIndex.SensorIndex int sensor) {
-        int index = floatValues.indexOfKey(sensor);
+        int index = mFloatValues.indexOfKey(sensor);
         if (index < 0) return null;
-        return floatValues.valueAt(index);
+        return mFloatValues.valueAt(index);
     }
 
     /**
@@ -513,9 +518,9 @@ public final class CarDiagnosticEvent implements Parcelable {
      * Returns null otherwise.
      */
     public @Nullable Integer getVendorIntegerSensor(int sensor) {
-        int index = intValues.indexOfKey(sensor);
+        int index = mIntValues.indexOfKey(sensor);
         if (index < 0) return null;
-        return intValues.valueAt(index);
+        return mIntValues.valueAt(index);
     }
 
     /**
@@ -523,9 +528,9 @@ public final class CarDiagnosticEvent implements Parcelable {
      * Returns null otherwise.
      */
     public @Nullable Float getVendorFloatSensor(int sensor) {
-        int index = floatValues.indexOfKey(sensor);
+        int index = mFloatValues.indexOfKey(sensor);
         if (index < 0) return null;
-        return floatValues.valueAt(index);
+        return mFloatValues.valueAt(index);
     }
 
     /**
@@ -542,7 +547,6 @@ public final class CarDiagnosticEvent implements Parcelable {
         public static final int CLOSED_LOOP_BUT_FEEDBACK_FAULT = 16;
 
         @Retention(RetentionPolicy.SOURCE)
-        /** @hide */
         @IntDef({
             OPEN_INSUFFICIENT_ENGINE_TEMPERATURE,
             CLOSED_LOOP,
@@ -550,7 +554,6 @@ public final class CarDiagnosticEvent implements Parcelable {
             OPEN_SYSTEM_FAILURE,
             CLOSED_LOOP_BUT_FEEDBACK_FAULT
         })
-        /** @hide */
         public @interface Status {}
     }
 
@@ -567,14 +570,12 @@ public final class CarDiagnosticEvent implements Parcelable {
         public static final int PUMP_ON_FOR_DIAGNOSTICS = 8;
 
         @Retention(RetentionPolicy.SOURCE)
-        /** @hide */
         @IntDef({
             UPSTREAM,
             DOWNSTREAM_OF_CATALYCIC_CONVERTER,
             FROM_OUTSIDE_OR_OFF,
             PUMP_ON_FOR_DIAGNOSTICS
         })
-        /** @hide */
         public @interface Status {}
     }
 
@@ -611,7 +612,6 @@ public final class CarDiagnosticEvent implements Parcelable {
         public static final int BIFUEL_RUNNING_DIESEL = 23;
 
         @Retention(RetentionPolicy.SOURCE)
-        /** @hide */
         @IntDef({
             NOT_AVAILABLE,
             GASOLINE,
@@ -638,7 +638,6 @@ public final class CarDiagnosticEvent implements Parcelable {
             HYBRID_REGENERATIVE,
             BIFUEL_RUNNING_DIESEL
         })
-        /** @hide */
         public @interface Type {}
     }
 
@@ -664,6 +663,9 @@ public final class CarDiagnosticEvent implements Parcelable {
                 mIncompleteBitmask = incompleteBitmask;
             }
 
+            /**
+             * Returns the {@link IgnitionMonitor} associated with the value passed as parameter.
+             */
             public IgnitionMonitor fromValue(int value) {
                 boolean available = (0 != (value & mAvailableBitmask));
                 boolean incomplete = (0 != (value & mIncompleteBitmask));
@@ -727,8 +729,9 @@ public final class CarDiagnosticEvent implements Parcelable {
          * Returns null otherwise.
          */
         public @Nullable CompressionIgnitionMonitors asCompressionIgnitionMonitors() {
-            if (this instanceof CompressionIgnitionMonitors)
+            if (this instanceof CompressionIgnitionMonitors) {
                 return (CompressionIgnitionMonitors) this;
+            }
             return null;
         }
     }
@@ -913,7 +916,8 @@ public final class CarDiagnosticEvent implements Parcelable {
      * Returns null otherwise.
      */
     public @Nullable @SecondaryAirStatus.Status Integer getSecondaryAirStatus() {
-        return getSystemIntegerSensor(android.car.diagnostic.IntegerSensorIndex.COMMANDED_SECONDARY_AIR_STATUS);
+        return getSystemIntegerSensor(
+            android.car.diagnostic.IntegerSensorIndex.COMMANDED_SECONDARY_AIR_STATUS);
     }
 
     /**
@@ -922,9 +926,11 @@ public final class CarDiagnosticEvent implements Parcelable {
      */
     public @Nullable CommonIgnitionMonitors getIgnitionMonitors() {
         Integer ignitionMonitorsType =
-                getSystemIntegerSensor(android.car.diagnostic.IntegerSensorIndex.IGNITION_MONITORS_SUPPORTED);
+                getSystemIntegerSensor(
+                    android.car.diagnostic.IntegerSensorIndex.IGNITION_MONITORS_SUPPORTED);
         Integer ignitionMonitorsBitmask =
-                getSystemIntegerSensor(android.car.diagnostic.IntegerSensorIndex.IGNITION_SPECIFIC_MONITORS);
+                getSystemIntegerSensor(
+                    android.car.diagnostic.IntegerSensorIndex.IGNITION_SPECIFIC_MONITORS);
         if (null == ignitionMonitorsType) return null;
         if (null == ignitionMonitorsBitmask) return null;
         switch (ignitionMonitorsType) {

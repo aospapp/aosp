@@ -40,11 +40,9 @@ import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.Spinner;
-import android.widget.TextView;
 
 import androidx.annotation.VisibleForTesting;
 
-import com.android.internal.telephony.PhoneConstants;
 import com.android.settings.core.InstrumentedFragment;
 import com.android.settings.core.SubSettingLauncher;
 import com.android.settings.enterprise.ActionDisabledByAdminDialogHelper;
@@ -52,6 +50,7 @@ import com.android.settings.password.ChooseLockSettingsHelper;
 import com.android.settings.password.ConfirmLockPattern;
 import com.android.settingslib.RestrictedLockUtils.EnforcedAdmin;
 import com.android.settingslib.RestrictedLockUtilsInternal;
+import com.android.settingslib.development.DevelopmentSettingsEnabler;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -120,10 +119,11 @@ public class ResetNetwork extends InstrumentedFragment {
         if (mSubscriptions != null && mSubscriptions.size() > 0) {
             int selectedIndex = mSubscriptionSpinner.getSelectedItemPosition();
             SubscriptionInfo subscription = mSubscriptions.get(selectedIndex);
-            args.putInt(PhoneConstants.SUBSCRIPTION_KEY, subscription.getSubscriptionId());
+            args.putInt(SubscriptionManager.EXTRA_SUBSCRIPTION_INDEX,
+                    subscription.getSubscriptionId());
         }
         args.putBoolean(MasterClear.ERASE_ESIMS_EXTRA,
-            mEsimContainer.getVisibility() == View.VISIBLE && mEsimCheckbox.isChecked());
+                mEsimContainer.getVisibility() == View.VISIBLE && mEsimCheckbox.isChecked());
         new SubSettingLauncher(getContext())
                 .setDestination(ResetNetworkConfirm.class.getName())
                 .setArguments(args)
@@ -165,17 +165,17 @@ public class ResetNetwork extends InstrumentedFragment {
         mEsimCheckbox = mContentView.findViewById(R.id.erase_esim);
 
         mSubscriptions = SubscriptionManager.from(getActivity())
-                .getActiveSubscriptionInfoList(true);
+                .getActiveSubscriptionInfoList();
         if (mSubscriptions != null && mSubscriptions.size() > 0) {
             // Get the default subscription in the order of data, voice, sms, first up.
             int defaultSubscription = SubscriptionManager.getDefaultDataSubscriptionId();
-            if (!SubscriptionManager.isUsableSubIdValue(defaultSubscription)) {
+            if (!SubscriptionManager.isUsableSubscriptionId(defaultSubscription)) {
                 defaultSubscription = SubscriptionManager.getDefaultVoiceSubscriptionId();
             }
-            if (!SubscriptionManager.isUsableSubIdValue(defaultSubscription)) {
+            if (!SubscriptionManager.isUsableSubscriptionId(defaultSubscription)) {
                 defaultSubscription = SubscriptionManager.getDefaultSmsSubscriptionId();
             }
-            if (!SubscriptionManager.isUsableSubIdValue(defaultSubscription)) {
+            if (!SubscriptionManager.isUsableSubscriptionId(defaultSubscription)) {
                 defaultSubscription = SubscriptionManager.getDefaultSubscriptionId();
             }
 
@@ -236,7 +236,7 @@ public class ResetNetwork extends InstrumentedFragment {
         }
         ContentResolver resolver = context.getContentResolver();
         return Settings.Global.getInt(resolver, Global.EUICC_PROVISIONED, 0) != 0
-                || Settings.Global.getInt(resolver, Global.DEVELOPMENT_SETTINGS_ENABLED, 0) != 0;
+                || DevelopmentSettingsEnabler.isDevelopmentSettingsEnabled(context);
     }
 
     @Override

@@ -17,7 +17,6 @@ package com.android.car.settings.bluetooth;
 
 import android.app.AlertDialog;
 import android.app.Dialog;
-import android.app.DialogFragment;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.DialogInterface.OnClickListener;
@@ -37,13 +36,14 @@ import android.widget.TextView;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.Logger;
+import com.android.car.ui.preference.CarUiDialogFragment;
 import com.android.internal.annotations.VisibleForTesting;
 
 /**
  * A dialogFragment used by {@link BluetoothPairingDialog} to create an appropriately styled dialog
  * for the bluetooth device.
  */
-public class BluetoothPairingDialogFragment extends DialogFragment implements
+public class BluetoothPairingDialogFragment extends CarUiDialogFragment implements
         TextWatcher, OnClickListener {
 
     private static final Logger LOG = new Logger(BluetoothPairingDialogFragment.class);
@@ -78,6 +78,10 @@ public class BluetoothPairingDialogFragment extends DialogFragment implements
         mDialog = setupDialog();
         mDialog.setCanceledOnTouchOutside(false);
         return mDialog;
+    }
+
+    @Override
+    protected void onDialogClosed(boolean positiveResult) {
     }
 
     @Override

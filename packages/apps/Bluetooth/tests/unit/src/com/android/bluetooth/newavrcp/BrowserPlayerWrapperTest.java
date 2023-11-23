@@ -20,6 +20,9 @@ import static org.mockito.Mockito.*;
 
 import android.media.MediaDescription;
 import android.media.browse.MediaBrowser.MediaItem;
+import android.media.session.PlaybackState;
+import android.os.Handler;
+import android.os.HandlerThread;
 
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
@@ -42,14 +45,21 @@ public class BrowserPlayerWrapperTest {
 
     @Captor ArgumentCaptor<MediaBrowser.ConnectionCallback> mBrowserConnCb;
     @Captor ArgumentCaptor<MediaBrowser.SubscriptionCallback> mSubscriptionCb;
+    @Captor ArgumentCaptor<MediaController.Callback> mControllerCb;
+    @Captor ArgumentCaptor<Handler> mTimeoutHandler;
     @Captor ArgumentCaptor<List<ListItem>> mWrapperBrowseCb;
     @Mock MediaBrowser mMockBrowser;
     @Mock BrowsedPlayerWrapper.ConnectionCallback mConnCb;
     @Mock BrowsedPlayerWrapper.BrowseCallback mBrowseCb;
+    private HandlerThread mThread;
 
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
+
+        // Set up Looper thread for the timeout handler
+        mThread = new HandlerThread("MediaPlayerWrapperTestThread");
+        mThread.start();
 
         when(mMockBrowser.getRoot()).thenReturn("root_folder");
 
@@ -58,7 +68,8 @@ public class BrowserPlayerWrapperTest {
 
     @Test
     public void testWrap() {
-        BrowsedPlayerWrapper wrapper = BrowsedPlayerWrapper.wrap(null, "test", "test");
+        BrowsedPlayerWrapper wrapper =
+                BrowsedPlayerWrapper.wrap(null, mThread.getLooper(), "test", "test");
         wrapper.connect(mConnCb);
         verify(mMockBrowser).testInit(any(), any(), mBrowserConnCb.capture(), any());
         verify(mMockBrowser).connect();
@@ -71,26 +82,54 @@ public class BrowserPlayerWrapperTest {
     }
 
     @Test
-    public void testConnect() {
-        BrowsedPlayerWrapper wrapper = BrowsedPlayerWrapper.wrap(null, "test", "test");
+    public void testConnect_Successful() {
+        BrowsedPlayerWrapper wrapper =
+                BrowsedPlayerWrapper.wrap(null, mThread.getLooper(), "test", "test");
         wrapper.connect(mConnCb);
         verify(mMockBrowser).testInit(any(), any(), mBrowserConnCb.capture(), any());
         MediaBrowser.ConnectionCallback browserConnCb = mBrowserConnCb.getValue();
-        browserConnCb.onConnectionFailed();
 
-        verify(mConnCb).run(eq(BrowsedPlayerWrapper.STATUS_CONN_ERROR), eq(wrapper));
-
-        wrapper.connect(mConnCb);
-        verify(mMockBrowser, times(2)).connect();
-
+        verify(mMockBrowser, times(1)).connect();
         browserConnCb.onConnected();
         verify(mConnCb).run(eq(BrowsedPlayerWrapper.STATUS_SUCCESS), eq(wrapper));
+        verify(mMockBrowser, times(1)).disconnect();
+    }
+
+    @Test
+    public void testConnect_Suspended() {
+        BrowsedPlayerWrapper wrapper =
+                BrowsedPlayerWrapper.wrap(null, mThread.getLooper(), "test", "test");
+        wrapper.connect(mConnCb);
+        verify(mMockBrowser).testInit(any(), any(), mBrowserConnCb.capture(), any());
+        MediaBrowser.ConnectionCallback browserConnCb = mBrowserConnCb.getValue();
+
+        verify(mMockBrowser, times(1)).connect();
+        browserConnCb.onConnectionSuspended();
+        verify(mConnCb).run(eq(BrowsedPlayerWrapper.STATUS_CONN_ERROR), eq(wrapper));
+        // Twice because our mConnCb is wrapped when using the plain connect() call and disconnect
+        // is called for us when the callback is invoked in addition to error handling calling
+        // disconnect.
         verify(mMockBrowser, times(2)).disconnect();
     }
 
     @Test
+    public void testConnect_Failed() {
+        BrowsedPlayerWrapper wrapper =
+                BrowsedPlayerWrapper.wrap(null, mThread.getLooper(), "test", "test");
+        wrapper.connect(mConnCb);
+        verify(mMockBrowser).testInit(any(), any(), mBrowserConnCb.capture(), any());
+        MediaBrowser.ConnectionCallback browserConnCb = mBrowserConnCb.getValue();
+
+        verify(mMockBrowser, times(1)).connect();
+        browserConnCb.onConnectionFailed();
+        verify(mConnCb).run(eq(BrowsedPlayerWrapper.STATUS_CONN_ERROR), eq(wrapper));
+        verify(mMockBrowser, times(1)).disconnect();
+    }
+
+    @Test
     public void testEmptyRoot() {
-        BrowsedPlayerWrapper wrapper = BrowsedPlayerWrapper.wrap(null, "test", "test");
+        BrowsedPlayerWrapper wrapper =
+                BrowsedPlayerWrapper.wrap(null, mThread.getLooper(), "test", "test");
 
         doReturn("").when(mMockBrowser).getRoot();
 
@@ -107,7 +146,8 @@ public class BrowserPlayerWrapperTest {
 
     @Test
     public void testDisconnect() {
-        BrowsedPlayerWrapper wrapper = BrowsedPlayerWrapper.wrap(null, "test", "test");
+        BrowsedPlayerWrapper wrapper =
+                BrowsedPlayerWrapper.wrap(null, mThread.getLooper(), "test", "test");
         wrapper.connect(mConnCb);
         verify(mMockBrowser).testInit(any(), any(), mBrowserConnCb.capture(), any());
         MediaBrowser.ConnectionCallback browserConnCb = mBrowserConnCb.getValue();
@@ -117,7 +157,8 @@ public class BrowserPlayerWrapperTest {
 
     @Test
     public void testGetRootId() {
-        BrowsedPlayerWrapper wrapper = BrowsedPlayerWrapper.wrap(null, "test", "test");
+        BrowsedPlayerWrapper wrapper =
+                BrowsedPlayerWrapper.wrap(null, mThread.getLooper(), "test", "test");
         wrapper.connect(mConnCb);
         verify(mMockBrowser).testInit(any(), any(), mBrowserConnCb.capture(), any());
         MediaBrowser.ConnectionCallback browserConnCb = mBrowserConnCb.getValue();
@@ -129,7 +170,8 @@ public class BrowserPlayerWrapperTest {
 
     @Test
     public void testPlayItem() {
-        BrowsedPlayerWrapper wrapper = BrowsedPlayerWrapper.wrap(null, "test", "test");
+        BrowsedPlayerWrapper wrapper =
+                BrowsedPlayerWrapper.wrap(null, mThread.getLooper(), "test", "test");
         verify(mMockBrowser).testInit(any(), any(), mBrowserConnCb.capture(), any());
         MediaBrowser.ConnectionCallback browserConnCb = mBrowserConnCb.getValue();
 
@@ -144,12 +186,56 @@ public class BrowserPlayerWrapperTest {
 
         browserConnCb.onConnected();
         verify(mockTransport).playFromMediaId(eq("test_item"), eq(null));
-        verify(mMockBrowser).disconnect();
+
+        // Do not immediately disconnect. Non-foreground playback serves will likely fail
+        verify(mMockBrowser, times(0)).disconnect();
+
+        verify(mockController).registerCallback(mControllerCb.capture(), any());
+        MediaController.Callback controllerCb = mControllerCb.getValue();
+        PlaybackState.Builder builder = new PlaybackState.Builder();
+
+        // Do not disconnect on an event that isn't "playing"
+        builder.setState(PlaybackState.STATE_PAUSED, 0, 1);
+        controllerCb.onPlaybackStateChanged(builder.build());
+        verify(mMockBrowser, times(0)).disconnect();
+
+        // Once we're told we're playing, make sure we disconnect
+        builder.setState(PlaybackState.STATE_PLAYING, 0, 1);
+        controllerCb.onPlaybackStateChanged(builder.build());
+        verify(mMockBrowser, times(1)).disconnect();
+    }
+
+    @Test
+    public void testPlayItem_Timeout() {
+        BrowsedPlayerWrapper wrapper =
+                BrowsedPlayerWrapper.wrap(null, mThread.getLooper(), "test", "test");
+        verify(mMockBrowser).testInit(any(), any(), mBrowserConnCb.capture(), any());
+        MediaBrowser.ConnectionCallback browserConnCb = mBrowserConnCb.getValue();
+
+        wrapper.playItem("test_item");
+        verify(mMockBrowser, times(1)).connect();
+
+        MediaController mockController = mock(MediaController.class);
+        MediaController.TransportControls mockTransport =
+                mock(MediaController.TransportControls.class);
+        when(mockController.getTransportControls()).thenReturn(mockTransport);
+        MediaControllerFactory.inject(mockController);
+
+        browserConnCb.onConnected();
+        verify(mockTransport).playFromMediaId(eq("test_item"), eq(null));
+
+        verify(mockController).registerCallback(any(), mTimeoutHandler.capture());
+        Handler timeoutHandler = mTimeoutHandler.getValue();
+
+        timeoutHandler.sendEmptyMessage(BrowsedPlayerWrapper.TimeoutHandler.MSG_TIMEOUT);
+
+        verify(mMockBrowser, timeout(2000).times(1)).disconnect();
     }
 
     @Test
     public void testGetFolderItems() {
-        BrowsedPlayerWrapper wrapper = BrowsedPlayerWrapper.wrap(null, "test", "test");
+        BrowsedPlayerWrapper wrapper =
+                BrowsedPlayerWrapper.wrap(null, mThread.getLooper(), "test", "test");
         verify(mMockBrowser).testInit(any(), any(), mBrowserConnCb.capture(), any());
         MediaBrowser.ConnectionCallback browserConnCb = mBrowserConnCb.getValue();
 

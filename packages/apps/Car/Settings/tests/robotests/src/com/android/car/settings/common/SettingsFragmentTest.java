@@ -16,6 +16,8 @@
 
 package com.android.car.settings.common;
 
+import static com.android.car.ui.core.CarUi.requireToolbar;
+
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -30,23 +32,26 @@ import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentSender;
-import android.widget.FrameLayout;
 
 import androidx.fragment.app.DialogFragment;
 import androidx.preference.Preference;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.R;
 import com.android.car.settings.testutils.DummyFragment;
 import com.android.car.settings.testutils.FragmentController;
+import com.android.car.ui.core.testsupport.CarUiInstallerRobolectric;
+import com.android.car.ui.toolbar.Toolbar;
+import com.android.car.ui.toolbar.ToolbarController;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
+import org.robolectric.shadows.ShadowToast;
 
 /** Unit test for {@link SettingsFragment}. */
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 public class SettingsFragmentTest {
 
     private static final String TEST_TAG = "test_tag";
@@ -60,6 +65,9 @@ public class SettingsFragmentTest {
         mContext = RuntimeEnvironment.application;
         mFragmentController = FragmentController.of(new TestSettingsFragment());
         mFragment = mFragmentController.get();
+
+        // Needed to install Install CarUiLib BaseLayouts Toolbar for test activity
+        CarUiInstallerRobolectric.install();
     }
 
     @Test
@@ -91,27 +99,16 @@ public class SettingsFragmentTest {
     }
 
     @Test
-    public void onDisplayPreferenceDialog_editTextPreference_showsDialog() {
+    public void onUxRestrictedPreferenceTapped_showToast() {
         mFragmentController.setup();
-
-        mFragment.getPreferenceScreen().findPreference(
-                mContext.getString(R.string.tpk_edit_text_preference)).performClick();
-
-        assertThat(mFragment.getFragmentManager().findFragmentByTag(
-                SettingsFragment.DIALOG_FRAGMENT_TAG)).isInstanceOf(
-                EditTextPreferenceDialogFragment.class);
-    }
-
-    @Test
-    public void onDisplayPreferenceDialog_listPreference_showsDialog() {
-        mFragmentController.setup();
-
-        mFragment.getPreferenceScreen().findPreference(
-                mContext.getString(R.string.tpk_list_preference)).performClick();
-
-        assertThat(mFragment.getFragmentManager().findFragmentByTag(
-                SettingsFragment.DIALOG_FRAGMENT_TAG)).isInstanceOf(
-                SettingsListPreferenceDialogFragment.class);
+        FakePreferenceController controller = mFragment.use(FakePreferenceController.class,
+                R.string.tpk_fake_controller);
+        CarUxRestrictions uxRestrictions = new CarUxRestrictions.Builder(/* reqOpt= */ true,
+                CarUxRestrictions.UX_RESTRICTIONS_NO_SETUP, /* timestamp= */ 0).build();
+        mFragment.onUxRestrictionsChanged(uxRestrictions);
+        controller.getPreference().performClick();
+        assertThat(ShadowToast.showedToast(
+                mContext.getString(R.string.restricted_while_driving))).isTrue();
     }
 
     @Test
@@ -120,27 +117,6 @@ public class SettingsFragmentTest {
 
         assertThrows(IllegalArgumentException.class,
                 () -> mFragment.onDisplayPreferenceDialog(new Preference(mContext)));
-    }
-
-    @Test
-    public void onDisplayPreferenceDialog_alreadyShowing_doesNothing() {
-        mFragmentController.setup();
-
-        // Show a dialog.
-        mFragment.getPreferenceScreen().findPreference(
-                mContext.getString(R.string.tpk_edit_text_preference)).performClick();
-        assertThat(mFragment.getFragmentManager().findFragmentByTag(
-                SettingsFragment.DIALOG_FRAGMENT_TAG)).isInstanceOf(
-                EditTextPreferenceDialogFragment.class);
-
-        // Attempt to show another.
-        mFragment.getPreferenceScreen().findPreference(
-                mContext.getString(R.string.tpk_list_preference)).performClick();
-
-        // Assert only one shown at a time.
-        assertThat(mFragment.getFragmentManager().findFragmentByTag(
-                SettingsFragment.DIALOG_FRAGMENT_TAG)).isInstanceOf(
-                EditTextPreferenceDialogFragment.class);
     }
 
     @Test
@@ -165,7 +141,7 @@ public class SettingsFragmentTest {
     public void showDialog_noTag_launchesDialogFragment() {
         mFragmentController.setup();
         DialogFragment dialogFragment = mock(DialogFragment.class);
-        mFragment.showDialog(dialogFragment, /* tag */ null);
+        mFragment.showDialog(dialogFragment, /* tag= */ null);
         verify(dialogFragment).show(mFragment.getFragmentManager(), null);
     }
 
@@ -223,8 +199,8 @@ public class SettingsFragmentTest {
         assertThrows(
                 () -> mFragment.startIntentSenderForResult(
                         mock(IntentSender.class), /* requestCode= */ 0xffff,
-                        /* fillInIntent= */null, /* flagsMask= */ 0,
-                        /* flagsValues= */0, /* options= */ null,
+                        /* fillInIntent= */ null, /* flagsMask= */ 0,
+                        /* flagsValues= */ 0, /* options= */ null,
                         mock(ActivityResultCallback.class)));
     }
 
@@ -235,8 +211,8 @@ public class SettingsFragmentTest {
             for (int i = 0; i < 0xff; i++) {
                 mFragment.startIntentSenderForResult(
                         mock(IntentSender.class), /* requestCode= */ 0xffff,
-                        /* fillInIntent= */null, /* flagsMask= */ 0,
-                        /* flagsValues= */0, /* options= */ null,
+                        /* fillInIntent= */ null, /* flagsMask= */ 0,
+                        /* flagsValues= */ 0, /* options= */ null,
                         mock(ActivityResultCallback.class));
             }
         });
@@ -276,28 +252,23 @@ public class SettingsFragmentTest {
         DummyFragment otherFragment = new DummyFragment();
         mFragment.launchFragment(otherFragment);
 
-        FrameLayout actionBarContainer =
-                otherFragment.requireActivity().findViewById(R.id.action_bar);
+        ToolbarController toolbar = requireToolbar(otherFragment.requireActivity());
 
-        assertThat(actionBarContainer.requireViewById(R.id.back_button).getTag(R.id.back_button))
-                .isEqualTo(R.drawable.ic_launcher_settings);
+        assertThat(toolbar.getState()).isEquivalentAccordingToCompareTo(Toolbar.State.HOME);
     }
 
     @Test
     public void onActivityCreated_hasBackArrowIconIfNotRoot() {
         mFragmentController.setup();
 
-        TestSettingsFragment otherFragment1 = new TestSettingsFragment();
-        mFragment.launchFragment(otherFragment1);
+        TestSettingsFragment otherFragment = new TestSettingsFragment();
+        mFragment.launchFragment(otherFragment);
 
-        TestSettingsFragment otherFragment2 = new TestSettingsFragment();
-        mFragment.launchFragment(otherFragment2);
+        ToolbarController toolbar = requireToolbar(otherFragment.requireActivity());
 
-        FrameLayout actionBarContainer =
-                otherFragment2.requireActivity().findViewById(R.id.action_bar);
-
-        assertThat(actionBarContainer.requireViewById(R.id.back_button).getTag(R.id.back_button))
-                .isEqualTo(R.drawable.ic_arrow_back);
+        assertThat(toolbar.getState()).isEquivalentAccordingToCompareTo(Toolbar.State.SUBPAGE);
+        assertThat(toolbar.getNavButtonMode()).isEquivalentAccordingToCompareTo(
+                Toolbar.NavButtonMode.BACK);
     }
 
     /** Concrete {@link SettingsFragment} for testing. */

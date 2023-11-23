@@ -20,10 +20,11 @@ import android.content.Context;
 import android.media.tv.TvContract;
 import android.support.annotation.Nullable;
 import android.text.TextUtils;
+
 import com.android.tv.R;
 import com.android.tv.TvSingletons;
-import com.android.tv.data.Program;
 import com.android.tv.data.api.Channel;
+import com.android.tv.data.api.Program;
 import com.android.tv.dvr.data.RecordedProgram;
 import com.android.tv.dvr.data.ScheduledRecording;
 import com.android.tv.dvr.data.SeriesRecording;
@@ -126,9 +127,10 @@ public class DetailsContent {
     }
 
     private static String getErrorMessage(Context context, ScheduledRecording recording) {
-        int reason = recording.getFailedReason() == null
-                ? ScheduledRecording.FAILED_REASON_OTHER
-                : recording.getFailedReason();
+        int reason =
+                recording.getFailedReason() == null
+                        ? ScheduledRecording.FAILED_REASON_OTHER
+                        : recording.getFailedReason();
         switch (reason) {
             case ScheduledRecording.FAILED_REASON_PROGRAM_ENDED_BEFORE_RECORDING_STARTED:
                 return context.getString(R.string.dvr_recording_failed_not_started);
@@ -136,8 +138,7 @@ public class DetailsContent {
                 return context.getString(R.string.dvr_recording_failed_resource_busy);
             case ScheduledRecording.FAILED_REASON_INPUT_UNAVAILABLE:
                 return context.getString(
-                        R.string.dvr_recording_failed_input_unavailable,
-                        recording.getInputId());
+                        R.string.dvr_recording_failed_input_unavailable, recording.getInputId());
             case ScheduledRecording.FAILED_REASON_INPUT_DVR_UNSUPPORTED:
                 return context.getString(R.string.dvr_recording_failed_input_dvr_unsupported);
             case ScheduledRecording.FAILED_REASON_INSUFFICIENT_SPACE:

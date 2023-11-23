@@ -20,6 +20,8 @@ import android.annotation.SystemApi;
 import android.annotation.UiThread;
 import android.content.Context;
 
+import com.android.internal.annotations.GuardedBy;
+
 /**
  * @deprecated This class is unused. Refer to {@link InstrumentClusterRenderingService} for
  * documentation on how to build a instrument cluster renderer.
@@ -30,23 +32,34 @@ import android.content.Context;
 @SystemApi
 public abstract class InstrumentClusterRenderer {
 
+    private final Object mLock = new Object();
+
+    @GuardedBy("mLock")
     @Nullable private NavigationRenderer mNavigationRenderer;
 
     /**
-     * Calls once when instrument cluster should be created.
+     * Called when instrument cluster renderer is created.
      */
-    abstract public void onCreate(Context context);
+    public abstract void onCreate(Context context);
 
-    abstract public void onStart();
+    /**
+     * Called when instrument cluster renderer is started.
+     */
+    public abstract void onStart();
 
-    abstract public void onStop();
+    /**
+     * Called when instrument cluster renderer is stopped.
+     */
+    public abstract void onStop();
 
-    abstract protected NavigationRenderer createNavigationRenderer();
+    protected abstract NavigationRenderer createNavigationRenderer();
 
     /** The method is thread-safe, callers should cache returned object. */
     @Nullable
-    public synchronized NavigationRenderer getNavigationRenderer() {
-        return mNavigationRenderer;
+    public NavigationRenderer getNavigationRenderer() {
+        synchronized (mLock) {
+            return mNavigationRenderer;
+        }
     }
 
     /**
@@ -54,7 +67,10 @@ public abstract class InstrumentClusterRenderer {
      * method should not be overridden by subclasses.
      */
     @UiThread
-    public synchronized final void initialize() {
-        mNavigationRenderer = createNavigationRenderer();
+    public final void initialize() {
+        synchronized (mLock) {
+            mNavigationRenderer = createNavigationRenderer();
+        }
     }
 }
+

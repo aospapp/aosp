@@ -29,7 +29,7 @@ import androidx.core.view.ViewCompat;
 import androidx.viewpager.widget.PagerAdapter;
 
 import com.android.customization.picker.BasePreviewAdapter.PreviewPage;
-import com.android.customization.widget.PreviewPager;
+import com.android.wallpaper.widget.PreviewPager;
 
 import java.util.ArrayList;
 import java.util.List;

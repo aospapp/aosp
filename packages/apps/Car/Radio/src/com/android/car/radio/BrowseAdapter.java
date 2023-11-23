@@ -238,7 +238,7 @@ public class BrowseAdapter extends RecyclerView.Adapter<ProgramViewHolder> {
     private void handlePresetClicked(int position) {
         synchronized (mLock) {
             if (mItemClickListener == null) return;
-            if (position >= getItemCount()) return;
+            if (position < 0 || position >= getItemCount()) return;
 
             mItemClickListener.onItemClicked(getEntryLocked(position).program.getSelector());
         }
@@ -247,7 +247,7 @@ public class BrowseAdapter extends RecyclerView.Adapter<ProgramViewHolder> {
     private void handlePresetFavoriteChanged(int position, boolean saveAsFavorite) {
         synchronized (mLock) {
             if (mItemFavoriteListener == null) return;
-            if (position >= getItemCount()) return;
+            if (position < 0 || position >= getItemCount()) return;
 
             mItemFavoriteListener.onItemFavoriteChanged(
                     getEntryLocked(position).program, saveAsFavorite);

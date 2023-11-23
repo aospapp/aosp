@@ -419,7 +419,7 @@ JNIEXPORT jfloatArray JNICALL Java_com_android_camera_panorama_Mosaic_setSourceI
     double  t0, t1, time_c;
     t0 = now_ms();
 
-    int ret_code;
+    int ret_code = Mosaic::MOSAIC_RET_OK;
 
     if(frame_number_HR<MAX_FRAMES && frame_number_LR<MAX_FRAMES)
     {

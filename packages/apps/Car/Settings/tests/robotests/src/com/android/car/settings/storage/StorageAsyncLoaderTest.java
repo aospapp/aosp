@@ -25,7 +25,6 @@ import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.when;
 
 import android.app.usage.StorageStats;
-import android.car.userlib.CarUserManagerHelper;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
@@ -35,8 +34,9 @@ import android.net.TrafficStats;
 import android.os.UserHandle;
 import android.util.SparseArray;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.testutils.ShadowApplicationPackageManager;
+import com.android.car.settings.testutils.ShadowUserHelper;
+import com.android.car.settings.users.UserHelper;
 import com.android.settingslib.applications.StorageStatsSource;
 
 import org.junit.After;
@@ -45,6 +45,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadow.api.Shadow;
@@ -53,8 +54,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /** Unit test for {@link StorageAsyncLoader}. */
-@RunWith(CarSettingsRobolectricTestRunner.class)
-@Config(shadows = {ShadowApplicationPackageManager.class})
+@RunWith(RobolectricTestRunner.class)
+@Config(shadows = {ShadowApplicationPackageManager.class, ShadowUserHelper.class})
 public class StorageAsyncLoaderTest {
     private static final int PRIMARY_USER_ID = 0;
     private static final int SECONDARY_USER_ID = 10;
@@ -65,10 +66,10 @@ public class StorageAsyncLoaderTest {
 
     @Mock
     private StorageStatsSource mSource;
+    @Mock
+    private UserHelper mUserHelper;
 
     private Context mContext;
-    @Mock
-    private CarUserManagerHelper mCarUserManagerHelper;
     private List<ApplicationInfo> mInfo = new ArrayList<>();
     private List<UserInfo> mUsers;
 
@@ -79,11 +80,12 @@ public class StorageAsyncLoaderTest {
         MockitoAnnotations.initMocks(this);
         mContext = RuntimeEnvironment.application;
         mInfo = new ArrayList<>();
-        mLoader = new StorageAsyncLoader(mContext, mCarUserManagerHelper, mSource);
+        mLoader = new StorageAsyncLoader(mContext, mSource);
         UserInfo info = new UserInfo();
         mUsers = new ArrayList<>();
         mUsers.add(info);
-        when(mCarUserManagerHelper.getAllUsers()).thenReturn(mUsers);
+        ShadowUserHelper.setInstance(mUserHelper);
+        when(mUserHelper.getAllUsers()).thenReturn(mUsers);
         when(mSource.getCacheQuotaBytes(any(), anyInt())).thenReturn(DEFAULT_QUOTA);
         // there is always a "com.android.car.settings" package added by default with category
         // otherAppsSize lets remove it first for testing.

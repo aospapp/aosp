@@ -153,8 +153,6 @@
     <!-- Bluetooth Failed Upload File Transfer Dialog -->
     <string name="upload_fail_line1">The file wasn\'t sent to \u0022<xliff:g id="recipient">%1$s</xliff:g>\u0022.</string>
     <string name="upload_fail_line1_2">File: <xliff:g id="file">%1$s</xliff:g></string>
-    <!-- Label for a try again button.-->
-    <string name="upload_fail_ok">Try again</string>
     <!-- Label for a cancel button.-->
     <string name="upload_fail_cancel">Close</string>
 
@@ -228,13 +226,13 @@
     <string name="transfer_clear_dlg_title">Clear</string>
 
      <!-- Do not translate. file name used for sharing. -->
-    <string name="bluetooth_share_file_name" translate="false">bluetooth_content_share</string>
+    <string name="bluetooth_share_file_name" translatable="false">bluetooth_content_share</string>
 
     <!-- Used to run Bluetooth.apk in another process if needed -->
     <!-- Do not translate. android:sharedUserId string of this application. -->
-    <string name="sharedUserId" translate="false"><xliff:g id="x" /></string>
+    <string name="sharedUserId" translatable="false"><xliff:g id="x" /></string>
     <!-- Do not translate. android:process of this application. -->
-    <string name="process" translate="false"><xliff:g id="x" /></string>
+    <string name="process" translatable="false"><xliff:g id="x" /></string>
 
 
     <string name="bluetooth_a2dp_sink_queue_name">Now Playing</string>
@@ -249,4 +247,5 @@
     <string name="bluetooth_disconnected">Bluetooth audio disconnected"</string>
     <string name="a2dp_sink_mbs_label">Bluetooth Audio</string>
     <string name="bluetooth_opp_file_limit_exceeded">Files bigger than 4GB cannot be transferred</string>
+    <string name="bluetooth_connect_action">Connect to Bluetooth</string>
 </resources>

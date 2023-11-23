@@ -16,15 +16,18 @@
 
 package com.android.cellbroadcastreceiver;
 
+import static android.telephony.ServiceState.ROAMING_TYPE_NOT_ROAMING;
+
+import android.annotation.NonNull;
 import android.content.Context;
-import android.telephony.CellBroadcastMessage;
+import android.telephony.AccessNetworkConstants;
+import android.telephony.NetworkRegistrationInfo;
 import android.telephony.ServiceState;
-import android.telephony.SmsManager;
+import android.telephony.SmsCbMessage;
 import android.telephony.TelephonyManager;
 import android.util.Log;
 
 import com.android.cellbroadcastreceiver.CellBroadcastAlertService.AlertType;
-import com.android.internal.util.ArrayUtils;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -48,8 +51,6 @@ public class CellBroadcastChannelManager {
 
     private static final String TAG = "CBChannelManager";
 
-    private static CellBroadcastChannelManager sInstance = null;
-
     private static List<Integer> sCellBroadcastRangeResourceKeys = new ArrayList<>(
             Arrays.asList(R.array.additional_cbs_channels_strings,
                     R.array.emergency_alerts_channels_range_strings,
@@ -68,6 +69,10 @@ public class CellBroadcastChannelManager {
 
     private static ArrayList<CellBroadcastChannelRange> sAllCellBroadcastChannelRanges = null;
 
+    private final Context mContext;
+
+    private final int mSubId;
+
     /**
      * Cell broadcast channel range
      * A range is consisted by starting channel id, ending channel id, and the alert type
@@ -83,6 +88,13 @@ public class CellBroadcastChannelManager {
         private static final String KEY_SCOPE = "scope";
         /** Defines the vibration pattern of the alert. */
         private static final String KEY_VIBRATION = "vibration";
+        /** Defines the duration of the alert. */
+        private static final String KEY_ALERT_DURATION = "alert_duration";
+        /** Defines if Do Not Disturb should be overridden for this alert */
+        private static final String KEY_OVERRIDE_DND = "override_dnd";
+        /** Defines whether writing alert message should exclude from SMS inbox. */
+        private static final String KEY_EXCLUDE_FROM_SMS_INBOX = "exclude_from_sms_inbox";
+
         /**
          * Defines whether the channel needs language filter or not. True indicates that the alert
          * will only pop-up when the alert's language matches the device's language.
@@ -103,19 +115,25 @@ public class CellBroadcastChannelManager {
         public int mEndId;
         public AlertType mAlertType;
         public int mEmergencyLevel;
-        public int mRat;
+        public int mRanType;
         public int mScope;
         public int[] mVibrationPattern;
         public boolean mFilterLanguage;
+        // by default no custom alert duration. play the alert tone with the tone's duration.
+        public int mAlertDuration = -1;
+        public boolean mOverrideDnd = false;
+        // If enable_write_alerts_to_sms_inbox is true, write to sms inbox is enabled by default
+        // for all channels except for channels which explicitly set to exclude from sms inbox.
+        public boolean mWriteToSmsInbox = true;
 
-        public CellBroadcastChannelRange(Context context, String channelRange) throws Exception {
+        public CellBroadcastChannelRange(Context context, int subId, String channelRange) {
 
             mAlertType = AlertType.DEFAULT;
             mEmergencyLevel = LEVEL_UNKNOWN;
-            mRat = SmsManager.CELL_BROADCAST_RAN_TYPE_GSM;
+            mRanType = SmsCbMessage.MESSAGE_FORMAT_3GPP;
             mScope = SCOPE_UNKNOWN;
             mVibrationPattern =
-                    CellBroadcastSettings.getResourcesForDefaultSmsSubscriptionId(context)
+                    CellBroadcastSettings.getResources(context, subId)
                             .getIntArray(R.array.default_vibration_pattern);
             mFilterLanguage = false;
 
@@ -129,7 +147,6 @@ public class CellBroadcastChannelManager {
                     if (tokens.length == 2) {
                         String key = tokens[0].trim();
                         String value = tokens[1].trim();
-                        if (value == null) continue;
                         switch (key) {
                             case KEY_TYPE:
                                 mAlertType = AlertType.valueOf(value.toUpperCase());
@@ -142,9 +159,9 @@ public class CellBroadcastChannelManager {
                                 }
                                 break;
                             case KEY_RAT:
-                                mRat = value.equalsIgnoreCase("cdma")
-                                        ? SmsManager.CELL_BROADCAST_RAN_TYPE_CDMA :
-                                        SmsManager.CELL_BROADCAST_RAN_TYPE_GSM;
+                                mRanType = value.equalsIgnoreCase("cdma")
+                                        ? SmsCbMessage.MESSAGE_FORMAT_3GPP2 :
+                                        SmsCbMessage.MESSAGE_FORMAT_3GPP;
                                 break;
                             case KEY_SCOPE:
                                 if (value.equalsIgnoreCase("carrier")) {
@@ -157,7 +174,7 @@ public class CellBroadcastChannelManager {
                                 break;
                             case KEY_VIBRATION:
                                 String[] vibration = value.split("\\|");
-                                if (!ArrayUtils.isEmpty(vibration)) {
+                                if (vibration.length > 0) {
                                     mVibrationPattern = new int[vibration.length];
                                     for (int i = 0; i < vibration.length; i++) {
                                         mVibrationPattern[i] = Integer.parseInt(vibration[i]);
@@ -167,6 +184,19 @@ public class CellBroadcastChannelManager {
                             case KEY_FILTER_LANGUAGE:
                                 if (value.equalsIgnoreCase("true")) {
                                     mFilterLanguage = true;
+                                }
+                                break;
+                            case KEY_ALERT_DURATION:
+                                mAlertDuration = Integer.parseInt(value);
+                                break;
+                            case KEY_OVERRIDE_DND:
+                                if (value.equalsIgnoreCase("true")) {
+                                    mOverrideDnd = true;
+                                }
+                                break;
+                            case KEY_EXCLUDE_FROM_SMS_INBOX:
+                                if (value.equalsIgnoreCase("true")) {
+                                    mWriteToSmsInbox = false;
                                 }
                                 break;
                         }
@@ -191,41 +221,39 @@ public class CellBroadcastChannelManager {
         public String toString() {
             return "Range:[channels=" + mStartId + "-" + mEndId + ",emergency level="
                     + mEmergencyLevel + ",type=" + mAlertType + ",scope=" + mScope + ",vibration="
-                    + Arrays.toString(mVibrationPattern) + "]";
+                    + Arrays.toString(mVibrationPattern) + ",alertDuration=" + mAlertDuration
+                    + ",filter_language=" + mFilterLanguage + ",override_dnd=" + mOverrideDnd + "]";
         }
     }
 
     /**
-     * Get the instance of the cell broadcast other channel manager
-     * @return The singleton instance
+     * Constructor
+     *
+     * @param context Context
+     * @param subId Subscription index
      */
-    public static CellBroadcastChannelManager getInstance() {
-        if (sInstance == null) {
-            sInstance = new CellBroadcastChannelManager();
-        }
-        return sInstance;
+    public CellBroadcastChannelManager(Context context, int subId) {
+        mContext = context;
+        mSubId = subId;
     }
 
     /**
      * Get cell broadcast channels enabled by the carriers from resource key
-     * @param context Application context
+     *
      * @param key Resource key
+     *
      * @return The list of channel ranges enabled by the carriers.
      */
-    public static ArrayList<CellBroadcastChannelRange> getCellBroadcastChannelRanges(
-            Context context, int key) {
+    public @NonNull ArrayList<CellBroadcastChannelRange> getCellBroadcastChannelRanges(int key) {
         ArrayList<CellBroadcastChannelRange> result = new ArrayList<>();
         String[] ranges =
-                CellBroadcastSettings.getResourcesForDefaultSmsSubscriptionId(context)
-                        .getStringArray(key);
+                CellBroadcastSettings.getResources(mContext, mSubId).getStringArray(key);
 
-        if (ranges != null) {
-            for (String range : ranges) {
-                try {
-                    result.add(new CellBroadcastChannelRange(context, range));
-                } catch (Exception e) {
-                    loge("Failed to parse \"" + range + "\". e=" + e);
-                }
+        for (String range : ranges) {
+            try {
+                result.add(new CellBroadcastChannelRange(mContext, mSubId, range));
+            } catch (Exception e) {
+                loge("Failed to parse \"" + range + "\". e=" + e);
             }
         }
 
@@ -235,17 +263,15 @@ public class CellBroadcastChannelManager {
     /**
      * Get all cell broadcast channels
      *
-     * @param context Application context
      * @return all cell broadcast channels
      */
-    public static ArrayList<CellBroadcastChannelRange> getAllCellBroadcastChannelRanges(
-            Context context) {
+    public @NonNull ArrayList<CellBroadcastChannelRange> getAllCellBroadcastChannelRanges() {
         if (sAllCellBroadcastChannelRanges != null) return sAllCellBroadcastChannelRanges;
 
         ArrayList<CellBroadcastChannelRange> result = new ArrayList<>();
 
         for (int key : sCellBroadcastRangeResourceKeys) {
-            result.addAll(getCellBroadcastChannelRanges(context, key));
+            result.addAll(getCellBroadcastChannelRanges(key));
         }
 
         sAllCellBroadcastChannelRanges = result;
@@ -253,49 +279,53 @@ public class CellBroadcastChannelManager {
     }
 
     /**
-     * @param subId Subscription index
      * @param channel Cell broadcast message channel
-     * @param context Application context
      * @param key Resource key
+     *
      * @return {@code TRUE} if the input channel is within the channel range defined from resource.
      * return {@code FALSE} otherwise
      */
-    public static boolean checkCellBroadcastChannelRange(int subId, int channel, int key,
-            Context context) {
-        ArrayList<CellBroadcastChannelRange> ranges = CellBroadcastChannelManager
-                .getInstance().getCellBroadcastChannelRanges(context, key);
-        if (ranges != null) {
-            for (CellBroadcastChannelRange range : ranges) {
-                if (channel >= range.mStartId && channel <= range.mEndId) {
-                    return checkScope(context, subId, range.mScope);
-                }
+    public boolean checkCellBroadcastChannelRange(int channel, int key) {
+        ArrayList<CellBroadcastChannelRange> ranges = getCellBroadcastChannelRanges(key);
+
+        for (CellBroadcastChannelRange range : ranges) {
+            if (channel >= range.mStartId && channel <= range.mEndId) {
+                return checkScope(range.mScope);
             }
         }
+
         return false;
     }
 
     /**
      * Check if the channel scope matches the current network condition.
      *
-     * @param subId Subscription id
      * @param rangeScope Range scope. Must be SCOPE_CARRIER, SCOPE_DOMESTIC, or SCOPE_INTERNATIONAL.
      * @return True if the scope matches the current network roaming condition.
      */
-    public static boolean checkScope(Context context, int subId, int rangeScope) {
+    public boolean checkScope(int rangeScope) {
         if (rangeScope == CellBroadcastChannelRange.SCOPE_UNKNOWN) return true;
-        if (context != null) {
-            TelephonyManager tm =
-                    (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
-            ServiceState ss = tm.getServiceStateForSubscriber(subId);
-            if (ss != null) {
-                if (ss.getVoiceRegState() == ServiceState.STATE_IN_SERVICE
-                        || ss.getVoiceRegState() == ServiceState.STATE_EMERGENCY_ONLY) {
-                    if (ss.getVoiceRoamingType() == ServiceState.ROAMING_TYPE_NOT_ROAMING) {
+        TelephonyManager tm =
+                (TelephonyManager) mContext.getSystemService(Context.TELEPHONY_SERVICE);
+        tm = tm.createForSubscriptionId(mSubId);
+        ServiceState ss = tm.getServiceState();
+        if (ss != null) {
+            NetworkRegistrationInfo regInfo = ss.getNetworkRegistrationInfo(
+                    NetworkRegistrationInfo.DOMAIN_CS,
+                    AccessNetworkConstants.TRANSPORT_TYPE_WWAN);
+            if (regInfo != null) {
+                if (regInfo.getRegistrationState()
+                        == NetworkRegistrationInfo.REGISTRATION_STATE_HOME
+                        || regInfo.getRegistrationState()
+                        == NetworkRegistrationInfo.REGISTRATION_STATE_ROAMING
+                        || regInfo.isEmergencyEnabled()) {
+                    int voiceRoamingType = regInfo.getRoamingType();
+                    if (voiceRoamingType == ROAMING_TYPE_NOT_ROAMING) {
                         return true;
-                    } else if (ss.getVoiceRoamingType() == ServiceState.ROAMING_TYPE_DOMESTIC
+                    } else if (voiceRoamingType == ServiceState.ROAMING_TYPE_DOMESTIC
                             && rangeScope == CellBroadcastChannelRange.SCOPE_DOMESTIC) {
                         return true;
-                    } else if (ss.getVoiceRoamingType() == ServiceState.ROAMING_TYPE_INTERNATIONAL
+                    } else if (voiceRoamingType == ServiceState.ROAMING_TYPE_INTERNATIONAL
                             && rangeScope == CellBroadcastChannelRange.SCOPE_INTERNATIONAL) {
                         return true;
                     }
@@ -309,18 +339,22 @@ public class CellBroadcastChannelManager {
 
     /**
      * Return corresponding cellbroadcast range where message belong to
-     * @param context Application context
+     *
      * @param message Cell broadcast message
      */
-    public static CellBroadcastChannelRange getCellBroadcastChannelRangeFromMessage(
-            Context context, CellBroadcastMessage message) {
-        int subId = message.getSubId();
+    public CellBroadcastChannelRange getCellBroadcastChannelRangeFromMessage(SmsCbMessage message) {
+        if (mSubId != message.getSubscriptionId()) {
+            Log.e(TAG, "getCellBroadcastChannelRangeFromMessage: This manager is created for "
+                    + "sub " + mSubId + ", should not be used for message from sub "
+                    + message.getSubscriptionId());
+        }
+
         int channel = message.getServiceCategory();
         ArrayList<CellBroadcastChannelRange> ranges = null;
 
         for (int key : sCellBroadcastRangeResourceKeys) {
-            if (checkCellBroadcastChannelRange(subId, channel, key, context)) {
-                ranges = getCellBroadcastChannelRanges(context, key);
+            if (checkCellBroadcastChannelRange(channel, key)) {
+                ranges = getCellBroadcastChannelRanges(key);
                 break;
             }
         }
@@ -337,20 +371,25 @@ public class CellBroadcastChannelManager {
 
     /**
      * Check if the cell broadcast message is an emergency message or not
-     * @param context Application context
+     *
      * @param message Cell broadcast message
      * @return True if the message is an emergency message, otherwise false.
      */
-    public static boolean isEmergencyMessage(Context context, CellBroadcastMessage message) {
+    public boolean isEmergencyMessage(SmsCbMessage message) {
         if (message == null) {
             return false;
+        }
+
+        if (mSubId != message.getSubscriptionId()) {
+            Log.e(TAG, "This manager is created for sub " + mSubId
+                    + ", should not be used for message from sub " + message.getSubscriptionId());
         }
 
         int id = message.getServiceCategory();
 
         for (int key : sCellBroadcastRangeResourceKeys) {
             ArrayList<CellBroadcastChannelRange> ranges =
-                    getCellBroadcastChannelRanges(context, key);
+                    getCellBroadcastChannelRanges(key);
             for (CellBroadcastChannelRange range : ranges) {
                 if (range.mStartId <= id && range.mEndId >= id) {
                     switch (range.mEmergencyLevel) {
@@ -369,12 +408,12 @@ public class CellBroadcastChannelManager {
             }
         }
 
-        Log.d(TAG, "isEmergencyMessage: " + message.isEmergencyAlertMessage()
+        Log.d(TAG, "isEmergencyMessage: " + message.isEmergencyMessage()
                 + ", message id = " + id);
         // If the configuration does not specify whether the alert is emergency or not, use the
         // emergency property from the message itself, which is checking if the channel is between
         // MESSAGE_ID_PWS_FIRST_IDENTIFIER (4352) and MESSAGE_ID_PWS_LAST_IDENTIFIER (6399).
-        return message.isEmergencyAlertMessage();
+        return message.isEmergencyMessage();
     }
 
     private static void log(String msg) {

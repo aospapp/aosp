@@ -16,6 +16,7 @@
 
 package com.android.tv.ui.sidepanel.parentalcontrols;
 
+import android.app.Activity;
 import android.graphics.drawable.Drawable;
 import android.media.tv.TvContentRating;
 import android.os.Bundle;
@@ -24,9 +25,9 @@ import android.util.SparseIntArray;
 import android.view.View;
 import android.widget.CompoundButton;
 import android.widget.ImageView;
+
 import com.android.tv.MainActivity;
 import com.android.tv.R;
-import com.android.tv.common.experiments.Experiments;
 import com.android.tv.dialog.WebDialogFragment;
 import com.android.tv.license.LicenseUtils;
 import com.android.tv.parental.ContentRatingSystem;
@@ -39,17 +40,27 @@ import com.android.tv.ui.sidepanel.RadioButtonItem;
 import com.android.tv.ui.sidepanel.SideFragment;
 import com.android.tv.util.TvSettings;
 import com.android.tv.util.TvSettings.ContentRatingLevel;
+
 import com.google.common.collect.ImmutableList;
+
+import dagger.android.AndroidInjection;
+
+import com.android.tv.common.flags.LegacyFlags;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+
+import javax.inject.Inject;
 
 public class RatingsFragment extends SideFragment {
     private static final SparseIntArray sLevelResourceIdMap;
     private static final SparseIntArray sDescriptionResourceIdMap;
     private static final String TRACKER_LABEL = "Ratings";
     private int mItemsSize;
+
+    @Inject LegacyFlags mLegacyFlags;
 
     static {
         sLevelResourceIdMap = new SparseIntArray(5);
@@ -101,8 +112,7 @@ public class RatingsFragment extends SideFragment {
     protected List<Item> getItemList() {
         List<Item> items = new ArrayList<>();
 
-        if (mBlockUnratedItem != null
-                && Boolean.TRUE.equals(Experiments.ENABLE_UNRATED_CONTENT_SETTINGS.get())) {
+        if (mBlockUnratedItem != null && mLegacyFlags.enableUnratedContentSettings()) {
             items.add(mBlockUnratedItem);
             items.add(new DividerItem());
         }
@@ -158,7 +168,13 @@ public class RatingsFragment extends SideFragment {
         super.onCreate(savedInstanceState);
         mParentalControlSettings = getMainActivity().getParentalControlSettings();
         mParentalControlSettings.loadRatings();
-        if (Boolean.TRUE.equals(Experiments.ENABLE_UNRATED_CONTENT_SETTINGS.get())) {
+    }
+
+    @Override
+    public void onAttach(Activity activity) {
+        AndroidInjection.inject(this);
+        super.onAttach(activity);
+        if (mLegacyFlags.enableUnratedContentSettings()) {
             mBlockUnratedItem =
                     new CheckBoxItem(
                             getResources().getString(R.string.option_block_unrated_programs)) {
@@ -179,6 +195,8 @@ public class RatingsFragment extends SideFragment {
                             }
                         }
                     };
+        } else {
+            mBlockUnratedItem = null;
         }
     }
 
@@ -235,8 +253,7 @@ public class RatingsFragment extends SideFragment {
             super.onSelected();
             mParentalControlSettings.setContentRatingLevel(
                     getMainActivity().getContentRatingsManager(), mRatingLevel);
-            if (mBlockUnratedItem != null
-                    && Boolean.TRUE.equals(Experiments.ENABLE_UNRATED_CONTENT_SETTINGS.get())) {
+            if (mBlockUnratedItem != null && mLegacyFlags.enableUnratedContentSettings()) {
                 // set checked if UNRATED is blocked, and set unchecked otherwise.
                 mBlockUnratedItem.setChecked(
                         mParentalControlSettings.isRatingBlocked(

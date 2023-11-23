@@ -17,6 +17,7 @@
 package com.android.car.settings.accounts;
 
 import android.content.Context;
+import android.content.Intent;
 import android.provider.Settings;
 
 import androidx.annotation.XmlRes;
@@ -40,19 +41,19 @@ public class ChooseAccountFragment extends SettingsFragment {
     @Override
     public void onAttach(Context context) {
         super.onAttach(context);
+        Intent intent = requireActivity().getIntent();
+        ChooseAccountPreferenceController preferenceController = use(
+                ChooseAccountPreferenceController.class, R.string.pk_add_account);
 
-        String[] authorities = requireActivity().getIntent().getStringArrayExtra(
-                Settings.EXTRA_AUTHORITIES);
+        String[] authorities = intent.getStringArrayExtra(Settings.EXTRA_AUTHORITIES);
         if (authorities != null) {
-            use(ChooseAccountPreferenceController.class, R.string.pk_add_account)
-                    .setAuthorities(Arrays.asList(authorities));
+            preferenceController.setAuthorities(Arrays.asList(authorities));
         }
 
-        String[] accountTypesForFilter = requireActivity().getIntent().getStringArrayExtra(
-                Settings.EXTRA_ACCOUNT_TYPES);
+        String[] accountTypesForFilter = intent.getStringArrayExtra(Settings.EXTRA_ACCOUNT_TYPES);
         if (accountTypesForFilter != null) {
-            use(ChooseAccountPreferenceController.class, R.string.pk_add_account)
-                    .setAccountTypesFilter(new HashSet<>(Arrays.asList(accountTypesForFilter)));
+            preferenceController.setAccountTypesFilter(
+                    new HashSet<>(Arrays.asList(accountTypesForFilter)));
         }
     }
 }

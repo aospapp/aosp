@@ -91,7 +91,7 @@
     <!-- Mobile network settings screen, dialog message title when user selects the Data roaming toggle [CHAR LIMIT=60] -->
     <string name="roaming_alert_title">Allow data roaming?</string>
     <!-- Mobile network settings screen, message in dialog box that appears when you select the Data roaming toggle [CHAR LIMIT=80] -->
-    <string name="roaming_warning">You may incur significant charges.</string>
+    <string name="roaming_warning">Roaming charges may apply.</string>
     <!-- Data usage settings [CHAR LIMIT=30] -->
     <string name="data_usage_settings">Data usage</string>
     <!-- Data usage title text [CHAR LIMIT=30] -->
@@ -395,6 +395,10 @@
     <string name="language_settings">Languages</string>
     <!-- Title of Languages & input settings screen. [CHAR LIMIT=30] -->
     <string name="languages_and_input_settings">Languages &amp; input</string>
+    <!-- Language picker list suggested locale header [CHAR LIMIT=40] -->
+    <string name="language_picker_list_suggested_header">Suggested</string>
+    <!-- Language picker list all other locales header [CHAR LIMIT=40] -->
+    <string name="language_picker_list_all_header">All languages</string>
     <!-- Title for the 'Keyboard' preference sub-screen. [CHAR LIMIT=30] -->
     <string name="keyboard_settings">Keyboard</string>
     <!-- Title for the 'Available keyboards' preference sub-screen, where the user can turn on/off installed keyboards.[CHAR LIMIT=35] -->
@@ -599,12 +603,16 @@
     <string name="permissions_label">Permissions</string>
     <!-- Label for the toggle that enables/disables an app's notifications. [CHAR LIMIT=20] -->
     <string name="notifications_label">Notifications</string>
+    <!-- Label that lead into individual application storage info screen -->
+    <string name="storage_application_label">Storage &amp; cache</string>
     <!-- Label for displaying application version. -->
     <string name="application_version_label">Version: %1$s</string>
     <!-- Runtime permissions preference summary, shown when the app has no permissions granted. [CHAR LIMIT=40] -->
     <string name="runtime_permissions_summary_no_permissions_granted">No permissions granted</string>
     <!-- Runtime permissions preference summary, shown when the app requests no permissions. [CHAR LIMIT=40] -->
     <string name="runtime_permissions_summary_no_permissions_requested">No permissions requested</string>
+    <!-- Application's internal storage size preference summary. [CHAR LIMIT=40] -->
+    <string name="storage_type_internal">%s in internal storage</string>
     <!-- Activity title for network data usage summary. [CHAR LIMIT=25] -->
     <string name="data_usage_summary_title">Data usage</string>
     <!-- Activity title for Appk data usage summary. [CHAR LIMIT=25] -->
@@ -728,20 +736,8 @@
     <string name="location_settings_recent_requests_empty_message">No recent location requests</string>
     <!-- Title of Location App-level Permissions setting [CHAR LIMIT=60] -->
     <string name="location_settings_app_permissions_title">App-level permissions</string>
-    <!-- Title of Location Scanning setting [CHAR LIMIT=60] -->
-    <string name="location_settings_scanning_title">Scanning</string>
     <!-- Title of Location Services category [CHAR LIMIT=60] -->
     <string name="location_settings_services_title">Location Services</string>
-
-    <!-- Location Scanning --><skip/>
-    <!-- Title of Wi-Fi scanning preference [CHAR LIMIT=60] -->
-    <string name="location_settings_wifi_scanning_title">Wi\u2011Fi scanning</string>
-    <!-- Summary of Wi-Fi scanning preference [CHAR LIMIT=240] -->
-    <string name="location_settings_wifi_scanning_summary">Allow apps and services to scan for Wi\u2011Fi networks at any time, even when Wi\u2011Fi is off. This can be used, for example, to improve location-based features and services.</string>
-    <!-- Title of Bluetooth scanning preference [CHAT LIMIT=60]-->
-    <string name="location_settings_bluetooth_scanning_title">Bluetooth scanning</string>
-    <!-- Summary of Bluetooth scanning preference [CHAR LIMIT=240] -->
-    <string name="location_settings_bluetooth_scanning_summary">Allow apps and services to scan for nearby devices at any time, even when Bluetooth is off. This can be used, for example, to improve location-based features and services.</string>
 
     <!-- System --><skip/>
     <!-- Main setting menu item to go into system settings -->
@@ -753,8 +749,10 @@
     <string name="firmware_version">Android version</string>
     <!-- About phone screen, status item label  [CHAR LIMIT=60] -->
     <string name="security_patch">Android security patch level</string>
-    <!-- About phone screen, status item label  [CHAR LIMIT=40] -->
-    <string name="model_info">Model</string>
+    <!-- About car screen, preference for showing hardware information such as model and serial number.  [CHAR LIMIT=40] -->
+    <string name="hardware_info">Model &amp; hardware</string>
+    <!-- About car screen, hardware info summary.  [CHAR LIMIT=40] -->
+    <string name="hardware_info_summary">Model&#58; <xliff:g example="Hawk" id="model">%1$s</xliff:g></string>
     <!-- About phone screen,  setting option name  [CHAR LIMIT=40] -->
     <string name="baseband_version">Baseband version</string>
     <!-- About phone screen,  setting option name  [CHAR LIMIT=40] -->
@@ -808,6 +806,12 @@
     <string name="wallpaper_attributions">Wallpapers</string>
     <!-- About phone settings screen, setting option name to see wallpapers attributions values -->
     <string name="wallpaper_attributions_values">Satellite imagery providers:\n©2014 CNES / Astrium, DigitalGlobe, Bluesky</string>
+    <!-- About > Hardware info screen, model label  [CHAR LIMIT=40] -->
+    <string name="model_info">Model</string>
+    <!-- About > Hardware info screen, serial number label. [CHAR LIMIT=40]-->
+    <string name="status_serial_number">Serial number</string>
+    <!-- About > Hardware info screen, hardware revision label. [CHAR LIMIT=40] -->
+    <string name="hardware_revision">Hardware version</string>
 
     <!-- Text to display in regulatory info screen (from device overlay). [CHAR LIMIT=NONE] -->
     <string name="regulatory_info_text"></string>
@@ -1036,6 +1040,10 @@
     <string name="user_summary_not_set_up">Not set up</string>
     <!-- Title for edit user name page [CHAR LIMIT=30] -->
     <string name="edit_user_name_title">Edit user name</string>
+    <!-- An error message indicating that the name input field has been left blank and cannot be. [CHAR_LIMIT=50] -->
+    <string name="name_input_blank_error">Field can\u2019t be blank.</string>
+    <!-- An error message indicating that the name the user has entered is invalid. [CHAR_LIMIT=50] -->
+    <string name="name_input_invalid_error">Username entered is invalid.</string>
     <!-- User settings header for list of users on the system. [CHAR LIMIT=35] -->
     <string name="users_list_title">Users</string>
     <!-- Title for the user details page that shows the permissions granted to the user. The parameter is the name of the user. [CHAR LIMIT=40] -->
@@ -1077,6 +1085,10 @@
     <string name="storage_clear_data_dlg_text">All this app\u2019s data will be deleted permanently. This includes all files, settings, accounts, databases, etc.</string>
     <!-- Text for dialog if clear data fails. [CHAR LIMIT=55] -->
     <string name="storage_clear_failed_dlg_text">Couldn\u2019t clear storage for app.</string>
+    <!-- Toast informing that storage unmount operation was successful. [CHAR LIMIT=80]-->
+    <string name="storage_unmount_success"><xliff:g id="name" example="SD card">%1$s</xliff:g> is safely ejected</string>
+    <!-- Toast informing that storage unmount operation failed. [CHAR LIMIT=80]-->
+    <string name="storage_unmount_failure">Couldn\u2019t safely eject <xliff:g id="name" example="SD card">%1$s</xliff:g></string>
 
     <!-- Account management --><skip/>
     <!-- Title for settings that lead into information about User's accounts [CHAR LIMIT=35] -->
@@ -1141,6 +1153,10 @@
     <string name="sync_button_sync_cancel">Cancel sync</string>
     <!-- Message when sync is currently failing [CHAR LIMIT=100] -->
     <string name="sync_is_failing">Sync is currently experiencing problems. It will be back shortly.</string>
+
+    <!-- Privacy --><skip/>
+    <!-- Title for settings that lead into Privacy settings [CHAR LIMIT=40] -->
+    <string name="privacy_settings_title">Privacy</string>
 
     <!-- security lock --><skip/>
     <!-- Title for security settings [CHAR LIMIT=20] -->
@@ -1326,44 +1342,17 @@
          user-debug and eng builds. -->
     <string name="build_info_fmt"><xliff:g example="google/gcar_emu_x86/..." id="fingerprint">%1$s</xliff:g>\n<xliff:g example="Thu Aug 30" id="date">%2$s</xliff:g> : <xliff:g example="4" id="num_days">%3$s</xliff:g> days ago</string>
 
-    <!-- security trusted device --><skip/>
-    <!-- Label for button to add a trusted device [CHAR LIMIT=50] -->
-    <string name="add_device_title">Add trusted device</string>
-    <!-- Label for button to add a trusted device [CHAR LIMIT=100] -->
-    <string name="add_device_summary">Bluetooth will turn on to add trusted device</string>
-    <!-- Screen title and label for button of trusted device [CHAR LIMIT=30]> -->
-    <string name="trusted_device">Trusted devices</string>
-    <!-- Subtitle of trusted device button in security page which displays the number of devices that are considered trusted[CHAR LIMIT=30]-->
-    <plurals name="trusted_device_subtitle">
-        <item quantity="one"><xliff:g id="count" example="1">%d</xliff:g> device</item>
-        <item quantity="other"><xliff:g id="count" example="10">%d</xliff:g> devices</item>
-    </plurals>
-    <!-- Message in dialog which will remind the user what a trusted device can do. [CHAR LIMIT=NONE]-->
-    <string name="remove_device_message">Your <xliff:g id="connected_device_name" example="Pixel2">%1$s</xliff:g> will unlock this car when it\'s connected. If someone takes your <xliff:g id="connected_device_name" example="Pixel2">%1$s</xliff:g>, they may be able to access this device</string>
-    <!-- Confirm button label of confirm pairing code dialog [CHAR LIMIT=30]-->
-    <string name="trusted_device_confirm_button">Confirm</string>
-    <!-- Confirm button label of confirm remove device dialog [CHAR LIMIT=40]-->
-    <string name="trusted_device_remove_button">Remove trusted device</string>
-    <!-- Cancel button label of confirm remove device dialog [CHAR LIMIT=20]-->
-    <string name="trusted_device_done_button">Done</string>
-    <!-- Message shown on the add trusted device page [CHAR LIMIT=NONE]-->
-    <string name="add_trusted_device_instruction">Use the companion app to set up a trusted device. Once set up, your user profile will unlock automatically when your phone is detected near the vehicle.</string>
-    <!-- Step one of adding a trusted device [CHAR LIMIT=NONE]-->
-    <string name="trusted_device_download_app">1. Download the companion app on your phone</string>
-    <!-- Step two of adding a trusted device [CHAR LIMIT=NONE]-->
-    <string name="trusted_device_select_device">2. Select <xliff:g id="car_name" example="MyCar">%1$s</xliff:g> on your phone to pair the devices</string>
-    <!-- Messages shown to alert user about the safety of the trusted device feature [CHAR LIMIT=NONE]-->
-    <string name="trusted_device_safety_alert">A trusted device nearby your car will unlock the user profile upon ignition, even if someone else is holding the device.</string>
-    <!-- Confirm pairing code dialog title [CHAR LIMIT=60]-->
-    <string name="trusted_device_pairing_code_dialog_title">Please confirm that the pairing codes match</string>
-    <!-- Toast shown when user enrolls a device successfully [CHAR LIMIT=100]-->
-    <string name="trusted_device_success_enrollment_toast">Phone has been enrolled successfully</string>
-    <!-- Toast shown when enrolling a device fails [CHAR LIMIT=50]-->
-    <string name="trusted_device_fail_enrollment_toast"><xliff:g id="device_name" example="Pixel2">%1$s</xliff:g> enrollment failed</string>
-    <!-- Message shown when user have not set authentication [CHAR LIMIT=NONE]-->
-    <string name="trusted_device_set_authentication_reminder">Adding a trusted device requires you to set an authentication method next. If you do not have your trusted device with you, authentication will be required to access your profile.</string>
-    <!-- Toast shown when phone is disconnected [CHAR LIMIT=50]-->
-    <string name="trusted_device_disconnected_toast">Device disconnected.</string>
+    <!-- security credentials --><skip/>
+    <!-- Title of preference to reset credential storage. [CHAR LIMIT=40] -->
+    <string name="credentials_reset">Clear credentials</string>
+    <!-- Summary of preference to reset credential storage. [CHAR LIMIT=NONE] -->
+    <string name="credentials_reset_summary">Remove all certificates</string>
+    <!-- Description of dialog to reset credential storage [CHAR LIMIT=NONE] -->
+    <string name="credentials_reset_hint">Remove all the contents?</string>
+    <!-- Toast message after credential storage is erased. [CHAR LIMIT=60] -->
+    <string name="credentials_erased">Credential storage is erased.</string>
+    <!-- Toast message when credential storage could not be erased. [CHAR LIMIT=60] -->
+    <string name="credentials_not_erased">Credential storage couldn\u2019t be erased.</string>
 
     <!-- generic --><skip/>
     <!-- Button label for generic forget action [CHAR LIMIT=20] -->
@@ -1415,7 +1404,10 @@
     <string name="suggestion_dismiss_button">DISMISS</string>
 
     <!-- Warn user that the action they are trying to perform is blocked while the car is in motion [CHAR LIMIT=60] -->
-    <string name="restricted_while_driving">Feature not available while driving.</string>
+    <string name="restricted_while_driving">Feature not available while driving</string>
     <!-- Warn user that adding a user is blocked while the car is in motion [CHAR LIMIT=60] -->
-    <string name="add_user_restricted_while_driving">Can\'t add user while driving.</string>
+    <string name="add_user_restricted_while_driving">Can\'t add user while driving</string>
+
+    <!-- Placeholder query for settings search -->
+    <string name="default_search_query">Search</string>
 </resources>

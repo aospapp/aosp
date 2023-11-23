@@ -26,9 +26,7 @@ import android.car.VehiclePropertyType;
 import android.car.hardware.property.CarPropertyManager;
 import android.car.hardware.property.CarPropertyManager.CarPropertyEventCallback;
 import android.car.hardware.property.ICarProperty;
-import android.content.Context;
 import android.os.Bundle;
-import android.os.Handler;
 import android.os.IBinder;
 import android.util.ArraySet;
 import android.util.Log;
@@ -46,7 +44,7 @@ import java.util.List;
  *  API for monitoring car sensor data.
  */
 @Deprecated
-public final class CarSensorManager implements CarManagerBase {
+public final class CarSensorManager extends CarManagerBase {
     private static final String TAG = "CarSensorManager";
     private final CarPropertyManager mCarPropertyMgr;
     /** @hide */
@@ -304,9 +302,10 @@ public final class CarSensorManager implements CarManagerBase {
 
     }
     /** @hide */
-    public CarSensorManager(IBinder service, Context context, Handler handler) {
+    public CarSensorManager(Car car, IBinder service) {
+        super(car);
         ICarProperty mCarPropertyService = ICarProperty.Stub.asInterface(service);
-        mCarPropertyMgr = new CarPropertyManager(mCarPropertyService, handler);
+        mCarPropertyMgr = new CarPropertyManager(car, mCarPropertyService);
     }
 
     /** @hide */
@@ -497,7 +496,7 @@ public final class CarSensorManager implements CarManagerBase {
      * A CarSensorConfig object is returned for every sensor type.  However, if there is no
      * config, the data will be empty.
      *
-     * @param sensor type to request
+     * @param type sensor type to request
      * @return CarSensorConfig object
      * @hide
      */

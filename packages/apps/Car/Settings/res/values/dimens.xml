@@ -18,9 +18,6 @@
 <resources>
     <dimen name="icon_size">@*android:dimen/car_primary_icon_size</dimen>
     <dimen name="touch_target_size">@*android:dimen/car_touch_target_size</dimen>
-    <dimen name="divider_height">@*android:dimen/car_list_divider_height</dimen>
-    <dimen name="divider_inset_left">@*android:dimen/car_keyline_1</dimen>
-    <dimen name="divider_inset_right">@*android:dimen/car_keyline_1</dimen>
 
     <dimen name="button_min_width">@*android:dimen/car_button_min_width</dimen>
     <dimen name="button_fading_edge_length">40dp</dimen>
@@ -30,6 +27,9 @@
     <dimen name="action_bar_height">@*android:dimen/car_app_bar_height</dimen>
     <!-- Guideline begin margin for when not showing exit icon -->
     <dimen name="action_bar_no_icon_start_margin">@*android:dimen/action_bar_button_margin</dimen>
+
+    <!-- Number Picker -->
+    <dimen name="number_picker_text_size">@*android:dimen/car_body2_size</dimen>
 
     <!-- Suggestions -->
     <dimen name="suggestions_top_bottom_margin">@*android:dimen/car_padding_4</dimen>
@@ -46,6 +46,7 @@
 
     <!-- Quick Settings -->
     <dimen name="brightness_seekbar_margin_bottom">@*android:dimen/car_padding_4</dimen>
+    <dimen name="brightness_seekbar_padding_horizontal">@*android:dimen/car_padding_3</dimen>
     <dimen name="brightness_seekbar_height">@*android:dimen/car_single_line_list_item_height</dimen>
     <dimen name="brightness_seekbar_track_height">6dp</dimen>
     <dimen name="brightness_seekbar_track_corner">3dp</dimen>
@@ -95,20 +96,32 @@
     <dimen name="user_switcher_current_user_circle_stroke_width">7dp</dimen>
 
     <!-- Preferences -->
-    <dimen name="preference_padding_top">@dimen/car_padding_2</dimen>
-    <dimen name="preference_padding_bottom">@dimen/car_padding_2</dimen>
     <dimen name="two_action_preference_divider_width">1dp</dimen>
-    <dimen name="usage_indicator_preference_title_margin_top">@*android:dimen/car_padding_2</dimen>
-    <dimen name="usage_indicator_preference_title_margin_bottom">@*android:dimen/car_padding_2</dimen>
+    <dimen name="usage_indicator_preference_title_margin_top">
+        @*android:dimen/car_preference_row_vertical_margin
+    </dimen>
+    <dimen name="usage_indicator_preference_title_margin_bottom">@*android:dimen/car_padding_2
+    </dimen>
     <dimen name="usage_indicator_preference_progressbar_height">32dp</dimen>
     <dimen name="usage_indicator_preference_label_margin_top">@*android:dimen/car_padding_1</dimen>
-    <dimen name="usage_indicator_preference_label_margin_bottom">@*android:dimen/car_padding_4</dimen>
-    <dimen name="usage_indicator_preference_summary_margin_bottom">@*android:dimen/car_padding_2</dimen>
-    <dimen name="data_usage_summary_preference_padding_bottom">@*android:dimen/car_padding_2</dimen>
-    <dimen name="data_usage_summary_preference_button_margin_top">@*android:dimen/car_padding_2</dimen>
-    <dimen name="data_usage_summary_preference_button_height">@*android:dimen/car_button_height</dimen>
-    <dimen name="data_usage_summary_preference_button_min_width">@*android:dimen/car_button_min_width</dimen>
-    <dimen name="progress_bar_preference_progressbar_margin_top">@*android:dimen/car_padding_1</dimen>
+    <dimen name="usage_indicator_preference_label_margin_bottom">@*android:dimen/car_padding_4
+    </dimen>
+    <dimen name="usage_indicator_preference_summary_margin_bottom">
+        @*android:dimen/car_preference_row_vertical_margin
+    </dimen>
+    <dimen name="data_usage_summary_preference_padding_bottom">
+        @*android:dimen/car_preference_row_vertical_margin
+    </dimen>
+    <dimen name="data_usage_summary_preference_button_margin_top">
+        @*android:dimen/car_preference_row_vertical_margin
+    </dimen>
+    <dimen name="data_usage_summary_preference_button_height">@*android:dimen/car_button_height
+    </dimen>
+    <dimen name="data_usage_summary_preference_button_min_width">
+        @*android:dimen/car_button_min_width
+    </dimen>
+    <dimen name="progress_bar_preference_progressbar_margin_top">@*android:dimen/car_padding_1
+    </dimen>
     <dimen name="progress_bar_preference_label_margin_top">@*android:dimen/car_padding_0</dimen>
     <dimen name="progress_bar_preference_padding_top">@*android:dimen/car_padding_1</dimen>
     <dimen name="progress_bar_preference_padding_bottom">@*android:dimen/car_padding_1</dimen>

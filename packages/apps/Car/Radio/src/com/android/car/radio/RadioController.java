@@ -145,6 +145,13 @@ public class RadioController {
         return mAppService.getRegionConfig();
     }
 
+    /**
+     * Sets the service's {@link SkipMode}.
+     */
+    public void setSkipMode(@NonNull SkipMode mode) {
+        mAppService.setSkipMode(mode);
+    }
+
     private void onFavoritesChanged(List<Program> favorites) {
         synchronized (mLock) {
             if (mCurrentProgram == null) return;
@@ -179,12 +186,12 @@ public class RadioController {
 
     private void onBackwardSeekClick(View v) {
         mDisplayController.startSeekAnimation(false);
-        mAppService.seek(false);
+        mAppService.skip(false);
     }
 
     private void onForwardSeekClick(View v) {
         mDisplayController.startSeekAnimation(true);
-        mAppService.seek(true);
+        mAppService.skip(true);
     }
 
     private void onSwitchToPlayState(@PlaybackState.State int newPlayState) {

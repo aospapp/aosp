@@ -19,16 +19,19 @@ package com.android.car.media.common;
 import static com.android.car.arch.common.LiveDataFunctions.combine;
 import static com.android.car.arch.common.LiveDataFunctions.pair;
 
-import android.annotation.NonNull;
-import android.annotation.Nullable;
+import android.content.Context;
 import android.text.TextUtils;
+import android.util.Size;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.SeekBar;
 import android.widget.TextView;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.lifecycle.LifecycleOwner;
 
+import com.android.car.apps.common.imaging.ImageViewBinder;
 import com.android.car.apps.common.util.ViewUtils;
 import com.android.car.media.common.playback.PlaybackViewModel;
 
@@ -37,6 +40,7 @@ import com.android.car.media.common.playback.PlaybackViewModel;
  */
 public class MetadataController {
     private PlaybackViewModel.PlaybackController mController;
+    private final ImageViewBinder<MediaItemMetadata.ArtworkRef> mAlbumArtBinder;
 
     private boolean mTrackingTouch;
     private SeekBar.OnSeekBarChangeListener mOnSeekBarChangeListener =
@@ -80,14 +84,18 @@ public class MetadataController {
      * @param maxTime           Displays the track's duration as text. May be {@code null}.
      * @param seekBar           Displays the track's progress visually. May be {@code null}.
      * @param albumArt          Displays the track's album art. May be {@code null}.
-     * @param albumArtSizePx    Size of track's album art.
+     * @param maxArtSize        Maximum size of the track's album art.
      */
     public MetadataController(@NonNull LifecycleOwner lifecycleOwner,
             @NonNull PlaybackViewModel playbackViewModel, @NonNull TextView title,
             @Nullable TextView artist, @Nullable TextView albumTitle,
             @Nullable TextView outerSeparator, @Nullable TextView currentTime,
             @Nullable TextView innerSeparator, @Nullable TextView maxTime,
-            @Nullable SeekBar seekBar, @Nullable ImageView albumArt, int albumArtSizePx) {
+            @Nullable SeekBar seekBar, @Nullable ImageView albumArt, Size maxArtSize) {
+
+        Context context = title.getContext();
+        mAlbumArtBinder = new ImageViewBinder<>(maxArtSize, albumArt);
+
         playbackViewModel.getPlaybackController().observe(lifecycleOwner,
                 controller -> mController = controller);
         playbackViewModel.getMetadata().observe(lifecycleOwner,
@@ -101,7 +109,7 @@ public class MetadataController {
                     }
                     CharSequence titleName = metadata.getTitle();
                     if (TextUtils.isEmpty(titleName)) {
-                        titleName = title.getContext().getString(R.string.metadata_default_title);
+                        titleName = context.getString(R.string.metadata_default_title);
                     }
                     title.setText(titleName);
                     ViewUtils.setVisible(title, true);
@@ -111,23 +119,10 @@ public class MetadataController {
                         artist.setText(artistName);
                         ViewUtils.setVisible(artist, !TextUtils.isEmpty(artistName));
                     }
-                    if (albumArt != null) {
-                        // TODO(b/130444922): Clean up bitmap fetching code
-                        metadata.getAlbumArt(playbackViewModel.getApplication(),
-                                albumArtSizePx, albumArtSizePx, true).whenComplete(
-                                        (result, throwable) -> {
-                                            if (throwable == null && result != null) {
-                                                albumArt.setImageBitmap(result);
-                                            } else {
-                                                albumArt.setImageDrawable(
-                                                        MediaItemMetadata.getPlaceholderDrawable(
-                                                                playbackViewModel.getApplication(),
-                                                                metadata));
-                                            }
-                                        }
-                        );
-                        ViewUtils.setVisible(albumArt, true);
-                    }
+
+                    ViewUtils.setVisible(albumArt, true);
+
+                    mAlbumArtBinder.setImage(context, metadata.getArtworkKey());
                 });
 
         playbackViewModel.getProgress().observe(lifecycleOwner,

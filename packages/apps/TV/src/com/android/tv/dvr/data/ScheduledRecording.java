@@ -27,15 +27,17 @@ import android.support.annotation.IntDef;
 import android.support.annotation.Nullable;
 import android.text.TextUtils;
 import android.util.Range;
+
 import com.android.tv.R;
 import com.android.tv.TvSingletons;
 import com.android.tv.common.SoftPreconditions;
 import com.android.tv.common.util.CommonUtils;
-import com.android.tv.data.Program;
 import com.android.tv.data.api.Channel;
+import com.android.tv.data.api.Program;
 import com.android.tv.dvr.DvrScheduleManager;
 import com.android.tv.dvr.provider.DvrContract.Schedules;
 import com.android.tv.util.CompositeComparator;
+
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.Collection;
@@ -53,6 +55,9 @@ public final class ScheduledRecording implements Parcelable {
 
     /** The default priority of the recording. */
     public static final long DEFAULT_PRIORITY = Long.MAX_VALUE >> 1;
+
+    /** The default offset time of the recording. */
+    public static final long DEFAULT_TIME_OFFSET = 0;
 
     /** Compares the start time in ascending order. */
     public static final Comparator<ScheduledRecording> START_TIME_COMPARATOR =
@@ -153,6 +158,8 @@ public final class ScheduledRecording implements Parcelable {
         private long mSeriesRecordingId = ID_NOT_SET;
         private Long mRecodedProgramId;
         private Integer mFailedReason;
+        private long mStartOffsetMs = DEFAULT_TIME_OFFSET;
+        private long mEndOffsetMs = DEFAULT_TIME_OFFSET;
 
         private Builder() {}
 
@@ -256,6 +263,16 @@ public final class ScheduledRecording implements Parcelable {
             return this;
         }
 
+        public Builder setStartOffsetMs(long startOffsetMs) {
+            mStartOffsetMs = Math.max(0, startOffsetMs);
+            return this;
+        }
+
+        public Builder setEndOffsetMs(long endOffsetMs) {
+            mEndOffsetMs = Math.max(0, endOffsetMs);
+            return this;
+        }
+
         public ScheduledRecording build() {
             return new ScheduledRecording(
                     mId,
@@ -277,7 +294,9 @@ public final class ScheduledRecording implements Parcelable {
                     mState,
                     mSeriesRecordingId,
                     mRecodedProgramId,
-                    mFailedReason);
+                    mFailedReason,
+                    mStartOffsetMs,
+                    mEndOffsetMs);
         }
     }
 
@@ -302,7 +321,9 @@ public final class ScheduledRecording implements Parcelable {
                 .setProgramThumbnailUri(orig.getProgramThumbnailUri())
                 .setState(orig.mState)
                 .setFailedReason(orig.getFailedReason())
-                .setType(orig.mType);
+                .setType(orig.mType)
+                .setStartOffsetMs(orig.getStartOffsetMs())
+                .setEndOffsetMs(orig.getEndOffsetMs());
     }
 
     @Retention(RetentionPolicy.SOURCE)
@@ -399,6 +420,35 @@ public final class ScheduledRecording implements Parcelable {
         Schedules.COLUMN_SERIES_RECORDING_ID
     };
 
+    /**
+     * Use this projection if you want to create {@link ScheduledRecording} object using {@link
+     * #fromCursorWithTimeOffset}.
+     */
+    public static final String[] PROJECTION_WITH_TIME_OFFSET = {
+        // Columns must match what is read in #fromCursor
+        Schedules._ID,
+        Schedules.COLUMN_PRIORITY,
+        Schedules.COLUMN_TYPE,
+        Schedules.COLUMN_INPUT_ID,
+        Schedules.COLUMN_CHANNEL_ID,
+        Schedules.COLUMN_PROGRAM_ID,
+        Schedules.COLUMN_PROGRAM_TITLE,
+        Schedules.COLUMN_START_TIME_UTC_MILLIS,
+        Schedules.COLUMN_END_TIME_UTC_MILLIS,
+        Schedules.COLUMN_SEASON_NUMBER,
+        Schedules.COLUMN_EPISODE_NUMBER,
+        Schedules.COLUMN_EPISODE_TITLE,
+        Schedules.COLUMN_PROGRAM_DESCRIPTION,
+        Schedules.COLUMN_PROGRAM_LONG_DESCRIPTION,
+        Schedules.COLUMN_PROGRAM_POST_ART_URI,
+        Schedules.COLUMN_PROGRAM_THUMBNAIL_URI,
+        Schedules.COLUMN_STATE,
+        Schedules.COLUMN_FAILED_REASON,
+        Schedules.COLUMN_SERIES_RECORDING_ID,
+        Schedules.COLUMN_START_OFFSET_MILLIS,
+        Schedules.COLUMN_END_OFFSET_MILLIS
+    };
+
     /** Creates {@link ScheduledRecording} object from the given {@link Cursor}. */
     public static ScheduledRecording fromCursor(Cursor c) {
         int index = -1;
@@ -422,6 +472,34 @@ public final class ScheduledRecording implements Parcelable {
                 .setState(recordingState(c.getString(++index)))
                 .setFailedReason(recordingFailedReason(c.getString(++index)))
                 .setSeriesRecordingId(c.getLong(++index))
+                .build();
+    }
+
+    /** Creates {@link ScheduledRecording} object from the given {@link Cursor}. */
+    public static ScheduledRecording fromCursorWithTimeOffset(Cursor c) {
+        int index = -1;
+        return new Builder()
+                .setId(c.getLong(++index))
+                .setPriority(c.getLong(++index))
+                .setType(recordingType(c.getString(++index)))
+                .setInputId(c.getString(++index))
+                .setChannelId(c.getLong(++index))
+                .setProgramId(c.getLong(++index))
+                .setProgramTitle(c.getString(++index))
+                .setStartTimeMs(c.getLong(++index))
+                .setEndTimeMs(c.getLong(++index))
+                .setSeasonNumber(c.getString(++index))
+                .setEpisodeNumber(c.getString(++index))
+                .setEpisodeTitle(c.getString(++index))
+                .setProgramDescription(c.getString(++index))
+                .setProgramLongDescription(c.getString(++index))
+                .setProgramPosterArtUri(c.getString(++index))
+                .setProgramThumbnailUri(c.getString(++index))
+                .setState(recordingState(c.getString(++index)))
+                .setFailedReason(recordingFailedReason(c.getString(++index)))
+                .setSeriesRecordingId(c.getLong(++index))
+                .setStartOffsetMs(c.getLong(++index))
+                .setEndOffsetMs(c.getLong(++index))
                 .build();
     }
 
@@ -455,6 +533,38 @@ public final class ScheduledRecording implements Parcelable {
         return values;
     }
 
+    public static ContentValues toContentValuesWithTimeOffset(ScheduledRecording r) {
+        ContentValues values = new ContentValues();
+        if (r.getId() != ID_NOT_SET) {
+            values.put(Schedules._ID, r.getId());
+        }
+        values.put(Schedules.COLUMN_INPUT_ID, r.getInputId());
+        values.put(Schedules.COLUMN_CHANNEL_ID, r.getChannelId());
+        values.put(Schedules.COLUMN_PROGRAM_ID, r.getProgramId());
+        values.put(Schedules.COLUMN_PROGRAM_TITLE, r.getProgramTitle());
+        values.put(Schedules.COLUMN_PRIORITY, r.getPriority());
+        values.put(Schedules.COLUMN_START_TIME_UTC_MILLIS, r.getStartTimeMs());
+        values.put(Schedules.COLUMN_END_TIME_UTC_MILLIS, r.getEndTimeMs());
+        values.put(Schedules.COLUMN_SEASON_NUMBER, r.getSeasonNumber());
+        values.put(Schedules.COLUMN_EPISODE_NUMBER, r.getEpisodeNumber());
+        values.put(Schedules.COLUMN_EPISODE_TITLE, r.getEpisodeTitle());
+        values.put(Schedules.COLUMN_PROGRAM_DESCRIPTION, r.getProgramDescription());
+        values.put(Schedules.COLUMN_PROGRAM_LONG_DESCRIPTION, r.getProgramLongDescription());
+        values.put(Schedules.COLUMN_PROGRAM_POST_ART_URI, r.getProgramPosterArtUri());
+        values.put(Schedules.COLUMN_PROGRAM_THUMBNAIL_URI, r.getProgramThumbnailUri());
+        values.put(Schedules.COLUMN_STATE, recordingState(r.getState()));
+        values.put(Schedules.COLUMN_FAILED_REASON, recordingFailedReason(r.getFailedReason()));
+        values.put(Schedules.COLUMN_TYPE, recordingType(r.getType()));
+        if (r.getSeriesRecordingId() != ID_NOT_SET) {
+            values.put(Schedules.COLUMN_SERIES_RECORDING_ID, r.getSeriesRecordingId());
+        } else {
+            values.putNull(Schedules.COLUMN_SERIES_RECORDING_ID);
+        }
+        values.put(Schedules.COLUMN_START_OFFSET_MILLIS, r.getStartOffsetMs());
+        values.put(Schedules.COLUMN_END_OFFSET_MILLIS, r.getEndOffsetMs());
+        return values;
+    }
+
     public static ScheduledRecording fromParcel(Parcel in) {
         return new Builder()
                 .setId(in.readLong())
@@ -476,6 +586,8 @@ public final class ScheduledRecording implements Parcelable {
                 .setState(in.readInt())
                 .setFailedReason(recordingFailedReason(in.readString()))
                 .setSeriesRecordingId(in.readLong())
+                .setStartOffsetMs(in.readLong())
+                .setEndOffsetMs(in.readLong())
                 .build();
     }
 
@@ -492,7 +604,7 @@ public final class ScheduledRecording implements Parcelable {
                 }
             };
 
-    /** The ID internal to Live TV */
+    /** The ID internal to TV app */
     private long mId;
 
     /**
@@ -523,6 +635,8 @@ public final class ScheduledRecording implements Parcelable {
     private final long mSeriesRecordingId;
     private final Long mRecordedProgramId;
     private final Integer mFailedReason;
+    private final long mStartOffsetMs;
+    private final long mEndOffsetMs;
 
     private ScheduledRecording(
             long id,
@@ -544,7 +658,9 @@ public final class ScheduledRecording implements Parcelable {
             @RecordingState int state,
             long seriesRecordingId,
             Long recordedProgramId,
-            Integer failedReason) {
+            Integer failedReason,
+            long startOffsetMs,
+            long endOffsetMs) {
         mId = id;
         mPriority = priority;
         mInputId = inputId;
@@ -565,6 +681,8 @@ public final class ScheduledRecording implements Parcelable {
         mSeriesRecordingId = seriesRecordingId;
         mRecordedProgramId = recordedProgramId;
         mFailedReason = failedReason;
+        mStartOffsetMs = startOffsetMs;
+        mEndOffsetMs = endOffsetMs;
     }
 
     /**
@@ -673,6 +791,16 @@ public final class ScheduledRecording implements Parcelable {
     @RecordingFailedReason
     public Integer getFailedReason() {
         return mFailedReason;
+    }
+
+    /** Returns the start time offset. */
+    public long getStartOffsetMs() {
+        return mStartOffsetMs;
+    }
+
+    /** Returns the end time offset. */
+    public long getEndOffsetMs() {
+        return mEndOffsetMs;
     }
 
     public long getId() {
@@ -927,6 +1055,10 @@ public final class ScheduledRecording implements Parcelable {
                 + mPriority
                 + ",seriesRecordingId="
                 + mSeriesRecordingId
+                + ",startOffsetMs="
+                + mStartOffsetMs
+                + ",endOffsetMs="
+                + mEndOffsetMs
                 + ")";
     }
 
@@ -956,6 +1088,8 @@ public final class ScheduledRecording implements Parcelable {
         out.writeInt(mState);
         out.writeString(recordingFailedReason(mFailedReason));
         out.writeLong(mSeriesRecordingId);
+        out.writeLong(mStartOffsetMs);
+        out.writeLong(mEndOffsetMs);
     }
 
     /** Returns {@code true} if the recording is not started yet, otherwise @{code false}. */
@@ -1001,7 +1135,9 @@ public final class ScheduledRecording implements Parcelable {
                 && Objects.equals(mProgramThumbnailUri, r.getProgramThumbnailUri())
                 && mState == r.mState
                 && Objects.equals(mFailedReason, r.mFailedReason)
-                && mSeriesRecordingId == r.mSeriesRecordingId;
+                && mSeriesRecordingId == r.mSeriesRecordingId
+                && mStartOffsetMs == r.mStartOffsetMs
+                && mEndOffsetMs == r.mEndOffsetMs;
     }
 
     @Override
@@ -1024,7 +1160,9 @@ public final class ScheduledRecording implements Parcelable {
                 mProgramThumbnailUri,
                 mState,
                 mFailedReason,
-                mSeriesRecordingId);
+                mSeriesRecordingId,
+                mStartOffsetMs,
+                mEndOffsetMs);
     }
 
     /** Returns an array containing all of the elements in the list. */

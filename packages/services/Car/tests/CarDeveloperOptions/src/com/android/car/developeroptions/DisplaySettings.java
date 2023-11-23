@@ -33,9 +33,9 @@ import com.android.car.developeroptions.display.ThemePreferenceController;
 import com.android.car.developeroptions.display.TimeoutPreferenceController;
 import com.android.car.developeroptions.display.VrDisplayPreferenceController;
 import com.android.car.developeroptions.search.BaseSearchIndexProvider;
-import com.android.car.developeroptions.search.Indexable;
 import com.android.settingslib.core.AbstractPreferenceController;
 import com.android.settingslib.core.lifecycle.Lifecycle;
+import com.android.settingslib.search.Indexable;
 import com.android.settingslib.search.SearchIndexable;
 
 import java.util.ArrayList;

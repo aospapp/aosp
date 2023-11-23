@@ -18,7 +18,8 @@
 <PreferenceScreen
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:settings="http://schemas.android.com/apk/res-auto"
-    android:title="@string/location_settings_title">
+    android:title="@string/location_settings_title"
+    android:key="@string/psk_location_settings">
     <Preference
         android:fragment="com.android.car.settings.location.RecentLocationRequestsFragment"
         android:key="@string/pk_location_recent_requests_entry"
@@ -33,11 +34,6 @@
                    android:value="android.permission-group.LOCATION"/>
         </intent>
     </Preference>
-    <Preference
-        android:fragment="com.android.car.settings.location.LocationScanningFragment"
-        android:key="@string/pk_location_scanning"
-        android:title="@string/location_settings_scanning_title"
-        settings:controller="com.android.car.settings.location.LocationScanningPreferenceController"/>
     <PreferenceCategory
         android:key="@string/pk_location_services"
         android:title="@string/location_settings_services_title"

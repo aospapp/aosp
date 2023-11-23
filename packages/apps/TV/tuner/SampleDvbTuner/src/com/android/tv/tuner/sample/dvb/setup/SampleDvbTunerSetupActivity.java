@@ -36,6 +36,7 @@ import com.android.tv.common.ui.setup.SetupFragment;
 import com.android.tv.common.ui.setup.SetupMultiPaneFragment;
 import com.android.tv.common.util.PostalCodeUtils;
 import com.android.tv.tuner.sample.dvb.R;
+import com.android.tv.tuner.sample.dvb.util.SampleDvbConstants;
 import com.android.tv.tuner.setup.BaseTunerSetupActivity;
 import com.android.tv.tuner.setup.ConnectionTypeFragment;
 import com.android.tv.tuner.setup.LineupFragment;
@@ -55,7 +56,7 @@ import dagger.android.ContributesAndroidInjector;
 import java.util.ArrayList;
 import java.util.List;
 
-/** An activity that serves Live TV tuner setup process. */
+/** An activity that serves Sample DVB tuner setup process. */
 public class SampleDvbTunerSetupActivity extends BaseTunerSetupActivity {
     private static final String TAG = "SampleDvbTunerSetupActivity";
     private static final boolean DEBUG = false;
@@ -77,6 +78,10 @@ public class SampleDvbTunerSetupActivity extends BaseTunerSetupActivity {
     private final Handler handler = new Handler();
     private final Runnable cancelFetchLineupTaskRunnable = this::cancelFetchLineup;
     private String embeddedInputId;
+
+    public SampleDvbTunerSetupActivity() {
+        super(SampleDvbConstants.TUNER_INPUT_ID);
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -193,6 +198,7 @@ public class SampleDvbTunerSetupActivity extends BaseTunerSetupActivity {
             case ScanFragment.ACTION_CATEGORY:
                 switch (actionId) {
                     case ScanFragment.ACTION_CANCEL:
+                        clearTunerHal();
                         getFragmentManager().popBackStack();
                         return true;
                     case ScanFragment.ACTION_FINISH:

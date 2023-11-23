@@ -19,6 +19,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
         package="com.android.documentsui">
 
+    <uses-sdk android:minSdkVersion="29" />
+
     <uses-permission android:name="android.permission.MANAGE_DOCUMENTS" />
     <uses-permission android:name="android.permission.REMOVE_TASKS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
@@ -26,6 +28,28 @@
     <uses-permission android:name="android.permission.CACHE_CONTENT" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.CHANGE_OVERLAY_PACKAGES" />
+    <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS" />
+    <uses-permission android:name="android.permission.MODIFY_QUIET_MODE" />
+
+    <!-- Permissions required for reading and logging compat changes -->
+    <uses-permission android:name="android.permission.LOG_COMPAT_CHANGE"/>
+    <uses-permission android:name="android.permission.READ_COMPAT_CHANGE_CONFIG"/>
+
+    <!-- For App enumeration -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.SEND" />
+            <data android:mimeType="*/*" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SEND_MULTIPLE" />
+            <data android:mimeType="*/*" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:mimeType="*/*" />
+        </intent>
+    </queries>
 
     <application
         android:name=".DocumentsApplication"
@@ -34,7 +58,8 @@
         android:supportsRtl="true"
         android:allowBackup="true"
         android:backupAgent=".prefs.BackupAgent"
-        android:fullBackupOnly="false">
+        android:fullBackupOnly="false"
+        android:crossProfile="true">
 
         <meta-data
             android:name="com.google.android.backup.api_key"
@@ -42,15 +67,16 @@
 
         <activity
             android:name=".picker.PickActivity"
-            android:theme="@style/DocumentsTheme"
+            android:exported="true"
+            android:theme="@style/LauncherTheme"
             android:visibleToInstantApps="true">
-            <intent-filter>
+            <intent-filter android:priority="100">
                 <action android:name="android.intent.action.OPEN_DOCUMENT" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.OPENABLE" />
                 <data android:mimeType="*/*" />
             </intent-filter>
-            <intent-filter>
+            <intent-filter android:priority="100">
                 <action android:name="android.intent.action.CREATE_DOCUMENT" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.OPENABLE" />
@@ -62,7 +88,7 @@
                 <category android:name="android.intent.category.OPENABLE" />
                 <data android:mimeType="*/*" />
             </intent-filter>
-            <intent-filter>
+            <intent-filter android:priority="100">
                 <action android:name="android.intent.action.OPEN_DOCUMENT_TREE" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
@@ -86,8 +112,8 @@
         <activity-alias
             android:name=".LauncherActivity"
             android:targetActivity=".files.LauncherActivity"
-            android:enabled="@bool/is_launcher_enabled"
             android:label="@string/launcher_label"
+            android:exported="true"
             android:icon="@drawable/launcher_icon" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -100,7 +126,8 @@
         <activity
             android:name=".files.FilesActivity"
             android:documentLaunchMode="intoExisting"
-            android:theme="@style/DocumentsTheme">
+            android:exported="true"
+            android:theme="@style/LauncherTheme">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
             </intent-filter>
@@ -118,6 +145,7 @@
 
         <activity-alias android:name=".ViewDownloadsActivity"
                         android:targetActivity=".files.FilesActivity"
+                        android:exported="true"
                         android:enabled="@bool/handle_view_downloads_intent">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW_DOWNLOADS" />
@@ -127,6 +155,7 @@
 
         <activity
             android:name=".ScopedAccessActivity"
+            android:exported="true"
             android:theme="@android:style/Theme.Translucent.NoTitleBar">
             <intent-filter>
                 <action android:name="android.os.storage.action.OPEN_EXTERNAL_DIRECTORY" />

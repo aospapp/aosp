@@ -16,14 +16,13 @@
 
 package com.android.services.telephony;
 
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.times;
-
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.assertFalse;
 
 import android.os.Looper;
 import android.test.suitebuilder.annotation.SmallTest;
@@ -32,7 +31,6 @@ import com.android.internal.telephony.PhoneConstants;
 
 import org.junit.Before;
 import org.junit.Test;
-
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
@@ -85,7 +83,7 @@ public class ImsConferenceControllerTest {
         mControllerTest.add(mTestTelephonyConnectionA);
 
         mTestTelephonyConnectionA.setActive();
-        mTestTelephonyConnectionB.setOnHold();
+        mTestTelephonyConnectionB.setTelephonyConnectionOnHold();
 
         assertTrue(mTestTelephonyConnectionA.getConferenceables()
                 .contains(mTestTelephonyConnectionB));
@@ -125,10 +123,9 @@ public class ImsConferenceControllerTest {
         mControllerTest.add(mTestTelephonyConnectionA);
 
         mTestTelephonyConnectionA.setActive();
-        mTestTelephonyConnectionB.setOnHold();
+        mTestTelephonyConnectionB.setTelephonyConnectionOnHold();
 
         verify(mMockTelephonyConnectionServiceProxy, times(2))
                 .addConference(any(ImsConference.class));
-
     }
 }

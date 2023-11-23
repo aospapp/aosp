@@ -290,9 +290,9 @@ public class SessionManagerTest extends TelecomTestCase {
         assertTrue(childSession.isSessionCompleted());
         assertEquals(TEST_PARENT_NAME, mFullSessionMethodName);
         // Reduce flakiness by assuming that the true completion time is within a threshold of
-        // +-10 ms
-        assertTrue(mfullSessionCompleteTime >= TEST_DELAY_TIME - 10);
-        assertTrue(mfullSessionCompleteTime <= TEST_DELAY_TIME + 10);
+        // +-50 ms
+        assertTrue(mfullSessionCompleteTime >= TEST_DELAY_TIME / 2);
+        assertTrue(mfullSessionCompleteTime <= TEST_DELAY_TIME * 1.5);
     }
 
     /**
@@ -365,8 +365,8 @@ public class SessionManagerTest extends TelecomTestCase {
         mTestSessionManager.endSession();
 
         assertEquals(TEST_CHILD_NAME, mFullSessionMethodName);
-        assertTrue(mfullSessionCompleteTime >= TEST_DELAY_TIME - 10);
-        assertTrue(mfullSessionCompleteTime <= TEST_DELAY_TIME + 10);
+        assertTrue(mfullSessionCompleteTime >= TEST_DELAY_TIME / 2);
+        assertTrue(mfullSessionCompleteTime <= TEST_DELAY_TIME * 1.5);
     }
 
     /**

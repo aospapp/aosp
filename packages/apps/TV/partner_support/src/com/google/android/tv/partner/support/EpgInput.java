@@ -20,7 +20,7 @@ import android.content.ContentValues;
 import com.google.auto.value.AutoValue;
 
 /**
- * Value class representing a TV Input that uses Live TV EPG.
+ * Value class representing a TV Input that uses TV app EPG.
  *
  * @see {@link EpgContract.EpgInputs}
  */

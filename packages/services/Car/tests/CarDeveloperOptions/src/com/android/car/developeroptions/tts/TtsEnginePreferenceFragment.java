@@ -17,8 +17,8 @@ import androidx.preference.PreferenceCategory;
 import com.android.car.developeroptions.R;
 import com.android.car.developeroptions.SettingsPreferenceFragment;
 import com.android.car.developeroptions.search.BaseSearchIndexProvider;
-import com.android.car.developeroptions.search.Indexable;
 import com.android.car.developeroptions.tts.TtsEnginePreference.RadioButtonGroupState;
+import com.android.settingslib.search.Indexable;
 import com.android.settingslib.search.SearchIndexable;
 
 import java.util.Arrays;

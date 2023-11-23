@@ -66,8 +66,18 @@ JNIEXPORT void JNICALL Java_com_android_tv_tuner_TunerHal_nativeFinalize
  * Method:    nativeTune
  * Signature: (JILjava/lang/String;I)Z
  */
-JNIEXPORT jboolean JNICALL Java_com_android_tv_tuner_TunerHal_nativeTune
-  (JNIEnv *, jobject, jlong, jint, jstring, jint);
+JNIEXPORT jboolean JNICALL
+    Java_com_android_tv_tuner_TunerHal_nativeTune__JILjava_lang_String_2I
+        (JNIEnv *, jobject, jlong, jint, jstring, jint);
+
+/*
+ * Class:     com_android_tv_tuner_TunerHal
+ * Method:    nativeTune
+ * Signature: Signature: (JIILjava/lang/String;I)Z
+ */
+JNIEXPORT jboolean JNICALL
+    Java_com_android_tv_tuner_TunerHal_nativeTune__JIILjava_lang_String_2I
+        (JNIEnv *, jobject, jlong, jint, jint, jstring, jint);
 
 /*
  * Class:     com_android_tv_tuner_TunerHal
@@ -102,6 +112,15 @@ Java_com_android_tv_tuner_TunerHal_nativeSetHasPendingTune
  */
 JNIEXPORT jint JNICALL
 Java_com_android_tv_tuner_TunerHal_nativeGetDeliverySystemType
+  (JNIEnv *, jobject, jlong);
+
+/*
+ * Class:     com_android_tv_tuner_TunerHal
+ * Method:    nativeGetDeliverySystemTypes
+ * Signature: (J)I
+ */
+JNIEXPORT jintArray JNICALL
+Java_com_android_tv_tuner_TunerHal_nativeGetDeliverySystemTypes
   (JNIEnv *, jobject, jlong);
 
 /*

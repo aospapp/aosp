@@ -22,4 +22,7 @@
 
     <!-- Whether the downloads backup job should be scheduled. -->
     <bool name="enable_downloads_backup">false</bool>
+
+    <!-- Whether the low storage notification should be shown. -->
+    <bool name="enable_low_storage_notification">true</bool>
 </resources>

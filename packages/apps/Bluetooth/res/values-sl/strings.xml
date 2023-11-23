@@ -69,7 +69,6 @@
     <string name="upload_succ_ok" msgid="7705428476405478828">"V redu"</string>
     <string name="upload_fail_line1" msgid="7899394672421491701">"Datoteka ni bila poslana prejemniku »<xliff:g id="RECIPIENT">%1$s</xliff:g>«."</string>
     <string name="upload_fail_line1_2" msgid="2108129204050841798">"Datoteka: <xliff:g id="FILE">%1$s</xliff:g>"</string>
-    <string name="upload_fail_ok" msgid="5807702461606714296">"Poskusite znova"</string>
     <string name="upload_fail_cancel" msgid="9118496285835687125">"Zapri"</string>
     <string name="bt_error_btn_ok" msgid="5965151173011534240">"V redu"</string>
     <string name="unknown_file" msgid="6092727753965095366">"Neznana datoteka"</string>
@@ -138,4 +137,5 @@
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"Zvok prek Bluetootha ni povezan"</string>
     <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"Zvok prek Bluetootha"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="8894450394309084519">"Datotek, večjih od 4 GB, ni mogoče prenesti"</string>
+    <string name="bluetooth_connect_action" msgid="4009848433321657090">"Povezovanje z Bluetoothom"</string>
 </resources>

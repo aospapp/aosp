@@ -31,20 +31,20 @@ import androidx.preference.Preference.OnPreferenceChangeListener;
 import androidx.preference.PreferenceScreen;
 import androidx.preference.PreferenceViewHolder;
 
-import com.android.internal.telephony.SmsUsageMonitor;
 import com.android.car.developeroptions.R;
 import com.android.car.developeroptions.applications.AppStateBaseBridge.Callback;
 import com.android.car.developeroptions.applications.AppStateSmsPremBridge;
 import com.android.car.developeroptions.applications.AppStateSmsPremBridge.SmsState;
 import com.android.car.developeroptions.overlay.FeatureFactory;
 import com.android.car.developeroptions.search.BaseSearchIndexProvider;
-import com.android.car.developeroptions.search.Indexable;
 import com.android.car.developeroptions.widget.EmptyTextSettings;
+import com.android.internal.telephony.SmsUsageMonitor;
 import com.android.settingslib.applications.ApplicationsState;
 import com.android.settingslib.applications.ApplicationsState.AppEntry;
 import com.android.settingslib.applications.ApplicationsState.Callbacks;
 import com.android.settingslib.applications.ApplicationsState.Session;
 import com.android.settingslib.core.instrumentation.MetricsFeatureProvider;
+import com.android.settingslib.search.Indexable;
 import com.android.settingslib.search.SearchIndexable;
 import com.android.settingslib.widget.FooterPreference;
 

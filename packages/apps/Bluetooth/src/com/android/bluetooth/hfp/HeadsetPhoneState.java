@@ -17,11 +17,8 @@
 package com.android.bluetooth.hfp;
 
 import android.bluetooth.BluetoothDevice;
-import android.content.BroadcastReceiver;
 import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
-import android.os.Looper;
+import android.os.Handler;
 import android.telephony.PhoneStateListener;
 import android.telephony.ServiceState;
 import android.telephony.SignalStrength;
@@ -31,11 +28,10 @@ import android.telephony.TelephonyManager;
 import android.util.Log;
 
 import com.android.internal.annotations.VisibleForTesting;
-import com.android.internal.telephony.IccCardConstants;
-import com.android.internal.telephony.TelephonyIntents;
 
 import java.util.HashMap;
 import java.util.Objects;
+import java.util.concurrent.Executor;
 
 
 /**
@@ -52,14 +48,12 @@ public class HeadsetPhoneState {
     private final HeadsetService mHeadsetService;
     private final TelephonyManager mTelephonyManager;
     private final SubscriptionManager mSubscriptionManager;
+    private final Handler mHandler;
 
     private ServiceState mServiceState;
 
     // HFP 1.6 CIND service value
     private int mCindService = HeadsetHalConstants.NETWORK_STATE_NOT_AVAILABLE;
-    // Check this before sending out service state to the device -- if the SIM isn't fully
-    // loaded, don't expose that the network is available.
-    private boolean mIsSimStateLoaded;
     // Number of active (foreground) calls
     private int mNumActive;
     // Current Call Setup State
@@ -88,9 +82,10 @@ public class HeadsetPhoneState {
         mSubscriptionManager = SubscriptionManager.from(mHeadsetService);
         Objects.requireNonNull(mSubscriptionManager, "TELEPHONY_SUBSCRIPTION_SERVICE is null");
         // Initialize subscription on the handler thread
-        mOnSubscriptionsChangedListener = new HeadsetPhoneStateOnSubscriptionChangedListener(
-                headsetService.getStateMachinesThreadLooper());
-        mSubscriptionManager.addOnSubscriptionsChangedListener(mOnSubscriptionsChangedListener);
+        mHandler = new Handler(headsetService.getStateMachinesThreadLooper());
+        mOnSubscriptionsChangedListener = new HeadsetPhoneStateOnSubscriptionChangedListener();
+        mSubscriptionManager.addOnSubscriptionsChangedListener(command -> mHandler.post(command),
+                mOnSubscriptionsChangedListener);
     }
 
     /**
@@ -160,14 +155,8 @@ public class HeadsetPhoneState {
             return;
         }
         Log.i(TAG, "startListenForPhoneState(), subId=" + subId + ", enabled_events=" + events);
-        mPhoneStateListener = new HeadsetPhoneStateListener(
-                mHeadsetService.getStateMachinesThreadLooper());
+        mPhoneStateListener = new HeadsetPhoneStateListener(command -> mHandler.post(command));
         mTelephonyManager.listen(mPhoneStateListener, events);
-        if ((events & PhoneStateListener.LISTEN_SIGNAL_STRENGTHS) != 0) {
-            mTelephonyManager.setRadioIndicationUpdateMode(
-                    TelephonyManager.INDICATION_FILTER_SIGNAL_STRENGTH,
-                    TelephonyManager.INDICATION_UPDATE_MODE_IGNORE_SCREEN_OFF);
-        }
     }
 
     private void stopListenForPhoneState() {
@@ -178,9 +167,6 @@ public class HeadsetPhoneState {
         Log.i(TAG, "stopListenForPhoneState(), stopping listener, enabled_events="
                 + getTelephonyEventsToListen());
         mTelephonyManager.listen(mPhoneStateListener, PhoneStateListener.LISTEN_NONE);
-        mTelephonyManager.setRadioIndicationUpdateMode(
-                TelephonyManager.INDICATION_FILTER_SIGNAL_STRENGTH,
-                TelephonyManager.INDICATION_UPDATE_MODE_NORMAL);
         mPhoneStateListener = null;
     }
 
@@ -215,6 +201,10 @@ public class HeadsetPhoneState {
         mNumHeld = numHeldCall;
     }
 
+    ServiceState getServiceState() {
+        return mServiceState;
+    }
+
     int getCindSignal() {
         return mCindSignal;
     }
@@ -244,29 +234,34 @@ public class HeadsetPhoneState {
         return (mNumActive >= 1);
     }
 
-    private void sendDeviceStateChanged() {
-        int service =
-                mIsSimStateLoaded ? mCindService : HeadsetHalConstants.NETWORK_STATE_NOT_AVAILABLE;
+    private synchronized void sendDeviceStateChanged() {
         // When out of service, send signal strength as 0. Some devices don't
         // use the service indicator, but only the signal indicator
-        int signal = service == HeadsetHalConstants.NETWORK_STATE_AVAILABLE ? mCindSignal : 0;
+        int signal = mCindService == HeadsetHalConstants.NETWORK_STATE_AVAILABLE ? mCindSignal : 0;
 
-        Log.d(TAG, "sendDeviceStateChanged. mService=" + mCindService + " mIsSimStateLoaded="
-                + mIsSimStateLoaded + " mSignal=" + signal + " mRoam=" + mCindRoam
+        Log.d(TAG, "sendDeviceStateChanged. mService=" + mCindService
+                + " mSignal=" + mCindSignal + " mRoam=" + mCindRoam
                 + " mBatteryCharge=" + mCindBatteryCharge);
         mHeadsetService.onDeviceStateChanged(
-                new HeadsetDeviceState(service, mCindRoam, signal, mCindBatteryCharge));
+                new HeadsetDeviceState(mCindService, mCindRoam, signal, mCindBatteryCharge));
     }
 
     private class HeadsetPhoneStateOnSubscriptionChangedListener
             extends OnSubscriptionsChangedListener {
-        HeadsetPhoneStateOnSubscriptionChangedListener(Looper looper) {
-            super(looper);
+        HeadsetPhoneStateOnSubscriptionChangedListener() {
+            super();
         }
 
         @Override
         public void onSubscriptionsChanged() {
             synchronized (mDeviceEventMap) {
+                int simState = mTelephonyManager.getSimState();
+                if (simState != TelephonyManager.SIM_STATE_READY) {
+                    mServiceState = null;
+                    mCindSignal = 0;
+                    mCindService = HeadsetHalConstants.NETWORK_STATE_NOT_AVAILABLE;
+                    sendDeviceStateChanged();
+                }
                 stopListenForPhoneState();
                 startListenForPhoneState();
             }
@@ -274,8 +269,8 @@ public class HeadsetPhoneState {
     }
 
     private class HeadsetPhoneStateListener extends PhoneStateListener {
-        HeadsetPhoneStateListener(Looper looper) {
-            super(looper);
+        HeadsetPhoneStateListener(Executor executor) {
+            super(executor);
         }
 
         @Override
@@ -293,32 +288,7 @@ public class HeadsetPhoneState {
             }
             mCindService = cindService;
             mCindRoam = newRoam;
-
-            // If this is due to a SIM insertion, we want to defer sending device state changed
-            // until all the SIM config is loaded.
-            if (cindService == HeadsetHalConstants.NETWORK_STATE_NOT_AVAILABLE) {
-                mIsSimStateLoaded = false;
-                sendDeviceStateChanged();
-                return;
-            }
-            IntentFilter simStateChangedFilter =
-                    new IntentFilter(TelephonyIntents.ACTION_SIM_STATE_CHANGED);
-            mHeadsetService.registerReceiver(new BroadcastReceiver() {
-                @Override
-                public void onReceive(Context context, Intent intent) {
-                    if (TelephonyIntents.ACTION_SIM_STATE_CHANGED.equals(intent.getAction())) {
-                        // This is a sticky broadcast, so if it's already been loaded,
-                        // this'll execute immediately.
-                        if (IccCardConstants.INTENT_VALUE_ICC_LOADED.equals(
-                                intent.getStringExtra(IccCardConstants.INTENT_KEY_ICC_STATE))) {
-                            mIsSimStateLoaded = true;
-                            sendDeviceStateChanged();
-                            mHeadsetService.unregisterReceiver(this);
-                        }
-                    }
-                }
-            }, simStateChangedFilter);
-
+            sendDeviceStateChanged();
         }
 
         @Override

@@ -16,15 +16,16 @@
 
 package com.android.car.settings.users;
 
-import android.car.userlib.CarUserManagerHelper;
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.Bundle;
-import android.widget.TextView;
 
-import androidx.annotation.VisibleForTesting;
 import androidx.annotation.XmlRes;
 
 import com.android.car.settings.R;
+import com.android.internal.annotations.VisibleForTesting;
 
 /**
  * Shows details for a user with the ability to remove user and edit current user.
@@ -38,11 +39,14 @@ public class UserDetailsFragment extends UserDetailsBaseFragment {
     }
 
     @VisibleForTesting
-    final CarUserManagerHelper.OnUsersUpdateListener mOnUsersUpdateListener = () -> {
-        // Update the user info value, as it may have changed.
-        refreshUserInfo();
-        // Update the text in the action bar when there is a user update.
-        ((TextView) getActivity().findViewById(R.id.title)).setText(getTitleText());
+    final BroadcastReceiver mUserUpdateReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            // Update the user info value, as it may have changed.
+            refreshUserInfo();
+            // Update the text in the action bar when there is a user update.
+            getToolbar().setTitle(getTitleText());
+        }
     };
 
     @Override
@@ -61,17 +65,26 @@ public class UserDetailsFragment extends UserDetailsBaseFragment {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        getCarUserManagerHelper().registerOnUsersUpdateListener(mOnUsersUpdateListener);
+        registerForUserEvents();
     }
 
     @Override
     public void onDestroy() {
+        unregisterForUserEvents();
         super.onDestroy();
-        getCarUserManagerHelper().unregisterOnUsersUpdateListener(mOnUsersUpdateListener);
     }
 
     @Override
     protected String getTitleText() {
-        return UserUtils.getUserDisplayName(getContext(), getCarUserManagerHelper(), getUserInfo());
+        return UserUtils.getUserDisplayName(getContext(), getUserInfo());
+    }
+
+    private void registerForUserEvents() {
+        IntentFilter filter = new IntentFilter(Intent.ACTION_USER_INFO_CHANGED);
+        getContext().registerReceiver(mUserUpdateReceiver, filter);
+    }
+
+    private void unregisterForUserEvents() {
+        getContext().unregisterReceiver(mUserUpdateReceiver);
     }
 }

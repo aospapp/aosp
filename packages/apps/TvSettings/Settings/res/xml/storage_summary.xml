@@ -19,11 +19,9 @@
                   android:title="@string/device_storage">
     <PreferenceCategory
         android:key="device_storage"
-        android:title="@string/storage_device_storage_section"
-        android:layout="@layout/preference_category_compact_layout" />
+        android:title="@string/storage_device_storage_section"/>
 
     <PreferenceCategory
         android:key="removable_storage"
-        android:title="@string/storage_removable_storage_section"
-        android:layout="@layout/preference_category_compact_layout" />
+        android:title="@string/storage_removable_storage_section"/>
 </PreferenceScreen>

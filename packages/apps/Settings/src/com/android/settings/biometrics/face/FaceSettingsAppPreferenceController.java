@@ -22,9 +22,9 @@ import android.content.Context;
 import android.hardware.face.FaceManager;
 import android.provider.Settings;
 
-import com.android.settings.Utils;
-
 import androidx.preference.Preference;
+
+import com.android.settings.Utils;
 
 /**
  * Preference controller for Face settings page controlling the ability to use
@@ -51,7 +51,7 @@ public class FaceSettingsAppPreferenceController extends FaceSettingsPreferenceC
 
     @Override
     public boolean isChecked() {
-        if (!FaceSettings.isAvailable(mContext)) {
+        if (!FaceSettings.isFaceHardwareDetected(mContext)) {
             return false;
         }
         return Settings.Secure.getIntForUser(
@@ -67,7 +67,7 @@ public class FaceSettingsAppPreferenceController extends FaceSettingsPreferenceC
     @Override
     public void updateState(Preference preference) {
         super.updateState(preference);
-        if (!FaceSettings.isAvailable(mContext)) {
+        if (!FaceSettings.isFaceHardwareDetected(mContext)) {
             preference.setEnabled(false);
         } else if (!mFaceManager.hasEnrolledTemplates(getUserId())) {
             preference.setEnabled(false);
@@ -78,6 +78,19 @@ public class FaceSettingsAppPreferenceController extends FaceSettingsPreferenceC
 
     @Override
     public int getAvailabilityStatus() {
-        return AVAILABLE;
+        if(mFaceManager == null){
+            return AVAILABLE_UNSEARCHABLE;
+        }
+
+        // By only allowing this preference controller to be searchable when the feature is turned
+        // off, it will give preference to the face setup controller.
+        final boolean hasEnrolledUser = mFaceManager.hasEnrolledTemplates(getUserId());
+        final boolean appUnlockEnabled = Settings.Secure.getIntForUser(
+                mContext.getContentResolver(), FACE_UNLOCK_APP_ENABLED, OFF, getUserId()) == ON;
+        if (hasEnrolledUser && !appUnlockEnabled) {
+            return AVAILABLE;
+        } else {
+            return AVAILABLE_UNSEARCHABLE;
+        }
     }
 }

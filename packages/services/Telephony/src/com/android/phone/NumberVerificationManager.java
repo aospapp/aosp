@@ -135,7 +135,7 @@ public class NumberVerificationManager {
                 }
 
                 // make sure at least one phone is registered for voice
-                if (phone.getServiceState().getVoiceRegState() == ServiceState.STATE_IN_SERVICE) {
+                if (phone.getServiceState().getState() == ServiceState.STATE_IN_SERVICE) {
                     isAnyPhoneVoiceRegistered = true;
                 }
                 // make sure at least one phone has room for an incoming call.

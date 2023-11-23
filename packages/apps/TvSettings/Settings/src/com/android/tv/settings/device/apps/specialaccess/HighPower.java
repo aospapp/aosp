@@ -16,6 +16,7 @@
 
 package com.android.tv.settings.device.apps.specialaccess;
 
+import android.app.tvsettings.TvSettingsEnums;
 import android.content.Context;
 import android.os.Bundle;
 
@@ -55,7 +56,7 @@ public class HighPower extends SettingsPreferenceFragment implements
                             info.extraInfo =
                                     mPowerWhitelistBackend.isWhitelisted(info.info.packageName);
                             return !ManageAppOp.shouldIgnorePackage(getContext(),
-                                    info.info.packageName);
+                                    info.info.packageName, 0);
                         }
                     });
 
@@ -143,5 +144,10 @@ public class HighPower extends SettingsPreferenceFragment implements
     @Override
     public PreferenceGroup getAppPreferenceGroup() {
         return getPreferenceScreen();
+    }
+
+    @Override
+    protected int getPageId() {
+        return TvSettingsEnums.APPS_SPECIAL_APP_ACCESS_ENERGY_OPTIMIZATION;
     }
 }

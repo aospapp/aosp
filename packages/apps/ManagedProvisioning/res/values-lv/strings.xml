@@ -83,8 +83,10 @@
     <string name="reset" msgid="6467204151306265796">"Atiestatīt"</string>
     <string name="cant_set_up_profile" msgid="4341825293970158436">"Neizdevās iestatīt profilu"</string>
     <string name="cant_set_up_device" msgid="4120090138983350714">"Neizdevās iestatīt ierīci"</string>
+    <string name="something_went_wrong" msgid="3593223774041784329">"Radās problēma"</string>
     <string name="couldnt_set_up_device" msgid="5137950404283642302">"Neizdevās iestatīt ierīci. Lai saņemtu palīdzību, sazinieties ar IT administratoru."</string>
     <string name="contact_your_admin_for_help" msgid="2009904021552323731">"Sazinieties ar savu IT administratoru, lai saņemtu palīdzību"</string>
+    <string name="reset_device" msgid="5483853913241939262">"Atiestatiet šo ierīci un mēģiniet to iestatīt atkārtoti"</string>
     <string name="device_already_set_up" msgid="507881934487140294">"Ierīce jau ir iestatīta."</string>
     <string name="error_wifi" msgid="1850288843966836571">"Nevarēja izveidot savienojumu ar Wi-Fi"</string>
     <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"Jūsu ierīcē ir iespējota atiestatīšanas aizsardzība. Lai saņemtu palīdzību, sazinieties ar IT administratoru."</string>
@@ -161,25 +163,34 @@
     <string name="setup_provisioning_header" msgid="4282483198266806271">"Notiek gatavošanās darba ierīces iestatīšanai…"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"Administratora lietotnes iestatīšana"</string>
     <string name="set_up_everything_else" msgid="4407706086957916501">"Iestatīt visas pārējās iespējas"</string>
-    <string name="now_lets_set_up_everything_else" msgid="2905102208584231894">"Tagad iestatīsim visas pārējās iespējas"</string>
+    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"Personīgā konta pievienošana, lai efektīvāk izmantotu ierīci"</string>
+    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"Tagad, kad jūsu darba profils ir gatavs, varat arī pievienot personīgo Google kontu, lai piekļūtu savām lietotnēm un saturam."</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"Šī ierīce pieder jūsu organizācijai"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"Tālāk norādītā lietotne tiks izmantota šī tālruņa pārvaldībai un uzraudzībai"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"Notiek sagatavošana darba iestatīšanai…"</string>
-    <string name="work_profile_provisioning_accept_header" msgid="462916780311392444">"Vispirms iestatīsim jūsu darba profilu"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Darba profila iestatīšana"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"Darba profilā tiek glabātas darba lietotnes"</string>
     <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"Darba dienas beigās varat pārtraukt darba lietotņu darbību"</string>
-    <string name="work_profile_provisioning_step_3_header" msgid="7495564624887776704">"IT administrators var skatīt tikai darba profilā esošos datus"</string>
+    <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"Jūsu darba profilā esošos datus var redzēt jūsu IT administrators."</string>
     <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"Notiek darba profila iestatīšana…"</string>
-    <string name="work_profile_provisioning_summary" msgid="3917907344897144246">"Darba profilā tiek glabātas darba lietotnes. Darba dienas beigās varat pārtraukt darbu ar darba lietotnēm. IT administrators var skatīt tikai darba profilā esošos datus."</string>
+    <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"Darba profilā tiek glabātas darba lietotnes. Darba dienas beigās varat pārtraukt darbu ar darba lietotnēm. Darba profilā esošos datus var skatīt jūsu IT administrators."</string>
     <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"Darba ierīces iestatīšana"</string>
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"Ērti piekļūstiet darba lietotnēm"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"Šī ierīce nav privāta"</string>
     <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"Iespējams, jūsu IT administrators varēs skatīt jūsu datus un darbības šajā ierīcē."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"Notiek jūsu ierīces iestatīšana…"</string>
     <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"Izmantojot šo ierīci, varat ērti piekļūt darba lietotnēm. Šī ierīce nav privāta, tāpēc IT administrators varbūt varēs skatīt jūsu datus un darbības. Lai uzzinātu vairāk, sazinieties ar organizācijas IT administratoru."</string>
+    <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"Darba lietotnes darba profilā pārvalda IT administrators"</string>
+    <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"Personīgās lietotnes ir nošķirtas no darba lietotnēm"</string>
+    <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"IT administrators var kontrolēt ierīci un bloķēt lietotnes"</string>
+    <string name="cope_provisioning_summary" msgid="993014104601034878">"Darba lietotnes tiek glabātas jūsu darba profilā, un tās pārvalda jūsu IT administrators. Personīgās lietotnes tiek glabātas atsevišķi no darba lietotnēm. Jūsu IT administrators var kontrolēt šo ierīci un bloķēt noteiktas lietotnes."</string>
+    <string name="just_a_sec" msgid="6244676028626237220">"Uzgaidiet…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"Atgādinājums par konfidencialitāti"</string>
     <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"Iespējams, jūsu IT administrators varēs skatīt jūsu datus un darbības šajā ierīcē"</string>
     <string name="device_provisioning_finished" msgid="3981783240592092906">"Ierīce ir gatava darbam."</string>
     <string name="done" msgid="7755227776955952318">"Gatavs"</string>
+    <string name="financed_device_screen_header" msgid="7890706080917322376">"Šī ierīce iegādāta kredītā (<xliff:g id="CREDITOR_NAME">%1$s</xliff:g>)"</string>
+    <string name="creditor_capabilities_header" msgid="6217362648469323253">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> var veikt tālāk norādītās darbības."</string>
+    <string name="install_creditor_app_description" msgid="6159751782301108878">"Instalēt <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> lietotni, lai jūs varētu veikt maksājumus par šo ierīci"</string>
+    <string name="lock_device_description" msgid="2940362560732989166">"Ierobežot piekļuvi šai ierīcei, ja jūs neveicat maksājumus"</string>
 </resources>

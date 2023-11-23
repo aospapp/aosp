@@ -34,8 +34,9 @@ import android.support.annotation.Nullable;
 import android.support.annotation.VisibleForTesting;
 import android.text.TextUtils;
 import android.util.Log;
-import com.android.tv.data.Program;
+
 import com.android.tv.data.api.Channel;
+import com.android.tv.data.api.Program;
 import com.android.tv.util.Utils;
 import com.android.tv.util.images.ImageLoader;
 

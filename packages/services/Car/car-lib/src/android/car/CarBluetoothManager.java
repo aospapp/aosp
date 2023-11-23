@@ -17,7 +17,6 @@ package android.car;
 
 import android.Manifest;
 import android.annotation.RequiresPermission;
-import android.content.Context;
 import android.os.IBinder;
 import android.os.RemoteException;
 
@@ -26,9 +25,8 @@ import android.os.RemoteException;
  *
  * @hide
  */
-public final class CarBluetoothManager implements CarManagerBase {
+public final class CarBluetoothManager extends CarManagerBase {
     private static final String TAG = "CarBluetoothManager";
-    private final Context mContext;
     private final ICarBluetooth mService;
 
     /**
@@ -50,7 +48,7 @@ public final class CarBluetoothManager implements CarManagerBase {
         try {
             mService.connectDevices();
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            handleRemoteExceptionFromCarService(e);
         }
     }
 
@@ -59,8 +57,8 @@ public final class CarBluetoothManager implements CarManagerBase {
      *
      * @hide
      */
-    public CarBluetoothManager(IBinder service, Context context) {
-        mContext = context;
+    public CarBluetoothManager(Car car, IBinder service) {
+        super(car);
         mService = ICarBluetooth.Stub.asInterface(service);
     }
 

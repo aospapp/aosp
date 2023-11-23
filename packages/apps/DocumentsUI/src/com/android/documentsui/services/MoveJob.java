@@ -23,9 +23,9 @@ import static com.android.documentsui.services.FileOperationService.OPERATION_MO
 
 import android.app.Notification;
 import android.app.Notification.Builder;
-import android.content.ContentResolver;
 import android.content.Context;
 import android.net.Uri;
+import android.os.DeadObjectException;
 import android.os.Messenger;
 import android.os.RemoteException;
 import android.provider.DocumentsContract;
@@ -38,6 +38,7 @@ import com.android.documentsui.R;
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.DocumentStack;
 import com.android.documentsui.base.Features;
+import com.android.documentsui.base.UserId;
 import com.android.documentsui.clipping.UrisSupplier;
 
 import java.io.FileNotFoundException;
@@ -95,9 +96,9 @@ final class MoveJob extends CopyJob {
     @Override
     public boolean setUp() {
         if (mSrcParentUri != null) {
-            final ContentResolver resolver = appContext.getContentResolver();
             try {
-                mSrcParent = DocumentInfo.fromUri(resolver, mSrcParentUri);
+                mSrcParent = DocumentInfo.fromUri(appContext.getContentResolver(), mSrcParentUri,
+                        UserId.DEFAULT_USER);
             } catch (FileNotFoundException e) {
                 Log.e(TAG, "Failed to create srcParent.", e);
                 failureCount = mResourceUris.getItemCount();
@@ -141,9 +142,6 @@ final class MoveJob extends CopyJob {
 
     void processDocument(DocumentInfo src, DocumentInfo srcParent, DocumentInfo dest)
             throws ResourceException {
-
-        // TODO: When optimized move kicks in, we're not making any progress updates. FIX IT!
-
         // When moving within the same provider, try to use optimized moving.
         // If not supported, then fallback to byte-by-byte copy/move.
         if (src.authority.equals(dest.authority) && (srcParent != null || mSrcParent != null)) {
@@ -153,9 +151,13 @@ final class MoveJob extends CopyJob {
                             srcParent != null ? srcParent.derivedUri : mSrcParent.derivedUri,
                             dest.derivedUri) != null) {
                         Metrics.logFileOperated(operationType, MetricConsts.OPMODE_PROVIDER);
+                        makeOptimizedCopyProgress(src);
                         return;
                     }
                 } catch (FileNotFoundException | RemoteException | RuntimeException e) {
+                    if (e instanceof DeadObjectException) {
+                        releaseClient(src);
+                    }
                     Metrics.logFileOperationFailure(
                             appContext, MetricConsts.SUBFILEOP_QUICK_MOVE, src.derivedUri);
                     Log.e(TAG, "Provider side move failed for: " + src.derivedUri

@@ -18,8 +18,8 @@ package com.android.car;
 
 import android.util.Log;
 
+import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.MediumTest;
-import androidx.test.runner.AndroidJUnit4;
 
 import junit.framework.TestCase;
 

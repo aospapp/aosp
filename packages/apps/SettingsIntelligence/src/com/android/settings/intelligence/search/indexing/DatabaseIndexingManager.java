@@ -178,7 +178,7 @@ public class DatabaseIndexingManager {
 
     private List<IndexData> getIndexData(PreIndexData data) {
         if (mConverter == null) {
-            mConverter = new IndexDataConverter(mContext);
+            mConverter = getIndexDataConverter(mContext);
         }
         return mConverter.convertPreIndexDataToIndexData(data);
     }
@@ -186,7 +186,7 @@ public class DatabaseIndexingManager {
     private List<SiteMapPair> getSiteMapPairs(List<IndexData> indexData,
             List<Pair<String, String>> siteMapClassNames) {
         if (mConverter == null) {
-            mConverter = new IndexDataConverter(mContext);
+            mConverter = getIndexDataConverter(mContext);
         }
         return mConverter.convertSiteMapPairs(indexData, siteMapClassNames);
     }
@@ -310,6 +310,14 @@ public class DatabaseIndexingManager {
             Log.e(TAG, "Cannot open writable database", e);
             return null;
         }
+    }
+
+    /**
+     * Protected method to get a new IndexDataConverter instance. This method can be overridden
+     * in subclasses to substitute in a custom IndexDataConverter.
+     */
+    protected IndexDataConverter getIndexDataConverter(Context context) {
+        return new IndexDataConverter(context);
     }
 
     public class IndexingTask extends AsyncTask<Void, Void, Void> {

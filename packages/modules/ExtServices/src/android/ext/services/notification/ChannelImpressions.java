@@ -21,7 +21,7 @@ import android.os.Parcelable;
 import android.text.TextUtils;
 import android.util.Log;
 
-import com.android.internal.annotations.VisibleForTesting;
+import androidx.annotation.VisibleForTesting;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlSerializer;
@@ -80,16 +80,6 @@ public final class ChannelImpressions implements Parcelable {
     void updateThresholds(float dismissToViewRatioLimit, int streakLimit) {
         mDismissToViewRatioLimit = dismissToViewRatioLimit;
         mStreakLimit = streakLimit;
-    }
-
-    @VisibleForTesting
-    float getDismissToViewRatioLimit() {
-        return mDismissToViewRatioLimit;
-    }
-
-    @VisibleForTesting
-    int getStreakLimit() {
-        return mStreakLimit;
     }
 
     public void append(ChannelImpressions additionalImpressions) {
@@ -175,37 +165,5 @@ public final class ChannelImpressions implements Parcelable {
         sb.append(",").append(mStreakLimit);
         sb.append(")}");
         return sb.toString();
-    }
-
-    protected void populateFromXml(XmlPullParser parser) {
-        mDismissals = safeInt(parser, ATT_DISMISSALS, 0);
-        mStreak = safeInt(parser, ATT_STREAK, 0);
-        mViews = safeInt(parser, ATT_VIEWS, 0);
-    }
-
-    protected void writeXml(XmlSerializer out) throws IOException {
-        if (mDismissals != 0) {
-            out.attribute(null, ATT_DISMISSALS, String.valueOf(mDismissals));
-        }
-        if (mStreak != 0) {
-            out.attribute(null, ATT_STREAK, String.valueOf(mStreak));
-        }
-        if (mViews != 0) {
-            out.attribute(null, ATT_VIEWS, String.valueOf(mViews));
-        }
-    }
-
-    private static int safeInt(XmlPullParser parser, String att, int defValue) {
-        final String val = parser.getAttributeValue(null, att);
-        return tryParseInt(val, defValue);
-    }
-
-    private static int tryParseInt(String value, int defValue) {
-        if (TextUtils.isEmpty(value)) return defValue;
-        try {
-            return Integer.parseInt(value);
-        } catch (NumberFormatException e) {
-            return defValue;
-        }
     }
 }

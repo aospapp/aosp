@@ -125,6 +125,7 @@ public class TextToSpeechHelper {
             }
             mTextToSpeechEngine.initialize(mContext, this::handleInitCompleted);
             mTextToSpeechEngine.setOnUtteranceProgressListener(mProgressListener);
+            mTextToSpeechEngine.setAudioAttributes(mAudioAttributes);
         }
         // Since we're handling a request, delay engine shutdown.
         mHandler.removeCallbacks(mMaybeShutdownRunnable);

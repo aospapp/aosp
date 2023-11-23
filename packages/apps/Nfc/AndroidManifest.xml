@@ -22,7 +22,6 @@
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
     <uses-permission android:name="android.permission.BLUETOOTH_PRIVILEGED" />
     <uses-permission android:name="android.permission.NFC" />
-    <uses-permission android:name="android.permission.NFC_UNLOCK" />
     <uses-permission android:name="android.permission.BIND_NFC_SERVICE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.STATUS_BAR" />
@@ -44,10 +43,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.MANAGE_USERS" />
     <uses-permission android:name="android.permission.INTERNAL_SYSTEM_WINDOW" />
-    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
-    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.SET_ACTIVITY_WATCHER" />
-    <uses-permission android:name="android.permission.CONNECTIVITY_INTERNAL" />
     <uses-permission android:name="android.permission.NFC_HANDOVER_STATUS" />
     <uses-permission android:name="android.permission.LOCAL_MAC_ADDRESS" />
     <uses-permission android:name="com.android.permission.WHITELIST_BLUETOOTH_DEVICE" />
@@ -60,6 +56,8 @@
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.START_ACTIVITIES_FROM_BACKGROUND" />
     <uses-permission android:name="android.permission.NETWORK_SETTINGS" />
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"/>
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" />
 
     <application android:name=".NfcApplication"
                  android:icon="@drawable/icon"
@@ -117,7 +115,6 @@
             android:noHistory="true"
             android:configChanges="orientation|keyboardHidden|screenSize"
         />
-
         <activity android:name=".BeamShareActivity"
             android:finishOnCloseSystemDialogs="true"
             android:theme="@android:style/Theme.Translucent"

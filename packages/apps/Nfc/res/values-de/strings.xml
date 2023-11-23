@@ -33,7 +33,7 @@
     <string name="could_not_use_app" msgid="8137587876138569083">"Fehler bei der Verwendung von <xliff:g id="APP">%1$s</xliff:g>"</string>
     <string name="pay_with" msgid="5531545488795798945">"Zahlen mit"</string>
     <string name="complete_with" msgid="6797459104103012992">"Durchführen mit"</string>
-    <string name="default_pay_app_removed" msgid="4108250545457437360">"Der von dir bevorzugte Dienst für das mobile Bezahlen wurde entfernt. Möchtest du einen anderen auswählen?"</string>
+    <string name="default_pay_app_removed" msgid="4108250545457437360">"Der von dir bevorzugte Dienst für das kontaktlose Bezahlen wurde entfernt. Möchtest du einen anderen auswählen?"</string>
     <string name="ask_nfc_tap" msgid="2925239870458286340">"Zum Abschluss auf ein anderes Gerät tippen"</string>
     <string name="wifi_connect" msgid="6250727951843550671">"Verbinden"</string>
     <string name="status_unable_to_connect" msgid="9183908200295307657">"Verbindung zum Netzwerk konnte nicht hergestellt werden."</string>
@@ -47,6 +47,8 @@
     <string name="summary_confirm_url_open" product="tablet" msgid="3353502750736192055">"Du hast auf dem Tablet via NFC einen Link erhalten:"</string>
     <string name="summary_confirm_url_open" product="default" msgid="1246398412196449226">"Du hast auf dem Smartphone via NFC einen Link erhalten:"</string>
     <string name="action_confirm_url_open" msgid="3458322738812921189">"Link öffnen"</string>
-    <string name="tag_read_error" msgid="2485274498885877547">"NFC-Lesefehler. Bitte versuch es noch einmal."</string>
+    <string name="tag_read_error" msgid="2485274498885877547">"NFC-Lesefehler. Wiederholen."</string>
     <string name="tag_dispatch_failed" msgid="3562984995049738400">"Keine unterstützte Anwendung für dieses NFC-Tag"</string>
+    <string name="nfc_blocking_alert_title" msgid="1086172436984457085">"NFC ist möglicherweise blockiert"</string>
+    <string name="nfc_blocking_alert_message" msgid="7003156052570107490">"Tippen, um das Problem zu beheben"</string>
 </resources>

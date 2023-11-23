@@ -19,15 +19,15 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_label" msgid="1527793174155125990">"Podešavanje profila za Work"</string>
+    <string name="app_label" msgid="1527793174155125990">"Podešavanje poslovnog profila"</string>
     <string name="provisioning_error_title" msgid="6320515739861578118">"Ups!"</string>
-    <string name="setup_work_profile" msgid="1468934631731845267">"Podesite profil za Work"</string>
+    <string name="setup_work_profile" msgid="1468934631731845267">"Podesite poslovni profil"</string>
     <string name="company_controls_workspace" msgid="2808025277267917221">"Organizacija kontroliše i štiti ovaj profil. Vi kontrolišete sve ostalo na uređaju."</string>
     <string name="company_controls_device" msgid="8230957518758871390">"Organizacija će kontrolisati i štititi ovaj uređaj."</string>
     <string name="the_following_is_your_mdm" msgid="6613658218262376404">"Sledeća aplikacija mora da pristupi ovom profilu:"</string>
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Sledeća aplikacija će upravljati uređajem:"</string>
     <string name="next" msgid="1004321437324424398">"Dalje"</string>
-    <string name="setting_up_workspace" msgid="7862472373642601041">"Podešava se profil za Work..."</string>
+    <string name="setting_up_workspace" msgid="7862472373642601041">"Podešava se poslovni profil..."</string>
     <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"Administrator može da nadgleda podešavanja, korporativni pristup, aplikacije, dozvole i podatke povezane sa ovim profilom, kao i da upravlja njima. Tu spadaju aktivnosti na mreži, lokacija uređaja, istorija poziva i istorija pretrage kontakata.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Kontaktirajte IT administratora za više informacija, uključujući politiku privatnosti organizacije."</string>
     <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"IT administrator može da nadgleda podešavanja, korporativni pristup, aplikacije, dozvole i podatke povezane sa ovim uređajem, kao i da upravlja njima. Tu spadaju aktivnosti na mreži, lokacija uređaja, istorija poziva i istorija pretrage kontakata.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Kontaktirajte administratora za više informacija, uključujući politiku privatnosti organizacije."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"Da biste koristili funkcije za zaštitu uređaja od krađe, na uređaju morate da imate zaključavanje ekrana zaštićeno lozinkom."</string>
@@ -38,38 +38,38 @@
     <string name="user_consent_msg" msgid="8820951802130353584">"Prihvatam"</string>
     <string name="url_error" msgid="5958494012986243186">"Ovaj link ne može da se prikaže."</string>
     <string name="terms" msgid="8295436105384703903">"Uslovi"</string>
-    <string name="work_profile_info" msgid="5433388376309583996">"Informacije o profilu za Work"</string>
+    <string name="work_profile_info" msgid="5433388376309583996">"Informacije o poslovnom profilu"</string>
     <string name="managed_device_info" msgid="1529447646526616811">"Informacije o uređaju kojim se upravlja"</string>
     <string name="default_managed_profile_name" msgid="5370257687074907055">"Profil za posao"</string>
     <string name="default_first_meat_user_name" msgid="7540515892748490540">"Primarni korisnik"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"Želite li da izbrišete postojeći profil?"</string>
-    <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"Već imate profil za Work. Njime se upravlja pomoću sledeće aplikacije:"</string>
+    <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"Već imate poslovni profil. Njime se upravlja pomoću sledeće aplikacije:"</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"Pre nego što nastavite, "<a href="#read_this_link">"pročitajte ovo"</a>"."</string>
     <string name="sure_you_want_to_delete_profile" msgid="6927697984573575564">"Ako nastavite, izbrisaćete sve aplikacije i podatke na ovom profilu."</string>
     <string name="delete_profile" msgid="2299218578684663459">"Izbriši"</string>
     <string name="cancel_delete_profile" msgid="5155447537894046036">"Otkaži"</string>
-    <string name="encrypt_device_text_for_profile_owner_setup" msgid="7828515754696057140">"Da biste podesili profil za posao, uređaj treba da se šifruje. To može da potraje."</string>
+    <string name="encrypt_device_text_for_profile_owner_setup" msgid="7828515754696057140">"Da biste podesili poslovni profil, uređaj treba da se šifruje. To može da potraje."</string>
     <string name="encrypt_device_text_for_device_owner_setup" msgid="5194673142404735676">"Da biste podesili ovaj uređaj, prvo treba da se šifruje. To može da potraje."</string>
     <string name="encrypt_this_device_question" msgid="8719916619866892601">"Šifrovati ovaj uređaj?"</string>
     <string name="encrypt" msgid="1749320161747489212">"Šifruj"</string>
     <string name="continue_provisioning_notify_title" msgid="5191449100153186648">"Šifrovanje je dovršeno"</string>
-    <string name="continue_provisioning_notify_text" msgid="1066841819786425980">"Dodirnite da biste nastavili sa podešavanjem profila za Work"</string>
-    <string name="managed_provisioning_error_text" msgid="7063621174570680890">"Nije moguće podesiti profil za posao. Kontaktirajte IT sektor ili pokušajte ponovo kasnije."</string>
-    <string name="cant_add_work_profile" msgid="9217268909964154934">"Dodavanje profila za Work nije uspelo"</string>
-    <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"Zamena ili uklanjanje profila za Work nisu uspeli"</string>
-    <string name="work_profile_cant_be_added_contact_admin" msgid="5393019630297157418">"Dodavanje profila za Work na ovaj uređaj nije uspelo. Ako imate pitanja, kontaktirajte IT administratora."</string>
+    <string name="continue_provisioning_notify_text" msgid="1066841819786425980">"Dodirnite da biste nastavili sa podešavanjem poslovnog profila"</string>
+    <string name="managed_provisioning_error_text" msgid="7063621174570680890">"Nije moguće podesiti poslovni profil. Kontaktirajte IT sektor ili pokušajte ponovo kasnije."</string>
+    <string name="cant_add_work_profile" msgid="9217268909964154934">"Dodavanje poslovnog profila nije uspelo"</string>
+    <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"Zamena ili uklanjanje poslovnog profila nisu uspeli"</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="5393019630297157418">"Dodavanje poslovnog profila na ovaj uređaj nije uspelo. Ako imate pitanja, kontaktirajte IT administratora."</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"Promenite pokretač za uređaj"</string>
-    <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"Ova aplikacija pokretača ne može da se koristi preko profila za Work"</string>
+    <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"Ova aplikacija pokretača ne može da se koristi preko poslovnog profila"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"Otkaži"</string>
     <string name="pick_launcher" msgid="4257084827403983845">"Potvrdi"</string>
     <string name="user_setup_incomplete" msgid="6494920045526591079">"Podešavanje korisnika nije dovršeno"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"Korisnik poslovnog uređaja"</string>
-    <string name="setup_work_device" msgid="6003988351437862369">"Podešava se uređaj za Work..."</string>
+    <string name="setup_work_device" msgid="6003988351437862369">"Podešava se poslovni uređaj..."</string>
     <string name="progress_data_process" msgid="1707745321954672971">"Obrađuju se podaci podešavanja..."</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"Povezujete se sa Wi-Fi-jem..."</string>
     <string name="progress_connect_to_mobile_network" msgid="3852054186860657088">"Povezujemo se sa mobilnom mrežom…"</string>
-    <string name="progress_download" msgid="3522436271691064624">"Preuzima se aplikacija za administratore..."</string>
-    <string name="progress_install" msgid="2258045670385866183">"Instalira se aplikacija za administratore..."</string>
+    <string name="progress_download" msgid="3522436271691064624">"Preuzima se aplikacija za administratora..."</string>
+    <string name="progress_install" msgid="2258045670385866183">"Instalira se aplikacija za administratora..."</string>
     <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"Uklanjamo nepotrebne sistemske aplikacije…"</string>
     <string name="progress_finishing_touches" msgid="9037776404089697198">"Obavljamo završna podešavanja…"</string>
     <string name="progress_set_owner" msgid="8214062820093757961">"Podešava se vlasnik uređaja..."</string>
@@ -83,8 +83,10 @@
     <string name="reset" msgid="6467204151306265796">"Resetuj"</string>
     <string name="cant_set_up_profile" msgid="4341825293970158436">"Podešavanje profila nije uspelo"</string>
     <string name="cant_set_up_device" msgid="4120090138983350714">"Podešavanje uređaja nije uspelo"</string>
+    <string name="something_went_wrong" msgid="3593223774041784329">"Došlo je do greške"</string>
     <string name="couldnt_set_up_device" msgid="5137950404283642302">"Podešavanje uređaja nije uspelo. Potražite pomoć od IT administratora."</string>
     <string name="contact_your_admin_for_help" msgid="2009904021552323731">"Potražite pomoć od IT administratora"</string>
+    <string name="reset_device" msgid="5483853913241939262">"Resetujte ovaj uređaj i probajte ponovo da ga podesite"</string>
     <string name="device_already_set_up" msgid="507881934487140294">"Uređaj je već podešen"</string>
     <string name="error_wifi" msgid="1850288843966836571">"Povezivanje na Wi-Fi mrežu nije uspelo"</string>
     <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"Zaštita resetovanja je uključena za uređaj. Potražite pomoć od IT administratora."</string>
@@ -99,14 +101,14 @@
     <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"Da"</string>
     <string name="profile_owner_cancelling" msgid="5679573829145112822">"Otkazuje se…"</string>
     <string name="work_profile_setup_later_title" msgid="9069148190226279892">"Želite li da zaustavite podešavanje profila?"</string>
-    <string name="work_profile_setup_later_message" msgid="122069011117225292">"Možete kasnije da podesite profil za posao u aplikaciji za upravljanje uređajem koju koristi organizacija."</string>
+    <string name="work_profile_setup_later_message" msgid="122069011117225292">"Možete kasnije da podesite poslovni profil u aplikaciji za upravljanje uređajem koju koristi organizacija."</string>
     <string name="continue_button" msgid="7177918589510964446">"Nastavi"</string>
     <string name="work_profile_setup_stop" msgid="6772128629992514750">"Zaustavi"</string>
     <string name="dismiss" msgid="9009534756748565880">"Odbaci"</string>
-    <string name="profile_owner_info" msgid="8975319972303812298">"Napravićete profil za Work. Organizacija će upravljati njim i nadgledati ga. Primenjivaće se uslovi."</string>
-    <string name="profile_owner_info_with_terms_headers" msgid="7373591910245655373">"Napravićete profil za Work. Organizacija će upravljati njim i nadgledati ga. Primenjivaće se <xliff:g id="TERMS_HEADERS">%1$s</xliff:g> uslovi."</string>
-    <string name="profile_owner_info_comp" msgid="9190421701126119142">"Napravićete profil za aplikacije za Work. Organizacija će upravljati ovim profilom i ostatkom uređaja i nadgledati ih. Primenjivaće se uslovi."</string>
-    <string name="profile_owner_info_with_terms_headers_comp" msgid="2012766614492554556">"Napravićete profil za aplikacije za Work. Organizacija će upravljati ovim profilom i ostatkom uređaja i nadgledati ih. Primenjivaće se <xliff:g id="TERMS_HEADERS">%1$s</xliff:g> uslovi."</string>
+    <string name="profile_owner_info" msgid="8975319972303812298">"Napravićete poslovni profil. Organizacija će upravljati njim i nadgledati ga. Primenjivaće se uslovi."</string>
+    <string name="profile_owner_info_with_terms_headers" msgid="7373591910245655373">"Napravićete poslovni profil. Organizacija će upravljati njim i nadgledati ga. Primenjivaće se <xliff:g id="TERMS_HEADERS">%1$s</xliff:g> uslovi."</string>
+    <string name="profile_owner_info_comp" msgid="9190421701126119142">"Napravićete profil za poslovne aplikacije. Organizacija će upravljati ovim profilom i ostatkom uređaja i nadgledati ih. Primenjivaće se uslovi."</string>
+    <string name="profile_owner_info_with_terms_headers_comp" msgid="2012766614492554556">"Napravićete profil za poslovne aplikacije. Organizacija će upravljati ovim profilom i ostatkom uređaja i nadgledati ih. Primenjivaće se <xliff:g id="TERMS_HEADERS">%1$s</xliff:g> uslovi."</string>
     <string name="device_owner_info" msgid="3716661456037934467">"<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> će upravljati ovim uređajem, pratiti ga i štititi. Primenjivaće se uslovi. <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
     <string name="device_owner_info_with_terms_headers" msgid="1254243288669282977">"<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> će upravljati ovim uređajem, pratiti ga i štititi. Primenjivaće se <xliff:g id="TERMS_HEADERS">%2$s</xliff:g> uslovi. <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
     <string name="link_isnt_secure_and_cant_be_opened_until_device_setup_finished" msgid="1604497932637832657">"Ovaj link nije pouzdan i ne može da se otvori dok se ne dovrši podešavanje uređaja: <xliff:g id="LINK_RAW_TEST">%1$s</xliff:g>"</string>
@@ -124,13 +126,13 @@
     <string name="set_up_your_device" msgid="1896651520959894681">"Podesite uređaj"</string>
     <string name="info_anim_title_0" msgid="3285414600215959704">"Promenite način rada"</string>
     <string name="info_anim_title_1" msgid="2657512519467714760">"Odvojite poslovne podatke od ličnih"</string>
-    <string name="one_place_for_work_apps" msgid="2595597562302953960">"Jedno mesto za aplikacije za Work"</string>
-    <string name="info_anim_title_2" msgid="4629781398620470204">"Isključite Work kada završite"</string>
+    <string name="one_place_for_work_apps" msgid="2595597562302953960">"Jedno mesto za poslovne aplikacije"</string>
+    <string name="info_anim_title_2" msgid="4629781398620470204">"Isključite posao kada završite"</string>
     <string name="provisioning" msgid="4512493827019163451">"Dodeljuje se"</string>
     <string name="copying_certs" msgid="5697938664953550881">"Podešava se CA sertifikat"</string>
     <string name="setup_profile" msgid="5573950582159698549">"Podesite profil"</string>
-    <string name="profile_benefits_description" msgid="758432985984252636">"Ako koristite profil za Work, možete da odvojite poslovne od ličnih podataka"</string>
-    <string name="comp_profile_benefits_description" msgid="379837075456998273">"Ako koristite profil za Work, možete da čuvate poslovne aplikacije na jednom mestu"</string>
+    <string name="profile_benefits_description" msgid="758432985984252636">"Ako koristite poslovni profil, možete da odvojite poslovne od ličnih podataka"</string>
+    <string name="comp_profile_benefits_description" msgid="379837075456998273">"Ako koristite poslovni profil, možete da čuvate poslovne aplikacije na jednom mestu"</string>
     <string name="setup_profile_encryption" msgid="5241291404536277038">"Podesite profil. Šifrovanje"</string>
     <string name="setup_profile_progress" msgid="7742718527853325656">"Podesite profil. Prikazuje se napredak"</string>
     <string name="setup_device" msgid="6725265673245816366">"Podešavanje uređaja"</string>
@@ -161,25 +163,34 @@
     <string name="setup_provisioning_header" msgid="4282483198266806271">"Priprema se podešavanje uređaja za posao…"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"Aplikacija za administratore se podešava"</string>
     <string name="set_up_everything_else" msgid="4407706086957916501">"Podesite sve ostalo"</string>
-    <string name="now_lets_set_up_everything_else" msgid="2905102208584231894">"Hajde da podesimo sve ostalo"</string>
+    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"Dodajte lični nalog da biste iskoristili dodatne pogodnosti uređaja"</string>
+    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"Poslovni profil je spreman, pa možete da dodate i lični Google nalog da biste pristupali aplikacijama i sadržaju."</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"Ovaj uređaj pripada organizaciji"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"Sledeća aplikacija će se koristiti za praćenje ovog telefona i upravljanje njime"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"Podešavanje za posao se priprema…"</string>
-    <string name="work_profile_provisioning_accept_header" msgid="462916780311392444">"Hajde da prvo podesimo profil za Work"</string>
-    <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Hajde da podesimo profil za Work"</string>
-    <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"Poslovne aplikacije se čuvaju na profilu za Work"</string>
+    <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Hajde da podesimo poslovni profil"</string>
+    <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"Poslovne aplikacije se čuvaju na poslovnom profilu"</string>
     <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"Pauzirajte poslovne aplikacije kada završite radni dan"</string>
-    <string name="work_profile_provisioning_step_3_header" msgid="7495564624887776704">"Samo su podaci sa profila za Work vidljivi IT administratoru"</string>
-    <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"Podešava se profil za Work…"</string>
-    <string name="work_profile_provisioning_summary" msgid="3917907344897144246">"Poslovne aplikacije se čuvaju na profilu za Work. Možete da pauzirate poslovne aplikacije kada završite radni dan. Samo su podaci sa profila za Work vidljivi IT administratoru."</string>
+    <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"Podaci sa poslovnog profila su vidljivi IT administratoru"</string>
+    <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"Podešava se poslovni profil…"</string>
+    <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"Poslovne aplikacije se čuvaju na poslovnom profilu. Možete da pauzirate poslovne aplikacije kada završite radni dan. Podaci sa poslovnog profila su vidljivi IT administratoru"</string>
     <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"Hajde da podesimo poslovni uređaj"</string>
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"Neka vam poslovne aplikacije budu nadohvat ruke"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"Ovaj uređaj nije privatan"</string>
     <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"IT administrator možda može da vidi podatke ili aktivnosti na ovom uređaju."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"Uređaj se podešava…"</string>
     <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"Koristite ovaj uređaj da biste jednostavno pristupali poslovnim aplikacijama. Ovaj uređaj nije privatan, pa će ID administrator moći da vidi vaše podatke i aktivnosti. Kontaktirajte IT administratora da biste saznali više."</string>
+    <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"Poslovne aplikacije se čuvaju na poslovnom profilu i njima upravlja IT administrator"</string>
+    <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"Lične aplikacije su odvojene i skrivene kada se prikazuju poslovne aplikacije"</string>
+    <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"IT administrator može da kontroliše ovaj uređaj i da blokira određene aplikacije"</string>
+    <string name="cope_provisioning_summary" msgid="993014104601034878">"Poslovne aplikacije se čuvaju na poslovnom profilu i njima upravlja IT administrator. Lične aplikacije su odvojene i skrivene kada se prikazuju poslovne aplikacije. IT administrator može da kontroliše ovaj uređaj i da blokira određene aplikacije."</string>
+    <string name="just_a_sec" msgid="6244676028626237220">"Samo trenutak…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"Podsetnik o privatnosti"</string>
     <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"IT administrator možda može da vidi podatke ili aktivnosti na ovom uređaju"</string>
     <string name="device_provisioning_finished" msgid="3981783240592092906">"Uređaj je spreman za korišćenje!"</string>
     <string name="done" msgid="7755227776955952318">"Gotovo"</string>
+    <string name="financed_device_screen_header" msgid="7890706080917322376">"Ovaj uređaj je kupljen na kredit koji pruža <xliff:g id="CREDITOR_NAME">%1$s</xliff:g>"</string>
+    <string name="creditor_capabilities_header" msgid="6217362648469323253">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> može:"</string>
+    <string name="install_creditor_app_description" msgid="6159751782301108878">"da instalira aplikaciju kreditora <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> kako biste mogli da plaćate za ovaj uređaj"</string>
+    <string name="lock_device_description" msgid="2940362560732989166">"da ograniči pristup ovom uređaju ako ne platite"</string>
 </resources>

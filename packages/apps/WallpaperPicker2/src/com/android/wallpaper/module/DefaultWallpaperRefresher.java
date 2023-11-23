@@ -32,7 +32,6 @@ import com.android.wallpaper.compat.WallpaperManagerCompat;
 import com.android.wallpaper.model.WallpaperMetadata;
 
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -50,9 +49,6 @@ public class DefaultWallpaperRefresher implements WallpaperRefresher {
     private final Context mAppContext;
     private final WallpaperPreferences mWallpaperPreferences;
     private final WallpaperManager mWallpaperManager;
-    private final LiveWallpaperStatusChecker mLiveWallpaperStatusChecker;
-    private final UserEventLogger mUserEventLogger;
-    private final Context mDeviceProtectedContext;
 
     /**
      * @param context The application's context.
@@ -62,13 +58,10 @@ public class DefaultWallpaperRefresher implements WallpaperRefresher {
 
         Injector injector = InjectorProvider.getInjector();
         mWallpaperPreferences = injector.getPreferences(mAppContext);
-        mLiveWallpaperStatusChecker = injector.getLiveWallpaperStatusChecker(mAppContext);
-        mUserEventLogger = injector.getUserEventLogger(mAppContext);
 
         // Retrieve WallpaperManager using Context#getSystemService instead of
         // WallpaperManager#getInstance so it can be mocked out in test.
         mWallpaperManager = (WallpaperManager) context.getSystemService(Context.WALLPAPER_SERVICE);
-        mDeviceProtectedContext = mAppContext.createDeviceProtectedStorageContext();
     }
 
     @Override
@@ -203,8 +196,7 @@ public class DefaultWallpaperRefresher implements WallpaperRefresher {
          * current system wallpaper.
          */
         private boolean isHomeScreenMetadataCurrent() {
-            return (mWallpaperManager.getWallpaperInfo() == null
-                    || mLiveWallpaperStatusChecker.isNoBackupImageWallpaperSet())
+            return (mWallpaperManager.getWallpaperInfo() == null)
                     ? isHomeScreenImageWallpaperCurrent()
                     : isHomeScreenLiveWallpaperCurrent();
         }
@@ -221,36 +213,6 @@ public class DefaultWallpaperRefresher implements WallpaperRefresher {
 
         private long getCurrentHomeWallpaperHashCode() {
             if (mCurrentHomeWallpaperHashCode == 0) {
-                if (mLiveWallpaperStatusChecker.isNoBackupImageWallpaperSet()) {
-
-                    synchronized (RotatingWallpaperLockProvider.getInstance()) {
-                        Bitmap bitmap = null;
-                        try {
-                            FileInputStream fis =
-                                    mDeviceProtectedContext.openFileInput(
-                                            NoBackupImageWallpaper.ROTATING_WALLPAPER_FILE_PATH);
-                            bitmap = BitmapFactory.decodeStream(fis);
-                            fis.close();
-                        } catch (FileNotFoundException e) {
-                            Log.e(TAG, "Rotating wallpaper file not found at path: "
-                                    + mDeviceProtectedContext.getFileStreamPath(
-                                            NoBackupImageWallpaper.ROTATING_WALLPAPER_FILE_PATH),
-                                    e);
-                        } catch (IOException e) {
-                            Log.e(TAG, "IOException when closing FileInputStream " + e);
-                        }
-
-                        if (bitmap != null) {
-                            mCurrentHomeWallpaperHashCode = BitmapUtils.generateHashCode(bitmap);
-                            mUserEventLogger.logDailyWallpaperDecodes(true);
-                        } else {
-                            // If an error occurred decoding the stream then we should just assume the current
-                            // home wallpaper remained intact.
-                            mCurrentHomeWallpaperHashCode = mWallpaperPreferences.getHomeWallpaperHashCode();
-                            mUserEventLogger.logDailyWallpaperDecodes(false);
-                        }
-                    }
-                } else {
                     BitmapDrawable wallpaperDrawable = (BitmapDrawable) mWallpaperManagerCompat.getDrawable();
                     Bitmap wallpaperBitmap = wallpaperDrawable.getBitmap();
                     mCurrentHomeWallpaperHashCode = BitmapUtils.generateHashCode(wallpaperBitmap);
@@ -258,7 +220,6 @@ public class DefaultWallpaperRefresher implements WallpaperRefresher {
                     // Manually request that WallpaperManager loses its reference to the current wallpaper
                     // bitmap, which can occupy a large memory allocation for the lifetime of the app.
                     mWallpaperManager.forgetLoadedWallpaper();
-                }
             }
             return mCurrentHomeWallpaperHashCode;
         }

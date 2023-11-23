@@ -30,7 +30,7 @@
     <string name="deletion_helper_photos_age_summary" msgid="1820871709448371984">"Hơn 30 ngày"</string>
     <!-- no translation found for deletion_helper_photos_summary (3194825464552700889) -->
     <skip />
-    <string name="deletion_helper_downloads_title" msgid="8002058095019254694">"Nội dung tải xuống"</string>
+    <string name="deletion_helper_downloads_title" msgid="8002058095019254694">"Tệp đã tải xuống"</string>
     <!-- no translation found for deletion_helper_downloads_category_summary (8545989355108311347) -->
     <skip />
     <!-- no translation found for deletion_helper_downloads_summary_empty (3988054032360371887) -->

@@ -47,6 +47,7 @@ public class ChannelsRowAdapter extends ItemListRowView.ItemListAdapter<Channels
     private final int mMaxCount;
     private final int mMinCount;
     private final ChannelChanger mChannelChanger;
+    private final AccessibilityManager mAccessibilityManager;
 
     private boolean mShowChannelUpDown;
 
@@ -66,10 +67,9 @@ public class ChannelsRowAdapter extends ItemListRowView.ItemListAdapter<Channels
         mMaxCount = maxCount;
         setHasStableIds(true);
         mChannelChanger = (ChannelChanger) (context);
-        AccessibilityManager accessibilityManager =
-                context.getSystemService(AccessibilityManager.class);
-        mShowChannelUpDown = accessibilityManager.isEnabled();
-        accessibilityManager.addAccessibilityStateChangeListener(this);
+        mAccessibilityManager = context.getSystemService(AccessibilityManager.class);
+        mShowChannelUpDown = mAccessibilityManager.isEnabled();
+        mAccessibilityManager.addAccessibilityStateChangeListener(this);
     }
 
     @Override
@@ -315,5 +315,11 @@ public class ChannelsRowAdapter extends ItemListRowView.ItemListAdapter<Channels
     public void onAccessibilityStateChanged(boolean enabled) {
         mShowChannelUpDown = enabled;
         update();
+    }
+
+    @Override
+    public void release() {
+        mAccessibilityManager.removeAccessibilityStateChangeListener(this);
+        super.release();
     }
 }

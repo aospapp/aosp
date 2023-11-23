@@ -50,22 +50,20 @@
         <item
             android:id="@+id/option_menu_create_dir"
             android:title="@string/menu_create_dir"
+            android:icon="@drawable/ic_create_new_folder"
             android:alphabeticShortcut="e"
             android:visible="false"
             app:showAsAction="never"/>
         <item
             android:id="@+id/option_menu_sort"
             android:title="@string/menu_sort"
+            android:icon="@drawable/ic_sort"
             android:showAsAction="never"
             android:visible="false" />
         <item
             android:id="@+id/option_menu_select_all"
             android:title="@string/menu_select_all"
             android:alphabeticShortcut="a"
-            android:visible="false"
-            app:showAsAction="never"/>
-        <item
-            android:id="@+id/option_menu_advanced"
             android:visible="false"
             app:showAsAction="never"/>
         <item
@@ -78,5 +76,14 @@
            android:title="@string/menu_inspect"
            android:visible="false"
            app:showAsAction="never"/>
+        <item
+            android:id="@+id/option_menu_show_hidden_files"
+            android:title="@string/menu_show_hidden_files"
+            android:visible="false"
+            app:showAsAction="never"/>
+        <item
+            android:id="@+id/option_menu_launcher"
+            android:visible="false"
+            app:showAsAction="never"/>
     </group>
 </menu>

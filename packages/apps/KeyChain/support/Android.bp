@@ -17,7 +17,7 @@ java_library {
     srcs: ["src/com/android/keychain/tests/support/IKeyChainServiceTestSupport.aidl"],
 }
 
-android_test {
+android_test_helper_app {
     name: "KeyChainTestsSupport",
     srcs: ["src/**/*.java"],
     platform_apis: true,
@@ -26,4 +26,7 @@ android_test {
         "junit",
     ],
     certificate: "platform",
+    test_suites: [
+        "general-tests",
+    ]
 }

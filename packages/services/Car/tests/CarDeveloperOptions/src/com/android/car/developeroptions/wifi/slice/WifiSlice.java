@@ -34,12 +34,11 @@ import android.graphics.drawable.Drawable;
 import android.net.ConnectivityManager;
 import android.net.NetworkCapabilities;
 import android.net.NetworkInfo;
-import android.net.NetworkInfo.State;
 import android.net.NetworkInfo.DetailedState;
+import android.net.NetworkInfo.State;
 import android.net.Uri;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
-import android.net.wifi.WifiSsid;
 import android.os.Bundle;
 import android.text.Spannable;
 import android.text.SpannableString;
@@ -321,9 +320,9 @@ public class WifiSlice implements CustomSliceable {
 
     protected String getActiveSSID() {
         if (mWifiManager.getWifiState() != WifiManager.WIFI_STATE_ENABLED) {
-            return WifiSsid.NONE;
+            return WifiManager.UNKNOWN_SSID;
         }
-        return WifiInfo.removeDoubleQuotes(mWifiManager.getConnectionInfo().getSSID());
+        return WifiInfo.sanitizeSsid(mWifiManager.getConnectionInfo().getSSID());
     }
 
     private boolean isWifiEnabled() {
@@ -340,7 +339,7 @@ public class WifiSlice implements CustomSliceable {
         switch (mWifiManager.getWifiState()) {
             case WifiManager.WIFI_STATE_ENABLED:
                 final String ssid = getActiveSSID();
-                if (TextUtils.equals(ssid, WifiSsid.NONE)) {
+                if (TextUtils.equals(ssid, WifiManager.UNKNOWN_SSID)) {
                     return mContext.getText(R.string.disconnected);
                 }
                 return ssid;

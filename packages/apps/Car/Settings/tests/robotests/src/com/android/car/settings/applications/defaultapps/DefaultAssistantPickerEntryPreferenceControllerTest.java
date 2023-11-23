@@ -18,22 +18,18 @@ package com.android.car.settings.applications.defaultapps;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import static org.mockito.Mockito.when;
-
 import android.app.role.RoleManager;
-import android.car.userlib.CarUserManagerHelper;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ResolveInfo;
 import android.content.pm.ServiceInfo;
+import android.os.UserHandle;
 import android.provider.Settings;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.common.ButtonPreference;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
 import com.android.car.settings.testutils.ShadowApplicationPackageManager;
-import com.android.car.settings.testutils.ShadowCarUserManagerHelper;
 import com.android.car.settings.testutils.ShadowSecureSettings;
 import com.android.car.settings.testutils.ShadowVoiceInteractionServiceInfo;
 import com.android.settingslib.applications.DefaultAppInfo;
@@ -42,16 +38,16 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadow.api.Shadow;
 import org.robolectric.shadows.ShadowApplication;
 
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 @Config(shadows = {ShadowSecureSettings.class, ShadowVoiceInteractionServiceInfo.class,
-        ShadowCarUserManagerHelper.class, ShadowApplicationPackageManager.class})
+        ShadowApplicationPackageManager.class})
 public class DefaultAssistantPickerEntryPreferenceControllerTest {
 
     private static final String TEST_PACKAGE = "com.android.car.settings.testutils";
@@ -59,34 +55,27 @@ public class DefaultAssistantPickerEntryPreferenceControllerTest {
     private static final String TEST_SETTINGS_CLASS = "TestSettingsActivity";
     private static final String TEST_COMPONENT =
             new ComponentName(TEST_PACKAGE, TEST_CLASS).flattenToString();
-    private static final int TEST_USER_ID = 10;
+    private final int mUserId = UserHandle.myUserId();
 
     private Context mContext;
     private ButtonPreference mButtonPreference;
     private DefaultAssistantPickerEntryPreferenceController mController;
     private PreferenceControllerTestHelper<DefaultAssistantPickerEntryPreferenceController>
             mControllerHelper;
-    @Mock
-    private CarUserManagerHelper mCarUserManagerHelper;
 
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
-        ShadowCarUserManagerHelper.setMockInstance(mCarUserManagerHelper);
 
         mContext = RuntimeEnvironment.application;
         mButtonPreference = new ButtonPreference(mContext);
         mControllerHelper = new PreferenceControllerTestHelper<>(mContext,
                 DefaultAssistantPickerEntryPreferenceController.class, mButtonPreference);
         mController = mControllerHelper.getController();
-
-        // Set user.
-        when(mCarUserManagerHelper.getCurrentProcessUserId()).thenReturn(TEST_USER_ID);
     }
 
     @After
     public void tearDown() {
-        ShadowCarUserManagerHelper.reset();
         ShadowVoiceInteractionServiceInfo.reset();
     }
 
@@ -98,7 +87,7 @@ public class DefaultAssistantPickerEntryPreferenceControllerTest {
     @Test
     public void getCurrentDefaultAppInfo_hasService_returnsDefaultAppInfo() {
         Settings.Secure.putStringForUser(mContext.getContentResolver(),
-                Settings.Secure.ASSISTANT, TEST_COMPONENT, TEST_USER_ID);
+                Settings.Secure.ASSISTANT, TEST_COMPONENT, mUserId);
 
         DefaultAppInfo info = mController.getCurrentDefaultAppInfo();
         assertThat(info.getKey()).isEqualTo(TEST_COMPONENT);
@@ -107,14 +96,14 @@ public class DefaultAssistantPickerEntryPreferenceControllerTest {
     @Test
     public void getSettingIntent_noAssistant_returnsNull() {
         DefaultAppInfo info = new DefaultAppInfo(mContext, mContext.getPackageManager(),
-                TEST_USER_ID, ComponentName.unflattenFromString(TEST_COMPONENT));
+                mUserId, ComponentName.unflattenFromString(TEST_COMPONENT));
         assertThat(mController.getSettingIntent(info)).isNull();
     }
 
     @Test
     public void getSettingIntent_hasAssistant_noAssistSupport_returnsNull() {
         Settings.Secure.putStringForUser(mContext.getContentResolver(),
-                Settings.Secure.ASSISTANT, TEST_COMPONENT, TEST_USER_ID);
+                Settings.Secure.ASSISTANT, TEST_COMPONENT, mUserId);
 
         ResolveInfo resolveInfo = new ResolveInfo();
         resolveInfo.serviceInfo = new ServiceInfo();
@@ -131,7 +120,7 @@ public class DefaultAssistantPickerEntryPreferenceControllerTest {
         getShadowApplicationManager().addResolveInfoForIntent(intent, resolveInfo);
 
         DefaultAppInfo info = new DefaultAppInfo(mContext, mContext.getPackageManager(),
-                TEST_USER_ID, ComponentName.unflattenFromString(TEST_COMPONENT));
+                mUserId, ComponentName.unflattenFromString(TEST_COMPONENT));
 
         assertThat(mController.getSettingIntent(info)).isNull();
     }
@@ -139,7 +128,7 @@ public class DefaultAssistantPickerEntryPreferenceControllerTest {
     @Test
     public void getSettingIntent_hasAssistant_supportsAssist_noSettingsActivity_returnsNull() {
         Settings.Secure.putStringForUser(mContext.getContentResolver(),
-                Settings.Secure.ASSISTANT, TEST_COMPONENT, TEST_USER_ID);
+                Settings.Secure.ASSISTANT, TEST_COMPONENT, mUserId);
 
         ResolveInfo resolveInfo = new ResolveInfo();
         resolveInfo.serviceInfo = new ServiceInfo();
@@ -155,7 +144,7 @@ public class DefaultAssistantPickerEntryPreferenceControllerTest {
         getShadowApplicationManager().addResolveInfoForIntent(intent, resolveInfo);
 
         DefaultAppInfo info = new DefaultAppInfo(mContext, mContext.getPackageManager(),
-                TEST_USER_ID, ComponentName.unflattenFromString(TEST_COMPONENT));
+                mUserId, ComponentName.unflattenFromString(TEST_COMPONENT));
 
         assertThat(mController.getSettingIntent(info)).isNull();
     }
@@ -163,7 +152,7 @@ public class DefaultAssistantPickerEntryPreferenceControllerTest {
     @Test
     public void getSettingIntent_hasAssistant_supportsAssist_hasSettingsActivity_returnsIntent() {
         Settings.Secure.putStringForUser(mContext.getContentResolver(),
-                Settings.Secure.ASSISTANT, TEST_COMPONENT, TEST_USER_ID);
+                Settings.Secure.ASSISTANT, TEST_COMPONENT, mUserId);
 
         ResolveInfo resolveInfo = new ResolveInfo();
         resolveInfo.serviceInfo = new ServiceInfo();
@@ -180,7 +169,7 @@ public class DefaultAssistantPickerEntryPreferenceControllerTest {
         getShadowApplicationManager().addResolveInfoForIntent(intent, resolveInfo);
 
         DefaultAppInfo info = new DefaultAppInfo(mContext, mContext.getPackageManager(),
-                TEST_USER_ID, ComponentName.unflattenFromString(TEST_COMPONENT));
+                mUserId, ComponentName.unflattenFromString(TEST_COMPONENT));
 
         Intent result = mController.getSettingIntent(info);
         assertThat(result.getAction()).isEqualTo(Intent.ACTION_MAIN);

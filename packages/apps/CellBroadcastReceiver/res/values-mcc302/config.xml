@@ -26,7 +26,7 @@
 
     <!-- Default value that in the ListPreference.
          These must be a subset of the alert_reminder_interval_values list above. -->
-    <string name="alert_reminder_interval_default_value" translatable="false">2</string>
+    <string name="alert_reminder_interval_in_min_default" translatable="false">2</string>
 
     <!-- Values that for the vibration pattern. -->
     <integer-array name="default_vibration_pattern">

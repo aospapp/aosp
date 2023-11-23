@@ -46,6 +46,12 @@ public class ProvisioningControllerFactory {
                     params,
                     UserHandle.myUserId(),
                     callback);
+        } else if (mUtils.isFinancedDeviceAction(params.provisioningAction)) {
+            return new FinancedDeviceProvisioningController(
+                    context,
+                    params,
+                    UserHandle.myUserId(),
+                    callback);
         } else {
             return new ProfileOwnerProvisioningController(
                     context,

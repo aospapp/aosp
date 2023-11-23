@@ -17,21 +17,19 @@
 package com.android.car.dialer.ui.activecall;
 
 import android.os.Bundle;
-import android.telecom.Call;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModelProviders;
 
 import com.android.car.apps.common.BackgroundImageView;
 import com.android.car.dialer.R;
-
-import com.google.common.annotations.VisibleForTesting;
 
 /**
  * A fragment that displays information about an on-going call with options to hang up.
@@ -58,12 +56,8 @@ public class OngoingCallFragment extends InCallFragment {
 
         inCallViewModel.getPrimaryCallDetail().observe(this, this::bindUserProfileView);
         inCallViewModel.getCallStateAndConnectTime().observe(this, this::updateCallDescription);
-        inCallViewModel.getSecondaryCall().observe(this, this::maybeShowOnholdCallFragment);
 
-        OngoingCallStateViewModel ongoingCallStateViewModel = ViewModelProviders.of(
-                getActivity()).get(OngoingCallStateViewModel.class);
-        mDialpadState = ongoingCallStateViewModel.getDialpadState();
-        mDialpadState.setValue(savedInstanceState == null ? false : !mDialpadFragment.isHidden());
+        mDialpadState = inCallViewModel.getDialpadOpenState();
         mDialpadState.observe(this, isDialpadOpen -> {
             if (isDialpadOpen) {
                 onOpenDialpad();
@@ -71,6 +65,10 @@ public class OngoingCallFragment extends InCallFragment {
                 onCloseDialpad();
             }
         });
+
+        inCallViewModel.shouldShowOnholdCall().observe(this,
+                this::maybeShowOnholdCallFragment);
+
         return fragmentView;
     }
 
@@ -92,11 +90,11 @@ public class OngoingCallFragment extends InCallFragment {
         mBackgroundImage.setDimmed(false);
     }
 
-    private void maybeShowOnholdCallFragment(@Nullable Call secondaryCall) {
-        if (secondaryCall == null || secondaryCall.getState() != Call.STATE_HOLDING) {
-            getChildFragmentManager().beginTransaction().hide(mOnholdCallFragment).commit();
-        } else {
+    private void maybeShowOnholdCallFragment(Boolean showOnholdCall) {
+        if (showOnholdCall) {
             getChildFragmentManager().beginTransaction().show(mOnholdCallFragment).commit();
+        } else {
+            getChildFragmentManager().beginTransaction().hide(mOnholdCallFragment).commit();
         }
     }
 }

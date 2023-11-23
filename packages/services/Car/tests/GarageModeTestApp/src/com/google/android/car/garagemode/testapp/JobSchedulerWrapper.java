@@ -48,8 +48,8 @@ class JobSchedulerWrapper {
     private static final int MAX_SECONDS_PER_JOB = 9 * 60; // 9 minutes
     private static final int JOB_OVERLAP_SECONDS = 10;
 
-    @GuardedBy("sExtendedJobInfoMap")
-    private static final Map<Integer, ExtendedJobInfo> sExtendedJobInfoMap = new HashMap<>();
+    @GuardedBy("mExtendedJobInfoMap")
+    private final Map<Integer, ExtendedJobInfo> mExtendedJobInfoMap = new HashMap<>();
 
     private JobScheduler mJobScheduler;
     private Context mContext;
@@ -57,6 +57,7 @@ class JobSchedulerWrapper {
     private Handler mHandler;
     private Watchdog mWatchdog;
     private Runnable mRefreshWorker;
+    private boolean mStopWhenFinished = false;
 
     private List<JobInfo> mLastJobsList;
     private List<JobInfo> mNewJobs;
@@ -99,18 +100,36 @@ class JobSchedulerWrapper {
         LOG.d("Starting JobSchedulerWrapper");
         mHandler = new Handler();
         mRefreshWorker = () -> {
-            refresh();
-            mHandler.postDelayed(mRefreshWorker, 1000);
+            refresh(); // Could nullify mHandler
+            if (mHandler != null) {
+                mHandler.postDelayed(mRefreshWorker, 1000);
+            }
         };
         mHandler.postDelayed(mRefreshWorker, 1000);
     }
 
     public void stop() {
+        boolean canStopNow;
+        synchronized (mExtendedJobInfoMap) {
+            canStopNow = mExtendedJobInfoMap.isEmpty();
+        }
+        if (canStopNow) {
+            stopNow();
+        } else {
+            // There are continuing jobs that we need to schedule
+            // in the future, so don't stop now. We'll stop when
+            // we have scheduled those future jobs.
+            mStopWhenFinished = true;
+        }
+    }
+
+    private void stopNow() {
         LOG.d("Stopping JobSchedulerWrapper");
         mHandler.removeCallbacks(mRefreshWorker);
         mRefreshWorker = null;
         mHandler = null;
         mWatchdog = null;
+        mStopWhenFinished = false;
     }
 
     public void scheduleAJob(
@@ -157,12 +176,10 @@ class JobSchedulerWrapper {
         editor.putInt(PREFS_NEXT_JOB_ID, jobId + 1);
         editor.commit();
 
-        refresh();
-
         if (extraSeconds > 0) {
             // Remember to schedule another job when this one ends
-            synchronized (sExtendedJobInfoMap) {
-                sExtendedJobInfoMap.put(jobId,
+            synchronized (mExtendedJobInfoMap) {
+                mExtendedJobInfoMap.put(jobId,
                                         new ExtendedJobInfo(extraSeconds,
                                                             networkType,
                                                             isChargingRequired,
@@ -179,6 +196,7 @@ class JobSchedulerWrapper {
                          isChargingRequired,
                          isIdleRequired);
         }
+        refresh();
     }
 
     private void updateListView() {
@@ -254,14 +272,25 @@ class JobSchedulerWrapper {
         // extension for any of the newly-completed jobs.
         for (JobInfo completedJobInfo : completedJobsList) {
             ExtendedJobInfo extensionInfo;
-            synchronized (sExtendedJobInfoMap) {
-                extensionInfo = sExtendedJobInfoMap.remove(completedJobInfo.getId());
+            synchronized (mExtendedJobInfoMap) {
+                extensionInfo = mExtendedJobInfoMap.remove(completedJobInfo.getId());
             }
             if (extensionInfo != null) {
                 scheduleAJob(extensionInfo.jobLengthSeconds,
                              extensionInfo.networkType,
                              extensionInfo.chargingRequired,
                              extensionInfo.idleRequired);
+            }
+        }
+        if (mStopWhenFinished) {
+            boolean canStopNow;
+            synchronized (mExtendedJobInfoMap) {
+                canStopNow = mExtendedJobInfoMap.isEmpty();
+            }
+            if (canStopNow) {
+                // We were asked to stop earlier, but we had more
+                // work to do. That work is now done, so stop now.
+                stopNow();
             }
         }
         return completedJobsList;

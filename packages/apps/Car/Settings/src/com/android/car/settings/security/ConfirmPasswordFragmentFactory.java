@@ -17,9 +17,9 @@
 package com.android.car.settings.security;
 
 import android.app.admin.DevicePolicyManager;
-import android.car.userlib.CarUserManagerHelper;
 import android.content.Context;
 import android.os.Bundle;
+import android.os.UserHandle;
 
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
@@ -44,7 +44,7 @@ public class ConfirmPasswordFragmentFactory {
     public static Fragment getFragment(Context context) {
         Fragment fragment;
         int passwordQuality = new LockPatternUtils(context).getKeyguardStoredPasswordQuality(
-                new CarUserManagerHelper(context).getCurrentProcessUserId());
+                UserHandle.myUserId());
         switch (passwordQuality) {
             case DevicePolicyManager.PASSWORD_QUALITY_UNSPECIFIED:
                 // User has not set a password.
@@ -69,7 +69,7 @@ public class ConfirmPasswordFragmentFactory {
         if (bundle == null) {
             bundle = new Bundle();
         }
-        bundle.putInt(ChooseLockTypeFragment.EXTRA_CURRENT_PASSWORD_QUALITY, passwordQuality);
+        bundle.putInt(PasswordHelper.EXTRA_CURRENT_PASSWORD_QUALITY, passwordQuality);
         fragment.setArguments(bundle);
         return fragment;
     }

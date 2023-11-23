@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<carAudioConfiguration version="1">
+<carAudioConfiguration version="2">
     <zones>
         <zone name="primary zone" isPrimary="true">
             <volumeGroups>
@@ -14,12 +14,13 @@
                 <group>
                     <device address="bus1_navigation_out">
                         <context context="navigation"/>
+                        <context context="emergency"/>
+                        <context context="safety"/>
+                        <context context="vehicle_status"/>
+                        <context context="announcement"/>
                     </device>
                 </group>
             </volumeGroups>
-            <displays>
-                <display port="one"/>
-            </displays>
         </zone>
     </zones>
 </carAudioConfiguration>

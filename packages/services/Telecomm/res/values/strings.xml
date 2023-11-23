@@ -48,6 +48,43 @@
          [CHAR LIMIT=18] -->
     <string name="notification_missedCall_message">Message</string>
 
+    <!-- Disconnected call notification label, used when the call has been automatically
+         disconnected by telecom to make room for a higher priority call, such as an emergency
+         call.-->
+    <string name="notification_disconnectedCall_title">Disconnected call</string>
+    <!-- Body of the notification presented when an ongoing call is disconnected in favor of placing
+         an emergency call. This is required by some carriers. [CHAR LIMIT=NONE] -->
+    <string name="notification_disconnectedCall_body">The call to <xliff:g id="caller">%s</xliff:g> has been disconnected due to an emergency call being placed.</string>
+    <!-- Body of the notification presented when an ongoing call is disconnected in favor of placing
+         an emergency call. This version is used when the call that was disconnected was also an
+         emergency call. In this case, we want to hide the exact number dialed in order to protect
+         user privacy. [CHAR LIMIT=NONE] -->
+    <string name="notification_disconnectedCall_generic_body">
+        Your call has been disconnected due to an emergency call being placed.
+    </string>
+
+    <!-- Title for the persistent notification presented when an app has requested that a call
+         be put into the background so that the app can access the audio from the call
+         [CHAR LIMIT=40] -->
+    <string name="notification_audioProcessing_title">Background call</string>
+    <!-- Body of the persistent notification presented when an app requests
+         that a call be put into the background so that the app can access the audio from the call.
+         [CHAR LIMIT=NONE] -->
+    <string name="notification_audioProcessing_body">
+        <xliff:g id="audio_processing_app_name">%s</xliff:g> has placed a call into the
+        background. This app may be accessing and playing audio over the call.
+    </string>
+
+    <!-- Crashed in call service notification label, used when the in call service has crashed and
+         the system fall back to use system dialer. [CHAR LIMIT=NONE] -->
+    <string name="notification_incallservice_not_responding_title">
+        <xliff:g id="in_call_service_app_name">%s</xliff:g> stopped responding
+    </string>
+    <!-- Body of the notification presented when an in call service crashed. [CHAR LIMIT=NONE] -->
+    <string name="notification_incallservice_not_responding_body">
+        Your call used the phone app that came with your device
+    </string>
+
     <!-- Content description of the call muted notification icon for
          accessibility (not shown on the screen). [CHAR LIMIT=NONE] -->
     <string name="accessibility_call_muted">Call muted.</string>
@@ -276,6 +313,12 @@
     <string name="notification_channel_missed_call">Missed calls</string>
     <!-- Notification channel name for a channel containing call blocking notifications. -->
     <string name="notification_channel_call_blocking">Call Blocking</string>
+    <!-- Notification channel name for a channel containing background call notifications. -->
+    <string name="notification_channel_background_calls">Background calls</string>
+    <!-- Notification channel name for a channel containing disconnected call notifications. -->
+    <string name="notification_channel_disconnected_calls">Disconnected calls</string>
+    <!-- Notification channel name for a channel containing crashed phone apps service notifications. -->
+    <string name="notification_channel_in_call_service_crash">Crashed phone apps</string>
 
     <!-- Alert dialog content used to inform the user that placing a new outgoing call will end the
          ongoing call in the app "other_app". -->
@@ -321,6 +364,11 @@
     <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt">Call Blocking has been disabled to allow emergency responders to contact you.</string>
     <!-- Window title used for the Telecom Developer Menu -->
     <string name="developer_title">Telecom Developer Menu</string>
+    <!-- Some carriers allow an "external" call that has been placed on another device (another
+    tablet, phone, etc...) to be transferred to this device and taken as a call. In
+    the situation that we are already in an emergency call, notify the user that the call can not
+    be taken at this time.-->
+    <string name="toast_emergency_can_not_pull_call">Calls can not be taken while in an emergency call.</string>
     <!-- Label for a switch in the Telecom Developer Menu which is used to enable the enhanced call
          blocking functionality (for test purposes).
          DO NOT TRANSLATE -->

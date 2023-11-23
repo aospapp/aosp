@@ -59,23 +59,15 @@ public class KeyboardPreferenceController extends PreferenceController<Preferenc
     @Override
     protected void updateState(Preference preference) {
         List<InputMethodInfo> inputMethodInfos =
-                mInputMethodManager.getEnabledInputMethodList();
+                InputMethodUtil.getPermittedAndEnabledInputMethodList(
+                    mInputMethodManager, mDevicePolicyManager);
         if (inputMethodInfos == null) {
             preference.setSummary(SUMMARY_EMPTY);
             return;
         }
 
-        // permittedList == null means all input methods are allowed.
-        List<String> permittedList =
-                mDevicePolicyManager.getPermittedInputMethodsForCurrentUser();
         List<String> labels = new ArrayList<>();
-
         for (InputMethodInfo inputMethodInfo : inputMethodInfos) {
-            boolean isAllowedByOrganization = permittedList == null
-                    || permittedList.contains(inputMethodInfo.getPackageName());
-            if (!isAllowedByOrganization) {
-                continue;
-            }
             labels.add(InputMethodUtil.getPackageLabel(mPackageManager, inputMethodInfo));
         }
         if (labels.isEmpty()) {

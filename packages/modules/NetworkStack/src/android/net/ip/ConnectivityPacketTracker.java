@@ -28,6 +28,7 @@ import android.net.util.InterfaceParams;
 import android.net.util.NetworkStackUtils;
 import android.net.util.PacketReader;
 import android.os.Handler;
+import android.os.SystemClock;
 import android.system.ErrnoException;
 import android.system.Os;
 import android.text.TextUtils;
@@ -35,6 +36,7 @@ import android.util.LocalLog;
 import android.util.Log;
 
 import com.android.internal.util.HexDump;
+import com.android.internal.util.TokenBucket;
 
 import java.io.FileDescriptor;
 import java.io.IOException;
@@ -63,10 +65,15 @@ public class ConnectivityPacketTracker {
     private static final String MARK_STOP = "--- STOP ---";
     private static final String MARK_NAMED_START = "--- START (%s) ---";
     private static final String MARK_NAMED_STOP = "--- STOP (%s) ---";
+    // Use a TokenBucket to limit CPU usage of logging packets in steady state.
+    private static final int TOKEN_FILL_RATE = 50;   // Maximum one packet every 20ms.
+    private static final int MAX_BURST_LENGTH = 100; // Maximum burst 100 packets.
 
     private final String mTag;
     private final LocalLog mLog;
     private final PacketReader mPacketListener;
+    private final TokenBucket mTokenBucket = new TokenBucket(TOKEN_FILL_RATE, MAX_BURST_LENGTH);
+    private long mLastRateLimitLogTimeMs = 0;
     private boolean mRunning;
     private String mDisplayName;
 
@@ -104,7 +111,7 @@ public class ConnectivityPacketTracker {
             try {
                 s = Os.socket(AF_PACKET, SOCK_RAW | SOCK_NONBLOCK, 0);
                 NetworkStackUtils.attachControlPacketFilter(s, ARPHRD_ETHER);
-                Os.bind(s, makePacketSocketAddress((short) ETH_P_ALL, mInterface.index));
+                Os.bind(s, makePacketSocketAddress(ETH_P_ALL, mInterface.index));
             } catch (ErrnoException | IOException e) {
                 logError("Failed to create packet tracking socket: ", e);
                 closeFd(s);
@@ -115,9 +122,25 @@ public class ConnectivityPacketTracker {
 
         @Override
         protected void handlePacket(byte[] recvbuf, int length) {
-            final String summary = ConnectivityPacketSummary.summarize(
-                    mInterface.macAddr, recvbuf, length);
-            if (summary == null) return;
+            if (!mTokenBucket.get()) {
+                // Rate limited. Log once every second so the user knows packets are missing.
+                final long now = SystemClock.elapsedRealtime();
+                if (now >= mLastRateLimitLogTimeMs + 1000) {
+                    addLogEntry("Warning: too many packets, rate-limiting to one every " +
+                                TOKEN_FILL_RATE + "ms");
+                    mLastRateLimitLogTimeMs = now;
+                }
+                return;
+            }
+
+            final String summary;
+            try {
+                summary = ConnectivityPacketSummary.summarize(mInterface.macAddr, recvbuf, length);
+                if (summary == null) return;
+            } catch (Exception e) {
+                if (DBG) Log.d(mTag, "Error creating packet summary", e);
+                return;
+            }
 
             if (DBG) Log.d(mTag, summary);
             addLogEntry(summary + "\n[" + HexDump.toHexString(recvbuf, 0, length) + "]");

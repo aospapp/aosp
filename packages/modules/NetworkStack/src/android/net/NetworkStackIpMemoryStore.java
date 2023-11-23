@@ -16,8 +16,9 @@
 
 package android.net;
 
-import android.annotation.NonNull;
 import android.content.Context;
+
+import androidx.annotation.NonNull;
 
 import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;

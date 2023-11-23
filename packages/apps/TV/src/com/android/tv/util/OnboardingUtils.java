@@ -20,6 +20,10 @@ import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.preference.PreferenceManager;
+import android.support.annotation.Nullable;
+import android.text.TextUtils;
+
+import com.android.tv.common.flags.UiFlags;
 
 /** A utility class related to onboarding experience. */
 public final class OnboardingUtils {
@@ -27,11 +31,13 @@ public final class OnboardingUtils {
     private static final String PREF_KEY_ONBOARDING_VERSION_CODE = "pref_onbaording_versionCode";
     private static final int ONBOARDING_VERSION = 1;
 
-    private static final String MERCHANT_COLLECTION_URL_STRING = getMerchantCollectionUrl();
-
-    /** Intent to show merchant collection in online store. */
-    public static final Intent ONLINE_STORE_INTENT =
-            new Intent(Intent.ACTION_VIEW, Uri.parse(MERCHANT_COLLECTION_URL_STRING));
+    @Nullable
+    public static Intent createOnlineStoreIntent(UiFlags uiFlags) {
+        String uriString = uiFlags.moreChannelsUrl();
+        return TextUtils.isEmpty(uriString)
+                ? null
+                : new Intent(Intent.ACTION_VIEW, Uri.parse(uriString));
+    }
 
     /** Checks if this is the first boot after the onboarding experience has been applied. */
     public static boolean isFirstBoot(Context context) {
@@ -67,11 +73,6 @@ public final class OnboardingUtils {
                 .edit()
                 .putInt(PREF_KEY_ONBOARDING_VERSION_CODE, ONBOARDING_VERSION)
                 .apply();
-    }
-
-    /** Returns merchant collection URL. */
-    private static String getMerchantCollectionUrl() {
-        return "TODO: add a merchant collection url";
     }
 
     private OnboardingUtils() {}

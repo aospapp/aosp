@@ -45,7 +45,6 @@
 
     <PreferenceCategory
             android:key="system_accessibility_services"
-            android:title="@string/system_services"
-            android:layout="@layout/preference_category_compact_layout"/>
+            android:title="@string/system_services"/>
 
 </PreferenceScreen>

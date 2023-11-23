@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 
+  ~ Copyright (C) 2019 The Android Open Source Project
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~
+  ~      http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+   -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="default_device_name" msgid="405493967512651629">"জড়িত ডিভাইচ"</string>
+    <string name="add_device_title" msgid="6166003577845888151">"জড়িত ডিভাইচটো যোগ দিয়ক"</string>
+    <string name="add_associated_device_title" msgid="3275596124326477381">"এটা সহযোগী ডিভাইচ সংযোগ কৰক"</string>
+    <string name="add_associated_device_instruction" msgid="1015406964657139291">"আপোনাৰ গাড়ী চলোৱাৰ অভিজ্ঞতা পৰিচালনা কৰাত সহায় কৰিবলৈ আপুনি নিজৰ ফ’নটো এটা সহযোগী ডিভাইচ হিচাপে ব্যৱহাৰ কৰিব পাৰে"</string>
+    <string name="associated_device_install_app" msgid="981663561198924864">"আপোনাৰ ফ’নটোত "<b>"সহযোগী এপ্‌"</b>" ইনষ্টল হৈ থকাটো নিশ্চিত কৰক"</string>
+    <string name="associated_device_pairing_code_title" msgid="5118861901337336309">"ক’ডটো ফ’নত নিশ্চিত কৰক"</string>
+    <string name="associated_device_pairing_message" msgid="7319249426394299109">"এইটো আপোনাৰ ফ’নটোত দেখুওৱা ক’ডটোৰ সৈতে মিলাটো নিশ্চিত কৰক"</string>
+    <string name="associated_device_success" msgid="584760065696870256">"ডিভাইচটো সফলতাৰে জড়িত কৰা হৈছে"</string>
+    <string name="associated_device_select_device" msgid="1931869046289060602">"এপ্‌টো খুলি &lt;b&gt;<xliff:g id="CAR_NAME">%1$s</xliff:g>&lt;b&gt;ৰে সংযোগ কৰক"</string>
+    <string name="remove_associated_device_title" msgid="4060806982019423895">"&lt;b&gt;<xliff:g id="CAR_NAME">%1$s</xliff:g>&lt;/b&gt;ক আঁতৰাবনে?"</string>
+    <string name="remove_associated_device_message" msgid="3991333597951462900">"এই গাড়ীখনক আৰু এই ডিভাইচটোৰ সৈতে পেয়াৰ কৰা নহ’ব। ইয়াৰ উপৰিও আপুনি সহযোগী এপ্‌টোৰ পৰা এই গাড়ীখন আঁতৰাব লাগিব।"</string>
+    <string name="device_removed_success_toast_text" msgid="3242832156490823936">"<xliff:g id="PHONE_NAME">%1$s</xliff:g>ক আঁতৰোৱা হৈছে"</string>
+    <string name="device_removed_failure_toast_text" msgid="3756625943664982395">"<xliff:g id="PHONE_NAME">%1$s</xliff:g>ক আঁতৰাব পৰা নগ’ল"</string>
+    <string name="continue_setup_toast_text" msgid="8487187853051037413">"আপোনাৰ ফ’নটোত ছেটআপ অব্যাহত ৰাখক"</string>
+    <string name="error_screen_title" msgid="3977744142045194903">"কিবা ভুল হ’ল"</string>
+    <string name="error_screen_message" msgid="1217200461704367056">"দুৰ্ভাগ্যবশতঃ, এই স্ক্ৰীনখনে সঠিকভাৱে দেখুৱাবলৈ সক্ষম নহ\'ল। অনুগ্ৰহ কৰি পুনৰ চেষ্টা কৰক।"</string>
+    <string name="turn_on_bluetooth_title" msgid="2877749869113938263">"ব্লুটুথ অন কৰক"</string>
+    <string name="turn_on_bluetooth_message" msgid="5087006108685547788">"আপোনাৰ ফ’নটোক এটা সহযোগী ডিভাইচ হিচাপে ছেট আপ কৰিবলৈ আপোনাৰ গাড়ীখনক ব্লুটুথৰ প্ৰয়োজন।"</string>
+    <string name="turn_on_bluetooth_dialog_title" msgid="8693712073791430461">"ব্লুটুথ অন কৰিবনে?"</string>
+    <string name="turn_on_bluetooth_dialog_message" msgid="5347157597209022072">"আপোনাৰ সহযোগী ডিভাইচটোৰ সৈতে সংযোগ কৰিবলৈ আপোনাৰ গাড়ীখনক ব্লুটুথৰ প্ৰয়োজন।"</string>
+    <string name="accept" msgid="1454710793329618813">"গ্ৰহণ কৰক"</string>
+    <string name="reject" msgid="4315432282758892890">"প্ৰত্যাখ্যান কৰক"</string>
+    <string name="confirm" msgid="3748997214719276945">"নিশ্চিত কৰক"</string>
+    <string name="cancel" msgid="4306609731174629323">"বাতিল কৰক"</string>
+    <string name="remove" msgid="5513398257088729188">"আঁতৰাওক"</string>
+    <string name="ok" msgid="2825038997730899083">"ঠিক আছে"</string>
+    <string name="connection" msgid="2798490936433656846">"সংযোগ"</string>
+    <string name="forget_title" msgid="3027608547243824729">"এই ডিভাইচটো আঁতৰাওক"</string>
+    <string name="forget" msgid="2069897665699141222">"পাহৰি যাওক"</string>
+    <string name="disable" msgid="4619854429066283970">"অক্ষম কৰক"</string>
+    <string name="enable" msgid="7656386199154111316">"সক্ষম কৰক"</string>
+    <string name="continue_button" msgid="2748318968566159950">"অব্যাহত ৰাখক"</string>
+    <string name="retry" msgid="3783419451480721367">"পুনৰ চেষ্টা কৰক"</string>
+    <string name="turn_on" msgid="4288754850470994812">"অন কৰক"</string>
+    <string name="not_now" msgid="8764692269093707622">"এতিয়া নহয়"</string>
+    <string name="connected" msgid="8051190714042020471">"সংযোগ কৰা হৈছে"</string>
+    <string name="notDetected" msgid="4115229772085594506">"চিনাক্ত কৰা হোৱা নাই"</string>
+    <string name="disconnected" msgid="8526513868622591894">"সংযোগ বিচ্ছিন্ন হৈছে"</string>
+    <string name="unknown" msgid="555736316465118024">"অজ্ঞাত"</string>
+    <string name="app_running_msg_channel_name" msgid="87011783084544733">"ফ’নৰ পাঠ বাৰ্তাৰ সেৱাটো চলি আছে"</string>
+    <string name="app_running_msg_notification_title" msgid="388907180286994900">"ফ’নৰ পাঠ বাৰ্তাৰ সেৱাটো সক্ৰিয় হৈ আছে"</string>
+    <string name="app_running_msg_notification_content" msgid="4602261901969140233">"সহযোগী ডিভাইচৰ জৰিয়তে পাঠ বাৰ্তাসমূহ লাভ কৰি থকা হৈছে"</string>
+    <string name="trusted_device_feature_title" msgid="2690568414493283969">"ফ’নৰ জৰিয়তে প্ৰ’ফাইল আনলক কৰক"</string>
+    <string name="trusted_device_feature_instruction" msgid="2546439818978826962">"আনলক কৰাৰ বিকল্পসমূহ ছেট কৰিবলৈ আপোনাৰ সহযোগী এপ্‌টো পৰীক্ষা কৰক"</string>
+    <string name="trusted_device_item_title" msgid="4390572381407233745">"&lt;b&gt;<xliff:g id="PHONE_NAME">%1$s</xliff:g>&lt;/b&gt;ক মোৰ প্ৰ’ফাইলটো আনলক কৰিবলৈ দিয়ক"</string>
+    <string name="device_not_connected_dialog_title" msgid="1157155922752758658">"আপোনাৰ ফ’নটো সক্ৰিয়ভাৱে সংযোগ হৈ থাকিবই লাগিব"</string>
+    <string name="device_not_connected_dialog_message" msgid="4987412656697205324">"এই সুবিধাটো অন কৰিবলৈ আপোনাৰ গাড়ী আৰু ফ’নটোত ব্লুটুথ অন থকাটো আৰু এটা আনটোৰ ওচৰত থকাটো নিশ্চিত কৰক"</string>
+    <string name="trusted_device_enrollment_success_message" msgid="2080578779942302923">"&lt;b&gt;<xliff:g id="PHONE_NAME">%1$s</xliff:g>&lt;/b&gt;এ এতিয়া আপোনাৰ প্ৰ’ফাইলটো আনলক কৰিব পাৰে"</string>
+    <string name="create_profile_lock_dialog_title" msgid="7865225698595414341">"এটা প্ৰাথমিক প্ৰ’ফাইল লক সৃষ্টি কৰক"</string>
+    <string name="create_profile_lock_dialog_message" msgid="5078929325894045416">"আপোনাৰ প্ৰ’ফাইল আনলক কৰাৰ বাবে নিজৰ ফ’নটো ব্যৱহাৰ কৰিবলৈ আপোনাক বেকআপ হিচাপে এটা প্ৰাথমিক প্ৰ’ফাইল লকৰ প্ৰয়োজন"</string>
+    <string name="unlock_profile_to_finish_title" msgid="6542028315996392302">"সম্পূর্ণ কৰিবলৈ আপোনাৰ প্ৰ’ফাইলটো আনলক কৰক"</string>
+    <string name="unlock_profile_to_finish_message" msgid="8616094218201557262">"আপুনি এটা নতুন প্ৰ’ফাইল লক সৃষ্টি কৰিছে। ইয়াৰ পাছত, আপোনাৰ ফ’নটোৱে আপোনাৰ প্ৰ’ফাইলটো স্বয়ংক্ৰিয়ভাৱে আনলক কৰিব পৰাটো নিশ্চিত কৰিবলৈ এইটো পুনৰ দিয়ক"</string>
+    <string name="disable_device_connection_text" msgid="4361795552013963732">"এই ডিভাইচটোৰ সংযোগ বিছিন্ন কৰক"</string>
+    <string name="enable_device_connection_text" msgid="7742550392552935783">"এই ডিভাইচটো পুনৰ সংযোগ কৰক"</string>
+    <string name="trusted_device_notification_channel_name" msgid="6717174570621750321">"ফ’নৰ জৰিয়তে আনলক কৰক"</string>
+    <string name="trusted_device_notification_title" msgid="249913439061543209">"আপোনাৰ ফ’নটোক আপোনাৰ প্ৰ’ফাইলটো আনলক কৰিবলৈ দিয়ক"</string>
+    <string name="trusted_device_notification_content" msgid="7536321078698712456">"এই সুবিধাটোক কৰ্তৃত্ব দিবলৈ ইয়াত টিপক"</string>
+    <string name="trusted_device_enrollment_error_dialog_title" msgid="8120284275374458606">"কিবা ভুল হ’ল"</string>
+    <string name="trusted_device_enrollment_error_dialog_message" msgid="7205036748277720461">"দুৰ্ভাগ্যবশতঃ, এই সুবিধাটো এই মুহূৰ্তত অন কৰিব পৰা নগ\'ল। অনুগ্ৰহ কৰি পুনৰ চেষ্টা কৰক।"</string>
+    <string name="create_phone_lock_dialog_title" msgid="9160142569534569820">"আপোনাৰ ফ’নটোত এটা স্ক্ৰীন লক সৃষ্টি কৰক"</string>
+    <string name="create_phone_lock_dialog_message" msgid="8209460622086922427">"আপোনাৰ ফ’নটোত কোনো স্ক্ৰীন লক ছেট কৰি থোৱা নাই। আপোনাৰ ফ’নটোৰ জৰিয়তে আপোনাৰ গাড়ীৰ প্ৰ’ফাইল আনলক কৰিবলৈ, প্ৰথমে আপোনাৰ ফ’নটোৰ ছেটিংসমূহত এটা স্ক্ৰীন লক (যাক পাছক’ড বুলিও কোৱা হয়) ছেট কৰক।"</string>
+</resources>

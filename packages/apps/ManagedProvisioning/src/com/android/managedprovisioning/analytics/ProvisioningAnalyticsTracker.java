@@ -22,6 +22,8 @@ import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_TRIGGER;
 import static android.app.admin.DevicePolicyManager.PROVISIONING_TRIGGER_QR_CODE;
 import static android.app.admin.DevicePolicyManager.PROVISIONING_TRIGGER_UNSPECIFIED;
 import static android.nfc.NfcAdapter.ACTION_NDEF_DISCOVERED;
+import static android.stats.devicepolicy.DevicePolicyEnums.PROVISIONING_DPC_SETUP_COMPLETED;
+import static android.stats.devicepolicy.DevicePolicyEnums.PROVISIONING_DPC_SETUP_STARTED;
 import static android.stats.devicepolicy.DevicePolicyEnums.PROVISIONING_MANAGED_PROFILE_ON_FULLY_MANAGED_DEVICE;
 
 import static com.android.internal.logging.nano.MetricsProto.MetricsEvent.PROVISIONING_ACTION;
@@ -91,6 +93,10 @@ public class ProvisioningAnalyticsTracker {
 
     private static final int PROVISIONING_FLOW_TYPE_ADMIN_INTEGRATED = 1;
     private static final int PROVISIONING_FLOW_TYPE_LEGACY = 2;
+
+    private static final int DPC_SETUP_ACTION_UNKNOWN = 1;
+    private static final int DPC_SETUP_ACTION_PROVISIONING_SUCCESSFUL = 2;
+    private static final int DPC_SETUP_ACTION_ADMIN_POLICY_COMPLIANCE = 3;
 
     private final MetricsWriter mMetricsWriter;
 
@@ -217,6 +223,7 @@ public class ProvisioningAnalyticsTracker {
         mMetricsLoggerWrapper.logAction(context, PROVISIONING_TERMS_COUNT, count);
         mMetricsWriter.write(DevicePolicyEventLogger
                 .createEvent(DevicePolicyEnums.PROVISIONING_TERMS_COUNT)
+                .setInt(count)
                 .setTimePeriod(AnalyticsUtils.getProvisioningTime(mSharedPreferences)));
     }
 
@@ -275,6 +282,59 @@ public class ProvisioningAnalyticsTracker {
                 .setStrings(provisioningAction)
                 .setTimePeriod(AnalyticsUtils.getProvisioningTime(mSharedPreferences)));
         maybeLogManagedProfileOnFullyManagedDevice(context, provisioningAction);
+    }
+
+    /**
+     * Logs organization owned managed profile provisioning.
+     */
+    public void logOrganizationOwnedManagedProfileProvisioning() {
+        mMetricsWriter.write(DevicePolicyEventLogger
+                .createEvent(DevicePolicyEnums.PROVISIONING_ORGANIZATION_OWNED_MANAGED_PROFILE)
+                .setTimePeriod(AnalyticsUtils.getProvisioningTime(mSharedPreferences)));
+    }
+
+    /**
+     * Logs when the DPC is started, for the purpose of enterprise setup.  Note that in the admin-
+     * integrated flow, this is when {@link DevicePolicyManager#ACTION_ADMIN_POLICY_COMPLIANCE} is
+     * sent to the DPC, not {@link DevicePolicyManager#ACTION_GET_PROVISIONING_MODE}.
+     *  @param context Context passed to MetricsLogger
+     * @param intentAction Action that was sent to the DPC
+     */
+    public void logDpcSetupStarted(Context context, String intentAction) {
+        mMetricsLoggerWrapper.logAction(context, PROVISIONING_DPC_SETUP_STARTED);
+
+        int intentActionCode;
+        switch(intentAction) {
+            case DevicePolicyManager.ACTION_PROVISIONING_SUCCESSFUL:
+                intentActionCode = DPC_SETUP_ACTION_PROVISIONING_SUCCESSFUL;
+                break;
+            case DevicePolicyManager.ACTION_ADMIN_POLICY_COMPLIANCE:
+                intentActionCode = DPC_SETUP_ACTION_ADMIN_POLICY_COMPLIANCE;
+                break;
+            default:
+                intentActionCode = DPC_SETUP_ACTION_UNKNOWN;
+                break;
+        }
+
+        mMetricsWriter.write(DevicePolicyEventLogger
+                .createEvent(PROVISIONING_DPC_SETUP_STARTED)
+                .setInt(intentActionCode)
+                .setTimePeriod(AnalyticsUtils.getProvisioningTime(mSharedPreferences)));
+    }
+
+    /**
+     * Logs when the DPC finishes with enterprise setup.  Note that this is only logged when setup
+     * happens inside Setup Wizard; if it happens after Setup Wizard, we never find out when the
+     * DPC finishes.
+     *  @param context Context passed to MetricsLogger
+     * @param resultCode The result code that is returned by the DPC
+     */
+    public void logDpcSetupCompleted(Context context, int resultCode) {
+        mMetricsLoggerWrapper.logAction(context, PROVISIONING_DPC_SETUP_COMPLETED);
+        mMetricsWriter.write(DevicePolicyEventLogger
+                .createEvent(PROVISIONING_DPC_SETUP_COMPLETED)
+                .setInt(resultCode)
+                .setTimePeriod(AnalyticsUtils.getProvisioningTime(mSharedPreferences)));
     }
 
     /**

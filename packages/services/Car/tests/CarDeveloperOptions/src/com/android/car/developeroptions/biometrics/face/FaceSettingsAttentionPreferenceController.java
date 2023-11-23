@@ -95,7 +95,8 @@ public class FaceSettingsAttentionPreferenceController extends FaceSettingsPrefe
         }
         // Set to disabled until we know the true value.
         mPreference.setEnabled(false);
-        mFaceManager.getFeature(FaceManager.FEATURE_REQUIRE_ATTENTION, mGetFeatureCallback);
+        mFaceManager.getFeature(getUserId(), FaceManager.FEATURE_REQUIRE_ATTENTION,
+                mGetFeatureCallback);
 
         // Ideally returns a cached value.
         return true;
@@ -107,8 +108,8 @@ public class FaceSettingsAttentionPreferenceController extends FaceSettingsPrefe
         mPreference.setEnabled(false);
         mPreference.setChecked(isChecked);
 
-        mFaceManager.setFeature(FaceManager.FEATURE_REQUIRE_ATTENTION, isChecked, mToken,
-                mSetFeatureCallback);
+        mFaceManager.setFeature(getUserId(), FaceManager.FEATURE_REQUIRE_ATTENTION, isChecked,
+                mToken, mSetFeatureCallback);
         return true;
     }
 

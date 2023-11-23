@@ -34,9 +34,7 @@ import androidx.annotation.VisibleForTesting;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.BaseFragment;
-import com.android.internal.widget.LockPatternUtils;
-
-import java.util.Arrays;
+import com.android.internal.widget.LockscreenCredential;
 
 /**
  * Fragment for confirming existing lock PIN or password.  The containing activity must implement
@@ -56,7 +54,7 @@ public class ConfirmLockPinPasswordFragment extends BaseFragment {
 
     private int mUserId;
     private boolean mIsPin;
-    private byte[] mEnteredPassword;
+    private LockscreenCredential mEnteredPassword;
 
     /**
      * Factory method for creating fragment in PIN mode.
@@ -78,12 +76,6 @@ public class ConfirmLockPinPasswordFragment extends BaseFragment {
         bundle.putBoolean(EXTRA_IS_PIN, false);
         patternFragment.setArguments(bundle);
         return patternFragment;
-    }
-
-    @Override
-    @LayoutRes
-    protected int getActionBarLayoutId() {
-        return R.layout.action_bar_with_button;
     }
 
     @Override
@@ -165,6 +157,14 @@ public class ConfirmLockPinPasswordFragment extends BaseFragment {
         }
     }
 
+    private LockscreenCredential getEnteredPassword() {
+        if (mIsPin) {
+            return LockscreenCredential.createPinOrNone(mPasswordField.getText());
+        } else {
+            return LockscreenCredential.createPasswordOrNone(mPasswordField.getText());
+        }
+    }
+
     private void initPinView(View view) {
         mPinPad = view.findViewById(R.id.pin_pad);
 
@@ -178,21 +178,16 @@ public class ConfirmLockPinPasswordFragment extends BaseFragment {
             @Override
             public void onBackspaceClick() {
                 clearError();
-                byte[] pin = LockPatternUtils.charSequenceToByteArray(mPasswordField.getText());
-                if (pin != null && pin.length > 0) {
+                if (!TextUtils.isEmpty(mPasswordField.getText())) {
                     mPasswordField.getText().delete(mPasswordField.getSelectionEnd() - 1,
                             mPasswordField.getSelectionEnd());
-                }
-                if (pin != null) {
-                    Arrays.fill(pin, (byte) 0);
                 }
             }
 
             @Override
             public void onEnterKeyClick() {
-                mEnteredPassword = LockPatternUtils.charSequenceToByteArray(
-                        mPasswordField.getText());
-                if (mEnteredPassword != null) {
+                mEnteredPassword = getEnteredPassword();
+                if (!mEnteredPassword.isNone()) {
                     initCheckLockWorker();
                     mPinPad.setEnabled(false);
                     mCheckLockWorker.checkPinPassword(mUserId, mEnteredPassword);
@@ -212,8 +207,7 @@ public class ConfirmLockPinPasswordFragment extends BaseFragment {
 
                 initCheckLockWorker();
                 if (!mCheckLockWorker.isCheckInProgress()) {
-                    mEnteredPassword = LockPatternUtils.charSequenceToByteArray(
-                            mPasswordField.getText());
+                    mEnteredPassword = getEnteredPassword();
                     mCheckLockWorker.checkPinPassword(mUserId, mEnteredPassword);
                 }
                 return true;

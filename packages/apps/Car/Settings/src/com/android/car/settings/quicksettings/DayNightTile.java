@@ -20,12 +20,13 @@ import android.annotation.DrawableRes;
 import android.annotation.Nullable;
 import android.app.UiModeManager;
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.drawable.Drawable;
 import android.view.View;
 
 import com.android.car.settings.R;
-import com.android.car.settings.common.FragmentController;
-import com.android.car.settings.display.DisplaySettingsFragment;
+import com.android.car.settings.common.CarSettingActivities;
+import com.android.car.settings.common.FragmentHost;
 
 /**
  * Toggles auto or night mode tile on quick setting page.
@@ -46,7 +47,7 @@ public class DayNightTile implements QuickSettingGridAdapter.Tile {
     DayNightTile(
             Context context,
             StateChangedListener stateChangedListener,
-            FragmentController fragmentController) {
+            FragmentHost fragmentHost) {
         mStateChangedListener = stateChangedListener;
         mContext = context;
         mUiModeManager = (UiModeManager) mContext.getSystemService(Context.UI_MODE_SERVICE);
@@ -57,7 +58,8 @@ public class DayNightTile implements QuickSettingGridAdapter.Tile {
         }
         mText = mContext.getString(R.string.night_mode_tile_label);
         mLaunchDisplaySettings = v -> {
-            fragmentController.launchFragment(new DisplaySettingsFragment());
+            context.startActivity(new Intent(context,
+                    CarSettingActivities.DisplaySettingsActivity.class));
             return true;
         };
     }
@@ -99,7 +101,7 @@ public class DayNightTile implements QuickSettingGridAdapter.Tile {
     @Override
     public void onClick(View v) {
         if (mUiModeManager.getNightMode() == UiModeManager.MODE_NIGHT_YES) {
-            mUiModeManager.setNightMode(UiModeManager.MODE_NIGHT_AUTO);
+            mUiModeManager.setNightMode(UiModeManager.MODE_NIGHT_NO);
         } else {
             mUiModeManager.setNightMode(UiModeManager.MODE_NIGHT_YES);
         }

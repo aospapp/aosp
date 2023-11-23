@@ -16,4 +16,5 @@
   -->
 <resources>
     <dimen name="notification_contact_photo_size">300dp</dimen>
+    <dimen name="contact_avatar_corner_radius_percent" format="float">0.5</dimen>
 </resources>

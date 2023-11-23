@@ -32,7 +32,7 @@
     android:elevation="@dimen/program_guide_side_panel_elevation"
     android:background="@color/program_guide_side_panel_background">
 
-    <android.support.v17.leanback.widget.SearchOrbView
+    <androidx.leanback.widget.SearchOrbView
         android:id="@+id/program_guide_side_panel_search_orb"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -41,7 +41,7 @@
         android:nextFocusDown="@+id/program_guide_side_panel_grid_view"
         android:visibility="gone" />
 
-    <android.support.v17.leanback.widget.VerticalGridView
+    <androidx.leanback.widget.VerticalGridView
         android:id="@id/program_guide_side_panel_grid_view"
         android:layout_width="@dimen/program_guide_side_panel_item_width"
         android:layout_height="match_parent"

@@ -56,11 +56,13 @@ public class CarAppMetadataReader {
         final PackageManager pm = context.getPackageManager();
 
         // Check if any of the activities in the package are DO by checking all the
-        // <activity> elements.
+        // <activity> elements. MATCH_DISABLED_COMPONENTS is included so that we are immediately
+        // prepared to respond to any components that toggle from disabled to enabled.
         PackageInfo pkgInfo =
                 pm.getPackageInfoAsUser(
                         packageName, PackageManager.GET_ACTIVITIES
                                 | PackageManager.GET_META_DATA
+                                | PackageManager.MATCH_DISABLED_COMPONENTS
                                 | PackageManager.MATCH_DIRECT_BOOT_AWARE
                                 | PackageManager.MATCH_DIRECT_BOOT_UNAWARE,
                         userId);

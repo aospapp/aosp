@@ -37,6 +37,7 @@ public class SharedInputHandler {
     private final FocusHandler mFocusManager;
     private final Procedure mSearchCanceler;
     private final Procedure mDirPopper;
+    private final Runnable mSearchExecutor;
     private final Features mFeatures;
     private final SelectionTracker<String> mSelectionMgr;
     private final DrawerController mDrawer;
@@ -47,13 +48,15 @@ public class SharedInputHandler {
             Procedure searchCanceler,
             Procedure dirPopper,
             Features features,
-            DrawerController drawer) {
+            DrawerController drawer,
+            Runnable searchExcutor) {
         mFocusManager = focusHandler;
         mSearchCanceler = searchCanceler;
         mSelectionMgr = selectionMgr;
         mDirPopper = dirPopper;
         mFeatures = features;
         mDrawer = drawer;
+        mSearchExecutor = searchExcutor;
     }
 
     public boolean onKeyDown(int keyCode, KeyEvent event) {
@@ -72,6 +75,10 @@ public class SharedInputHandler {
 
             case KeyEvent.KEYCODE_TAB:
                 return onTab();
+
+            case KeyEvent.KEYCODE_SEARCH:
+                mSearchExecutor.run();
+                return true;
 
             default:
                 // Instead of duplicating the switch-case in #isNavigationKeyCode, best just to

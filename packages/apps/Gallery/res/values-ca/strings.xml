@@ -119,7 +119,7 @@
     <string name="details_image_location" msgid="6460201074393148978">"Ubicació:"</string>
     <string name="details_duration" msgid="1028116471387901402">"Durada:"</string>
     <string name="details_date_taken" msgid="348356840586463178">"Data de captura:"</string>
-    <string name="details_frame_rate" msgid="122397836963498191">"Velocitat de fotogrames:"</string>
+    <string name="details_frame_rate" msgid="122397836963498191">"Fotogrames per segon:"</string>
     <string name="details_bit_rate" msgid="5632311789455402186">"Taxa de bits:"</string>
     <string name="details_codec" msgid="5580300450432398126">"Còdec:"</string>
     <string name="details_format" msgid="3700860266600796363">"Format:"</string>

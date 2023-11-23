@@ -14,23 +14,30 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 <resources>
-    <!-- The theme for the Dialer app. -->
-    <style name="Theme.Dialer" parent="android:Theme.DeviceDefault.NoActionBar">
-        <item name="android:actionBarItemBackground">@drawable/action_button_background</item>
-        <!-- Menu button style -->
-        <item name="android:actionButtonStyle">@style/Widget.Dialer.ActionButton</item>
-        <item name="android:actionOverflowButtonStyle">@style/Widget.Dialer.ActionButton.Overflow
-        </item>
+    <!-- The base theme for the Dialer app. -->
+    <style name="Theme.Dialer" parent="Theme.CarUi.WithToolbar">
         <item name="android:listDivider">@drawable/list_divider</item>
-        <item name="android:toolbarStyle">@style/Widget.Dialer.Toolbar</item>
+        <item name="android:buttonStyle">@style/Widget.Dialer.Button</item>
+        <item name="android:textDirection">locale</item>
     </style>
 
-    <style name="Theme.Dialer.Setting" parent="Theme.Dialer">
-        <item name="preferenceTheme">@style/PreferenceTheme</item>
+    <style name="Theme.Dialer.BidiText" parent="Theme.Dialer">
+        <item name="android:textDirection">ltr</item>
+        <item name="android:textAlignment">viewStart</item>
     </style>
 
-    <style name="PreferenceTheme">
-        <item name="preferenceFragmentListStyle">@style/PreferenceFragmentList.Settings</item>
+    <style name="Theme.Dialer.Telecom">
+        <item name="toolbarTitleMode">@integer/config_toolbar_title_mode</item>
+    </style>
+
+    <style name="Theme.Dialer.InCall">
+        <item name="carUiToolbar">false</item>
+    </style>
+
+    <style name="Theme.Dialer.Setting"/>
+
+    <style name="Theme.Dialer.ErrorActivity">
+        <item name="carUiToolbar">false</item>
     </style>
 
 </resources>

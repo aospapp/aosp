@@ -18,7 +18,8 @@
 <PreferenceScreen
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:settings="http://schemas.android.com/apk/res-auto"
-    android:title="@string/reset_options_title">
+    android:title="@string/reset_options_title"
+    android:key="@string/psk_reset_options">
     <Preference
         android:fragment="com.android.car.settings.system.ResetNetworkFragment"
         android:key="@string/pk_reset_network"

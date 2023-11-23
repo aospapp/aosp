@@ -25,13 +25,14 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.DocumentsContract;
+
 import androidx.annotation.Nullable;
 import androidx.loader.app.LoaderManager;
 import androidx.loader.app.LoaderManager.LoaderCallbacks;
-import androidx.loader.content.CursorLoader;
 import androidx.loader.content.Loader;
 
 import com.android.documentsui.base.DocumentInfo;
+import com.android.documentsui.base.UserId;
 import com.android.documentsui.inspector.InspectorController.DataSupplier;
 
 import java.util.ArrayList;
@@ -63,7 +64,7 @@ public class RuntimeDataSupplier implements DataSupplier {
      * Loads documents metadata.
      */
     @Override
-    public void loadDocInfo(Uri uri, Consumer<DocumentInfo> updateView) {
+    public void loadDocInfo(Uri uri, UserId userId, Consumer<DocumentInfo> updateView) {
         //Check that we have correct Uri type and that the loader is not already created.
         checkArgument(uri.getScheme().equals("content"));
 
@@ -74,13 +75,14 @@ public class RuntimeDataSupplier implements DataSupplier {
                 if (cursor == null || !cursor.moveToFirst()) {
                     updateView.accept(null);
                 } else {
-                    DocumentInfo docInfo = DocumentInfo.fromCursor(cursor, uri.getAuthority());
+                    DocumentInfo docInfo = DocumentInfo.fromCursor(cursor, userId,
+                            uri.getAuthority());
                     updateView.accept(docInfo);
                 }
             }
         };
 
-        mDocCallbacks = new Callbacks(mContext, uri, callback);
+        mDocCallbacks = new Callbacks(mContext, uri, userId, callback);
         mLoaderMgr.restartLoader(getNextLoaderId(), null, mDocCallbacks);
     }
 
@@ -102,16 +104,16 @@ public class RuntimeDataSupplier implements DataSupplier {
             }
         };
 
-        mDirCallbacks = new Callbacks(mContext, children, callback);
+        mDirCallbacks = new Callbacks(mContext, children, directory.userId, callback);
         mLoaderMgr.restartLoader(getNextLoaderId(), null, mDirCallbacks);
     }
 
     @Override
-    public void getDocumentMetadata(Uri uri, Consumer<Bundle> callback) {
+    public void getDocumentMetadata(Uri uri, UserId userId, Consumer<Bundle> callback) {
         mMetadataCallbacks = new LoaderCallbacks<Bundle>() {
             @Override
             public Loader<Bundle> onCreateLoader(int id, Bundle unused) {
-                return new MetadataLoader(mContext, uri);
+                return new MetadataLoader(mContext, uri, userId.getContentResolver(mContext));
             }
 
             @Override
@@ -161,21 +163,24 @@ public class RuntimeDataSupplier implements DataSupplier {
 
         private final Context mContext;
         private final Uri mUri;
+        private final UserId mUserId;
         private final Consumer<Cursor> mCallback;
         private ContentObserver mObserver;
 
-        Callbacks(Context context, Uri uri, Consumer<Cursor> callback) {
+        Callbacks(Context context, Uri uri, UserId userId, Consumer<Cursor> callback) {
             checkArgument(context != null);
             checkArgument(uri != null);
+            checkArgument(userId != null);
             checkArgument(callback != null);
             mContext = context;
             mUri = uri;
+            mUserId = userId;
             mCallback = callback;
         }
 
         @Override
         public Loader<Cursor> onCreateLoader(int id, Bundle args) {
-            return new CursorLoader(mContext, mUri, null, null, null, null);
+            return UserId.createCursorLoader(mContext, mUri, mUserId);
         }
 
         @Override
@@ -192,7 +197,7 @@ public class RuntimeDataSupplier implements DataSupplier {
         @Override
         public void onLoaderReset(Loader<Cursor> loader) {
             if (mObserver != null) {
-                mContext.getContentResolver().unregisterContentObserver(mObserver);
+                mUserId.getContentResolver(mContext).unregisterContentObserver(mObserver);
             }
         }
 

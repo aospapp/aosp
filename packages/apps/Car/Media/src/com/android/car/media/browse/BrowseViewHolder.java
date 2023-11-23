@@ -18,6 +18,7 @@ package com.android.car.media.browse;
 
 import android.content.Context;
 import android.text.TextUtils;
+import android.util.Size;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
@@ -25,22 +26,26 @@ import android.widget.TextView;
 
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.android.car.apps.common.imaging.ImageViewBinder;
 import com.android.car.apps.common.util.ViewUtils;
+import com.android.car.media.MediaAppConfig;
 import com.android.car.media.common.MediaItemMetadata;
 
 /**
  * Generic {@link RecyclerView.ViewHolder} to use for all views in the {@link BrowseAdapter}
  */
 class BrowseViewHolder extends RecyclerView.ViewHolder {
-    final TextView mTitle;
-    final TextView mSubtitle;
-    final ImageView mAlbumArt;
-    final ViewGroup mContainer;
-    final ImageView mRightArrow;
-    final ImageView mTitleDownloadIcon;
-    final ImageView mTitleExplicitIcon;
-    final ImageView mSubTitleDownloadIcon;
-    final ImageView mSubTitleExplicitIcon;
+    private final TextView mTitle;
+    private final TextView mSubtitle;
+    private final ImageView mAlbumArt;
+    private final ViewGroup mContainer;
+    private final ImageView mRightArrow;
+    private final ImageView mTitleDownloadIcon;
+    private final ImageView mTitleExplicitIcon;
+    private final ImageView mSubTitleDownloadIcon;
+    private final ImageView mSubTitleExplicitIcon;
+
+    private final ImageViewBinder<MediaItemMetadata.ArtworkRef> mAlbumArtBinder;
 
     /**
      * Creates a {@link BrowseViewHolder} for the given view.
@@ -60,7 +65,11 @@ class BrowseViewHolder extends RecyclerView.ViewHolder {
                 com.android.car.media.R.id.download_icon_with_subtitle);
         mSubTitleExplicitIcon = itemView.findViewById(
                 com.android.car.media.R.id.explicit_icon_with_subtitle);
+
+        Size maxArtSize = MediaAppConfig.getMediaItemsBitmapMaxSize(itemView.getContext());
+        mAlbumArtBinder = new ImageViewBinder<>(maxArtSize, mAlbumArt);
     }
+
 
     /**
      * Updates this {@link BrowseViewHolder} with the given data
@@ -78,9 +87,9 @@ class BrowseViewHolder extends RecyclerView.ViewHolder {
             mSubtitle.setText(hasMediaItem ? data.mMediaItem.getSubtitle() : null);
             ViewUtils.setVisible(mSubtitle, showSubtitle);
         }
-        if (mAlbumArt != null) {
-            MediaItemMetadata.updateImageView(context, data.mMediaItem, mAlbumArt, 0, true);
-        }
+
+        mAlbumArtBinder.setImage(context, hasMediaItem ? data.mMediaItem.getArtworkKey() : null);
+
         if (mContainer != null && data.mOnClickListener != null) {
             mContainer.setOnClickListener(data.mOnClickListener);
         }
@@ -94,5 +103,13 @@ class BrowseViewHolder extends RecyclerView.ViewHolder {
         ViewUtils.setVisible(mTitleExplicitIcon, !showSubtitle && explicit);
         ViewUtils.setVisible(mSubTitleDownloadIcon, showSubtitle && downloaded);
         ViewUtils.setVisible(mSubTitleExplicitIcon, showSubtitle && explicit);
+    }
+
+    void onViewAttachedToWindow(Context context) {
+        mAlbumArtBinder.maybeRestartLoading(context);
+    }
+
+    void onViewDetachedFromWindow(Context context) {
+        mAlbumArtBinder.maybeCancelLoading(context);
     }
 }

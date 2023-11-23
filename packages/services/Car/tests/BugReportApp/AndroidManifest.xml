@@ -15,9 +15,9 @@
      limitations under the License.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="com.google.android.car.bugreport"
-          android:versionCode="8"
-          android:versionName="1.6.0">
+          package="com.android.car.bugreport"
+          android:versionCode="13"
+          android:versionName="1.7.2">
 
     <uses-permission android:name="android.car.permission.CAR_DRIVING_STATE"/>
     <uses-permission android:name="android.permission.INTERNET"/>
@@ -29,8 +29,13 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-permission android:name="android.permission.DUMP"/>
+    <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS_FULL"/>
+    <uses-permission android:name="android.permission.READ_DEVICE_CONFIG"/>
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
 
-    <application android:label="@string/app_name" android:icon="@drawable/ic_launcher">
+    <application android:label="@string/app_name"
+                 android:icon="@drawable/ic_launcher"
+                 android:requestLegacyExternalStorage="true">
         <activity android:name=".BugReportInfoActivity"
                   android:theme="@android:style/Theme.DeviceDefault.NoActionBar"
                   android:exported="true"
@@ -42,17 +47,28 @@
             </intent-filter>
         </activity>
 
-        <!-- singleInstance allows starting bugreport dialog when BugReportInfoActivity is open. -->
+        <!--
+          singleInstance allows starting bugreport dialog when BugReportInfoActivity is open.
+        -->
         <activity android:name=".BugReportActivity"
                   android:theme="@android:style/Theme.DeviceDefault.Dialog"
                   android:exported="true"
-                  android:launchMode="singleInstance">
+                  android:launchMode="singleInstance"
+                  android:excludeFromRecents="true">
+            <meta-data android:name="distractionOptimized" android:value="true"/>
+            <intent-filter>
+                <action android:name="com.android.car.bugreport.action.START_SILENT"/>
+            </intent-filter>
         </activity>
 
         <service android:name=".BugReportService"
-                 android:exported="false"/>
+                 android:exported="true">
+            <intent-filter>
+                <action android:name="com.android.car.bugreport.action.START_SILENT"/>
+            </intent-filter>
+        </service>
 
-        <service android:name="com.google.android.car.bugreport.UploadJob"
+        <service android:name="com.android.car.bugreport.UploadJob"
                  android:permission="android.permission.BIND_JOB_SERVICE"
                  android:exported="true"/>
 
@@ -63,8 +79,8 @@
             </intent-filter>
         </receiver>
 
-        <provider android:name="com.google.android.car.bugreport.BugStorageProvider"
-                  android:authorities="com.google.android.car.bugreport"
+        <provider android:name="com.android.car.bugreport.BugStorageProvider"
+                  android:authorities="com.android.car.bugreport"
                   android:exported="false"
                   android:singleUser="true"
                   android:multiprocess="false">

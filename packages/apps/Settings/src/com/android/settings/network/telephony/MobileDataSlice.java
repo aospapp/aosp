@@ -38,11 +38,12 @@ import androidx.slice.builders.SliceAction;
 
 import com.android.settings.R;
 import com.android.settings.Utils;
-import com.android.settings.network.AirplaneModePreferenceController;
 import com.android.settings.network.MobileDataContentObserver;
+import com.android.settings.network.SubscriptionUtil;
 import com.android.settings.slices.CustomSliceRegistry;
 import com.android.settings.slices.CustomSliceable;
 import com.android.settings.slices.SliceBackgroundWorker;
+import com.android.settingslib.WirelessUtils;
 
 import com.google.common.annotations.VisibleForTesting;
 
@@ -95,15 +96,18 @@ public class MobileDataSlice implements CustomSliceable {
                 ListBuilder.ICON_IMAGE, title);
         final SliceAction toggleSliceAction = SliceAction.createToggle(toggleAction,
                 null /* actionTitle */, isMobileDataEnabled());
+        final ListBuilder.RowBuilder rowBuilder = new ListBuilder.RowBuilder()
+                .setTitle(title)
+                .addEndItem(toggleSliceAction)
+                .setPrimaryAction(primarySliceAction);
+        if (!Utils.isSettingsIntelligence(mContext)) {
+            rowBuilder.setSubtitle(summary);
+        }
 
         final ListBuilder listBuilder = new ListBuilder(mContext, getUri(),
                 ListBuilder.INFINITY)
                 .setAccentColor(color)
-                .addRow(new ListBuilder.RowBuilder()
-                        .setTitle(title)
-                        .setSubtitle(summary)
-                        .addEndItem(toggleSliceAction)
-                        .setPrimaryAction(primarySliceAction));
+                .addRow(rowBuilder);
         return listBuilder.build();
     }
 
@@ -147,8 +151,8 @@ public class MobileDataSlice implements CustomSliceable {
     }
 
     protected static int getDefaultSubscriptionId(SubscriptionManager subscriptionManager) {
-        final SubscriptionInfo defaultSubscription =
-                subscriptionManager.getDefaultDataSubscriptionInfo();
+        final SubscriptionInfo defaultSubscription = subscriptionManager.getActiveSubscriptionInfo(
+                subscriptionManager.getDefaultDataSubscriptionId());
         if (defaultSubscription == null) {
             return SubscriptionManager.INVALID_SUBSCRIPTION_ID; // No default subscription
         }
@@ -157,8 +161,8 @@ public class MobileDataSlice implements CustomSliceable {
     }
 
     private CharSequence getSummary() {
-        final SubscriptionInfo defaultSubscription =
-                mSubscriptionManager.getDefaultDataSubscriptionInfo();
+        final SubscriptionInfo defaultSubscription = mSubscriptionManager.getActiveSubscriptionInfo(
+                mSubscriptionManager.getDefaultDataSubscriptionId());
         if (defaultSubscription == null) {
             return null; // no summary text
         }
@@ -177,17 +181,14 @@ public class MobileDataSlice implements CustomSliceable {
      */
     private boolean isMobileDataAvailable() {
         final List<SubscriptionInfo> subInfoList =
-                mSubscriptionManager.getSelectableSubscriptionInfoList();
+                SubscriptionUtil.getSelectableSubscriptionInfoList(mContext);
 
         return !(subInfoList == null || subInfoList.isEmpty());
     }
 
     @VisibleForTesting
     boolean isAirplaneModeEnabled() {
-        // Generic key since we only want the method check - no UI.
-        AirplaneModePreferenceController controller = new AirplaneModePreferenceController(mContext,
-                "key" /* Key */);
-        return controller.isChecked();
+        return WirelessUtils.isAirplaneModeOn(mContext);
     }
 
     @VisibleForTesting
@@ -255,7 +256,7 @@ public class MobileDataSlice implements CustomSliceable {
             }
 
             public void register(Context context, int subId) {
-                final Uri uri = MobileDataContentObserver.getObservableUri(subId);
+                final Uri uri = MobileDataContentObserver.getObservableUri(context, subId);
                 context.getContentResolver().registerContentObserver(uri, false, this);
             }
 

@@ -24,10 +24,9 @@ import static org.testng.Assert.assertThrows;
 import android.content.Context;
 
 import androidx.lifecycle.Lifecycle;
-import androidx.preference.Preference;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
+import com.android.car.ui.preference.CarUiPreference;
 import com.android.settingslib.applications.ApplicationsState;
 
 import org.junit.Before;
@@ -35,13 +34,14 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 public class ApplicationPreferenceControllerTest {
     private static final String PACKAGE_NAME = "Test Package Name";
 
-    private Preference mPreference;
+    private CarUiPreference mPreference;
     private PreferenceControllerTestHelper<ApplicationPreferenceController>
             mPreferenceControllerHelper;
     private ApplicationPreferenceController mController;
@@ -56,7 +56,7 @@ public class ApplicationPreferenceControllerTest {
         Context context = spy(RuntimeEnvironment.application);
         mMockAppEntry.label = PACKAGE_NAME;
 
-        mPreference = new Preference(context);
+        mPreference = new CarUiPreference(context);
         mPreferenceControllerHelper = new PreferenceControllerTestHelper<>(context,
                 ApplicationPreferenceController.class);
         mController = mPreferenceControllerHelper.getController();

@@ -16,7 +16,15 @@
   ~ limitations under the License.
   ~
  -->
-<ripple xmlns:android="http://schemas.android.com/apk/res/android"
-        android:color="@color/control_bar_button_background_color"
-        android:radius="@dimen/control_bar_button_background_radius">
-</ripple>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_focused="true">
+        <ripple android:color="@color/car_ui_rotary_focus_color"
+                android:radius="@dimen/control_bar_button_background_radius">
+        </ripple>
+    </item>
+    <item>
+        <ripple android:color="@color/control_bar_button_background_color"
+                android:radius="@dimen/control_bar_button_background_radius">
+        </ripple>
+    </item>
+</selector>

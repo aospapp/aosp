@@ -1,8 +1,11 @@
 package com.android.documentsui.sorting;
 
+import static com.android.documentsui.base.SharedMinimal.TAG;
+
 import android.app.Dialog;
 import android.content.Context;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
@@ -34,11 +37,18 @@ public class SortListFragment extends DialogFragment {
     private List<SortItem> mSortingList;
 
     public static void show(FragmentManager fm, SortModel model) {
-        SortListFragment fragment = new SortListFragment();
-        Bundle args = new Bundle();
-        args.putParcelable(TAG_MODEL, model);
-        fragment.setArguments(args);
-        fragment.show(fm, TAG_SORTING_LIST);
+        if (fm.isStateSaved()) {
+            Log.w(TAG, "Skip show sort dialog because state saved");
+            return;
+        }
+
+        if (fm.findFragmentByTag(TAG_SORTING_LIST) == null) {
+            SortListFragment fragment = new SortListFragment();
+            Bundle args = new Bundle();
+            args.putParcelable(TAG_MODEL, model);
+            fragment.setArguments(args);
+            fragment.show(fm, TAG_SORTING_LIST);
+        }
     }
 
     public SortListFragment() {

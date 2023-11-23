@@ -27,19 +27,17 @@ import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.os.Looper;
 import android.os.RemoteException;
+import android.telephony.SmsManager;
 
 import androidx.lifecycle.Lifecycle;
 import androidx.preference.ListPreference;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceGroup;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.common.LogicalPreferenceGroup;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
 import com.android.car.settings.testutils.ShadowApplicationsState;
-import com.android.car.settings.testutils.ShadowISms;
-import com.android.internal.telephony.ISms;
-import com.android.internal.telephony.SmsUsageMonitor;
+import com.android.car.settings.testutils.ShadowSmsManager;
 import com.android.settingslib.applications.ApplicationsState;
 import com.android.settingslib.applications.ApplicationsState.AppEntry;
 
@@ -51,6 +49,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 
@@ -59,8 +58,8 @@ import java.util.Collections;
 import java.util.List;
 
 /** Unit test for {@link PremiumSmsAccessPreferenceController}. */
-@RunWith(CarSettingsRobolectricTestRunner.class)
-@Config(shadows = {ShadowApplicationsState.class, ShadowISms.class})
+@RunWith(RobolectricTestRunner.class)
+@Config(shadows = {ShadowApplicationsState.class, ShadowSmsManager.class})
 public class PremiumSmsAccessPreferenceControllerTest {
 
     @Mock
@@ -68,7 +67,7 @@ public class PremiumSmsAccessPreferenceControllerTest {
     @Mock
     private ApplicationsState mApplicationsState;
     @Mock
-    private ISms mISms;
+    private SmsManager mSmsManager;
     @Captor
     private ArgumentCaptor<AppEntryListManager.Callback> mCallbackCaptor;
 
@@ -80,7 +79,7 @@ public class PremiumSmsAccessPreferenceControllerTest {
         MockitoAnnotations.initMocks(this);
         ShadowApplicationsState.setInstance(mApplicationsState);
         when(mApplicationsState.getBackgroundLooper()).thenReturn(Looper.getMainLooper());
-        ShadowISms.setISms(mISms);
+        ShadowSmsManager.setDefault(mSmsManager);
 
         Context context = RuntimeEnvironment.application;
         mPreferenceGroup = new LogicalPreferenceGroup(context);
@@ -95,7 +94,7 @@ public class PremiumSmsAccessPreferenceControllerTest {
     @After
     public void tearDown() {
         ShadowApplicationsState.reset();
-        ShadowISms.reset();
+        ShadowSmsManager.reset();
     }
 
     @Test
@@ -125,17 +124,17 @@ public class PremiumSmsAccessPreferenceControllerTest {
         mControllerHelper.markState(Lifecycle.State.STARTED);
         List<AppEntry> entries = Arrays.asList(
                 createAppEntry("test.package", /* uid= */ 1,
-                        SmsUsageMonitor.PREMIUM_SMS_PERMISSION_ALWAYS_ALLOW),
+                        SmsManager.PREMIUM_SMS_CONSENT_ALWAYS_ALLOW),
                 createAppEntry("another.test.package", /* uid= */ 2,
-                        SmsUsageMonitor.PREMIUM_SMS_PERMISSION_NEVER_ALLOW));
+                        SmsManager.PREMIUM_SMS_CONSENT_NEVER_ALLOW));
 
         mCallbackCaptor.getValue().onAppEntryListChanged(entries);
 
         assertThat(mPreferenceGroup.getPreferenceCount()).isEqualTo(2);
         assertThat(((ListPreference) mPreferenceGroup.getPreference(0)).getValue()).isEqualTo(
-                String.valueOf(SmsUsageMonitor.PREMIUM_SMS_PERMISSION_ALWAYS_ALLOW));
+                String.valueOf(SmsManager.PREMIUM_SMS_CONSENT_ALWAYS_ALLOW));
         assertThat(((ListPreference) mPreferenceGroup.getPreference(1)).getValue()).isEqualTo(
-                String.valueOf(SmsUsageMonitor.PREMIUM_SMS_PERMISSION_NEVER_ALLOW));
+                String.valueOf(SmsManager.PREMIUM_SMS_CONSENT_NEVER_ALLOW));
     }
 
     @Test
@@ -144,15 +143,15 @@ public class PremiumSmsAccessPreferenceControllerTest {
         String packageName = "test.package";
         List<AppEntry> entries = Collections.singletonList(
                 createAppEntry(packageName, /* uid= */ 1,
-                        SmsUsageMonitor.PREMIUM_SMS_PERMISSION_NEVER_ALLOW));
+                        SmsManager.PREMIUM_SMS_CONSENT_NEVER_ALLOW));
         mCallbackCaptor.getValue().onAppEntryListChanged(entries);
         Preference appPref = mPreferenceGroup.getPreference(0);
-        int updatedValue = SmsUsageMonitor.PREMIUM_SMS_PERMISSION_ASK_USER;
+        int updatedValue = SmsManager.PREMIUM_SMS_CONSENT_ASK_USER;
 
         appPref.getOnPreferenceChangeListener().onPreferenceChange(appPref,
                 String.valueOf(updatedValue));
 
-        verify(mISms).setPremiumSmsPermission(packageName, updatedValue);
+        verify(mSmsManager).setPremiumSmsConsent(packageName, updatedValue);
     }
 
     @Test
@@ -160,12 +159,12 @@ public class PremiumSmsAccessPreferenceControllerTest {
         mControllerHelper.markState(Lifecycle.State.STARTED);
         List<AppEntry> entries = Collections.singletonList(
                 createAppEntry("test.package", /* uid= */ 1,
-                        SmsUsageMonitor.PREMIUM_SMS_PERMISSION_NEVER_ALLOW));
+                        SmsManager.PREMIUM_SMS_CONSENT_NEVER_ALLOW));
         mCallbackCaptor.getValue().onAppEntryListChanged(entries);
         Preference appPref = mPreferenceGroup.getPreference(0);
 
         appPref.getOnPreferenceChangeListener().onPreferenceChange(appPref,
-                String.valueOf(SmsUsageMonitor.PREMIUM_SMS_PERMISSION_ASK_USER));
+                String.valueOf(SmsManager.PREMIUM_SMS_CONSENT_ASK_USER));
 
         verify(mAppEntryListManager).forceUpdate(entries.get(0));
     }
@@ -178,7 +177,7 @@ public class PremiumSmsAccessPreferenceControllerTest {
         verify(mAppEntryListManager).init(any(), filterCaptor.capture(), any());
         ApplicationsState.AppFilter filter = filterCaptor.getValue().getAppFilter();
         AppEntry unknownStateApp = createAppEntry("test.package", /* uid= */ 1,
-                SmsUsageMonitor.PREMIUM_SMS_PERMISSION_UNKNOWN);
+                SmsManager.PREMIUM_SMS_CONSENT_UNKNOWN);
 
         assertThat(filter.filterApp(unknownStateApp)).isFalse();
     }

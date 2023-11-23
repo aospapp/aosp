@@ -18,7 +18,8 @@
 <PreferenceScreen
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:settings="http://schemas.android.com/apk/res-auto"
-    android:title="@string/bluetooth_device_picker">
+    android:title="@string/bluetooth_device_picker"
+    android:key="@string/psk_bluetooth_device_picker">
     <com.android.car.settings.common.LogicalPreferenceGroup
         android:key="@string/pk_bluetooth_device_picker"
         settings:controller="com.android.car.settings.bluetooth.BluetoothDevicePickerPreferenceController"/>

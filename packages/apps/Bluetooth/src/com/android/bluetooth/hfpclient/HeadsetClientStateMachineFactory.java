@@ -20,7 +20,12 @@ import android.os.HandlerThread;
 
 // Factory so that StateMachine objected can be mocked
 public class HeadsetClientStateMachineFactory {
-    public HeadsetClientStateMachine make(HeadsetClientService context, HandlerThread t) {
-        return HeadsetClientStateMachine.make(context, t.getLooper());
+    /**
+     * Factory method to create state machine for headset client
+     *
+     */
+    public HeadsetClientStateMachine make(HeadsetClientService context, HandlerThread t,
+            NativeInterface nativeInterface) {
+        return HeadsetClientStateMachine.make(context, t.getLooper(), nativeInterface);
     }
 }

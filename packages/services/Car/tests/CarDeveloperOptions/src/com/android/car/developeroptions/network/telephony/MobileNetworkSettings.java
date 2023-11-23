@@ -32,7 +32,9 @@ import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 
-import com.android.internal.telephony.TelephonyIntents;
+import androidx.annotation.VisibleForTesting;
+import androidx.preference.Preference;
+
 import com.android.car.developeroptions.R;
 import com.android.car.developeroptions.core.FeatureFlags;
 import com.android.car.developeroptions.dashboard.RestrictedDashboardFragment;
@@ -44,17 +46,15 @@ import com.android.car.developeroptions.network.telephony.cdma.CdmaSystemSelectP
 import com.android.car.developeroptions.network.telephony.gsm.AutoSelectPreferenceController;
 import com.android.car.developeroptions.network.telephony.gsm.OpenNetworkSelectPagePreferenceController;
 import com.android.car.developeroptions.search.BaseSearchIndexProvider;
-import com.android.car.developeroptions.search.Indexable;
 import com.android.car.developeroptions.widget.PreferenceCategoryController;
+import com.android.internal.telephony.TelephonyIntents;
 import com.android.settingslib.core.AbstractPreferenceController;
+import com.android.settingslib.search.Indexable;
 import com.android.settingslib.search.SearchIndexable;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-
-import androidx.annotation.VisibleForTesting;
-import androidx.preference.Preference;
 
 @SearchIndexable(forTarget = SearchIndexable.ALL & ~SearchIndexable.ARC)
 public class MobileNetworkSettings extends RestrictedDashboardFragment {

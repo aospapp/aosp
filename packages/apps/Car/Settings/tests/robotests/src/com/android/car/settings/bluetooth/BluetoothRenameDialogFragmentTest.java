@@ -27,7 +27,6 @@ import android.widget.EditText;
 import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.R;
 import com.android.car.settings.testutils.BaseTestActivity;
 
@@ -35,12 +34,13 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.Robolectric;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.Shadows;
 import org.robolectric.shadows.ShadowDialog;
 
 /** Unit test for {@link BluetoothRenameDialogFragment}. */
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 public class BluetoothRenameDialogFragmentTest {
 
     private TestBluetoothRenameDialogFragment mFragment;
@@ -50,13 +50,13 @@ public class BluetoothRenameDialogFragmentTest {
     public void setUp() {
         BaseTestActivity activity = Robolectric.setupActivity(BaseTestActivity.class);
         mFragment = new TestBluetoothRenameDialogFragment();
-        activity.showDialog(mFragment, /* tag= */ null);
+        mFragment.show(activity.getSupportFragmentManager(), /* tag= */ null);
         mDialog = (AlertDialog) ShadowDialog.getLatestDialog();
     }
 
     @Test
     public void initialTextIsCurrentDeviceName() {
-        EditText editText = mDialog.findViewById(android.R.id.edit);
+        EditText editText = getEditText();
 
         assertThat(editText.getText().toString()).isEqualTo(mFragment.getDeviceName());
     }
@@ -76,7 +76,7 @@ public class BluetoothRenameDialogFragmentTest {
 
     @Test
     public void userInput_positiveButtonEnabled() {
-        EditText editText = mDialog.findViewById(android.R.id.edit);
+        EditText editText = getEditText();
         editText.append("1234");
 
         assertThat(mDialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled()).isTrue();
@@ -84,7 +84,7 @@ public class BluetoothRenameDialogFragmentTest {
 
     @Test
     public void userInput_emptyName_positiveButtonDisabled() {
-        EditText editText = mDialog.findViewById(android.R.id.edit);
+        EditText editText = getEditText();
         editText.setText("");
 
         assertThat(mDialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled()).isFalse();
@@ -92,7 +92,7 @@ public class BluetoothRenameDialogFragmentTest {
 
     @Test
     public void nameUpdatedByCode_positiveButtonDisabled() {
-        EditText editText = mDialog.findViewById(android.R.id.edit);
+        EditText editText = getEditText();
         editText.append("1234");
 
         mFragment.updateDeviceName();
@@ -102,7 +102,7 @@ public class BluetoothRenameDialogFragmentTest {
 
     @Test
     public void editorDoneAction_dismissesDialog() {
-        EditText editText = mDialog.findViewById(android.R.id.edit);
+        EditText editText = getEditText();
 
         editText.onEditorAction(EditorInfo.IME_ACTION_DONE);
 
@@ -111,7 +111,7 @@ public class BluetoothRenameDialogFragmentTest {
 
     @Test
     public void editorDoneAction_setsDeviceName() {
-        EditText editText = mDialog.findViewById(android.R.id.edit);
+        EditText editText = getEditText();
         String editStr = "1234";
         String expectedName = mFragment.getDeviceName() + editStr;
 
@@ -123,7 +123,7 @@ public class BluetoothRenameDialogFragmentTest {
 
     @Test
     public void editorDoneAction_emptyName_doesNotSetDeviceName() {
-        EditText editText = mDialog.findViewById(android.R.id.edit);
+        EditText editText = getEditText();
         String expectedName = mFragment.getDeviceName();
         String editStr = "";
 
@@ -135,7 +135,7 @@ public class BluetoothRenameDialogFragmentTest {
 
     @Test
     public void positiveButtonClicked_setsDeviceName() {
-        EditText editText = mDialog.findViewById(android.R.id.edit);
+        EditText editText = getEditText();
         String editStr = "1234";
         String expectedName = mFragment.getDeviceName() + editStr;
 
@@ -143,6 +143,10 @@ public class BluetoothRenameDialogFragmentTest {
         mDialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
 
         assertThat(mFragment.getDeviceName()).isEqualTo(expectedName);
+    }
+
+    private EditText getEditText() {
+        return mDialog.findViewById(R.id.textbox);
     }
 
     /** Concrete impl of {@link BluetoothRenameDialogFragment} for testing. */

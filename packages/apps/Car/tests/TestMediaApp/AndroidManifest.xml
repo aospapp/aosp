@@ -17,25 +17,27 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.android.car.media.testmediaapp" >
 
-    <uses-sdk
-        android:minSdkVersion="21"
-        android:targetSdkVersion="28"/>
+    <uses-feature
+        android:name="android.hardware.type.automotive"
+        android:required="true"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
 
     <application
         android:allowBackup="true"
-        android:icon="@mipmap/ic_launcher"
-        android:roundIcon="@mipmap/ic_launcher_round"
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/TestMediaAppTheme" >
 
+        <!-- This provider is read-only, only returns album art, and is not a security risk -->
         <provider
-            android:name=".TmaAssetProvider"
+            android:name=".TmaPublicProvider"
             android:exported="true"
-            android:authorities="com.android.car.media.testmediaapp.assets"/>
+            android:authorities="com.android.car.media.testmediaapp.public"/>
 
         <service
             android:name=".TmaBrowser"
+            android:icon="@drawable/ic_app_icon"
             android:exported="true"
             android:label="@string/app_name">
             <intent-filter>
@@ -44,8 +46,27 @@
             </intent-filter>
         </service>
 
+        <service android:name=".TmaForegroundService"
+                 android:icon="@drawable/ic_app_icon"
+                 android:exported="false"
+                 android:foregroundServiceType="location"
+                 android:label="@string/app_name">
+        </service>
+
+        <service
+            android:name=".TmaBrowser2"
+            android:icon="@mipmap/ic_launcher"
+            android:exported="true"
+            android:label="@string/broken_service">
+            <intent-filter>
+                <action android:name="android.media.browse.MediaBrowserService" />
+                <action android:name="android.intent.action.MEDIA_BUTTON"/>
+            </intent-filter>
+        </service>
+
         <activity
             android:name=".prefs.TmaPrefsActivity"
+            android:exported="true"
             android:label="@string/app_name">
             <intent-filter>
                 <action android:name="android.intent.action.APPLICATION_PREFERENCES"/>
@@ -55,15 +76,19 @@
 
 
         <!--                To use the app on a phone.                      -->
+        <meta-data android:name="com.google.android.gms.car.application"
+            android:resource="@xml/automotive_app_desc"/>
 
-        <activity android:name=".phone.TmaLauncherActivity" >
+        <activity android:name=".phone.TmaLauncherActivity"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
-        <receiver android:name="androidx.media.session.MediaButtonReceiver" >
+        <receiver android:name="androidx.media.session.MediaButtonReceiver"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MEDIA_BUTTON" />
             </intent-filter>

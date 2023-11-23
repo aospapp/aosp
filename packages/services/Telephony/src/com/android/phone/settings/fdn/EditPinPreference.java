@@ -23,8 +23,6 @@ import android.text.InputType;
 import android.util.AttributeSet;
 import android.view.View;
 
-import com.android.phone.R;
-
 /**
  * Class similar to the com.android.settings.EditPinPreference
  * class, with a couple of modifications, including a different layout
@@ -62,27 +60,12 @@ public class EditPinPreference extends EditTextPreference {
         super(context, attrs, defStyle);
     }
 
-    /**
-     * Overridden to setup the correct dialog layout, as well as setting up
-     * other properties for the pin / puk entry field.
-     */
-    @Override
-    protected View onCreateDialogView() {
-        // set the dialog layout
-        setDialogLayoutResource(R.layout.pref_dialog_editpin);
-
-        View dialog = super.onCreateDialogView();
-
-        getEditText().setInputType(InputType.TYPE_CLASS_NUMBER |
-            InputType.TYPE_NUMBER_VARIATION_PASSWORD);
-
-        return dialog;
-    }
-
     @Override
     protected void onBindDialogView(View view) {
         super.onBindDialogView(view);
 
+        getEditText().setInputType(InputType.TYPE_CLASS_NUMBER
+                | InputType.TYPE_NUMBER_VARIATION_PASSWORD);
         // If the layout does not contain an edittext, hide the buttons.
         shouldHideButtons = (view.findViewById(android.R.id.edit) == null);
     }

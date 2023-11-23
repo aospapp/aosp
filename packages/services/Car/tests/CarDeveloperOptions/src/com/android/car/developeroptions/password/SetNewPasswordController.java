@@ -21,8 +21,6 @@ import static android.app.admin.DevicePolicyManager.KEYGUARD_DISABLE_FACE;
 import static android.app.admin.DevicePolicyManager.KEYGUARD_DISABLE_FINGERPRINT;
 import static android.app.admin.DevicePolicyManager.PASSWORD_QUALITY_SOMETHING;
 
-import static com.android.internal.util.Preconditions.checkNotNull;
-
 import android.annotation.Nullable;
 import android.app.ActivityManager;
 import android.app.admin.DevicePolicyManager;
@@ -39,6 +37,8 @@ import androidx.annotation.VisibleForTesting;
 
 import com.android.internal.widget.LockPatternUtils;
 import com.android.car.developeroptions.Utils;
+
+import java.util.Objects;
 
 /**
  * Business logic for {@link SetNewPasswordActivity}.
@@ -99,11 +99,11 @@ final class SetNewPasswordController {
             DevicePolicyManager devicePolicyManager,
             Ui ui) {
         mTargetUserId = targetUserId;
-        mPackageManager = checkNotNull(packageManager);
+        mPackageManager = Objects.requireNonNull(packageManager);
         mFingerprintManager = fingerprintManager;
         mFaceManager = faceManager;
-        mDevicePolicyManager = checkNotNull(devicePolicyManager);
-        mUi = checkNotNull(ui);
+        mDevicePolicyManager = Objects.requireNonNull(devicePolicyManager);
+        mUi = Objects.requireNonNull(ui);
     }
 
     /**

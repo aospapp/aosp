@@ -20,8 +20,8 @@ import android.bluetooth.BluetoothAdapter;
 import android.os.Message;
 import android.util.Log;
 
-import com.android.internal.util.State;
-import com.android.internal.util.StateMachine;
+import com.android.bluetooth.statemachine.State;
+import com.android.bluetooth.statemachine.StateMachine;
 
 /**
  * This state machine handles Bluetooth Adapter State.

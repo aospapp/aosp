@@ -43,5 +43,5 @@
     <string name="metadata_artist" msgid="8972421485694988540">"కళాకారుడు"</string>
     <string name="metadata_composer" msgid="4696926808308256056">"కంపోజర్"</string>
     <string name="metadata_album" msgid="1661699531214720236">"ఆల్బమ్"</string>
-    <string name="metadata_address" msgid="1849921023707744640">"స్థానం"</string>
+    <string name="metadata_address" msgid="1849921023707744640">"లొకేషన్"</string>
 </resources>

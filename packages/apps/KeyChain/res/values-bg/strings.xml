@@ -17,11 +17,11 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_name" msgid="170210454004696382">"Key Chain"</string>
-    <string name="title_no_certs" msgid="8350009443064722873">"Няма намерени сертификати"</string>
     <string name="title_select_cert" msgid="3588447616418041699">"Избор на сертификат"</string>
     <string name="requesting_application" msgid="1589142627467598421">"Приложението %s поиска сертификат. Избирането на такъв ще му разреши да използва тази самоличност със сървърите сега и в бъдеще."</string>
     <string name="requesting_server" msgid="5832565605998634370">"Приложението идентифицира искащия сървър като %s, но трябва да дадете на приложението достъп до сертификата само ако му имате доверие."</string>
     <string name="install_new_cert_message" msgid="4451971501142085495">"Можете да инсталирате сертификати от файл с формат PKCS#12 с разширение %1$s или %2$s, намиращ се във външното хранилище."</string>
     <string name="allow_button" msgid="3030990695030371561">"Избиране"</string>
     <string name="deny_button" msgid="3766539809121892584">"Отказ"</string>
+    <string name="loading_certs_message" msgid="814752048905775439">"Сертификатите се зареждат..."</string>
 </resources>

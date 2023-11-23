@@ -27,7 +27,7 @@
     <string name="toast_message_sent_success" msgid="1159956191974273064">"Mensagem enviada."</string>
     <string name="notification_service_label" msgid="7512186049723777468">"Serviço de escuta de notificações do carro"</string>
     <string name="notifications" msgid="2865534625906329283">"Central de notificações"</string>
-    <string name="clear_all" msgid="1845314281571237722">"Limpar tudo"</string>
+    <string name="clear_all" msgid="1845314281571237722">"Excluir tudo"</string>
     <string name="ellipsized_string" msgid="6993649229498857557">"…"</string>
     <string name="show_more" msgid="7291378544926443344">"Mostrar mais"</string>
     <string name="notification_header" msgid="324550431063568049">"Notificações"</string>

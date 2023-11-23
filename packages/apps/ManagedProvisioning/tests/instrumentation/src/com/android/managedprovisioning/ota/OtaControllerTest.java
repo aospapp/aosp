@@ -44,6 +44,7 @@ import com.android.managedprovisioning.task.DisableInstallShortcutListenersTask;
 import com.android.managedprovisioning.task.DisallowAddUserTask;
 import com.android.managedprovisioning.task.InstallExistingPackageTask;
 import com.android.managedprovisioning.task.MigrateSystemAppsSnapshotTask;
+import com.android.managedprovisioning.task.UpdateInteractAcrossProfilesAppOpTask;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -121,7 +122,8 @@ public class OtaControllerTest {
         assertTaskList(
                 Pair.create(UserHandle.USER_SYSTEM, MigrateSystemAppsSnapshotTask.class),
                 Pair.create(UserHandle.USER_SYSTEM, DeleteNonRequiredAppsTask.class),
-                Pair.create(UserHandle.USER_SYSTEM, DisallowAddUserTask.class));
+                Pair.create(UserHandle.USER_SYSTEM, DisallowAddUserTask.class),
+                Pair.create(UserHandle.USER_SYSTEM, UpdateInteractAcrossProfilesAppOpTask.class));
 
         // THEN cross profile intent filters setter should be invoked for system user
         verify(mCrossProfileIntentFiltersSetter).resetFilters(UserHandle.USER_SYSTEM);
@@ -144,7 +146,8 @@ public class OtaControllerTest {
         assertTaskList(
                 Pair.create(UserHandle.USER_SYSTEM, MigrateSystemAppsSnapshotTask.class),
                 Pair.create(DEVICE_OWNER_USER_ID, DeleteNonRequiredAppsTask.class),
-                Pair.create(DEVICE_OWNER_USER_ID, DisallowAddUserTask.class));
+                Pair.create(DEVICE_OWNER_USER_ID, DisallowAddUserTask.class),
+                Pair.create(UserHandle.USER_SYSTEM, UpdateInteractAcrossProfilesAppOpTask.class));
 
         // THEN cross profile intent filters setter should be invoked for both users
         verify(mCrossProfileIntentFiltersSetter).resetFilters(UserHandle.USER_SYSTEM);
@@ -168,7 +171,8 @@ public class OtaControllerTest {
                 Pair.create(UserHandle.USER_SYSTEM, MigrateSystemAppsSnapshotTask.class),
                 Pair.create(MANAGED_PROFILE_USER_ID, InstallExistingPackageTask.class),
                 Pair.create(MANAGED_PROFILE_USER_ID, DisableInstallShortcutListenersTask.class),
-                Pair.create(MANAGED_PROFILE_USER_ID, DeleteNonRequiredAppsTask.class));
+                Pair.create(MANAGED_PROFILE_USER_ID, DeleteNonRequiredAppsTask.class),
+                Pair.create(UserHandle.USER_SYSTEM, UpdateInteractAcrossProfilesAppOpTask.class));
 
         // THEN the cross profile intent filters should be reset
         verify(mCrossProfileIntentFiltersSetter).resetFilters(UserHandle.USER_SYSTEM);
@@ -205,7 +209,8 @@ public class OtaControllerTest {
                 Pair.create(MANAGED_PROFILE_USER_ID, InstallExistingPackageTask.class),
                 Pair.create(MANAGED_PROFILE_USER_ID, InstallExistingPackageTask.class),
                 Pair.create(MANAGED_PROFILE_USER_ID, DisableInstallShortcutListenersTask.class),
-                Pair.create(MANAGED_PROFILE_USER_ID, DeleteNonRequiredAppsTask.class));
+                Pair.create(MANAGED_PROFILE_USER_ID, DeleteNonRequiredAppsTask.class),
+                Pair.create(UserHandle.USER_SYSTEM, UpdateInteractAcrossProfilesAppOpTask.class));
 
         // THEN the cross profile intent filters should be reset
         verify(mCrossProfileIntentFiltersSetter).resetFilters(UserHandle.USER_SYSTEM);
@@ -234,7 +239,8 @@ public class OtaControllerTest {
         // THEN the task list should contain these tasks.
         assertTaskList(
                 Pair.create(UserHandle.USER_SYSTEM, MigrateSystemAppsSnapshotTask.class),
-                Pair.create(MANAGED_USER_USER_ID, DeleteNonRequiredAppsTask.class));
+                Pair.create(MANAGED_USER_USER_ID, DeleteNonRequiredAppsTask.class),
+                Pair.create(UserHandle.USER_SYSTEM, UpdateInteractAcrossProfilesAppOpTask.class));
     }
 
     private class FakeTaskExecutor extends TaskExecutor {

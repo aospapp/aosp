@@ -23,7 +23,7 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.service.carrier.CarrierMessagingService;
-import android.service.carrier.ICarrierMessagingCallback;
+import android.service.carrier.CarrierMessagingServiceWrapper.CarrierMessagingCallbackWrapper;
 import android.telephony.SmsManager;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
@@ -83,15 +83,17 @@ public abstract class MmsRequest {
     protected Bundle mMmsConfigOverrides;
     // Context used to get TelephonyManager.
     protected Context mContext;
+    protected long mMessageId;
 
     public MmsRequest(RequestManager requestManager, int subId, String creator,
-            Bundle configOverrides, Context context) {
+            Bundle configOverrides, Context context, long messageId) {
         mRequestManager = requestManager;
         mSubId = subId;
         mCreator = creator;
         mMmsConfigOverrides = configOverrides;
         mMmsConfig = null;
         mContext = context;
+        mMessageId = messageId;
     }
 
     public int getSubId() {
@@ -133,7 +135,7 @@ public abstract class MmsRequest {
      * @param networkManager The network manager to use
      */
     public void execute(Context context, MmsNetworkManager networkManager) {
-        final String requestId = this.toString();
+        final String requestId = this.getRequestId();
         LogUtil.i(requestId, "Executing...");
         int result = SmsManager.MMS_ERROR_UNSPECIFIED;
         int httpStatusCode = 0;
@@ -206,13 +208,21 @@ public abstract class MmsRequest {
     /**
      * Process the result of the completed request, including updating the message status
      * in database and sending back the result via pending intents.
-     *  @param context The context
+     * @param context The context
      * @param result The result code of execution
      * @param response The response body
      * @param httpStatusCode The optional http status code in case of http failure
      */
     public void processResult(Context context, int result, byte[] response, int httpStatusCode) {
         final Uri messageUri = persistIfRequired(context, result, response);
+
+        final String requestId = this.getRequestId();
+        // As noted in the @param comment above, the httpStatusCode is only set when there's
+        // an http failure. On success, such as an http code of 200, the value here will be 0.
+        // It's disconcerting in the log to see httpStatusCode: 0 when the mms succeeded. That
+        // is why an httpStatusCode of zero is now reported in the log as "success".
+        LogUtil.i(requestId, "processResult: " + result + ", httpStatusCode: "
+                + (httpStatusCode != 0 ? httpStatusCode : "success (0)"));
 
         // Return MMS HTTP request result via PendingIntent
         final PendingIntent pendingIntent = getPendingIntent();
@@ -235,7 +245,7 @@ public abstract class MmsRequest {
                 }
                 pendingIntent.send(context, result, fillIn);
             } catch (PendingIntent.CanceledException e) {
-                LogUtil.e(this.toString(), "Sending pending intent canceled", e);
+                LogUtil.e(requestId, "Sending pending intent canceled", e);
             }
         }
 
@@ -251,7 +261,8 @@ public abstract class MmsRequest {
                 == CarrierMessagingService.SEND_STATUS_RETRY_ON_CARRIER_NETWORK
                 || carrierMessagingAppResult
                         == CarrierMessagingService.DOWNLOAD_STATUS_RETRY_ON_CARRIER_NETWORK) {
-            LogUtil.d(this.toString(), "Sending/downloading MMS by IP failed.");
+            LogUtil.d(this.toString(), "Sending/downloading MMS by IP failed. messageId: "
+                    + mMessageId);
             mRequestManager.addSimRequest(MmsRequest.this);
             return true;
         } else {
@@ -275,7 +286,8 @@ public abstract class MmsRequest {
 
     @Override
     public String toString() {
-        return getClass().getSimpleName() + '@' + Integer.toHexString(hashCode());
+        return getClass().getSimpleName() + '@' + Integer.toHexString(hashCode())
+                + " messageId: " + mMessageId;
     }
 
 
@@ -341,20 +353,23 @@ public abstract class MmsRequest {
     /**
      * Base class for handling carrier app send / download result.
      */
-    protected abstract class CarrierMmsActionCallback extends ICarrierMessagingCallback.Stub {
+    protected abstract class CarrierMmsActionCallback extends CarrierMessagingCallbackWrapper {
         @Override
         public void onSendSmsComplete(int result, int messageRef) {
-            LogUtil.e("Unexpected onSendSmsComplete call with result: " + result);
+            LogUtil.e("Unexpected onSendSmsComplete call for messageId " + mMessageId
+                    + " with result: " + result);
         }
 
         @Override
         public void onSendMultipartSmsComplete(int result, int[] messageRefs) {
-            LogUtil.e("Unexpected onSendMultipartSmsComplete call with result: " + result);
+            LogUtil.e("Unexpected onSendMultipartSmsComplete call for messageId " + mMessageId
+                    + " with result: " + result);
         }
 
         @Override
         public void onFilterComplete(int result) {
-            LogUtil.e("Unexpected onFilterComplete call with result: " + result);
+            LogUtil.e("Unexpected onFilterComplete call for messageId " + mMessageId
+                    + " with result: " + result);
         }
     }
 }

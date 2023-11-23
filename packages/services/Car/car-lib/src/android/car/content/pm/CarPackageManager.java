@@ -17,11 +17,13 @@
 package android.car.content.pm;
 
 import android.annotation.IntDef;
+import android.annotation.NonNull;
 import android.annotation.SystemApi;
 import android.annotation.TestApi;
+import android.app.PendingIntent;
+import android.car.Car;
 import android.car.CarManagerBase;
 import android.content.ComponentName;
-import android.content.Context;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.RemoteException;
@@ -32,7 +34,7 @@ import java.lang.annotation.RetentionPolicy;
 /**
  * Provides car specific API related with package management.
  */
-public final class CarPackageManager implements CarManagerBase {
+public final class CarPackageManager extends CarManagerBase {
     private static final String TAG = "CarPackageManager";
 
     /**
@@ -70,12 +72,11 @@ public final class CarPackageManager implements CarManagerBase {
     public @interface SetPolicyFlags {}
 
     private final ICarPackageManager mService;
-    private final Context mContext;
 
     /** @hide */
-    public CarPackageManager(IBinder service, Context context) {
+    public CarPackageManager(Car car, IBinder service) {
+        super(car);
         mService = ICarPackageManager.Stub.asInterface(service);
-        mContext = context;
     }
 
     /** @hide */
@@ -107,20 +108,22 @@ public final class CarPackageManager implements CarManagerBase {
     @SystemApi
     public void setAppBlockingPolicy(
             String packageName, CarAppBlockingPolicy policy, @SetPolicyFlags int flags) {
-        if ((flags & FLAG_SET_POLICY_WAIT_FOR_CHANGE) != 0 &&
-                Looper.getMainLooper().isCurrentThread()) {
+        if ((flags & FLAG_SET_POLICY_WAIT_FOR_CHANGE) != 0
+                && Looper.getMainLooper().isCurrentThread()) {
             throw new IllegalStateException(
                     "FLAG_SET_POLICY_WAIT_FOR_CHANGE cannot be used in main thread");
         }
         try {
             mService.setAppBlockingPolicy(packageName, policy, flags);
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            handleRemoteExceptionFromCarService(e);
         }
     }
 
     /**
      * Restarts the requested task. If task with {@code taskId} does not exist, do nothing.
+     *
+     * <p>This requires {@code android.permission.REAL_GET_TASKS} permission.
      *
      * @hide
      */
@@ -128,7 +131,7 @@ public final class CarPackageManager implements CarManagerBase {
         try {
             mService.restartTask(taskId);
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            handleRemoteExceptionFromCarService(e);
         }
     }
 
@@ -151,7 +154,7 @@ public final class CarPackageManager implements CarManagerBase {
         try {
             return mService.isActivityBackedBySafeActivity(activityName);
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            return handleRemoteExceptionFromCarService(e, false);
         }
     }
 
@@ -165,23 +168,40 @@ public final class CarPackageManager implements CarManagerBase {
         try {
             mService.setEnableActivityBlocking(enable);
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            handleRemoteExceptionFromCarService(e);
         }
     }
 
     /**
-     * Check if given activity is distraction optimized, i.e, allowed in a
-     * restricted driving state
+     * Returns whether an activity is distraction optimized, i.e, allowed in a restricted
+     * driving state.
      *
-     * @param packageName
-     * @param className
-     * @return
+     * @param packageName the activity's {@link android.content.pm.ActivityInfo#packageName}.
+     * @param className the activity's {@link android.content.pm.ActivityInfo#name}.
+     * @return true if the activity is distraction optimized, false if it isn't or if the value
+     *         could not be determined.
      */
     public boolean isActivityDistractionOptimized(String packageName, String className) {
         try {
             return mService.isActivityDistractionOptimized(packageName, className);
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            return handleRemoteExceptionFromCarService(e, false);
+        }
+    }
+
+    /**
+     * Returns whether the given {@link PendingIntent} represents an activity that is distraction
+     * optimized, i.e, allowed in a restricted driving state.
+     *
+     * @param pendingIntent the {@link PendingIntent} to check.
+     * @return true if the pending intent represents an activity that is distraction optimized,
+     *         false if it isn't or if the value could not be determined.
+     */
+    public boolean isPendingIntentDistractionOptimized(@NonNull PendingIntent pendingIntent) {
+        try {
+            return mService.isPendingIntentDistractionOptimized(pendingIntent);
+        } catch (RemoteException e) {
+            return handleRemoteExceptionFromCarService(e, false);
         }
     }
 
@@ -197,7 +217,7 @@ public final class CarPackageManager implements CarManagerBase {
         try {
             return mService.isServiceDistractionOptimized(packageName, className);
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            return handleRemoteExceptionFromCarService(e, false);
         }
     }
 }

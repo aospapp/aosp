@@ -79,9 +79,9 @@ public class E2ePerformanceTest extends E2eCarTestBase {
                 CarSensorManager.SENSOR_TYPE_ODOMETER,
                 CarSensorManager.SENSOR_TYPE_CAR_SPEED
         };
-        // Expecting to receive at least 10 events within 150ms.
-        final int EVENT_INTERVAL_MS = 1; //
-        final int EXPECTED_EVENTS_PER_PROPERTY = 1000;
+        // CarPropertyManager supports highest rate is 100hz which means event interval is 10ms.
+        final int EVENT_INTERVAL_MS = 10; //
+        final int EXPECTED_EVENTS_PER_PROPERTY = 100;
         final int EXPECTED_EVENTS = EXPECTED_EVENTS_PER_PROPERTY * mgrProperties.length;
 
         CarSensorManager mgr = (CarSensorManager) mCar.getCarManager(Car.SENSOR_SERVICE);

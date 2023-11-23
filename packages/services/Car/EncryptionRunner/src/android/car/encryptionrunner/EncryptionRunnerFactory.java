@@ -16,6 +16,8 @@
 
 package android.car.encryptionrunner;
 
+import android.annotation.IntDef;
+
 import com.android.internal.annotations.VisibleForTesting;
 
 /**
@@ -27,11 +29,36 @@ public class EncryptionRunnerFactory {
         // prevent instantiation.
     }
 
+    @IntDef({EncryptionRunnerType.UKEY2, EncryptionRunnerType.OOB_UKEY2})
+    public @interface EncryptionRunnerType {
+        /** Use Ukey2 as underlying key exchange. */
+        int UKEY2 = 0;
+        /** Use Ukey2 and an out of band channel as underlying key exchange. */
+        int OOB_UKEY2 = 1;
+    }
+
+    /**
+     * Creates a new {@link EncryptionRunner} based on {@param type}.
+     */
+    public static EncryptionRunner newRunner(@EncryptionRunnerType int type) {
+        switch (type) {
+            case EncryptionRunnerType.UKEY2:
+                return new Ukey2EncryptionRunner();
+            case EncryptionRunnerType.OOB_UKEY2:
+                return new OobUkey2EncryptionRunner();
+            default:
+                throw new IllegalArgumentException("Unknown EncryptionRunnerType: " + type);
+        }
+    }
+
     /**
      * Creates a new {@link EncryptionRunner}.
+     *
+     * @deprecated Use {@link #newRunner(int)} instead.
      */
+    @Deprecated
     public static EncryptionRunner newRunner() {
-        return new Ukey2EncryptionRunner();
+        return newRunner(EncryptionRunnerType.UKEY2);
     }
 
     /**

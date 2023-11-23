@@ -18,20 +18,20 @@ package com.android.customization.model.grid;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
-import android.content.Intent;
-import android.content.pm.PackageManager;
-import android.content.pm.ProviderInfo;
-import android.content.pm.ResolveInfo;
 import android.content.res.Resources;
 import android.database.Cursor;
-import android.net.Uri;
+import android.os.Bundle;
 import android.text.TextUtils;
+import android.util.Pair;
+import android.view.SurfaceView;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.WorkerThread;
 
 import com.android.customization.model.ResourceConstants;
+import com.android.systemui.shared.system.SurfaceViewRequestUtils;
 import com.android.wallpaper.R;
+import com.android.wallpaper.util.PreviewUtils;
 
 import com.bumptech.glide.Glide;
 
@@ -53,29 +53,25 @@ public class LauncherGridOptionsProvider {
     private static final String COL_PREVIEW_COUNT = "preview_count";
     private static final String COL_IS_DEFAULT = "is_default";
 
+    private static final String METADATA_KEY_PREVIEW_VERSION = "preview_version";
+
     private final Context mContext;
-    private final String mGridProviderAuthority;
-    private final ProviderInfo mProviderInfo;
+    private final PreviewUtils mPreviewUtils;
     private List<GridOption> mOptions;
+    private String mVersion;
 
     public LauncherGridOptionsProvider(Context context, String authorityMetadataKey) {
+        mPreviewUtils = new PreviewUtils(context, authorityMetadataKey);
         mContext = context;
-        Intent homeIntent = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME);
-
-        ResolveInfo info = context.getPackageManager().resolveActivity(homeIntent,
-                PackageManager.MATCH_DEFAULT_ONLY | PackageManager.GET_META_DATA);
-        if (info != null && info.activityInfo != null && info.activityInfo.metaData != null) {
-            mGridProviderAuthority = info.activityInfo.metaData.getString(authorityMetadataKey);
-        } else {
-            mGridProviderAuthority = null;
-        }
-        // TODO: check permissions if needed
-        mProviderInfo = TextUtils.isEmpty(mGridProviderAuthority) ? null
-                : mContext.getPackageManager().resolveContentProvider(mGridProviderAuthority, 0);
     }
 
     boolean areGridsAvailable() {
-        return mProviderInfo != null;
+        return mPreviewUtils.supportsPreview();
+    }
+
+    boolean usesSurfaceView() {
+        // If no version code is returned, fall back to V1.
+        return TextUtils.equals(mVersion, "V2");
     }
 
     /**
@@ -84,22 +80,19 @@ public class LauncherGridOptionsProvider {
      */
     @WorkerThread
     @Nullable
-    List<GridOption> fetch(boolean reload) {
+    Pair<List<GridOption>, String> fetch(boolean reload) {
         if (!areGridsAvailable()) {
             return null;
         }
         if (mOptions != null && !reload) {
-            return mOptions;
+            return Pair.create(mOptions, mVersion);
         }
-        Uri optionsUri = new Uri.Builder()
-                .scheme(ContentResolver.SCHEME_CONTENT)
-                .authority(mProviderInfo.authority)
-                .appendPath(LIST_OPTIONS)
-                .build();
         ContentResolver resolver = mContext.getContentResolver();
         String iconPath = mContext.getResources().getString(Resources.getSystem().getIdentifier(
                 ResourceConstants.CONFIG_ICON_MASK, "string", ResourceConstants.ANDROID_PACKAGE));
-        try (Cursor c = resolver.query(optionsUri, null, null, null, null)) {
+        try (Cursor c = resolver.query(mPreviewUtils.getUri(LIST_OPTIONS), null, null, null,
+                null)) {
+            mVersion = c.getExtras().getString(METADATA_KEY_PREVIEW_VERSION);
             mOptions = new ArrayList<>();
             while(c.moveToNext()) {
                 String name = c.getString(c.getColumnIndex(COL_NAME));
@@ -107,31 +100,33 @@ public class LauncherGridOptionsProvider {
                 int cols = c.getInt(c.getColumnIndex(COL_COLS));
                 int previewCount = c.getInt(c.getColumnIndex(COL_PREVIEW_COUNT));
                 boolean isSet = Boolean.valueOf(c.getString(c.getColumnIndex(COL_IS_DEFAULT)));
-                Uri preview = new Uri.Builder()
-                        .scheme(ContentResolver.SCHEME_CONTENT)
-                        .authority(mProviderInfo.authority)
-                        .appendPath(PREVIEW)
-                        .appendPath(name)
-                        .build();
                 String title = mContext.getString(R.string.grid_title_pattern, cols, rows);
-                mOptions.add(new GridOption(title, name, isSet, rows, cols, preview, previewCount,
-                        iconPath));
+                mOptions.add(new GridOption(title, name, isSet, rows, cols,
+                        mPreviewUtils.getUri(PREVIEW), previewCount, iconPath));
             }
             Glide.get(mContext).clearDiskCache();
         } catch (Exception e) {
             mOptions = null;
+            mVersion = null;
         }
-        return mOptions;
+        return Pair.create(mOptions, mVersion);
+    }
+
+    /**
+     * Request rendering of home screen preview via Launcher to Wallpaper using SurfaceView
+     * @param name      the grid option name
+     * @param bundle    surface view request bundle generated from
+     *                  {@link SurfaceViewRequestUtils#createSurfaceBundle(SurfaceView)}.
+     */
+    void renderPreview(String name, Bundle bundle) {
+        bundle.putString("name", name);
+        mPreviewUtils.renderPreview(bundle);
     }
 
     int applyGrid(String name) {
-        Uri updateDefaultUri = new Uri.Builder()
-                .scheme(ContentResolver.SCHEME_CONTENT)
-                .authority(mProviderInfo.authority)
-                .appendPath(DEFAULT_GRID)
-                .build();
         ContentValues values = new ContentValues();
         values.put("name", name);
-        return mContext.getContentResolver().update(updateDefaultUri, values, null, null);
+        return mContext.getContentResolver().update(mPreviewUtils.getUri(DEFAULT_GRID), values,
+                null, null);
     }
 }

@@ -22,7 +22,6 @@ import android.annotation.SystemApi;
 import android.annotation.TestApi;
 import android.car.Car;
 import android.car.CarManagerBase;
-import android.content.Context;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
@@ -40,13 +39,12 @@ import java.lang.ref.WeakReference;
  */
 @SystemApi
 @TestApi
-public final class CarDrivingStateManager implements CarManagerBase {
+public final class CarDrivingStateManager extends CarManagerBase {
     private static final String TAG = "CarDrivingStateMgr";
     private static final boolean DBG = false;
     private static final boolean VDBG = false;
     private static final int MSG_HANDLE_DRIVING_STATE_CHANGE = 0;
 
-    private final Context mContext;
     private final ICarDrivingState mDrivingService;
     private final EventCallbackHandler mEventCallbackHandler;
     private CarDrivingStateEventListener mDrvStateEventListener;
@@ -54,17 +52,17 @@ public final class CarDrivingStateManager implements CarManagerBase {
 
 
     /** @hide */
-    public CarDrivingStateManager(IBinder service, Context context, Handler handler) {
-        mContext = context;
+    public CarDrivingStateManager(Car car, IBinder service) {
+        super(car);
         mDrivingService = ICarDrivingState.Stub.asInterface(service);
-        mEventCallbackHandler = new EventCallbackHandler(this, handler.getLooper());
+        mEventCallbackHandler = new EventCallbackHandler(this, getEventHandler().getLooper());
     }
 
     /** @hide */
     @Override
     public synchronized void onCarDisconnected() {
-            mListenerToService = null;
-            mDrvStateEventListener = null;
+        mListenerToService = null;
+        mDrvStateEventListener = null;
     }
 
     /**
@@ -111,7 +109,7 @@ public final class CarDrivingStateManager implements CarManagerBase {
             // register to the Service for getting notified
             mDrivingService.registerDrivingStateChangeListener(mListenerToService);
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            handleRemoteExceptionFromCarService(e);
         }
     }
 
@@ -134,7 +132,7 @@ public final class CarDrivingStateManager implements CarManagerBase {
             mDrvStateEventListener = null;
             mListenerToService = null;
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            handleRemoteExceptionFromCarService(e);
         }
     }
 
@@ -151,7 +149,7 @@ public final class CarDrivingStateManager implements CarManagerBase {
         try {
             return mDrivingService.getCurrentDrivingState();
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            return handleRemoteExceptionFromCarService(e, null);
         }
     }
 
@@ -172,7 +170,7 @@ public final class CarDrivingStateManager implements CarManagerBase {
         try {
             mDrivingService.injectDrivingState(event);
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            handleRemoteExceptionFromCarService(e);
         }
     }
 
@@ -184,7 +182,7 @@ public final class CarDrivingStateManager implements CarManagerBase {
             ICarDrivingStateChangeListener.Stub {
         private final WeakReference<CarDrivingStateManager> mDrvStateMgr;
 
-        public CarDrivingStateChangeListenerToService(CarDrivingStateManager manager) {
+        CarDrivingStateChangeListenerToService(CarDrivingStateManager manager) {
             mDrvStateMgr = new WeakReference<>(manager);
         }
 
@@ -218,7 +216,7 @@ public final class CarDrivingStateManager implements CarManagerBase {
     private static final class EventCallbackHandler extends Handler {
         private final WeakReference<CarDrivingStateManager> mDrvStateMgr;
 
-        public EventCallbackHandler(CarDrivingStateManager manager, Looper looper) {
+        EventCallbackHandler(CarDrivingStateManager manager, Looper looper) {
             super(looper);
             mDrvStateMgr = new WeakReference<>(manager);
         }

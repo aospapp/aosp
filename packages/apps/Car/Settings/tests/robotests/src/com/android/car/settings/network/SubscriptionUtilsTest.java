@@ -26,16 +26,15 @@ import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.telephony.UiccSlotInfo;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
-
 import com.google.android.collect.Lists;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestRunner;
 
 import java.util.List;
 
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 public class SubscriptionUtilsTest {
 
     @Test

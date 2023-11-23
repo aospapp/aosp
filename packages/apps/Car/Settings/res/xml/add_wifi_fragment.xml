@@ -18,7 +18,8 @@
 <PreferenceScreen
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:settings="http://schemas.android.com/apk/res-auto"
-    android:title="@string/wifi_setup_add_network">
+    android:title="@string/wifi_setup_add_network"
+    android:key="@string/psk_add_wifi">
     <EditTextPreference
         android:key="@string/pk_add_wifi_network_name"
         android:persistent="false"

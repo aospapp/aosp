@@ -60,6 +60,11 @@
     <string name="forget" msgid="892068061425802502">"Olib tashlash"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"Wi-Fi Direct orqali ulanadi"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"<xliff:g id="IP_ADDRESS">%1$s</xliff:g> manzilida joriy tarmoq orqali ulanadi"</string>
+    <string name="recommendation_summary" msgid="2979700524954307566">"Standart chop etish xizmati taqdim qiladigan oddiy variantlar. Qolgan variantlarni boshqa chop etish xizmatidan olish mumkin."</string>
+    <string name="recommendations_heading" msgid="5086762263560605249">"Tavsiya etilgan xizmatlar"</string>
+    <string name="recommendation_install_summary" msgid="374785283809791669">"Oʻrnatish uchun tanlang"</string>
+    <string name="recommendation_enable_summary" msgid="3500907868251326224">"Yoqish uchun tanlang"</string>
+    <string name="recommendation_manage" msgid="4683640588502866284">"Xizmatlarni boshqarish"</string>
     <string name="security" msgid="2279008326210305401">"Xavfsizlik"</string>
     <string name="certificate_update_request" msgid="1314796413107139475">"Bu printerga yangi xavfsizlik sertifikati berilgan. Bu printer nomi ostida boshqa printer ishlayotganga oʻxshaydi. Yangi sertifikatni qabul qilasizmi?"</string>
     <string name="not_encrypted_request" msgid="4871472176807381642">"Bu printer endi shifrlangan vazifalarni qabul qilmaydi. Bosmaga chiqarilsinmi?"</string>
@@ -68,4 +73,5 @@
     <string name="connections" msgid="8895413761760117180">"Ulanishlar"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Birlamchi chop etish xizmati yaqin-atrofdagi printerlarni ishlatishi uchun ruxsat berilishi kerak."</string>
     <string name="fix" msgid="7784394272611365393">"Ruxsatni tekshirish"</string>
+    <string name="print" msgid="7851318072404916362">"Chop etish"</string>
 </resources>

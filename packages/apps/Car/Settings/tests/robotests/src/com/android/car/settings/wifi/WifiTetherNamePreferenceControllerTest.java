@@ -19,11 +19,10 @@ package com.android.car.settings.wifi;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
-import android.net.wifi.WifiConfiguration;
+import android.net.wifi.SoftApConfiguration;
 
 import androidx.lifecycle.Lifecycle;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
 import com.android.car.settings.common.ValidatedEditTextPreference;
 import com.android.car.settings.testutils.ShadowCarWifiManager;
@@ -31,11 +30,12 @@ import com.android.car.settings.testutils.ShadowCarWifiManager;
 import org.junit.After;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadow.api.Shadow;
 
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 @Config(shadows = {ShadowCarWifiManager.class})
 public class WifiTetherNamePreferenceControllerTest {
 
@@ -54,9 +54,10 @@ public class WifiTetherNamePreferenceControllerTest {
         mContext = RuntimeEnvironment.application;
         mCarWifiManager = new CarWifiManager(mContext);
         String testSSID = "TEST_SSID";
-        WifiConfiguration config = new WifiConfiguration();
-        config.SSID = testSSID;
-        getShadowCarWifiManager().setWifiApConfig(config);
+        SoftApConfiguration config = new SoftApConfiguration.Builder()
+                .setSsid(testSSID)
+                .build();
+        getShadowCarWifiManager().setSoftApConfig(config);
         mPreference = new ValidatedEditTextPreference(mContext);
         mControllerHelper =
                 new PreferenceControllerTestHelper<WifiTetherNamePreferenceController>(mContext,

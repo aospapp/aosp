@@ -18,8 +18,7 @@ package com.android.car.settings.applications.specialaccess;
 
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
-import android.os.RemoteException;
-import android.os.ServiceManager;
+import android.telephony.SmsManager;
 
 import androidx.annotation.VisibleForTesting;
 import androidx.preference.ListPreference;
@@ -30,8 +29,6 @@ import com.android.car.settings.R;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.Logger;
 import com.android.car.settings.common.PreferenceController;
-import com.android.internal.telephony.ISms;
-import com.android.internal.telephony.SmsUsageMonitor;
 import com.android.settingslib.applications.ApplicationsState.AppEntry;
 import com.android.settingslib.applications.ApplicationsState.AppFilter;
 
@@ -60,11 +57,11 @@ public class PremiumSmsAccessPreferenceController extends PreferenceController<P
         @Override
         public boolean filterApp(AppEntry info) {
             return info.extraInfo != null
-                    && (Integer) info.extraInfo != SmsUsageMonitor.PREMIUM_SMS_PERMISSION_UNKNOWN;
+                    && (Integer) info.extraInfo != SmsManager.PREMIUM_SMS_CONSENT_UNKNOWN;
         }
     };
 
-    private final ISms mSmsManager;
+    private final SmsManager mSmsManager;
 
     private final Preference.OnPreferenceChangeListener mOnPreferenceChangeListener =
             new Preference.OnPreferenceChangeListener() {
@@ -74,13 +71,7 @@ public class PremiumSmsAccessPreferenceController extends PreferenceController<P
                     AppEntry entry = appPreference.mEntry;
                     int smsState = Integer.parseInt((String) newValue);
                     if (smsState != (Integer) entry.extraInfo) {
-                        try {
-                            mSmsManager.setPremiumSmsPermission(entry.info.packageName, smsState);
-                        } catch (RemoteException e) {
-                            LOG.w("Unable to set premium sms permission for "
-                                    + entry.info.packageName + " " + entry.info.uid, e);
-                            return false;
-                        }
+                        mSmsManager.setPremiumSmsConsent(entry.info.packageName, smsState);
                         // Update the extra info of this entry so that it reflects the new state.
                         mAppEntryListManager.forceUpdate(entry);
                         return true;
@@ -104,7 +95,7 @@ public class PremiumSmsAccessPreferenceController extends PreferenceController<P
     public PremiumSmsAccessPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
-        mSmsManager = ISms.Stub.asInterface(ServiceManager.getService("isms"));
+        mSmsManager = SmsManager.getDefault();
         mAppEntryListManager = new AppEntryListManager(context);
     }
 
@@ -161,9 +152,9 @@ public class PremiumSmsAccessPreferenceController extends PreferenceController<P
             setPersistent(false);
             setEntries(R.array.premium_sms_access_values);
             setEntryValues(new CharSequence[]{
-                    String.valueOf(SmsUsageMonitor.PREMIUM_SMS_PERMISSION_ASK_USER),
-                    String.valueOf(SmsUsageMonitor.PREMIUM_SMS_PERMISSION_NEVER_ALLOW),
-                    String.valueOf(SmsUsageMonitor.PREMIUM_SMS_PERMISSION_ALWAYS_ALLOW)
+                    String.valueOf(SmsManager.PREMIUM_SMS_CONSENT_ASK_USER),
+                    String.valueOf(SmsManager.PREMIUM_SMS_CONSENT_NEVER_ALLOW),
+                    String.valueOf(SmsManager.PREMIUM_SMS_CONSENT_ALWAYS_ALLOW)
             });
             setValue(String.valueOf(entry.extraInfo));
             setSummary("%s");

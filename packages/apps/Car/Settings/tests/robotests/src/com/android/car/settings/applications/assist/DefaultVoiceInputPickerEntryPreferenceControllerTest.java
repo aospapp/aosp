@@ -21,25 +21,22 @@ import static com.android.car.settings.common.PreferenceController.CONDITIONALLY
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
-import android.car.userlib.CarUserManagerHelper;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ResolveInfo;
 import android.content.pm.ServiceInfo;
 import android.database.ContentObserver;
+import android.os.UserHandle;
 import android.provider.Settings;
 import android.service.voice.VoiceInteractionServiceInfo;
 
 import androidx.lifecycle.Lifecycle;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.common.ButtonPreference;
 import com.android.car.settings.common.PreferenceController;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
-import com.android.car.settings.testutils.ShadowCarUserManagerHelper;
 import com.android.car.settings.testutils.ShadowSecureSettings;
 import com.android.car.settings.testutils.ShadowVoiceInteractionServiceInfo;
 import com.android.settingslib.applications.DefaultAppInfo;
@@ -51,6 +48,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.Shadows;
 import org.robolectric.annotation.Config;
@@ -58,16 +56,15 @@ import org.robolectric.shadow.api.Shadow;
 import org.robolectric.shadows.ShadowApplicationPackageManager;
 import org.robolectric.shadows.ShadowContentResolver;
 
-@RunWith(CarSettingsRobolectricTestRunner.class)
-@Config(shadows = {ShadowSecureSettings.class, ShadowCarUserManagerHelper.class,
-        ShadowVoiceInteractionServiceInfo.class})
+@RunWith(RobolectricTestRunner.class)
+@Config(shadows = {ShadowSecureSettings.class, ShadowVoiceInteractionServiceInfo.class})
 public class DefaultVoiceInputPickerEntryPreferenceControllerTest {
 
     private static final String TEST_PACKAGE = "com.android.car.settings.testutils";
     private static final String TEST_ASSIST = "TestAssistService";
     private static final String TEST_VOICE = "TestVoiceService";
     private static final String TEST_SETTINGS_CLASS = "TestSettingsActivity";
-    private static final int TEST_USER_ID = 10;
+    private final int mUserId = UserHandle.myUserId();
 
     private Context mContext;
     private DefaultVoiceInputPickerEntryPreferenceController mController;
@@ -77,22 +74,16 @@ public class DefaultVoiceInputPickerEntryPreferenceControllerTest {
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
-        CarUserManagerHelper carUserManagerHelper = mock(CarUserManagerHelper.class);
-        ShadowCarUserManagerHelper.setMockInstance(carUserManagerHelper);
 
         mContext = RuntimeEnvironment.application;
         mControllerHelper = new PreferenceControllerTestHelper<>(mContext,
                 DefaultVoiceInputPickerEntryPreferenceController.class,
                 new ButtonPreference(mContext));
         mController = mControllerHelper.getController();
-
-        // Set user.
-        when(carUserManagerHelper.getCurrentProcessUserId()).thenReturn(TEST_USER_ID);
     }
 
     @After
     public void tearDown() {
-        ShadowCarUserManagerHelper.reset();
         ShadowSecureSettings.reset();
         ShadowVoiceInteractionServiceInfo.reset();
     }
@@ -222,7 +213,7 @@ public class DefaultVoiceInputPickerEntryPreferenceControllerTest {
                 new VoiceInputInfoProvider.VoiceInteractionInfo(mContext, interactionServiceInfo);
 
         DefaultVoiceInputServiceInfo serviceInfo = new DefaultVoiceInputServiceInfo(mContext,
-                mContext.getPackageManager(), TEST_USER_ID, info, true);
+                mContext.getPackageManager(), mUserId, info, true);
         Intent settingIntent = mController.getSettingIntent(serviceInfo);
 
         assertThat(settingIntent.getAction()).isEqualTo(Intent.ACTION_MAIN);
@@ -237,7 +228,7 @@ public class DefaultVoiceInputPickerEntryPreferenceControllerTest {
 
     private void setCurrentAssistant(ComponentName assist) {
         Settings.Secure.putStringForUser(mContext.getContentResolver(), Settings.Secure.ASSISTANT,
-                assist.flattenToString(), TEST_USER_ID);
+                assist.flattenToString(), mUserId);
     }
 
     private ShadowApplicationPackageManager getShadowPackageManager() {

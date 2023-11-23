@@ -45,13 +45,12 @@ public class TvInputInfoCompat {
 
     private final Context mContext;
     private final TvInputInfo mTvInputInfo;
-    private final boolean mAudioOnly;
+    private boolean mAudioOnly;
+    private boolean mAudioAttributeInit = false;
 
     public TvInputInfoCompat(Context context, TvInputInfo tvInputInfo) {
         mContext = context;
         mTvInputInfo = tvInputInfo;
-        // TODO(b/112938832): use tvInputInfo.isAudioOnly() when SDK is updated
-        mAudioOnly = Boolean.parseBoolean(getExtras().get(ATTRIBUTE_NAME_AUDIO_ONLY));
     }
 
     public TvInputInfo getTvInputInfo() {
@@ -59,6 +58,11 @@ public class TvInputInfoCompat {
     }
 
     public boolean isAudioOnly() {
+        // TODO(b/112938832): use tvInputInfo.isAudioOnly() when SDK is updated
+        if (!mAudioAttributeInit) {
+            mAudioOnly = Boolean.parseBoolean(getExtras().get(ATTRIBUTE_NAME_AUDIO_ONLY));
+            mAudioAttributeInit = true;
+        }
         return mAudioOnly;
     }
 

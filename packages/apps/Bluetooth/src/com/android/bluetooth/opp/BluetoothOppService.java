@@ -61,8 +61,6 @@ import com.android.bluetooth.btservice.ProfileService;
 import com.android.bluetooth.sdp.SdpManager;
 import com.android.internal.annotations.VisibleForTesting;
 
-import com.google.android.collect.Lists;
-
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -196,8 +194,8 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
         if (V) {
             Log.v(TAG, "onCreate");
         }
-        mShares = Lists.newArrayList();
-        mBatches = Lists.newArrayList();
+        mShares = new ArrayList();
+        mBatches = new ArrayList();
         mBatchId = 1;
         final ContentResolver contentResolver = getContentResolver();
         new Thread("trimDatabase") {

@@ -28,6 +28,10 @@ java_defaults {
         "guava",
     ],
 
+    libs: [
+        "app-compat-annotations",
+    ],
+
     privileged: true,
 
     certificate: "platform",
@@ -37,8 +41,16 @@ java_defaults {
     },
 
     sdk_version: "system_current",
-    min_sdk_version: "28",
-    target_sdk_version: "28",
+    min_sdk_version: "29",
+
+    plugins: [
+        "java_api_finder",
+    ],
+}
+
+platform_compat_config {
+    name: "documents-ui-compat-config",
+    src: ":DocumentsUI",
 }
 
 filegroup {
@@ -59,7 +71,7 @@ java_library {
 genrule {
     name: "statslog-docsui-java-gen",
     tools: ["stats-log-api-gen"],
-    cmd: "$(location stats-log-api-gen) --java $(out) --module docsui --javaPackage com.android.documentsui --javaClass DocumentsStatsLog",
+    cmd: "$(location stats-log-api-gen) --java $(out) --module docsui --javaPackage com.android.documentsui --javaClass DocumentsStatsLog --supportQ",
     out: ["com/android/documentsui/DocumentsStatsLog.java"],
 }
 
@@ -81,8 +93,30 @@ android_library {
         "--auto-add-overlay",
     ],
 
-    min_sdk_version: "28",
-    target_sdk_version: "28",
+    sdk_version: "system_current",
+    min_sdk_version: "29",
+}
+
+android_library {
+    name: "DocumentsUIUnitTests-res-lib",
+
+    manifest: "AndroidManifestForUnitTests.xml",
+
+    static_libs: [
+        "androidx.appcompat_appcompat",
+        "com.google.android.material_material",
+    ],
+
+    resource_dirs: [
+        "res",
+    ],
+
+    aaptflags: [
+        "--auto-add-overlay",
+    ],
+
+    sdk_version: "system_current",
+    min_sdk_version: "29",
 }
 
 android_app {
@@ -101,4 +135,6 @@ android_app {
     ],
 
     required: ["privapp_whitelist_com.android.documentsui"],
+
+    min_sdk_version: "29",
 }

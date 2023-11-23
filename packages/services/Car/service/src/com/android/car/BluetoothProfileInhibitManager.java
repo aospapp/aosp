@@ -56,14 +56,16 @@ public class BluetoothProfileInhibitManager {
     private final int mUserId;
     private final ICarBluetoothUserService mBluetoothUserProxies;
 
-    @GuardedBy("this")
+    private final Object mProfileInhibitsLock = new Object();
+
+    @GuardedBy("mProfileInhibitsLock")
     private final SetMultimap<BluetoothConnection, InhibitRecord> mProfileInhibits =
             new SetMultimap<>();
 
-    @GuardedBy("this")
+    @GuardedBy("mProfileInhibitsLock")
     private final HashSet<InhibitRecord> mRestoredInhibits = new HashSet<>();
 
-    @GuardedBy("this")
+    @GuardedBy("mProfileInhibitsLock")
     private final HashSet<BluetoothConnection> mAlreadyDisabledProfiles = new HashSet<>();
 
     private final Handler mHandler = new Handler(Looper.getMainLooper());
@@ -190,7 +192,7 @@ public class BluetoothProfileInhibitManager {
         }
 
         public boolean removeSelf() {
-            synchronized (BluetoothProfileInhibitManager.this) {
+            synchronized (mProfileInhibitsLock) {
                 if (mRemoved) {
                     return true;
                 }
@@ -328,9 +330,7 @@ public class BluetoothProfileInhibitManager {
 
         BluetoothConnection params = new BluetoothConnection(profile, device);
         InhibitRecord record;
-        synchronized (this) {
-            record = findInhibitRecord(params, token);
-        }
+        record = findInhibitRecord(params, token);
 
         if (record == null) {
             Log.e(TAG, "Record not found");
@@ -343,64 +343,66 @@ public class BluetoothProfileInhibitManager {
     /**
      * Add a profile inhibit record, disabling the profile if necessary.
      */
-    private synchronized boolean addInhibitRecord(InhibitRecord record) {
-        BluetoothConnection params = record.getParams();
-        if (!isProxyAvailable(params.getProfile())) {
-            return false;
-        }
-
-        Set<InhibitRecord> previousRecords = mProfileInhibits.get(params);
-        if (findInhibitRecord(params, record.getToken()) != null) {
-            Log.e(TAG, "Inhibit request already registered - skipping duplicate");
-            return false;
-        }
-
-        try {
-            record.getToken().linkToDeath(record, 0);
-        } catch (RemoteException e) {
-            Log.e(TAG, "Could not link to death on inhibit token (already dead?)", e);
-            return false;
-        }
-
-        boolean isNewlyAdded = previousRecords.isEmpty();
-        mProfileInhibits.put(params, record);
-
-        if (isNewlyAdded) {
-            try {
-                int priority =
-                        mBluetoothUserProxies.getProfilePriority(
-                                params.getProfile(),
-                                params.getDevice());
-                if (priority == BluetoothProfile.PRIORITY_OFF) {
-                    // This profile was already disabled (and not as the result of an inhibit).
-                    // Add it to the already-disabled list, and do nothing else.
-                    mAlreadyDisabledProfiles.add(params);
-
-                    logd("Profile " + Utils.getProfileName(params.getProfile())
-                            + " already disabled for device " + params.getDevice()
-                            + " - suppressing re-enable");
-                } else {
-                    mBluetoothUserProxies.setProfilePriority(
-                            params.getProfile(),
-                            params.getDevice(),
-                            BluetoothProfile.PRIORITY_OFF);
-                    mBluetoothUserProxies.bluetoothDisconnectFromProfile(
-                            params.getProfile(),
-                            params.getDevice());
-                    logd("Disabled profile "
-                            + Utils.getProfileName(params.getProfile())
-                            + " for device " + params.getDevice());
-                }
-            } catch (RemoteException e) {
-                Log.e(TAG, "Could not disable profile", e);
-                record.getToken().unlinkToDeath(record, 0);
-                mProfileInhibits.remove(params, record);
+    private boolean addInhibitRecord(InhibitRecord record) {
+        synchronized (mProfileInhibitsLock) {
+            BluetoothConnection params = record.getParams();
+            if (!isProxyAvailable(params.getProfile())) {
                 return false;
             }
-        }
 
-        commit();
-        return true;
+            Set<InhibitRecord> previousRecords = mProfileInhibits.get(params);
+            if (findInhibitRecord(params, record.getToken()) != null) {
+                Log.e(TAG, "Inhibit request already registered - skipping duplicate");
+                return false;
+            }
+
+            try {
+                record.getToken().linkToDeath(record, 0);
+            } catch (RemoteException e) {
+                Log.e(TAG, "Could not link to death on inhibit token (already dead?)", e);
+                return false;
+            }
+
+            boolean isNewlyAdded = previousRecords.isEmpty();
+            mProfileInhibits.put(params, record);
+
+            if (isNewlyAdded) {
+                try {
+                    int priority =
+                            mBluetoothUserProxies.getProfilePriority(
+                                    params.getProfile(),
+                                    params.getDevice());
+                    if (priority == BluetoothProfile.PRIORITY_OFF) {
+                        // This profile was already disabled (and not as the result of an inhibit).
+                        // Add it to the already-disabled list, and do nothing else.
+                        mAlreadyDisabledProfiles.add(params);
+
+                        logd("Profile " + Utils.getProfileName(params.getProfile())
+                                + " already disabled for device " + params.getDevice()
+                                + " - suppressing re-enable");
+                    } else {
+                        mBluetoothUserProxies.setProfilePriority(
+                                params.getProfile(),
+                                params.getDevice(),
+                                BluetoothProfile.PRIORITY_OFF);
+                        mBluetoothUserProxies.bluetoothDisconnectFromProfile(
+                                params.getProfile(),
+                                params.getDevice());
+                        logd("Disabled profile "
+                                + Utils.getProfileName(params.getProfile())
+                                + " for device " + params.getDevice());
+                    }
+                } catch (RemoteException e) {
+                    Log.e(TAG, "Could not disable profile", e);
+                    record.getToken().unlinkToDeath(record, 0);
+                    mProfileInhibits.remove(params, record);
+                    return false;
+                }
+            }
+
+            commit();
+            return true;
+        }
     }
 
     /**
@@ -411,41 +413,45 @@ public class BluetoothProfileInhibitManager {
      * @return InhibitRecord for the connection parameters and token if exists, null otherwise.
      */
     private InhibitRecord findInhibitRecord(BluetoothConnection params, IBinder token) {
-        return mProfileInhibits.get(params)
-            .stream()
-            .filter(r -> r.getToken() == token)
-            .findAny()
-            .orElse(null);
+        synchronized (mProfileInhibitsLock) {
+            return mProfileInhibits.get(params)
+                .stream()
+                .filter(r -> r.getToken() == token)
+                .findAny()
+                .orElse(null);
+        }
     }
 
     /**
      * Remove a given profile inhibit record, reconnecting if necessary.
      */
-    private synchronized boolean removeInhibitRecord(InhibitRecord record) {
-        BluetoothConnection params = record.getParams();
-        if (!isProxyAvailable(params.getProfile())) {
-            return false;
-        }
-        if (!mProfileInhibits.containsEntry(params, record)) {
-            Log.e(TAG, "Record already removed");
-            // Removing something a second time vacuously succeeds.
-            return true;
-        }
-
-        // Re-enable profile before unlinking and removing the record, in case of error.
-        // The profile should be re-enabled if this record is the only one left for that
-        // device and profile combination.
-        if (mProfileInhibits.get(params).size() == 1) {
-            if (!restoreProfilePriority(params)) {
+    private boolean removeInhibitRecord(InhibitRecord record) {
+        synchronized (mProfileInhibitsLock) {
+            BluetoothConnection params = record.getParams();
+            if (!isProxyAvailable(params.getProfile())) {
                 return false;
             }
+            if (!mProfileInhibits.containsEntry(params, record)) {
+                Log.e(TAG, "Record already removed");
+                // Removing something a second time vacuously succeeds.
+                return true;
+            }
+
+            // Re-enable profile before unlinking and removing the record, in case of error.
+            // The profile should be re-enabled if this record is the only one left for that
+            // device and profile combination.
+            if (mProfileInhibits.get(params).size() == 1) {
+                if (!restoreProfilePriority(params)) {
+                    return false;
+                }
+            }
+
+            record.getToken().unlinkToDeath(record, 0);
+            mProfileInhibits.remove(params, record);
+
+            commit();
+            return true;
         }
-
-        record.getToken().unlinkToDeath(record, 0);
-        mProfileInhibits.remove(params, record);
-
-        commit();
-        return true;
     }
 
     /**
@@ -504,46 +510,51 @@ public class BluetoothProfileInhibitManager {
      * Keep trying to remove all profile inhibits that were restored from settings
      * until all such inhibits have been removed.
      */
-    private synchronized void removeRestoredProfileInhibits() {
-        tryRemoveRestoredProfileInhibits();
+    private void removeRestoredProfileInhibits() {
+        synchronized (mProfileInhibitsLock) {
+            tryRemoveRestoredProfileInhibits();
 
-        if (!mRestoredInhibits.isEmpty()) {
-            logd("Could not remove all restored profile inhibits - "
-                        + "trying again in " + RESTORE_BACKOFF_MILLIS + "ms");
-            mHandler.postDelayed(
-                    this::removeRestoredProfileInhibits,
-                    RESTORED_PROFILE_INHIBIT_TOKEN,
-                    RESTORE_BACKOFF_MILLIS);
+            if (!mRestoredInhibits.isEmpty()) {
+                logd("Could not remove all restored profile inhibits - "
+                            + "trying again in " + RESTORE_BACKOFF_MILLIS + "ms");
+                mHandler.postDelayed(
+                        this::removeRestoredProfileInhibits,
+                        RESTORED_PROFILE_INHIBIT_TOKEN,
+                        RESTORE_BACKOFF_MILLIS);
+            }
         }
     }
 
     /**
      * Release all active inhibit records prior to user switch or shutdown
      */
-    private synchronized void releaseAllInhibitsBeforeUnbind() {
+    private  void releaseAllInhibitsBeforeUnbind() {
         logd("Unbinding CarBluetoothUserService - releasing all profile inhibits");
-        for (BluetoothConnection params : mProfileInhibits.keySet()) {
-            for (InhibitRecord record : mProfileInhibits.get(params)) {
-                record.removeSelf();
+
+        synchronized (mProfileInhibitsLock) {
+            for (BluetoothConnection params : mProfileInhibits.keySet()) {
+                for (InhibitRecord record : mProfileInhibits.get(params)) {
+                    record.removeSelf();
+                }
             }
+
+            // Some inhibits might be hanging around because they couldn't be cleaned up.
+            // Make sure they get persisted...
+            commit();
+
+            // ...then clear them from the map.
+            mProfileInhibits.clear();
+
+            // We don't need to maintain previously-disabled profiles any more - they were already
+            // skipped in saveProfileInhibitsToSettings() above, and they don't need any
+            // further handling when the user resumes.
+            mAlreadyDisabledProfiles.clear();
+
+            // Clean up bookkeeping for restored inhibits. (If any are still around, they'll be
+            // restored again when this user restarts.)
+            mHandler.removeCallbacksAndMessages(RESTORED_PROFILE_INHIBIT_TOKEN);
+            mRestoredInhibits.clear();
         }
-
-        // Some inhibits might be hanging around because they couldn't be cleaned up.
-        // Make sure they get persisted...
-        commit();
-
-        // ...then clear them from the map.
-        mProfileInhibits.clear();
-
-        // We don't need to maintain previously-disabled profiles any more - they were already
-        // skipped in saveProfileInhibitsToSettings() above, and they don't need any
-        // further handling when the user resumes.
-        mAlreadyDisabledProfiles.clear();
-
-        // Clean up bookkeeping for restored inhibits. (If any are still around, they'll be
-        // restored again when this user restarts.)
-        mHandler.removeCallbacksAndMessages(RESTORED_PROFILE_INHIBIT_TOKEN);
-        mRestoredInhibits.clear();
     }
 
     /**
@@ -564,7 +575,7 @@ public class BluetoothProfileInhibitManager {
     /**
      * Print the verbose status of the object
      */
-    public synchronized void dump(PrintWriter writer, String indent) {
+    public void dump(PrintWriter writer, String indent) {
         writer.println(indent + TAG + ":");
 
         // User metadata
@@ -572,7 +583,7 @@ public class BluetoothProfileInhibitManager {
 
         // Current inhibits
         String inhibits;
-        synchronized (this) {
+        synchronized (mProfileInhibitsLock) {
             inhibits = mProfileInhibits.keySet().toString();
         }
         writer.println(indent + "\tInhibited profiles: " + inhibits);

@@ -19,17 +19,22 @@ package com.android.cellbroadcastreceiver;
 import static com.android.cellbroadcastreceiver.CellBroadcastReceiver.VDBG;
 
 import android.app.IntentService;
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.Resources;
 import android.preference.PreferenceManager;
 import android.telephony.SmsManager;
+import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
 import android.util.Log;
+
+import androidx.annotation.NonNull;
 
 import com.android.cellbroadcastreceiver.CellBroadcastChannelManager.CellBroadcastChannelRange;
 import com.android.internal.annotations.VisibleForTesting;
 
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -48,7 +53,8 @@ import java.util.List;
 public class CellBroadcastConfigService extends IntentService {
     private static final String TAG = "CellBroadcastConfigService";
 
-    static final String ACTION_ENABLE_CHANNELS = "ACTION_ENABLE_CHANNELS";
+    @VisibleForTesting
+    public static final String ACTION_ENABLE_CHANNELS = "ACTION_ENABLE_CHANNELS";
 
     public CellBroadcastConfigService() {
         super(TAG);          // use class name for worker thread name
@@ -58,52 +64,22 @@ public class CellBroadcastConfigService extends IntentService {
     protected void onHandleIntent(Intent intent) {
         if (ACTION_ENABLE_CHANNELS.equals(intent.getAction())) {
             try {
-
-                SubscriptionManager subManager = SubscriptionManager.from(getApplicationContext());
-                int subId = SubscriptionManager.getDefaultSmsSubscriptionId();
-                if (subId == SubscriptionManager.INVALID_SUBSCRIPTION_ID) {
-                    subId = SubscriptionManager.getDefaultSubscriptionId();
-                    if (subId == SubscriptionManager.INVALID_SUBSCRIPTION_ID &&
-                            subManager != null) {
-                        int [] subIds = subManager.getActiveSubscriptionIdList();
-                        if (subIds.length != 0) {
-                            subId = subIds[0];
-                        }
-                    }
-                }
+                SubscriptionManager subManager = (SubscriptionManager) getApplicationContext()
+                        .getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE);
 
                 if (subManager != null) {
-                    // Retrieve all the active sub ids. We only want to enable
-                    // cell broadcast on the sub we are interested in and we'll disable
-                    // it on other subs so the users will not receive duplicate messages from
-                    // multiple carriers (e.g. for multi-sim users).
-                    int [] subIds = subManager.getActiveSubscriptionIdList();
-                    if (subIds.length != 0)
-                    {
-                        for (int id : subIds) {
-                            SmsManager manager = SmsManager.getSmsManagerForSubscriptionId(id);
-                            if (manager != null) {
-                                if (id == subId) {
-                                    // Enable cell broadcast messages on this sub.
-                                    log("Enable CellBroadcast on sub " + id);
-                                    setCellBroadcastOnSub(manager, true);
-                                }
-                                else {
-                                    // Disable all cell broadcast message on this sub.
-                                    // This is only for multi-sim scenario. For single SIM device
-                                    // we should not reach here.
-                                    log("Disable CellBroadcast on sub " + id);
-                                    setCellBroadcastOnSub(manager, false);
-                                }
-                            }
+                    // Retrieve all the active subscription indice and enable cell broadcast
+                    // messages on all subs. The duplication detection will be done at the
+                    // frameworks.
+                    int[] subIds = getActiveSubIdList(subManager);
+                    if (subIds.length != 0) {
+                        for (int subId : subIds) {
+                            log("Enable CellBroadcast on sub " + subId);
+                            enableCellBroadcastChannels(subId);
                         }
-                    }
-                    else {
+                    } else {
                         // For no sim scenario.
-                        SmsManager manager = SmsManager.getDefault();
-                        if (manager != null) {
-                            setCellBroadcastOnSub(manager, true);
-                        }
+                        enableCellBroadcastChannels(SubscriptionManager.DEFAULT_SUBSCRIPTION_ID);
                     }
                 }
             } catch (Exception ex) {
@@ -112,30 +88,59 @@ public class CellBroadcastConfigService extends IntentService {
         }
     }
 
+    @NonNull
+    private int[] getActiveSubIdList(SubscriptionManager subMgr) {
+        List<SubscriptionInfo> subInfos = subMgr.getActiveSubscriptionInfoList();
+        int size = subInfos != null ? subInfos.size() : 0;
+        int[] subIds = new int[size];
+        for (int i = 0; i < size; i++) {
+            subIds[i] = subInfos.get(i).getSubscriptionId();
+        }
+        return subIds;
+    }
+
+    private void resetCellBroadcastChannels(int subId) {
+        SmsManager manager;
+        if (subId != SubscriptionManager.DEFAULT_SUBSCRIPTION_ID) {
+            manager = SmsManager.getSmsManagerForSubscriptionId(subId);
+        } else {
+            manager = SmsManager.getDefault();
+        }
+
+        // TODO: Call manager.resetAllCellBroadcastRanges() in Android S.
+        try {
+            Method method = SmsManager.class.getDeclaredMethod("resetAllCellBroadcastRanges");
+            method.invoke(manager);
+        } catch (Exception e) {
+            log("Can't reset cell broadcast ranges. e=" + e);
+        }
+    }
+
     /**
-     * Enable/disable cell broadcast messages id on one subscription
-     * This includes all ETWS and CMAS alerts.
-     * @param manager SMS manager
-     * @param enableForSub True if want to enable messages on this sub (e.g default SMS). False
-     *                     will disable all messages
+     * Enable cell broadcast messages channels. Messages can be only received on the
+     * enabled channels.
+     *
+     * @param subId Subscription index
      */
     @VisibleForTesting
-    public void setCellBroadcastOnSub(SmsManager manager, boolean enableForSub) {
+    public void enableCellBroadcastChannels(int subId) {
+        resetCellBroadcastChannels(subId);
 
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+        Resources res = CellBroadcastSettings.getResources(this, subId);
 
         // boolean for each user preference checkbox, true for checked, false for unchecked
         // Note: If enableAlertsMasterToggle is false, it disables ALL emergency broadcasts
         // except for CMAS presidential. i.e. to receive CMAS severe alerts, both
         // enableAlertsMasterToggle AND enableCmasSevereAlerts must be true.
-        boolean enableAlertsMasterToggle = enableForSub && prefs.getBoolean(
+        boolean enableAlertsMasterToggle = prefs.getBoolean(
                 CellBroadcastSettings.KEY_ENABLE_ALERTS_MASTER_TOGGLE, true);
 
         boolean enableEtwsAlerts = enableAlertsMasterToggle;
 
         // CMAS Presidential must be always on (See 3GPP TS 22.268 Section 6.2) regardless
         // user's preference
-        boolean enablePresidential = enableForSub;
+        boolean enablePresidential = true;
 
         boolean enableCmasExtremeAlerts = enableAlertsMasterToggle && prefs.getBoolean(
                 CellBroadcastSettings.KEY_ENABLE_CMAS_EXTREME_THREAT_ALERTS, true);
@@ -147,10 +152,11 @@ public class CellBroadcastConfigService extends IntentService {
                 CellBroadcastSettings.KEY_ENABLE_CMAS_AMBER_ALERTS, true);
 
         boolean enableTestAlerts = enableAlertsMasterToggle
+                && CellBroadcastSettings.isTestAlertsToggleVisible(getApplicationContext())
                 && prefs.getBoolean(CellBroadcastSettings.KEY_ENABLE_TEST_ALERTS, false);
 
-        boolean enableAreaUpdateInfoAlerts = Resources.getSystem().getBoolean(
-                com.android.internal.R.bool.config_showAreaUpdateInfoSettings)
+        boolean enableAreaUpdateInfoAlerts = res.getBoolean(
+                R.bool.config_showAreaUpdateInfoSettings)
                 && prefs.getBoolean(CellBroadcastSettings.KEY_ENABLE_AREA_UPDATE_INFO_ALERTS,
                 false);
 
@@ -163,6 +169,8 @@ public class CellBroadcastConfigService extends IntentService {
 
         boolean enableEmergencyAlerts = enableAlertsMasterToggle && prefs.getBoolean(
                 CellBroadcastSettings.KEY_ENABLE_EMERGENCY_ALERTS, true);
+
+        boolean enableGeoFencingTriggerMessage = true;
 
         if (VDBG) {
             log("enableAlertsMasterToggle = " + enableAlertsMasterToggle);
@@ -177,102 +185,121 @@ public class CellBroadcastConfigService extends IntentService {
                     + enablePublicSafetyMessagesChannelAlerts);
             log("enableStateLocalTestAlerts = " + enableStateLocalTestAlerts);
             log("enableEmergencyAlerts = " + enableEmergencyAlerts);
+            log("enableGeoFencingTriggerMessage = " + enableGeoFencingTriggerMessage);
         }
+
+        CellBroadcastChannelManager channelManager = new CellBroadcastChannelManager(
+                getApplicationContext(), subId);
 
         /** Enable CMAS series messages. */
 
         // Enable/Disable Presidential messages.
-        setCellBroadcastRange(manager, enablePresidential,
-                CellBroadcastChannelManager.getInstance().getCellBroadcastChannelRanges(this,
-                R.array.cmas_presidential_alerts_channels_range_strings));
+        setCellBroadcastRange(subId, enablePresidential,
+                channelManager.getCellBroadcastChannelRanges(
+                        R.array.cmas_presidential_alerts_channels_range_strings));
 
         // Enable/Disable CMAS extreme messages.
-        setCellBroadcastRange(manager, enableCmasExtremeAlerts,
-                CellBroadcastChannelManager.getInstance().getCellBroadcastChannelRanges(this,
-                R.array.cmas_alert_extreme_channels_range_strings));
+        setCellBroadcastRange(subId, enableCmasExtremeAlerts,
+                channelManager.getCellBroadcastChannelRanges(
+                        R.array.cmas_alert_extreme_channels_range_strings));
 
         // Enable/Disable CMAS severe messages.
-        setCellBroadcastRange(manager, enableCmasSevereAlerts,
-                CellBroadcastChannelManager.getInstance().getCellBroadcastChannelRanges(this,
-                R.array.cmas_alerts_severe_range_strings));
+        setCellBroadcastRange(subId, enableCmasSevereAlerts,
+                channelManager.getCellBroadcastChannelRanges(
+                        R.array.cmas_alerts_severe_range_strings));
 
         // Enable/Disable CMAS amber alert messages.
-        setCellBroadcastRange(manager, enableCmasAmberAlerts,
-                CellBroadcastChannelManager.getInstance().getCellBroadcastChannelRanges(this,
-                R.array.cmas_amber_alerts_channels_range_strings));
+        setCellBroadcastRange(subId, enableCmasAmberAlerts,
+                channelManager.getCellBroadcastChannelRanges(
+                        R.array.cmas_amber_alerts_channels_range_strings));
 
         // Enable/Disable test messages.
-        setCellBroadcastRange(manager, enableTestAlerts,
-                CellBroadcastChannelManager.getInstance().getCellBroadcastChannelRanges(this,
-                R.array.required_monthly_test_range_strings));
-        setCellBroadcastRange(manager, enableTestAlerts,
-                CellBroadcastChannelManager.getInstance().getCellBroadcastChannelRanges(this,
+        setCellBroadcastRange(subId, enableTestAlerts,
+                channelManager.getCellBroadcastChannelRanges(
+                        R.array.required_monthly_test_range_strings));
+
+        // Exercise is part of test toggle with monthly test and operator defined. some carriers
+        // mandate to show test settings in UI but always enable exercise alert.
+        setCellBroadcastRange(subId, enableTestAlerts ||
+                        res.getBoolean(R.bool.always_enable_exercise_alert),
+                channelManager.getCellBroadcastChannelRanges(
                         R.array.exercise_alert_range_strings));
-        setCellBroadcastRange(manager, enableTestAlerts,
-                CellBroadcastChannelManager.getInstance().getCellBroadcastChannelRanges(this,
+
+        setCellBroadcastRange(subId, enableTestAlerts,
+                channelManager.getCellBroadcastChannelRanges(
                         R.array.operator_defined_alert_range_strings));
 
         // Enable/Disable GSM ETWS messages.
-        setCellBroadcastRange(manager, enableEtwsAlerts,
-                CellBroadcastChannelManager.getInstance().getCellBroadcastChannelRanges(this,
-                R.array.etws_alerts_range_strings));
+        setCellBroadcastRange(subId, enableEtwsAlerts,
+                channelManager.getCellBroadcastChannelRanges(
+                        R.array.etws_alerts_range_strings));
 
         // Enable/Disable GSM ETWS test messages.
-        setCellBroadcastRange(manager, enableTestAlerts,
-                CellBroadcastChannelManager.getInstance().getCellBroadcastChannelRanges(this,
-                R.array.etws_test_alerts_range_strings));
+        setCellBroadcastRange(subId, enableTestAlerts,
+                channelManager.getCellBroadcastChannelRanges(
+                        R.array.etws_test_alerts_range_strings));
 
         // Enable/Disable GSM public safety messages.
-        setCellBroadcastRange(manager, enablePublicSafetyMessagesChannelAlerts,
-                CellBroadcastChannelManager.getInstance().getCellBroadcastChannelRanges(this,
+        setCellBroadcastRange(subId, enablePublicSafetyMessagesChannelAlerts,
+                channelManager.getCellBroadcastChannelRanges(
                         R.array.public_safety_messages_channels_range_strings));
 
         // Enable/Disable GSM state/local test alerts.
-        setCellBroadcastRange(manager, enableStateLocalTestAlerts,
-                CellBroadcastChannelManager.getInstance().getCellBroadcastChannelRanges(this,
+        setCellBroadcastRange(subId, enableStateLocalTestAlerts,
+                channelManager.getCellBroadcastChannelRanges(
                         R.array.state_local_test_alert_range_strings));
 
-        /** Enable non-CMAS series messages. */
+        // Enable/Disable GSM geo-fencing trigger messages.
+        setCellBroadcastRange(subId, enableGeoFencingTriggerMessage,
+                channelManager.getCellBroadcastChannelRanges(
+                        R.array.geo_fencing_trigger_messages_range_strings));
 
-        setCellBroadcastRange(manager, enableEmergencyAlerts,
-                CellBroadcastChannelManager.getInstance().getCellBroadcastChannelRanges(this,
-                R.array.emergency_alerts_channels_range_strings));
+        // Enable non-CMAS series messages.
+        setCellBroadcastRange(subId, enableEmergencyAlerts,
+                channelManager.getCellBroadcastChannelRanges(
+                        R.array.emergency_alerts_channels_range_strings));
 
         // Enable/Disable additional channels based on carrier specific requirement.
-        ArrayList<CellBroadcastChannelRange> ranges = CellBroadcastChannelManager
-                .getInstance().getCellBroadcastChannelRanges(this,
-                R.array.additional_cbs_channels_strings);
-        if (ranges != null) {
-            for (CellBroadcastChannelRange range: ranges) {
-                boolean enableAlerts;
-                switch (range.mAlertType) {
-                    case AREA:
-                        enableAlerts = enableAreaUpdateInfoAlerts;
-                        break;
-                    case TEST:
-                        enableAlerts = enableTestAlerts;
-                        break;
-                    default:
-                        enableAlerts = enableAlertsMasterToggle;
-                }
-                setCellBroadcastRange(manager, enableAlerts, new ArrayList<>(Arrays.asList(range)));
+        ArrayList<CellBroadcastChannelRange> ranges =
+                channelManager.getCellBroadcastChannelRanges(
+                        R.array.additional_cbs_channels_strings);
+
+        for (CellBroadcastChannelRange range: ranges) {
+            boolean enableAlerts;
+            switch (range.mAlertType) {
+                case AREA:
+                    enableAlerts = enableAreaUpdateInfoAlerts;
+                    break;
+                case TEST:
+                    enableAlerts = enableTestAlerts;
+                    break;
+                default:
+                    enableAlerts = enableAlertsMasterToggle;
             }
+            setCellBroadcastRange(subId, enableAlerts, new ArrayList<>(Arrays.asList(range)));
         }
     }
     /**
      * Enable/disable cell broadcast with messages id range
-     * @param manager SMS manager
+     * @param subId Subscription index
      * @param enable True for enabling cell broadcast with id range, otherwise for disabling.
      * @param ranges Cell broadcast id ranges
      */
-    private void setCellBroadcastRange(
-            SmsManager manager, boolean enable, List<CellBroadcastChannelRange> ranges) {
+    private void setCellBroadcastRange(int subId, boolean enable,
+                                       List<CellBroadcastChannelRange> ranges) {
+        SmsManager manager;
+        if (subId != SubscriptionManager.DEFAULT_SUBSCRIPTION_ID) {
+            manager = SmsManager.getSmsManagerForSubscriptionId(subId);
+        } else {
+            manager = SmsManager.getDefault();
+        }
+
         if (ranges != null) {
             for (CellBroadcastChannelRange range: ranges) {
                 if (enable) {
-                    manager.enableCellBroadcastRange(range.mStartId, range.mEndId, range.mRat);
+                    manager.enableCellBroadcastRange(range.mStartId, range.mEndId, range.mRanType);
                 } else {
-                    manager.disableCellBroadcastRange(range.mStartId, range.mEndId, range.mRat);
+                    manager.disableCellBroadcastRange(range.mStartId, range.mEndId, range.mRanType);
                 }
             }
         }

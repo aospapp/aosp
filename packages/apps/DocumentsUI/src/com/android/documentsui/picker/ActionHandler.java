@@ -23,10 +23,10 @@ import static com.android.documentsui.base.State.ACTION_OPEN;
 import static com.android.documentsui.base.State.ACTION_OPEN_TREE;
 import static com.android.documentsui.base.State.ACTION_PICK_COPY_DESTINATION;
 
+import android.content.ActivityNotFoundException;
 import android.content.ClipData;
 import android.content.ComponentName;
 import android.content.Intent;
-import android.content.QuickViewConstants;
 import android.content.pm.ResolveInfo;
 import android.net.Uri;
 import android.os.AsyncTask;
@@ -46,7 +46,7 @@ import com.android.documentsui.DocumentsAccess;
 import com.android.documentsui.Injector;
 import com.android.documentsui.MetricConsts;
 import com.android.documentsui.Metrics;
-import com.android.documentsui.Model;
+import com.android.documentsui.UserIdManager;
 import com.android.documentsui.base.BooleanConsumer;
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.DocumentStack;
@@ -55,8 +55,8 @@ import com.android.documentsui.base.Lookup;
 import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.base.Shared;
 import com.android.documentsui.base.State;
+import com.android.documentsui.base.UserId;
 import com.android.documentsui.dirlist.AnimationView;
-import com.android.documentsui.files.QuickViewIntentBuilder;
 import com.android.documentsui.picker.ActionHandler.Addons;
 import com.android.documentsui.queries.SearchViewManager;
 import com.android.documentsui.roots.ProvidersAccess;
@@ -73,34 +73,32 @@ import javax.annotation.Nullable;
 class ActionHandler<T extends FragmentActivity & Addons> extends AbstractActionHandler<T> {
 
     private static final String TAG = "PickerActionHandler";
-    private static final String[] PREVIEW_FEATURES = {
-            QuickViewConstants.FEATURE_VIEW
-    };
 
     private final Features mFeatures;
     private final ActivityConfig mConfig;
-    private final Model mModel;
     private final LastAccessedStorage mLastAccessed;
+    private final UserIdManager mUserIdManager;
 
     private UpdatePickResultTask mUpdatePickResultTask;
 
     ActionHandler(
-        T activity,
-        State state,
-        ProvidersAccess providers,
-        DocumentsAccess docs,
-        SearchViewManager searchMgr,
-        Lookup<String, Executor> executors,
-        Injector injector,
-        LastAccessedStorage lastAccessed) {
+            T activity,
+            State state,
+            ProvidersAccess providers,
+            DocumentsAccess docs,
+            SearchViewManager searchMgr,
+            Lookup<String, Executor> executors,
+            Injector injector,
+            LastAccessedStorage lastAccessed,
+            UserIdManager userIdManager) {
         super(activity, state, providers, docs, searchMgr, executors, injector);
 
         mConfig = injector.config;
         mFeatures = injector.features;
-        mModel = injector.getModel();
         mLastAccessed = lastAccessed;
         mUpdatePickResultTask = new UpdatePickResultTask(
             activity.getApplicationContext(), mInjector.pickResult);
+        mUserIdManager = userIdManager;
     }
 
     @Override
@@ -116,10 +114,6 @@ class ActionHandler<T extends FragmentActivity & Addons> extends AbstractActionH
             restoreRootAndDirectory();
             return;
         }
-
-        // We set the activity title in AsyncTask.onPostExecute().
-        // To prevent talkback from reading aloud the default title, we clear it here.
-        mActivity.setTitle("");
 
         if (launchHomeForCopyDestination(intent)) {
             if (DEBUG) {
@@ -138,7 +132,7 @@ class ActionHandler<T extends FragmentActivity & Addons> extends AbstractActionH
         if (DEBUG) {
             Log.d(TAG, "Load last accessed stack.");
         }
-        loadLastAccessedStack();
+        initLoadLastAccessedStack();
     }
 
     @Override
@@ -164,7 +158,7 @@ class ActionHandler<T extends FragmentActivity & Addons> extends AbstractActionH
         Uri uri = intent.getParcelableExtra(DocumentsContract.EXTRA_INITIAL_URI);
         if (uri != null) {
             if (DocumentsContract.isRootUri(mActivity, uri)) {
-                loadRoot(uri);
+                loadRoot(uri, UserId.DEFAULT_USER);
                 return true;
             } else if (DocumentsContract.isDocumentUri(mActivity, uri)) {
                 return launchToDocument(uri);
@@ -172,6 +166,14 @@ class ActionHandler<T extends FragmentActivity & Addons> extends AbstractActionH
         }
 
         return false;
+    }
+
+    private void initLoadLastAccessedStack() {
+        if (DEBUG) {
+            Log.d(TAG, "Attempting to load last used stack for calling package.");
+        }
+        // Block UI until stack is fully loaded, else there is an intermediate incomplete UI state.
+        onLastAccessedStackLoaded(mLastAccessed.getLastAccessed(mActivity, mProviders, mState));
     }
 
     private void loadLastAccessedStack() {
@@ -218,14 +220,16 @@ class ActionHandler<T extends FragmentActivity & Addons> extends AbstractActionH
         mInjector.pickResult.setIsSearching(isSearching);
         mInjector.pickResult.setRoot(root);
         mInjector.pickResult.setFileUri(uri);
-        getUpdatePickResultTask().execute();
+        getUpdatePickResultTask().safeExecute();
     }
 
     private void loadDefaultLocation() {
         switch (mState.action) {
             case ACTION_CREATE:
-            case ACTION_OPEN_TREE:
                 loadHomeDir();
+                break;
+            case ACTION_OPEN_TREE:
+                loadDeviceRoot();
                 break;
             case ACTION_GET_CONTENT:
             case ACTION_OPEN:
@@ -237,42 +241,12 @@ class ActionHandler<T extends FragmentActivity & Addons> extends AbstractActionH
     }
 
     @Override
-    public void showAppDetails(ResolveInfo info) {
+    public void showAppDetails(ResolveInfo info, UserId userId) {
         mInjector.pickResult.increaseActionCount();
         final Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
         intent.setData(Uri.fromParts("package", info.activityInfo.packageName, null));
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_DOCUMENT);
-        mActivity.startActivity(intent);
-    }
-
-    @Override
-    public void onActivityResult(int requestCode, int resultCode, Intent data) {
-        if (DEBUG) {
-            Log.d(TAG, "onActivityResult() code=" + resultCode);
-        }
-
-        // Only relay back results when not canceled; otherwise stick around to
-        // let the user pick another app/backend.
-        switch (requestCode) {
-            case CODE_FORWARD:
-                onExternalAppResult(resultCode, data);
-                break;
-            default:
-                super.onActivityResult(requestCode, resultCode, data);
-        }
-    }
-
-    private void onExternalAppResult(int resultCode, Intent data) {
-        if (resultCode != FragmentActivity.RESULT_CANCELED) {
-            // Remember that we last picked via external app
-            mLastAccessed.setLastAccessedToExternalApp(mActivity);
-
-            updatePickResult(data, false, MetricConsts.ROOT_THIRD_PARTY_APP);
-
-            // Pass back result to original caller
-            mActivity.setResult(resultCode, data, 0);
-            mActivity.finish();
-        }
+        userId.startActivityAsUser(mActivity, intent);
     }
 
     @Override
@@ -291,15 +265,43 @@ class ActionHandler<T extends FragmentActivity & Addons> extends AbstractActionH
     }
 
     @Override
-    public void openRoot(ResolveInfo info) {
+    public void openRoot(ResolveInfo info, UserId userId) {
         Metrics.logAppVisited(info);
         mInjector.pickResult.increaseActionCount();
-        final Intent intent = new Intent(mActivity.getIntent());
-        intent.setFlags(intent.getFlags() & ~Intent.FLAG_ACTIVITY_FORWARD_RESULT);
+
+        // The App root item should not show if we cannot interact with the target user.
+        // But the user managed to get here, this is the final check of permission. We don't
+        // perform the check on activity result.
+        if (!mState.canInteractWith(userId)) {
+            mInjector.dialogs.showActionNotAllowed();
+            return;
+        }
+
+        Intent intent = new Intent(mActivity.getIntent());
+        final int flagsRemoved = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                | Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
+                | Intent.FLAG_GRANT_PREFIX_URI_PERMISSION;
+        intent.setFlags(intent.getFlags() & ~flagsRemoved);
+        intent.addFlags(Intent.FLAG_ACTIVITY_FORWARD_RESULT);
+        intent.addFlags(Intent.FLAG_ACTIVITY_PREVIOUS_IS_TOP);
         intent.setComponent(new ComponentName(
                 info.activityInfo.applicationInfo.packageName, info.activityInfo.name));
-        mActivity.startActivityForResult(intent, CODE_FORWARD);
+        try {
+            boolean isCurrentUser = UserId.CURRENT_USER.equals(userId);
+            if (isCurrentUser) {
+                mActivity.startActivity(intent);
+            } else {
+                userId.startActivityAsUser(mActivity, intent);
+            }
+            Metrics.logLaunchOtherApp(!UserId.CURRENT_USER.equals(userId));
+            mActivity.finish();
+        } catch (SecurityException | ActivityNotFoundException e) {
+            Log.e(TAG, "Caught error: " + e.getLocalizedMessage());
+            mInjector.dialogs.showNoApplicationFound();
+        }
     }
+
 
     @Override
     public void springOpenDirectory(DocumentInfo doc) {
@@ -333,32 +335,9 @@ class ActionHandler<T extends FragmentActivity & Addons> extends AbstractActionH
                     + details.getSelectionKey());
             return false;
         }
-        return priviewDocument(doc);
 
-    }
-
-    @VisibleForTesting
-    boolean priviewDocument(DocumentInfo doc) {
-        Intent intent = new QuickViewIntentBuilder(
-                mActivity.getPackageManager(),
-                mActivity.getResources(),
-                doc,
-                mModel,
-                true /* fromPicker */).build();
-
-        if (intent != null) {
-            try {
-                mActivity.startActivity(intent);
-                return true;
-            } catch (SecurityException e) {
-                Log.e(TAG, "Caught security error: " + e.getLocalizedMessage());
-            }
-        } else {
-            Log.e(TAG, "Quick view intetn is null");
-        }
-
-        mInjector.dialogs.showNoApplicationFound();
-        return false;
+        onDocumentOpened(doc, VIEW_TYPE_PREVIEW, VIEW_TYPE_REGULAR, true);
+        return !doc.isContainer();
     }
 
     void pickDocument(FragmentManager fm, DocumentInfo pickTarget) {
@@ -407,7 +386,7 @@ class ActionHandler<T extends FragmentActivity & Addons> extends AbstractActionH
         if (mFeatures.isOverwriteConfirmationEnabled()) {
             mInjector.dialogs.confirmAction(fm, replaceTarget, ConfirmFragment.TYPE_OVERWRITE);
         } else {
-            finishPicking(replaceTarget.derivedUri);
+            finishPicking(replaceTarget.getDocumentUri());
         }
     }
 

@@ -22,6 +22,7 @@
     android:layout_gravity="center"
     android:layout_marginHorizontal="@dimen/preview_theme_cover_content_extra_margin"
     android:gravity="center_horizontal"
+    android:clipChildren="false"
     tools:showIn="@layout/theme_preview_card">
     <FrameLayout
         android:layout_width="@dimen/preview_theme_icon_size"

@@ -15,25 +15,30 @@
 -->
 
 <resources>
-    <!-- Whether to enable CMAS settings (United States) -->
-    <!-- No need to show this for Korean users -->
-    <bool name="show_cmas_settings">false</bool>
+    <!-- Whether to show extreme alert settings -->
+    <bool name="show_extreme_alert_settings">false</bool>
+    <!-- Whether to show severe alert settings -->
+    <bool name="show_severe_alert_settings">false</bool>
+    <!-- Whether to show amber alert settings -->
+    <bool name="show_amber_alert_settings">false</bool>
 
     <!-- 4370 -->
+    <!-- Emergecny alert tone duration set to 1 minute for Korean users -->
     <string-array name="cmas_presidential_alerts_channels_range_strings" translatable="false">
-        <item>0x1112:rat=gsm, emergency=true</item>
+        <item>0x1112:rat=gsm, emergency=true, alert_duration=60000</item>
     </string-array>
     <!-- 4371 -->
     <string-array name="emergency_alerts_channels_range_strings" translatable="false">
-        <item>0x1113:rat=gsm, emergency=true</item>
+        <item>0x1113:rat=gsm, emergency=true, alert_duration=60000</item>
     </string-array>
     <!-- 4372 -->
     <string-array name="public_safety_messages_channels_range_strings" translatable="false">
-        <item>0x1114:rat=gsm, emergency=false</item>
+        <item>0x1114:rat=gsm, emergency=false, alert_duration=60000</item>
     </string-array>
-    <!-- 4373~4379 -->
+    <!-- 4373~4379, 40960~45055-->
     <string-array name="additional_cbs_channels_strings" translatable="false">
-        <item>0x1115-0x111B:rat=gsm, emergency=true</item>
+        <item>0x1115-0x111B:rat=gsm, emergency=true, alert_duration=60000</item>
+        <item>0xA000-0xAFFF:rat=gsm, emergency=false, scope=carrier, exclude_from_sms_inbox=true</item>
     </string-array>
 
     <string-array name="cmas_alert_extreme_channels_range_strings" translatable="false"></string-array>
@@ -45,9 +50,6 @@
     <string-array name="etws_test_alerts_range_strings" translatable="false"></string-array>
     <bool name="watch_enable_non_emergency_audio">true</bool>
 
-    <!-- Emergecny alert tone duration set to 1 minute for Korean users -->
-    <integer name="alert_duration">60000</integer>
-
     <!-- Always play alert at full volume regardless silent/do-not-disturb mode for Korean users -->
-    <bool name="use_full_volume">true</bool>
+    <bool name="override_dnd_default">true</bool>
 </resources>

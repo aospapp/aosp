@@ -41,25 +41,26 @@ import java.util.stream.Collectors;
 final class TelephonyConferenceController {
     private static final int TELEPHONY_CONFERENCE_MAX_SIZE = 5;
 
-    private final Connection.Listener mConnectionListener = new Connection.Listener() {
-        @Override
-        public void onStateChanged(Connection c, int state) {
-            Log.v(this, "onStateChange triggered in Conf Controller : connection = "+ c
-                 + " state = " + state);
-            recalculate();
-        }
+    private final TelephonyConnection.TelephonyConnectionListener mTelephonyConnectionListener =
+            new TelephonyConnection.TelephonyConnectionListener() {
+                @Override
+                public void onStateChanged(Connection c, int state) {
+                    Log.v(this, "onStateChange triggered in Conf Controller : connection = " + c
+                            + " state = " + state);
+                    recalculate();
+                }
 
-        /** ${inheritDoc} */
-        @Override
-        public void onDisconnected(Connection c, DisconnectCause disconnectCause) {
-            recalculate();
-        }
+                @Override
+                public void onDisconnected(Connection c, DisconnectCause disconnectCause) {
+                    recalculate();
+                }
 
-        @Override
-        public void onDestroyed(Connection connection) {
-            remove(connection);
-        }
-    };
+                @Override
+                public void onDestroyed(Connection connection) {
+                    // Only TelephonyConnections are added.
+                    remove((TelephonyConnection) connection);
+                }
+            };
 
     /** The known connections. */
     private final List<TelephonyConnection> mTelephonyConnections = new ArrayList<>();
@@ -85,18 +86,18 @@ final class TelephonyConferenceController {
             return;
         }
         mTelephonyConnections.add(connection);
-        connection.addConnectionListener(mConnectionListener);
+        connection.addTelephonyConnectionListener(mTelephonyConnectionListener);
         recalculate();
     }
 
-    void remove(Connection connection) {
+    void remove(TelephonyConnection connection) {
         if (!mTelephonyConnections.contains(connection)) {
             // Debug only since TelephonyConnectionService tries to clean up the connections tracked
             // when the original connection changes.  It does this proactively.
             Log.d(this, "remove - connection not tracked; connection=%s", connection);
             return;
         }
-        connection.removeConnectionListener(mConnectionListener);
+        connection.removeTelephonyConnectionListener(mTelephonyConnectionListener);
         mTelephonyConnections.remove(connection);
         recalculate();
     }
@@ -219,7 +220,7 @@ final class TelephonyConferenceController {
             // No more connections are conferenced, destroy any existing conference.
             if (mTelephonyConference != null) {
                 Log.d(this, "with a conference to destroy!");
-                mTelephonyConference.destroy();
+                mTelephonyConference.destroyTelephonyConference();
                 mTelephonyConference = null;
             }
         } else {
@@ -229,7 +230,7 @@ final class TelephonyConferenceController {
                 for (Connection connection : existingConnections) {
                     if (connection instanceof TelephonyConnection &&
                             !conferencedConnections.contains(connection)) {
-                        mTelephonyConference.removeConnection(connection);
+                        mTelephonyConference.removeTelephonyConnection(connection);
                     }
                 }
                 if (allConnInService) {
@@ -237,7 +238,7 @@ final class TelephonyConferenceController {
                     // Add any new ones
                     for (Connection connection : conferencedConnections) {
                         if (!existingConnections.contains(connection)) {
-                            mTelephonyConference.addConnection(connection);
+                            mTelephonyConference.addTelephonyConnection(connection);
                         }
                     }
                 } else {
@@ -262,7 +263,7 @@ final class TelephonyConferenceController {
                     for (Connection connection : conferencedConnections) {
                         Log.d(this, "Adding a connection to a conference call: %s %s",
                                 mTelephonyConference, connection);
-                        mTelephonyConference.addConnection(connection);
+                        mTelephonyConference.addTelephonyConnection(connection);
                     }
                     mTelephonyConference.updateCallRadioTechAfterCreation();
                     mConnectionService.addConference(mTelephonyConference);

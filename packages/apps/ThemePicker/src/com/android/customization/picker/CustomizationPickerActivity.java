@@ -29,6 +29,7 @@ import android.view.MenuItem;
 import androidx.annotation.IdRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentActivity;
 import androidx.fragment.app.FragmentManager;
@@ -86,9 +87,10 @@ public class CustomizationPickerActivity extends FragmentActivity implements Wal
         CategoryFragmentHost, ThemeFragmentHost, GridFragmentHost, ClockFragmentHost {
 
     private static final String TAG = "CustomizationPickerActivity";
-    private static final String WALLPAPER_FLAVOR_EXTRA = "com.android.launcher3.WALLPAPER_FLAVOR";
-    private static final String WALLPAPER_FOCUS = "focus_wallpaper";
-    private static final String WALLPAPER_ONLY = "wallpaper_only";
+    @VisibleForTesting static final String WALLPAPER_FLAVOR_EXTRA =
+            "com.android.launcher3.WALLPAPER_FLAVOR";
+    @VisibleForTesting static final String WALLPAPER_FOCUS = "focus_wallpaper";
+    @VisibleForTesting static final String WALLPAPER_ONLY = "wallpaper_only";
 
     private WallpaperPickerDelegate mDelegate;
     private UserEventLogger mUserEventLogger;
@@ -128,10 +130,9 @@ public class CustomizationPickerActivity extends FragmentActivity implements Wal
 
                 // Navigate to the Wallpaper tab if we started directly from launcher, otherwise
                 // start at the Styles tab
-                int section = WALLPAPER_FOCUS.equals(getIntent()
-                    .getStringExtra(WALLPAPER_FLAVOR_EXTRA))
-                    ? mBottomNav.getMenu().size() - 1 : 0;
-                navigateToSection(mBottomNav.getMenu().getItem(section).getItemId());
+                navigateToSection(
+                        WALLPAPER_FOCUS.equals(getIntent().getStringExtra(WALLPAPER_FLAVOR_EXTRA))
+                                ? R.id.nav_wallpaper : R.id.nav_theme);
             }
         }
     }
@@ -291,6 +292,9 @@ public class CustomizationPickerActivity extends FragmentActivity implements Wal
 
     @Override
     public void onBackPressed() {
+        if (mWallpaperCategoryFragment != null && mWallpaperCategoryFragment.popChildFragment()) {
+            return;
+        }
         if (getSupportFragmentManager().popBackStackImmediate()) {
             return;
         }
@@ -301,6 +305,11 @@ public class CustomizationPickerActivity extends FragmentActivity implements Wal
     }
 
     private void navigateToSection(@IdRes int id) {
+        // Navigate to the first section if the targeted section doesn't exist.
+        if (!mSections.containsKey(id)) {
+            id = mBottomNav.getMenu().getItem(0).getItemId();
+        }
+
         mBottomNav.setSelectedItemId(id);
     }
 
@@ -328,14 +337,6 @@ public class CustomizationPickerActivity extends FragmentActivity implements Wal
     @Override
     public void showViewOnlyPreview(WallpaperInfo wallpaperInfo) {
         mDelegate.showViewOnlyPreview(wallpaperInfo);
-    }
-
-    /**
-     * Shows the picker activity for the given category.
-     */
-    @Override
-    public void show(String collectionId) {
-        mDelegate.show(collectionId);
     }
 
     @Override

@@ -25,9 +25,6 @@ LOCAL_SRC_FILES := \
     process.cpp \
     directory.cpp
 
-LOCAL_C_INCLUDES += \
-    frameworks/base/include
-
 LOCAL_SHARED_LIBRARIES := \
     libbinder \
     liblog \

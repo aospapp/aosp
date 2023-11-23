@@ -29,7 +29,7 @@ include $(CLEAR_VARS)
 LOCAL_PACKAGE_NAME := CarDeveloperOptions
 LOCAL_PRIVATE_PLATFORM_APIS := true
 LOCAL_CERTIFICATE := platform
-LOCAL_PRODUCT_MODULE := true
+LOCAL_SYSTEM_EXT_MODULE := true
 LOCAL_PRIVILEGED_MODULE := true
 LOCAL_REQUIRED_MODULES := privapp_whitelist_com.android.car.developeroptions
 LOCAL_MODULE_TAGS := optional
@@ -53,6 +53,7 @@ LOCAL_STATIC_ANDROID_LIBRARIES := \
 
 LOCAL_JAVA_LIBRARIES := \
     telephony-common \
+    android.car.settings \
     ims-common
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
@@ -64,6 +65,7 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
     carsettings-contextual-card-protos-lite \
     carsettings-log-bridge-protos-lite \
     carsettings-logtags \
+    statslog-settings \
     zxing-core-1.7
 
 LOCAL_PROGUARD_FLAG_FILES := proguard.flags

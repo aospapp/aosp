@@ -39,7 +39,17 @@ LOCAL_STATIC_JAVA_LIBRARIES += \
         android.hidl.base-V1.0-java \
         android.hardware.automotive.vehicle-V2.0-java \
         android.car.cluster.navigation \
+        android.car.cluster.navigation \
+        android.car.testapi \
+        android.car.test.utils \
+        androidx.test.runner \
+        compatibility-device-util-axt \
+        platform-test-annotations \
+        testng \
+        truth-prebuilt
 
 LOCAL_JAVA_LIBRARIES := android.car android.test.runner android.test.base
+
+LOCAL_COMPATIBILITY_SUITE := general-tests
 
 include $(BUILD_PACKAGE)

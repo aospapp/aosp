@@ -21,16 +21,14 @@ import static com.google.common.truth.Truth.assertThat;
 import android.content.Context;
 import android.graphics.drawable.Drawable;
 
-import androidx.preference.Preference;
-
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.R;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 public class DefaultAppUtilsTest {
 
     @Test
@@ -42,11 +40,10 @@ public class DefaultAppUtilsTest {
 
         // Set to some value larger than current height or width;
         int testMaxDimensions = Math.max(height, width) + 1;
-        Preference preference = new Preference(context);
-        DefaultAppUtils.setSafeIcon(preference, drawable, testMaxDimensions);
+        Drawable icon = DefaultAppUtils.getSafeIcon(drawable, testMaxDimensions);
 
-        assertThat(preference.getIcon().getMinimumHeight()).isEqualTo(height);
-        assertThat(preference.getIcon().getMinimumWidth()).isEqualTo(width);
+        assertThat(icon.getMinimumHeight()).isEqualTo(height);
+        assertThat(icon.getMinimumWidth()).isEqualTo(width);
     }
 
     @Test
@@ -58,10 +55,9 @@ public class DefaultAppUtilsTest {
 
         // Set to some value smaller than current height or width;
         int testMaxDimensions = Math.min(height, width) - 1;
-        Preference preference = new Preference(context);
-        DefaultAppUtils.setSafeIcon(preference, drawable, testMaxDimensions);
+        Drawable icon = DefaultAppUtils.getSafeIcon(drawable, testMaxDimensions);
 
-        assertThat(preference.getIcon().getMinimumHeight()).isEqualTo(testMaxDimensions);
-        assertThat(preference.getIcon().getMinimumWidth()).isEqualTo(testMaxDimensions);
+        assertThat(icon.getMinimumHeight()).isEqualTo(testMaxDimensions);
+        assertThat(icon.getMinimumWidth()).isEqualTo(testMaxDimensions);
     }
 }

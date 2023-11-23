@@ -15,10 +15,17 @@
     limitations under the License.
 -->
 
-<com.android.car.settings.users.UserGridRecyclerView
+<RelativeLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/user_grid"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:layout_gravity="center_vertical"
-    android:background="?attr/userSwitcherBackground"/>
+    android:layout_height="match_parent">
+
+    <com.android.car.settings.users.UserGridRecyclerView
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        android:id="@+id/user_grid"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_gravity="center_vertical"
+        android:background="?attr/userSwitcherBackground"/>
+</RelativeLayout>

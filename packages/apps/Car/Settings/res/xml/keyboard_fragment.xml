@@ -16,7 +16,8 @@
 
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
                   xmlns:settings="http://schemas.android.com/apk/res-auto"
-                  android:title="@string/keyboard_settings">
+                  android:title="@string/keyboard_settings"
+                  android:key="@string/psk_keyboard">
     <com.android.car.settings.common.LogicalPreferenceGroup
         android:key="@string/pk_enabled_keyboards"
         settings:controller="com.android.car.settings.inputmethod.EnabledKeyboardPreferenceController"/>

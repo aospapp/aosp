@@ -48,10 +48,10 @@ import com.android.bluetooth.BluetoothMetricsProto;
 import com.android.bluetooth.BluetoothObexTransport;
 import com.android.bluetooth.btservice.MetricsLogger;
 
-import java.io.BufferedOutputStream;
-import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.Arrays;
 
 import javax.obex.HeaderSet;
@@ -361,14 +361,16 @@ public class BluetoothOppObexServerSession extends ServerRequestHandler
 
             }
 
-            if (mFileInfo.mFileName != null) {
+            if (mFileInfo.mFileName != null && mFileInfo.mInsertUri != null) {
 
                 ContentValues updateValues = new ContentValues();
                 contentUri = Uri.parse(BluetoothShare.CONTENT_URI + "/" + mInfo.mId);
                 updateValues.put(BluetoothShare._DATA, mFileInfo.mFileName);
                 updateValues.put(BluetoothShare.STATUS, BluetoothShare.STATUS_RUNNING);
+                updateValues.put(BluetoothShare.URI, mFileInfo.mInsertUri.toString());
                 mContext.getContentResolver().update(contentUri, updateValues, null, null);
 
+                mInfo.mUri = mFileInfo.mInsertUri;
                 status = receiveFile(mFileInfo, op);
                 /*
                  * TODO map status to obex response code
@@ -403,13 +405,8 @@ public class BluetoothOppObexServerSession extends ServerRequestHandler
              */
 
             Log.i(TAG, "Rejected incoming request");
-            if (mFileInfo.mFileName != null) {
-                try {
-                    mFileInfo.mOutputStream.close();
-                } catch (IOException e) {
-                    Log.e(TAG, "error close file stream");
-                }
-                new File(mFileInfo.mFileName).delete();
+            if (mFileInfo.mInsertUri != null) {
+                mContext.getContentResolver().delete(mFileInfo.mInsertUri, null, null);
             }
             // set status as local cancel
             status = BluetoothShare.STATUS_CANCELED;
@@ -430,8 +427,7 @@ public class BluetoothOppObexServerSession extends ServerRequestHandler
          * implement receive file
          */
         int status = -1;
-        BufferedOutputStream bos = null;
-
+        OutputStream os = null;
         InputStream is = null;
         boolean error = false;
         try {
@@ -455,7 +451,12 @@ public class BluetoothOppObexServerSession extends ServerRequestHandler
         long prevPercent = 0;
 
         if (!error) {
-            bos = new BufferedOutputStream(fileInfo.mOutputStream, 0x10000);
+            try {
+                os = mContext.getContentResolver().openOutputStream(fileInfo.mInsertUri);
+            } catch (FileNotFoundException e) {
+                Log.e(TAG, "Error when openOutputStream");
+                error = true;
+            }
         }
 
         if (!error) {
@@ -481,7 +482,7 @@ public class BluetoothOppObexServerSession extends ServerRequestHandler
                         break;
                     }
 
-                    bos.write(b, 0, readLength);
+                    os.write(b, 0, readLength);
                     position += readLength;
                     percent = position * 100 / fileInfo.mLength;
                     currentTime = SystemClock.elapsedRealtime();
@@ -536,9 +537,10 @@ public class BluetoothOppObexServerSession extends ServerRequestHandler
             }
         }
 
-        if (bos != null) {
+        if (os != null) {
             try {
-                bos.close();
+                os.flush();
+                os.close();
             } catch (IOException e) {
                 Log.e(TAG, "Error when closing stream after send");
             }

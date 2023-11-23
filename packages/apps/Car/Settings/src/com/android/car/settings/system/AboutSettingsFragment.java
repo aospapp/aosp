@@ -16,14 +16,19 @@
 
 package com.android.car.settings.system;
 
+import android.provider.Settings;
+
 import androidx.annotation.XmlRes;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.SettingsFragment;
+import com.android.car.settings.search.CarBaseSearchIndexProvider;
+import com.android.settingslib.search.SearchIndexable;
 
 /**
  * Shows basic info about the system and provide some actions like update, reset etc.
  */
+@SearchIndexable
 public class AboutSettingsFragment extends SettingsFragment {
 
     @Override
@@ -31,4 +36,11 @@ public class AboutSettingsFragment extends SettingsFragment {
     protected int getPreferenceScreenResId() {
         return R.xml.about_settings_fragment;
     }
+
+    /**
+     * Data provider for Settings Search.
+     */
+    public static final CarBaseSearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
+            new CarBaseSearchIndexProvider(R.xml.about_settings_fragment,
+                    Settings.ACTION_DEVICE_INFO_SETTINGS);
 }

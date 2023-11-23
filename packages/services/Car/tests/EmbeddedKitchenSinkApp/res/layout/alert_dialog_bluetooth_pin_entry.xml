@@ -32,12 +32,12 @@
         <TextView
             android:id="@+id/message_below_pin"
             android:layout_width="wrap_content"
-            android:layout_height="@dimen/car_single_line_list_item_height"
+            android:layout_height="@dimen/car_ui_list_item_height"
             android:gravity="center_vertical"
-            style="@style/TextAppearance.Car.Body2"/>
+            style="@style/TextAppearance.CarUi.Body2"/>
 
         <FrameLayout
-            android:layout_height="@dimen/car_double_line_list_item_height"
+            android:layout_height="@dimen/car_ui_list_item_height"
             android:layout_width="match_parent" >
             <LinearLayout
                 android:layout_width="match_parent"
@@ -48,7 +48,7 @@
                     android:id="@+id/text"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    style="@style/TextAppearance.Car.Body1"
+                    style="@style/TextAppearance.CarUi.Body1"
                     android:inputType="textPassword"
                     android:maxLines="1" />
                 <TextView
@@ -57,17 +57,17 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="@dimen/car_padding_2"
                     android:text="@string/bluetooth_pin_values_hint"
-                    style="@style/TextAppearance.Car.Body2.SingleLine" />
+                    style="@style/TextAppearance.CarUi.Body2.SingleLine" />
             </LinearLayout>
         </FrameLayout>
 
         <RelativeLayout
-            android:layout_height="@dimen/car_double_line_list_item_height"
+            android:layout_height="@dimen/car_ui_list_item_height"
             android:layout_width="match_parent" >
             <CheckBox
                 android:id="@+id/alphanumeric_pin"
-                android:layout_width="@dimen/car_primary_icon_size"
-                android:layout_height="@dimen/car_primary_icon_size"
+                android:layout_width="@dimen/car_ui_primary_icon_size"
+                android:layout_height="@dimen/car_ui_primary_icon_size"
                 android:button="@drawable/ic_check_box"
                 android:layout_alignParentStart="true"
                 android:layout_centerVertical="true" />
@@ -79,17 +79,17 @@
                 android:layout_centerVertical="true"
                 android:layout_marginStart="@dimen/car_keyline_3"
                 android:layout_marginEnd="@dimen/car_keyline_3"
-                style="@style/TextAppearance.Car.Body2.SingleLine"
+                style="@style/TextAppearance.CarUi.Body2.SingleLine"
                 android:gravity="center_vertical"/>
         </RelativeLayout>
 
         <RelativeLayout
-            android:layout_height="@dimen/car_double_line_list_item_height"
+            android:layout_height="@dimen/car_ui_list_item_height"
             android:layout_width="match_parent">
             <CheckBox
                 android:id="@+id/phonebook_sharing_message_entry_pin"
-                android:layout_width="@dimen/car_primary_icon_size"
-                android:layout_height="@dimen/car_primary_icon_size"
+                android:layout_width="@dimen/car_ui_primary_icon_size"
+                android:layout_height="@dimen/car_ui_primary_icon_size"
                 android:button="@drawable/ic_check_box"
                 android:layout_alignParentStart="true"
                 android:layout_centerVertical="true" />
@@ -101,7 +101,7 @@
                 android:layout_centerVertical="true"
                 android:layout_marginStart="@dimen/car_keyline_3"
                 android:layout_marginEnd="@dimen/car_keyline_3"
-                style="@style/TextAppearance.Car.Body2.SingleLine"
+                style="@style/TextAppearance.CarUi.Body2.SingleLine"
                 android:gravity="center_vertical"/>
         </RelativeLayout>
     </LinearLayout>

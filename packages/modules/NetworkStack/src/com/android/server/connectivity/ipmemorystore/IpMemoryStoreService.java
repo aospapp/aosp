@@ -24,8 +24,6 @@ import static android.net.ipmemorystore.Status.SUCCESS;
 import static com.android.server.connectivity.ipmemorystore.IpMemoryStoreDatabase.EXPIRY_ERROR;
 import static com.android.server.connectivity.ipmemorystore.RegularMaintenanceJobService.InterruptMaintenance;
 
-import android.annotation.NonNull;
-import android.annotation.Nullable;
 import android.content.Context;
 import android.database.SQLException;
 import android.database.sqlite.SQLiteDatabase;
@@ -35,6 +33,7 @@ import android.net.ipmemorystore.IOnBlobRetrievedListener;
 import android.net.ipmemorystore.IOnL2KeyResponseListener;
 import android.net.ipmemorystore.IOnNetworkAttributesRetrievedListener;
 import android.net.ipmemorystore.IOnSameL3NetworkResponseListener;
+import android.net.ipmemorystore.IOnStatusAndCountListener;
 import android.net.ipmemorystore.IOnStatusListener;
 import android.net.ipmemorystore.NetworkAttributes;
 import android.net.ipmemorystore.NetworkAttributesParcelable;
@@ -43,6 +42,9 @@ import android.net.ipmemorystore.Status;
 import android.net.ipmemorystore.StatusParcelable;
 import android.os.RemoteException;
 import android.util.Log;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import com.android.internal.annotations.VisibleForTesting;
 
@@ -115,7 +117,11 @@ public class IpMemoryStoreService extends IIpMemoryStore.Stub {
         // TODO : investigate replacing this scheme with a scheme where each thread has its own
         // instance of the database, as it may be faster. It is likely however that IpMemoryStore
         // operations are mostly IO-bound anyway, and additional contention is unlikely to bring
-        // benefits. Alternatively, a read-write lock might increase throughput.
+        // benefits. Alternatively, a read-write lock might increase throughput. Also if doing
+        // this work, care must be taken around the privacy-preserving VACUUM operations as
+        // VACUUM will fail if there are other open transactions at the same time, and using
+        // multiple threads will open the possibility of this failure happening, threatening
+        // the privacy guarantees.
         mExecutor = Executors.newSingleThreadExecutor();
         RegularMaintenanceJobService.schedule(mContext, this);
     }
@@ -404,6 +410,56 @@ public class IpMemoryStoreService extends IIpMemoryStore.Stub {
     }
 
     /**
+     * Delete a single entry.
+     *
+     * @param l2Key The L2 key of the entry to delete.
+     * @param needWipe Whether the data must be wiped from disk immediately for security reasons.
+     *                 This is very expensive and makes no functional difference ; only pass
+     *                 true if security requires this data must be removed from disk immediately.
+     * @param listener A listener that will be invoked to inform of the completion of this call,
+     *                 or null if the client is not interested in learning about success/failure.
+     * returns (through the listener) A status to indicate success and the number of deleted records
+     */
+    public void delete(@NonNull final String l2Key, final boolean needWipe,
+            @Nullable final IOnStatusAndCountListener listener) {
+        mExecutor.execute(() -> {
+            try {
+                final StatusAndCount res = IpMemoryStoreDatabase.delete(mDb, l2Key, needWipe);
+                if (null != listener) listener.onComplete(makeStatus(res.status), res.count);
+            } catch (final RemoteException e) {
+                // Client at the other end died
+            }
+        });
+    }
+
+    /**
+     * Delete all entries in a cluster.
+     *
+     * This method will delete all entries in the memory store that have the cluster attribute
+     * passed as an argument.
+     *
+     * @param cluster The cluster to delete.
+     * @param needWipe Whether the data must be wiped from disk immediately for security reasons.
+     *                 This is very expensive and makes no functional difference ; only pass
+     *                 true if security requires this data must be removed from disk immediately.
+     * @param listener A listener that will be invoked to inform of the completion of this call,
+     *                 or null if the client is not interested in learning about success/failure.
+     * returns (through the listener) A status to indicate success and the number of deleted records
+     */
+    public void deleteCluster(@NonNull final String cluster, final boolean needWipe,
+            @Nullable final IOnStatusAndCountListener listener) {
+        mExecutor.execute(() -> {
+            try {
+                final StatusAndCount res =
+                        IpMemoryStoreDatabase.deleteCluster(mDb, cluster, needWipe);
+                if (null != listener) listener.onComplete(makeStatus(res.status), res.count);
+            } catch (final RemoteException e) {
+                // Client at the other end died
+            }
+        });
+    }
+
+    /**
      * Wipe the data in IpMemoryStore database upon network factory reset.
      */
     @Override
@@ -499,5 +555,10 @@ public class IpMemoryStoreService extends IIpMemoryStore.Stub {
     @Override
     public int getInterfaceVersion() {
         return this.VERSION;
+    }
+
+    @Override
+    public String getInterfaceHash() {
+        return this.HASH;
     }
 }

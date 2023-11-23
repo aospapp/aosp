@@ -82,12 +82,26 @@ public class ConnectivityPacketSummary {
     private final ByteBuffer mPacket;
     private final String mSummary;
 
+    /**
+     * Create a string summary of a received packet.
+     * @param hwaddr MacAddress of the interface sending/receiving the packet.
+     * @param buffer The packet bytes. Length is assumed to be the buffer length.
+     * @return A summary of the packet.
+     */
     public static String summarize(MacAddress hwaddr, byte[] buffer) {
         return summarize(hwaddr, buffer, buffer.length);
     }
 
     // Methods called herein perform some but by no means all error checking.
     // They may throw runtime exceptions on malformed packets.
+
+    /**
+     * Create a string summary of a received packet.
+     * @param macAddr MacAddress of the interface sending/receiving the packet.
+     * @param buffer The packet bytes.
+     * @param length Length of the packet.
+     * @return A summary of the packet.
+     */
     public static String summarize(MacAddress macAddr, byte[] buffer, int length) {
         if ((macAddr == null) || (buffer == null)) return null;
         length = Math.min(length, buffer.length);

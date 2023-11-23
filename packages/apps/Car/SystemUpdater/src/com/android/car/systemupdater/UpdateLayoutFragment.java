@@ -33,20 +33,22 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
-import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.StringRes;
-import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.Fragment;
 
+import com.android.car.ui.core.CarUi;
+import com.android.car.ui.toolbar.MenuItem;
+import com.android.car.ui.toolbar.ProgressBarController;
+import com.android.car.ui.toolbar.ToolbarController;
 import com.android.internal.util.Preconditions;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Collections;
 
 /** Display update state and progress. */
 public class UpdateLayoutFragment extends Fragment implements UpFragment {
@@ -59,12 +61,12 @@ public class UpdateLayoutFragment extends Fragment implements UpFragment {
     private static final String NOTIFICATION_CHANNEL_ID = "update";
     private static final int NOTIFICATION_ID = 1;
 
-    private ProgressBar mProgressBar;
     private TextView mContentTitle;
     private TextView mContentInfo;
     private TextView mContentDetails;
     private File mUpdateFile;
-    private Button mSystemUpdateToolbarAction;
+    private ToolbarController mToolbar;
+    private ProgressBarController mProgressBar;
     private PowerManager mPowerManager;
     private NotificationManager mNotificationManager;
     private final UpdateVerifier mPackageVerifier = new UpdateVerifier();
@@ -124,19 +126,11 @@ public class UpdateLayoutFragment extends Fragment implements UpFragment {
     @Override
     public void onActivityCreated(Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
-
         AppCompatActivity activity = (AppCompatActivity) getActivity();
-
-        ActionBar actionBar = activity.getSupportActionBar();
-        actionBar.setCustomView(R.layout.action_bar_with_button);
-        actionBar.setDisplayShowCustomEnabled(true);
-        actionBar.setDisplayShowTitleEnabled(false);
-
-        mProgressBar = (ProgressBar) activity.findViewById(R.id.progress_bar);
-
-        mSystemUpdateToolbarAction = activity.findViewById(R.id.action_button1);
+        mToolbar = CarUi.requireToolbar(getActivity());
+        mProgressBar = mToolbar.getProgressBar();
         mProgressBar.setIndeterminate(true);
-        mProgressBar.setVisibility(View.VISIBLE);
+        mProgressBar.setVisible(true);
         showStatus(R.string.verify_in_progress);
 
         if (getArguments().getBoolean(EXTRA_RESUME_UPDATE)) {
@@ -174,9 +168,11 @@ public class UpdateLayoutFragment extends Fragment implements UpFragment {
         mContentInfo.append(getString(R.string.update_file_size));
         mContentInfo.append(Formatter.formatFileSize(getContext(), mUpdateFile.length()));
         mContentDetails.setText(null);
-        mSystemUpdateToolbarAction.setOnClickListener(v -> installUpdate(update));
-        mSystemUpdateToolbarAction.setText(R.string.install_now);
-        mSystemUpdateToolbarAction.setVisibility(View.VISIBLE);
+        MenuItem installButton = MenuItem.builder(getActivity())
+                .setTitle(R.string.install_now)
+                .setOnClickListener(i -> installUpdate(update))
+                .build();
+        mToolbar.setMenuItems(Collections.singletonList(installButton));
     }
 
     /** Reboot the system. */
@@ -198,9 +194,9 @@ public class UpdateLayoutFragment extends Fragment implements UpFragment {
     private void showInstallationInProgress() {
         mInstallationInProgress = true;
         mProgressBar.setIndeterminate(false);
-        mProgressBar.setVisibility(View.VISIBLE);
+        mProgressBar.setVisible(true);
         mProgressBar.setMax(PERCENT_MAX);
-        mSystemUpdateToolbarAction.setVisibility(View.GONE);
+        mToolbar.setMenuItems(null); // Remove install button
         showStatus(R.string.install_in_progress);
 
         mUpdateEngine.bind(mCarUpdateEngineCallback, new Handler(getContext().getMainLooper()));
@@ -223,7 +219,7 @@ public class UpdateLayoutFragment extends Fragment implements UpFragment {
 
         @Override
         protected void onPostExecute(UpdateParser.ParsedUpdate result) {
-            mProgressBar.setVisibility(View.GONE);
+            mProgressBar.setVisible(false);
             if (result == null) {
                 showStatus(R.string.verify_failure);
                 return;
@@ -268,8 +264,8 @@ public class UpdateLayoutFragment extends Fragment implements UpFragment {
             showStatus(errorCode == UpdateEngine.ErrorCodeConstants.SUCCESS
                     ? R.string.install_success
                     : R.string.install_failed);
-            mProgressBar.setVisibility(View.GONE);
-            mSystemUpdateToolbarAction.setVisibility(View.GONE);
+            mProgressBar.setVisible(false);
+            mToolbar.setMenuItems(null); // Remove install now button
         }
     }
 

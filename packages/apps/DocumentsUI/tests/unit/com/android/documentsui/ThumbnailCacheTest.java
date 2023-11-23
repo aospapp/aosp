@@ -30,6 +30,7 @@ import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
 
 import com.android.documentsui.ThumbnailCache.Result;
+import com.android.documentsui.base.UserId;
 import com.android.documentsui.testing.Bitmaps;
 
 import org.junit.Before;
@@ -42,6 +43,9 @@ public class ThumbnailCacheTest {
 
     private static final Uri URI_0 = Uri.parse("content://authority/document/0");
     private static final Uri URI_1 = Uri.parse("content://authority/document/1");
+
+    private static final UserId USER_ID_0 = UserId.of(0);
+    private static final UserId USER_ID_1 = UserId.of(1);
 
     private static final Point SMALL_SIZE = new Point(1, 1);
     private static final Point MID_SIZE = new Point(2, 2);
@@ -65,18 +69,25 @@ public class ThumbnailCacheTest {
 
     @Test
     public void testMiss() {
-        mCache.putThumbnail(URI_0, MID_SIZE, MIDSIZE_BITMAP, LAST_MODIFIED);
+        mCache.putThumbnail(URI_0, USER_ID_0, MID_SIZE, MIDSIZE_BITMAP, LAST_MODIFIED);
 
-        Result result = mCache.getThumbnail(URI_1, MID_SIZE);
+        Result result = mCache.getThumbnail(URI_1, USER_ID_0, MID_SIZE);
 
         assertMiss(result);
     }
 
     @Test
-    public void testHit_Exact() {
-        mCache.putThumbnail(URI_0, MID_SIZE, MIDSIZE_BITMAP, LAST_MODIFIED);
+    public void testMiss_DifferentUser() {
+        mCache.putThumbnail(URI_0, USER_ID_0, MID_SIZE, MIDSIZE_BITMAP, LAST_MODIFIED);
+        Result result = mCache.getThumbnail(URI_0, USER_ID_1, MID_SIZE);
+        assertMiss(result);
+    }
 
-        Result result = mCache.getThumbnail(URI_0, MID_SIZE);
+    @Test
+    public void testHit_Exact() {
+        mCache.putThumbnail(URI_0, USER_ID_0, MID_SIZE, MIDSIZE_BITMAP, LAST_MODIFIED);
+
+        Result result = mCache.getThumbnail(URI_0, USER_ID_0, MID_SIZE);
 
         assertHitExact(result);
         assertSame(MIDSIZE_BITMAP, result.getThumbnail());
@@ -84,9 +95,9 @@ public class ThumbnailCacheTest {
 
     @Test
     public void testHit_Smaller() {
-        mCache.putThumbnail(URI_0, MID_SIZE, MIDSIZE_BITMAP, LAST_MODIFIED);
+        mCache.putThumbnail(URI_0, USER_ID_0, MID_SIZE, MIDSIZE_BITMAP, LAST_MODIFIED);
 
-        Result result = mCache.getThumbnail(URI_0, LARGE_SIZE);
+        Result result = mCache.getThumbnail(URI_0, USER_ID_0, LARGE_SIZE);
 
         assertHitSmaller(result);
         assertSame(MIDSIZE_BITMAP, result.getThumbnail());
@@ -94,9 +105,9 @@ public class ThumbnailCacheTest {
 
     @Test
     public void testHit_Larger() {
-        mCache.putThumbnail(URI_0, MID_SIZE, MIDSIZE_BITMAP, LAST_MODIFIED);
+        mCache.putThumbnail(URI_0, USER_ID_0, MID_SIZE, MIDSIZE_BITMAP, LAST_MODIFIED);
 
-        Result result = mCache.getThumbnail(URI_0, SMALL_SIZE);
+        Result result = mCache.getThumbnail(URI_0, USER_ID_0, SMALL_SIZE);
 
         assertHitLarger(result);
         assertSame(MIDSIZE_BITMAP, result.getThumbnail());
@@ -104,10 +115,10 @@ public class ThumbnailCacheTest {
 
     @Test
     public void testHit_Larger_HasBothSize() {
-        mCache.putThumbnail(URI_0, LARGE_SIZE, LARGE_BITMAP, LAST_MODIFIED);
-        mCache.putThumbnail(URI_0, SMALL_SIZE, SMALL_BITMAP, LAST_MODIFIED);
+        mCache.putThumbnail(URI_0, USER_ID_0, LARGE_SIZE, LARGE_BITMAP, LAST_MODIFIED);
+        mCache.putThumbnail(URI_0, USER_ID_0, SMALL_SIZE, SMALL_BITMAP, LAST_MODIFIED);
 
-        Result result = mCache.getThumbnail(URI_0, MID_SIZE);
+        Result result = mCache.getThumbnail(URI_0, USER_ID_0, MID_SIZE);
 
         assertHitLarger(result);
         assertSame(LARGE_BITMAP, result.getThumbnail());
@@ -115,13 +126,13 @@ public class ThumbnailCacheTest {
 
     @Test
     public void testHit_Exact_MultiplePut() {
-        mCache.putThumbnail(URI_0, MID_SIZE, MIDSIZE_BITMAP, LAST_MODIFIED);
+        mCache.putThumbnail(URI_0, USER_ID_0, MID_SIZE, MIDSIZE_BITMAP, LAST_MODIFIED);
 
         Bitmap localBitmap = Bitmaps.createTestBitmap(MID_SIZE.x, MID_SIZE.y);
         long localLastModified = LAST_MODIFIED + 100;
-        mCache.putThumbnail(URI_0, MID_SIZE, localBitmap, localLastModified);
+        mCache.putThumbnail(URI_0, USER_ID_0, MID_SIZE, localBitmap, localLastModified);
 
-        Result result = mCache.getThumbnail(URI_0, MID_SIZE);
+        Result result = mCache.getThumbnail(URI_0, USER_ID_0, MID_SIZE);
 
         assertHitExact(result);
         assertSame(localBitmap, result.getThumbnail());
@@ -129,40 +140,40 @@ public class ThumbnailCacheTest {
 
     @Test
     public void testHit_EqualLastModified() {
-        mCache.putThumbnail(URI_0, MID_SIZE, MIDSIZE_BITMAP, LAST_MODIFIED);
+        mCache.putThumbnail(URI_0, USER_ID_0, MID_SIZE, MIDSIZE_BITMAP, LAST_MODIFIED);
 
-        Result result = mCache.getThumbnail(URI_0, MID_SIZE);
+        Result result = mCache.getThumbnail(URI_0, USER_ID_0, MID_SIZE);
 
         assertEquals(LAST_MODIFIED, result.getLastModified());
     }
 
     @Test
     public void testEvictOldest_SizeExceeded() {
-        mCache.putThumbnail(URI_0, MID_SIZE, MIDSIZE_BITMAP, LAST_MODIFIED);
-        mCache.putThumbnail(URI_1, SMALL_SIZE, SMALL_BITMAP, LAST_MODIFIED);
-        mCache.putThumbnail(URI_1, LARGE_SIZE, LARGE_BITMAP, LAST_MODIFIED);
+        mCache.putThumbnail(URI_0, USER_ID_0, MID_SIZE, MIDSIZE_BITMAP, LAST_MODIFIED);
+        mCache.putThumbnail(URI_1, USER_ID_0, SMALL_SIZE, SMALL_BITMAP, LAST_MODIFIED);
+        mCache.putThumbnail(URI_1, USER_ID_0, LARGE_SIZE, LARGE_BITMAP, LAST_MODIFIED);
 
-        Result result = mCache.getThumbnail(URI_0, MID_SIZE);
+        Result result = mCache.getThumbnail(URI_0, USER_ID_0, MID_SIZE);
 
         assertMiss(result);
     }
 
     @Test
     public void testCacheShrink_OnTrimMemory_Moderate() {
-        mCache.putThumbnail(URI_0, MID_SIZE, MIDSIZE_BITMAP, LAST_MODIFIED);
-        mCache.putThumbnail(URI_0, SMALL_SIZE, SMALL_BITMAP, LAST_MODIFIED);
-        mCache.putThumbnail(URI_0, LARGE_SIZE, LARGE_BITMAP, LAST_MODIFIED);
+        mCache.putThumbnail(URI_0, USER_ID_0, MID_SIZE, MIDSIZE_BITMAP, LAST_MODIFIED);
+        mCache.putThumbnail(URI_0, USER_ID_0, SMALL_SIZE, SMALL_BITMAP, LAST_MODIFIED);
+        mCache.putThumbnail(URI_0, USER_ID_0, LARGE_SIZE, LARGE_BITMAP, LAST_MODIFIED);
 
         mCache.onTrimMemory(ComponentCallbacks2.TRIM_MEMORY_MODERATE);
 
-        Result result = mCache.getThumbnail(URI_0, MID_SIZE);
+        Result result = mCache.getThumbnail(URI_0, USER_ID_0, MID_SIZE);
         assertMiss(result);
     }
 
     @Test
     public void testCacheShrink_OnTrimMemory_Background() {
-        mCache.putThumbnail(URI_0, LARGE_SIZE, LARGE_BITMAP, LAST_MODIFIED);
-        mCache.putThumbnail(URI_0, SMALL_SIZE, SMALL_BITMAP, LAST_MODIFIED);
+        mCache.putThumbnail(URI_0, USER_ID_0, LARGE_SIZE, LARGE_BITMAP, LAST_MODIFIED);
+        mCache.putThumbnail(URI_0, USER_ID_0, SMALL_SIZE, SMALL_BITMAP, LAST_MODIFIED);
 
         mCache.onTrimMemory(ComponentCallbacks2.TRIM_MEMORY_BACKGROUND);
 
@@ -172,21 +183,21 @@ public class ThumbnailCacheTest {
         //
         // HalfLimit = Limit / 2 = 5. After evicting largeSize bitmap, cache size decreases to 4,
         // which is smaller than 5. Then smallSize bitmap remains.
-        Result result = mCache.getThumbnail(URI_0, MID_SIZE);
+        Result result = mCache.getThumbnail(URI_0, USER_ID_0, MID_SIZE);
         assertHitSmaller(result);
         assertSame(SMALL_BITMAP, result.getThumbnail());
     }
 
     @Test
     public void testRemoveUri() {
-        mCache.putThumbnail(URI_0, MID_SIZE, MIDSIZE_BITMAP, LAST_MODIFIED);
-        mCache.putThumbnail(URI_0, SMALL_SIZE, SMALL_BITMAP, LAST_MODIFIED);
-        mCache.putThumbnail(URI_1, MID_SIZE, MIDSIZE_BITMAP, LAST_MODIFIED);
+        mCache.putThumbnail(URI_0, USER_ID_0, MID_SIZE, MIDSIZE_BITMAP, LAST_MODIFIED);
+        mCache.putThumbnail(URI_0, USER_ID_0, SMALL_SIZE, SMALL_BITMAP, LAST_MODIFIED);
+        mCache.putThumbnail(URI_1, USER_ID_0, MID_SIZE, MIDSIZE_BITMAP, LAST_MODIFIED);
 
-        mCache.removeUri(URI_0);
+        mCache.removeUri(URI_0, USER_ID_0);
 
-        assertMiss(mCache.getThumbnail(URI_0, MID_SIZE));
-        assertHitExact(mCache.getThumbnail(URI_1, MID_SIZE));
+        assertMiss(mCache.getThumbnail(URI_0, USER_ID_0, MID_SIZE));
+        assertHitExact(mCache.getThumbnail(URI_1, USER_ID_0, MID_SIZE));
     }
 
     private static void assertMiss(Result result) {

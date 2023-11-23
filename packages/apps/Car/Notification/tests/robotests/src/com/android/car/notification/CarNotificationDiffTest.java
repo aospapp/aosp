@@ -61,10 +61,10 @@ public class CarNotificationDiffTest {
     private Notification.Builder mNotificationBuilder1;
     private Notification.Builder mNotificationBuilder2;
 
-    private StatusBarNotification mNotification1;
-    private StatusBarNotification mNotification2;
-    private StatusBarNotification mNotification3;
-    private StatusBarNotification mNotification4;
+    private AlertEntry mNotification1;
+    private AlertEntry mNotification2;
+    private AlertEntry mNotification3;
+    private AlertEntry mNotification4;
     private NotificationGroup mNotificationGroup1;
     private NotificationGroup mNotificationGroup2;
     private NotificationGroup mNotificationGroup3;
@@ -94,15 +94,15 @@ public class CarNotificationDiffTest {
         mNotificationGroupList1 = new ArrayList<>();
         mNotificationGroupList2 = new ArrayList<>();
         mNotificationGroupList3 = new ArrayList<>();
-        mNotification1 = new StatusBarNotification(PKG_1, OP_PKG,
+        mNotification1 = new AlertEntry(new StatusBarNotification(PKG_1, OP_PKG,
                 ID, TAG, UID, INITIAL_PID, mNotificationBuilder1.build(), USER_HANDLE,
-                OVERRIDE_GROUP_KEY, POST_TIME);
-        mNotification2 = new StatusBarNotification(PKG_1, OP_PKG,
+                OVERRIDE_GROUP_KEY, POST_TIME));
+        mNotification2 = new AlertEntry(new StatusBarNotification(PKG_1, OP_PKG,
                 ID, TAG, UID, INITIAL_PID, mNotificationBuilder1.build(), USER_HANDLE,
-                OVERRIDE_GROUP_KEY, POST_TIME);
-        mNotification3 = new StatusBarNotification(PKG_2, OP_PKG,
+                OVERRIDE_GROUP_KEY, POST_TIME));
+        mNotification3 = new AlertEntry(new StatusBarNotification(PKG_2, OP_PKG,
                 ID, TAG, UID, INITIAL_PID, mNotificationBuilder2.build(), USER_HANDLE,
-                OVERRIDE_GROUP_KEY_123, POST_TIME);
+                OVERRIDE_GROUP_KEY_123, POST_TIME));
         mNotificationGroup1.addNotification(mNotification1);
         mNotificationGroup2.addNotification(mNotification2);
         mNotificationGroup2.addNotification(mNotification2);
@@ -187,9 +187,9 @@ public class CarNotificationDiffTest {
     public void sameGroupUniqueIdentifiers_diffNotificationKey_shouldReturnFalse() {
         mNotificationGroup4 = new NotificationGroup();
         mNotificationGroupList4 = new ArrayList<>();
-        mNotification4 = new StatusBarNotification(PKG_1, OP_PKG,
+        mNotification4 = new AlertEntry(new StatusBarNotification(PKG_1, OP_PKG,
                 ID, TAG, UID, INITIAL_PID, mNotificationBuilder1.build(), USER_HANDLE,
-                OVERRIDE_GROUP_KEY, POST_TIME);
+                OVERRIDE_GROUP_KEY, POST_TIME));
         mNotificationGroup4.addNotification(mNotification4);
         mNotificationGroup4.setGroupSummaryNotification(mNotification4);
 
@@ -204,9 +204,9 @@ public class CarNotificationDiffTest {
     public void sameGroupUniqueIdentifiers_sameChildrenNotification_shouldReturnTrue() {
         mNotificationGroup4 = new NotificationGroup();
         mNotificationGroupList4 = new ArrayList<>();
-        mNotification4 = new StatusBarNotification(PKG_1, OP_PKG,
+        mNotification4 = new AlertEntry(new StatusBarNotification(PKG_1, OP_PKG,
                 ID, TAG, UID, INITIAL_PID, mNotificationBuilder1.build(), USER_HANDLE,
-                OVERRIDE_GROUP_KEY, POST_TIME);
+                OVERRIDE_GROUP_KEY, POST_TIME));
         mNotificationGroup4.addNotification(mNotification4);
 
         assertThat(mNotificationGroup1.getGroupKey()).isEqualTo(mNotificationGroup4.getGroupKey());
@@ -275,12 +275,14 @@ public class CarNotificationDiffTest {
                 .setContentTitle(CONTENT_TITLE)
                 .setExtras(new Bundle())
                 .setSmallIcon(android.R.drawable.sym_def_app_icon);
-        StatusBarNotification oldStatusBarNotification = new StatusBarNotification(PKG_1, OP_PKG,
-                ID, TAG, UID, INITIAL_PID, oldNotification.build(), USER_HANDLE,
-                OVERRIDE_GROUP_KEY, POST_TIME);
-        StatusBarNotification newStatusBarNotification = new StatusBarNotification(PKG_1, OP_PKG,
-                ID, TAG, UID, INITIAL_PID, newNotification.build(), USER_HANDLE,
-                OVERRIDE_GROUP_KEY, POST_TIME);
+        AlertEntry oldStatusBarNotification = new AlertEntry(
+                new StatusBarNotification(PKG_1, OP_PKG,
+                        ID, TAG, UID, INITIAL_PID, oldNotification.build(), USER_HANDLE,
+                        OVERRIDE_GROUP_KEY, POST_TIME));
+        AlertEntry newStatusBarNotification = new AlertEntry(
+                new StatusBarNotification(PKG_1, OP_PKG,
+                        ID, TAG, UID, INITIAL_PID, newNotification.build(), USER_HANDLE,
+                        OVERRIDE_GROUP_KEY, POST_TIME));
 
         NotificationGroup oldNotificationGroup = new NotificationGroup();
         oldNotificationGroup.setGroupSummaryNotification(oldStatusBarNotification);
@@ -319,25 +321,25 @@ public class CarNotificationDiffTest {
                 .setContentTitle(CONTENT_TITLE)
                 .setExtras(bundle_2)
                 .setSmallIcon(android.R.drawable.sym_def_app_icon);
-        StatusBarNotification oldStatusBarNotification = new StatusBarNotification(PKG_1, OP_PKG,
-                ID, TAG, UID, INITIAL_PID, oldNotification.build(), USER_HANDLE,
-                OVERRIDE_GROUP_KEY, POST_TIME);
-        StatusBarNotification newStatusBarNotification = new StatusBarNotification(PKG_1, OP_PKG,
-                ID, TAG, UID, INITIAL_PID, newNotification.build(), USER_HANDLE,
-                OVERRIDE_GROUP_KEY, POST_TIME);
+        AlertEntry oldAlertEntry = new AlertEntry(new StatusBarNotification(PKG_1, OP_PKG, ID, TAG,
+                UID, INITIAL_PID, oldNotification.build(), USER_HANDLE, OVERRIDE_GROUP_KEY,
+                POST_TIME));
+        AlertEntry newAlertEntry = new AlertEntry(new StatusBarNotification(PKG_1, OP_PKG, ID, TAG,
+                UID, INITIAL_PID, newNotification.build(), USER_HANDLE, OVERRIDE_GROUP_KEY,
+                POST_TIME));
 
         NotificationGroup oldNotificationGroup = new NotificationGroup();
-        oldNotificationGroup.setGroupSummaryNotification(oldStatusBarNotification);
+        oldNotificationGroup.setGroupSummaryNotification(oldAlertEntry);
         List<NotificationGroup> oldNotificationGroupList = new ArrayList<>();
 
         NotificationGroup newNotificationGroup = new NotificationGroup();
-        newNotificationGroup.setGroupSummaryNotification(newStatusBarNotification);
+        newNotificationGroup.setGroupSummaryNotification(newAlertEntry);
         List<NotificationGroup> newNotificationGroupList = new ArrayList<>();
 
-        oldNotificationGroup.addNotification(oldStatusBarNotification);
+        oldNotificationGroup.addNotification(oldAlertEntry);
         oldNotificationGroupList.add(oldNotificationGroup);
 
-        newNotificationGroup.addNotification(newStatusBarNotification);
+        newNotificationGroup.addNotification(newAlertEntry);
         newNotificationGroupList.add(newNotificationGroup);
 
 
@@ -362,25 +364,25 @@ public class CarNotificationDiffTest {
                 .setContentTitle(CONTENT_TITLE)
                 .setExtras(bundle_2)
                 .setSmallIcon(android.R.drawable.sym_def_app_icon);
-        StatusBarNotification oldStatusBarNotification = new StatusBarNotification(PKG_1, OP_PKG,
-                ID, TAG, UID, INITIAL_PID, oldNotification.build(), USER_HANDLE,
-                OVERRIDE_GROUP_KEY, POST_TIME);
-        StatusBarNotification newStatusBarNotification = new StatusBarNotification(PKG_1, OP_PKG,
-                ID, TAG, UID, INITIAL_PID, newNotification.build(), USER_HANDLE,
-                OVERRIDE_GROUP_KEY, POST_TIME);
+        AlertEntry oldAlertEntry = new AlertEntry(
+                new StatusBarNotification(PKG_1, OP_PKG, ID, TAG, UID, INITIAL_PID,
+                        oldNotification.build(), USER_HANDLE, OVERRIDE_GROUP_KEY, POST_TIME));
+        AlertEntry newAlertEntry = new AlertEntry(
+                new StatusBarNotification(PKG_1, OP_PKG, ID, TAG, UID, INITIAL_PID,
+                        newNotification.build(), USER_HANDLE, OVERRIDE_GROUP_KEY, POST_TIME));
 
         NotificationGroup oldNotificationGroup = new NotificationGroup();
-        oldNotificationGroup.setGroupSummaryNotification(oldStatusBarNotification);
+        oldNotificationGroup.setGroupSummaryNotification(oldAlertEntry);
         List<NotificationGroup> oldNotificationGroupList = new ArrayList<>();
 
         NotificationGroup newNotificationGroup = new NotificationGroup();
-        newNotificationGroup.setGroupSummaryNotification(newStatusBarNotification);
+        newNotificationGroup.setGroupSummaryNotification(newAlertEntry);
         List<NotificationGroup> newNotificationGroupList = new ArrayList<>();
 
-        oldNotificationGroup.addNotification(oldStatusBarNotification);
+        oldNotificationGroup.addNotification(oldAlertEntry);
         oldNotificationGroupList.add(oldNotificationGroup);
 
-        newNotificationGroup.addNotification(newStatusBarNotification);
+        newNotificationGroup.addNotification(newAlertEntry);
         newNotificationGroupList.add(newNotificationGroup);
 
 
@@ -405,25 +407,25 @@ public class CarNotificationDiffTest {
                 .setContentTitle(CONTENT_TITLE)
                 .setExtras(bundle_2)
                 .setSmallIcon(android.R.drawable.sym_def_app_icon);
-        StatusBarNotification oldStatusBarNotification = new StatusBarNotification(PKG_1, OP_PKG,
-                ID, TAG, UID, INITIAL_PID, oldNotification.build(), USER_HANDLE,
-                OVERRIDE_GROUP_KEY, POST_TIME);
-        StatusBarNotification newStatusBarNotification = new StatusBarNotification(PKG_1, OP_PKG,
-                ID, TAG, UID, INITIAL_PID, newNotification.build(), USER_HANDLE,
-                OVERRIDE_GROUP_KEY, POST_TIME);
+        AlertEntry oldAlertEntry = new AlertEntry(
+                new StatusBarNotification(PKG_1, OP_PKG, ID, TAG, UID, INITIAL_PID,
+                        oldNotification.build(), USER_HANDLE, OVERRIDE_GROUP_KEY, POST_TIME));
+        AlertEntry newAlertEntry = new AlertEntry(
+                new StatusBarNotification(PKG_1, OP_PKG, ID, TAG, UID, INITIAL_PID,
+                        newNotification.build(), USER_HANDLE, OVERRIDE_GROUP_KEY, POST_TIME));
 
         NotificationGroup oldNotificationGroup = new NotificationGroup();
-        oldNotificationGroup.setGroupSummaryNotification(oldStatusBarNotification);
+        oldNotificationGroup.setGroupSummaryNotification(oldAlertEntry);
         List<NotificationGroup> oldNotificationGroupList = new ArrayList<>();
 
         NotificationGroup newNotificationGroup = new NotificationGroup();
-        newNotificationGroup.setGroupSummaryNotification(newStatusBarNotification);
+        newNotificationGroup.setGroupSummaryNotification(newAlertEntry);
         List<NotificationGroup> newNotificationGroupList = new ArrayList<>();
 
-        oldNotificationGroup.addNotification(oldStatusBarNotification);
+        oldNotificationGroup.addNotification(oldAlertEntry);
         oldNotificationGroupList.add(oldNotificationGroup);
 
-        newNotificationGroup.addNotification(newStatusBarNotification);
+        newNotificationGroup.addNotification(newAlertEntry);
         newNotificationGroupList.add(newNotificationGroup);
 
 
@@ -448,25 +450,25 @@ public class CarNotificationDiffTest {
                 .setContentTitle(CONTENT_TITLE)
                 .setExtras(bundle_2)
                 .setSmallIcon(android.R.drawable.sym_def_app_icon);
-        StatusBarNotification oldStatusBarNotification = new StatusBarNotification(PKG_1, OP_PKG,
-                ID, TAG, UID, INITIAL_PID, oldNotification.build(), USER_HANDLE,
-                OVERRIDE_GROUP_KEY, POST_TIME);
-        StatusBarNotification newStatusBarNotification = new StatusBarNotification(PKG_1, OP_PKG,
-                ID, TAG, UID, INITIAL_PID, newNotification.build(), USER_HANDLE,
-                OVERRIDE_GROUP_KEY, POST_TIME);
+        AlertEntry oldAlertEntry = new AlertEntry(
+                new StatusBarNotification(PKG_1, OP_PKG, ID, TAG, UID, INITIAL_PID,
+                        oldNotification.build(), USER_HANDLE, OVERRIDE_GROUP_KEY, POST_TIME));
+        AlertEntry newAlertEntry = new AlertEntry(
+                new StatusBarNotification(PKG_1, OP_PKG, ID, TAG, UID, INITIAL_PID,
+                        newNotification.build(), USER_HANDLE, OVERRIDE_GROUP_KEY, POST_TIME));
 
         NotificationGroup oldNotificationGroup = new NotificationGroup();
-        oldNotificationGroup.setGroupSummaryNotification(oldStatusBarNotification);
+        oldNotificationGroup.setGroupSummaryNotification(oldAlertEntry);
         List<NotificationGroup> oldNotificationGroupList = new ArrayList<>();
 
         NotificationGroup newNotificationGroup = new NotificationGroup();
-        newNotificationGroup.setGroupSummaryNotification(newStatusBarNotification);
+        newNotificationGroup.setGroupSummaryNotification(newAlertEntry);
         List<NotificationGroup> newNotificationGroupList = new ArrayList<>();
 
-        oldNotificationGroup.addNotification(oldStatusBarNotification);
+        oldNotificationGroup.addNotification(oldAlertEntry);
         oldNotificationGroupList.add(oldNotificationGroup);
 
-        newNotificationGroup.addNotification(newStatusBarNotification);
+        newNotificationGroup.addNotification(newAlertEntry);
         newNotificationGroupList.add(newNotificationGroup);
 
 

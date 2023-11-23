@@ -87,6 +87,10 @@
     </style>
 
     <style name="Widget.DeviceDefault.Button" parent="android:Widget.Material.Button">
+        <item name="android:singleLine">true</item>
+        <item name="android:ellipsize">none</item>
+        <item name="android:requiresFadingEdge">horizontal</item>
+        <item name="android:fadingEdgeLength">@*android:dimen/car_textview_fading_edge_length</item>
         <item name="android:background">@*android:drawable/car_button_background</item>
         <item name="android:layout_height">@*android:dimen/car_button_height</item>
         <item name="android:minWidth">@*android:dimen/car_button_min_width</item>
@@ -135,6 +139,11 @@
     </style>
     <style name="Preference.DeviceDefault.SwitchPreference" parent="*android:Preference.Material.SwitchPreference">
         <item name="android:layout">@*android:layout/car_preference</item>
+    </style>
+
+    <!-- AlertDialog Style -->
+    <style name="AlertDialog.DeviceDefault" parent="*android:AlertDialog.Material">
+        <item name="android:layout">@*android:layout/car_alert_dialog</item>
     </style>
 
 </resources>

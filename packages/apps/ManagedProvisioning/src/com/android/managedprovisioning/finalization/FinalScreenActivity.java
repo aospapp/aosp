@@ -86,6 +86,7 @@ public class FinalScreenActivity extends SetupGlifLayoutActivity {
     }
 
     private void onDoneButtonPressed() {
+        setResult(RESULT_OK);
         finish();
     }
 

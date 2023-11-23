@@ -15,18 +15,26 @@
  */
 package android.car.apitest;
 
+import static com.google.common.truth.Truth.assertThat;
+
+import static org.testng.Assert.assertThrows;
+
 import android.app.Service;
 import android.car.Car;
 import android.car.CarProjectionManager;
 import android.car.CarProjectionManager.ProjectionAccessPointCallback;
 import android.content.Intent;
-import android.net.wifi.WifiConfiguration;
+import android.net.wifi.SoftApConfiguration;
 import android.os.Binder;
 import android.os.IBinder;
 import android.test.suitebuilder.annotation.LargeTest;
-import android.test.suitebuilder.annotation.Suppress;
 
 import androidx.test.filters.RequiresDevice;
+import androidx.test.platform.app.InstrumentationRegistry;
+
+import org.junit.Before;
+import org.junit.Ignore;
+import org.junit.Test;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -35,17 +43,11 @@ import java.util.concurrent.TimeUnit;
 public class CarProjectionManagerTest extends CarApiTestBase {
     private static final String TAG = CarProjectionManagerTest.class.getSimpleName();
 
-    private final CarProjectionManager.CarProjectionListener mListener =
-            new CarProjectionManager.CarProjectionListener() {
-                @Override
-                public void onVoiceAssistantRequest(boolean fromLongPress) {
-                    //void
-                }
-            };
+    private final CarProjectionManager.CarProjectionListener mListener = (fromLongPress) -> { };
 
     private CarProjectionManager mManager;
 
-    public static class TestService extends Service {
+    public static final class TestService extends Service {
         public static Object mLock = new Object();
         private static boolean sBound;
         private final Binder mBinder = new Binder() {};
@@ -68,31 +70,30 @@ public class CarProjectionManagerTest extends CarApiTestBase {
         }
     }
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setUp() throws Exception {
         mManager = (CarProjectionManager) getCar().getCarManager(Car.PROJECTION_SERVICE);
-        assertNotNull(mManager);
+        assertThat(mManager).isNotNull();
     }
 
+    @Test
     public void testSetUnsetListeners() throws Exception {
         mManager.registerProjectionListener(
                 mListener, CarProjectionManager.PROJECTION_VOICE_SEARCH);
         mManager.unregisterProjectionListener();
     }
 
+    @Test
     public void testRegisterListenersHandleBadInput() throws Exception {
-        try {
-            mManager.registerProjectionListener(null, CarProjectionManager.PROJECTION_VOICE_SEARCH);
-            fail();
-        } catch (NullPointerException e) {
-            // expected.
-        }
+        assertThrows(NullPointerException.class, () -> mManager.registerProjectionListener(null,
+                CarProjectionManager.PROJECTION_VOICE_SEARCH));
     }
 
+    @Test
     public void testRegisterProjectionRunner() throws Exception {
-        Intent intent = new Intent(getContext(), TestService.class);
-        assertFalse(TestService.getBound());
+        Intent intent = new Intent(
+                InstrumentationRegistry.getInstrumentation().getContext(), TestService.class);
+        assertThat(TestService.getBound()).isFalse();
         mManager.registerProjectionRunner(intent);
         synchronized (TestService.mLock) {
             try {
@@ -101,24 +102,25 @@ public class CarProjectionManagerTest extends CarApiTestBase {
                 // Do nothing
             }
         }
-        assertTrue(TestService.getBound());
+        assertThat(TestService.getBound()).isTrue();
         mManager.unregisterProjectionRunner(intent);
     }
 
-    //TODO(b/120081013): move this test to CTS
-    @Suppress
+
+    @Ignore("//TODO(b/120081013): move this test to CTS")
     @RequiresDevice
+    @Test
     public void testAccessPoint() throws Exception {
         CountDownLatch startedLatch = new CountDownLatch(1);
 
         mManager.startProjectionAccessPoint(new ProjectionAccessPointCallback() {
             @Override
-            public void onStarted(WifiConfiguration wifiConfiguration) {
+            public void onStarted(SoftApConfiguration softApConfiguration) {
                 startedLatch.countDown();
             }
         });
 
-        assertTrue(startedLatch.await(30, TimeUnit.SECONDS));
+        assertThat(startedLatch.await(30, TimeUnit.SECONDS)).isTrue();
 
         mManager.stopProjectionAccessPoint();
     }

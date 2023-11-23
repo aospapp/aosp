@@ -22,23 +22,39 @@ import static junit.framework.Assert.assertFalse;
 import static junit.framework.Assert.assertTrue;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.nullable;
+import static org.mockito.Mockito.atLeast;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.content.ComponentName;
+import android.content.ContentResolver;
+import android.content.Context;
+import android.media.AudioDeviceInfo;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioRecordingConfiguration;
+import android.media.MediaPlayer;
 import android.media.MediaRecorder;
+import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
 import android.telecom.PhoneAccountHandle;
 import android.test.suitebuilder.annotation.MediumTest;
 
+import com.android.dx.mockito.inline.extended.ExtendedMockito;
 import com.android.server.telecom.Call;
 import com.android.server.telecom.CallRecordingTonePlayer;
+import com.android.server.telecom.CallState;
 import com.android.server.telecom.TelecomSystem;
+import com.android.server.telecom.Timeouts;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -47,6 +63,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
+import org.mockito.MockitoSession;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -61,23 +78,75 @@ public class CallRecordingTonePlayerTest extends TelecomTestCase {
     private static final String PHONE_ACCOUNT_CLASS = "MyFancyConnectionService";
     private static final String PHONE_ACCOUNT_ID = "1";
     private static final String RECORDING_APP_PACKAGE = "com.recording.app";
+    private static final long TEST_RECORDING_TONE_INTERVAL = 300L;
 
     private static final PhoneAccountHandle TEST_PHONE_ACCOUNT = new PhoneAccountHandle(
             new ComponentName(PHONE_ACCOUNT_PACKAGE, PHONE_ACCOUNT_CLASS), PHONE_ACCOUNT_ID);
 
     private CallRecordingTonePlayer mCallRecordingTonePlayer;
-    private TelecomSystem.SyncRoot mSyncRoot = new TelecomSystem.SyncRoot() { };
-    @Mock private AudioManager mAudioManager;
+    private TelecomSystem.SyncRoot mSyncRoot = new TelecomSystem.SyncRoot() {
+    };
+    @Mock
+    private AudioManager mAudioManager;
+    @Mock
+    private Timeouts.Adapter mTimeouts;
 
     @Override
     @Before
     public void setUp() throws Exception {
         super.setUp();
         MockitoAnnotations.initMocks(this);
+        when(mTimeouts.getCallRecordingToneRepeatIntervalMillis(nullable(ContentResolver.class)))
+                .thenReturn(500L);
         mCallRecordingTonePlayer = new CallRecordingTonePlayer(
                 mComponentContextFixture.getTestDouble().getApplicationContext(),
-                mAudioManager, mSyncRoot);
+                mAudioManager, mTimeouts, mSyncRoot);
         when(mAudioManager.getActiveRecordingConfigurations()).thenReturn(null);
+    }
+
+    @Override
+    @After
+    public void tearDown() throws Exception {
+        super.tearDown();
+    }
+
+    @MediumTest
+    @Test
+    public void testToneLooping() throws Exception {
+        MediaPlayer mockMediaPlayer = mock(MediaPlayer.class);
+        MockitoSession session = ExtendedMockito.mockitoSession().mockStatic(MediaPlayer.class)
+                .startMocking();
+        ExtendedMockito.doReturn(mockMediaPlayer).when(() ->
+                MediaPlayer.create(nullable(Context.class), anyInt()));
+
+        when(mAudioManager.getActiveRecordingConfigurations()).thenReturn(
+                getAudioRecordingConfig(RECORDING_APP_PACKAGE));
+
+        AudioDeviceInfo mockAudioDeviceInfo = mock(AudioDeviceInfo.class);
+        when(mockAudioDeviceInfo.getType()).thenReturn(AudioDeviceInfo.TYPE_TELEPHONY);
+        when(mAudioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS))
+                .thenReturn(new AudioDeviceInfo[] { mockAudioDeviceInfo });
+
+        Call call = addValidCall();
+        when(call.isActive()).thenReturn(true);
+        mCallRecordingTonePlayer.onCallStateChanged(call, CallState.NEW, CallState.ACTIVE);
+
+        waitForHandlerAction(Handler.getMain(), TEST_TIMEOUT);
+        verify(mockMediaPlayer).start();
+
+        // Sleep for 4x the interval, then make sure it played more. No exact count,
+        // since timing can be tricky in tests.
+        Thread.sleep(TEST_RECORDING_TONE_INTERVAL * 4);
+        verify(mockMediaPlayer, atLeast(2)).start();
+        reset(mockMediaPlayer);
+
+        // Remove the call and verify that we're not starting the tone anymore.
+        mCallRecordingTonePlayer.onCallRemoved(call);
+        Thread.sleep(TEST_RECORDING_TONE_INTERVAL * 3 + 50);
+        verify(mockMediaPlayer, never()).start();
+        verify(mockMediaPlayer).release();
+
+        session.finishMocking();
     }
 
     /**

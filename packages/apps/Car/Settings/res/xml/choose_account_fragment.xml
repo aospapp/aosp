@@ -16,7 +16,8 @@
 
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
                   xmlns:settings="http://schemas.android.com/apk/res-auto"
-                  android:title="@string/add_an_account">
+                  android:title="@string/add_an_account"
+                  android:key="@string/psk_choose_account">
     <com.android.car.settings.common.LogicalPreferenceGroup
         android:key="@string/pk_add_account"
         settings:controller="com.android.car.settings.accounts.ChooseAccountPreferenceController"/>

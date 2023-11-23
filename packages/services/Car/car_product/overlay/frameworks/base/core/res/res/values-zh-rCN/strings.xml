@@ -18,4 +18,5 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="owner_name" msgid="3416113395996003764">"司机"</string>
+    <string name="permlab_accessCoarseLocation" msgid="2494909511737161237">"只有在前台运行时才能获取大致位置信息"</string>
 </resources>

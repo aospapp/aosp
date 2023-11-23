@@ -18,7 +18,8 @@
 <PreferenceScreen
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:settings="http://schemas.android.com/apk/res-auto"
-    android:title="@string/date_time_set_timezone_title">
+    android:title="@string/date_time_set_timezone_title"
+    android:key="@string/psk_timezone_picker_screen">
     <com.android.car.settings.common.LogicalPreferenceGroup
         android:key="@string/pk_timezone_picker_screen"
         settings:controller="com.android.car.settings.datetime.TimeZonePickerScreenPreferenceController"/>

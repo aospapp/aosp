@@ -32,6 +32,7 @@
 
 package com.android.bluetooth.opp;
 
+import android.bluetooth.AlertActivity;
 import android.content.BroadcastReceiver;
 import android.content.ContentValues;
 import android.content.Context;
@@ -50,8 +51,6 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.android.bluetooth.R;
-import com.android.internal.app.AlertActivity;
-import com.android.internal.app.AlertController;
 
 /**
  * This class is designed to ask user to confirm if accept incoming file;
@@ -106,14 +105,11 @@ public class BluetoothOppIncomingFileConfirmActivity extends AlertActivity
             return;
         }
 
-        // Set up the "dialog"
-        final AlertController.AlertParams p = mAlertParams;
-        p.mTitle = getString(R.string.incoming_file_confirm_content);
-        p.mView = createView();
-        p.mPositiveButtonText = getString(R.string.incoming_file_confirm_ok);
-        p.mPositiveButtonListener = this;
-        p.mNegativeButtonText = getString(R.string.incoming_file_confirm_cancel);
-        p.mNegativeButtonListener = this;
+        mAlertBuilder.setTitle(getString(R.string.incoming_file_confirm_content));
+        mAlertBuilder.setView(createView());
+        mAlertBuilder.setPositiveButton(R.string.incoming_file_confirm_ok, this);
+        mAlertBuilder.setNegativeButton(R.string.incoming_file_confirm_cancel, this);
+
         setupAlert();
         if (V) {
             Log.v(TAG, "mTimeout: " + mTimeout);
@@ -207,11 +203,14 @@ public class BluetoothOppIncomingFileConfirmActivity extends AlertActivity
 
     private void onTimeout() {
         mTimeout = true;
-        mAlert.setTitle(
-                getString(R.string.incoming_file_confirm_timeout_content, mTransInfo.mDeviceName));
-        mAlert.getButton(DialogInterface.BUTTON_NEGATIVE).setVisibility(View.GONE);
-        mAlert.getButton(DialogInterface.BUTTON_POSITIVE)
-                .setText(getString(R.string.incoming_file_confirm_timeout_ok));
+
+        changeTitle(getString(
+                R.string.incoming_file_confirm_timeout_content,
+                mTransInfo.mDeviceName));
+        changeButtonVisibility(DialogInterface.BUTTON_NEGATIVE, View.GONE);
+        changeButtonText(
+                DialogInterface.BUTTON_POSITIVE,
+                getString(R.string.incoming_file_confirm_timeout_ok));
 
         mTimeoutHandler.sendMessageDelayed(mTimeoutHandler.obtainMessage(DISMISS_TIMEOUT_DIALOG),
                 DISMISS_TIMEOUT_DIALOG_VALUE);

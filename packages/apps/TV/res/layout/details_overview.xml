@@ -55,7 +55,7 @@
                 android:orientation="vertical" >
 
                 <!-- layout_marginStart and layout_marginEnd are overridden -->
-                <android.support.v17.leanback.widget.NonOverlappingFrameLayout
+                <androidx.leanback.widget.NonOverlappingFrameLayout
                     android:id="@+id/details_overview_description"
                     android:layout_width="match_parent"
                     android:layout_height="0dp"
@@ -69,7 +69,7 @@
 
                 <!-- horizontalSpacing is defined as @dimen/lb_details_overview_action_items_spacing
                      in newer versions of Leanback Library than LC uses. -->
-                <android.support.v17.leanback.widget.HorizontalGridView
+                <androidx.leanback.widget.HorizontalGridView
                     android:id="@+id/details_overview_actions"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"

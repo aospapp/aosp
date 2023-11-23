@@ -20,24 +20,24 @@
        android:layout_height="match_parent">
     <ImageView
             android:id="@+id/direction_1"
-            android:src="@drawable/ic_fan_direction_1_off"
+            android:src="@drawable/ic_fan_direction_1"
             style="@style/HvacButton.FanDirection"/>
     <View
             style="@style/HvacSpacerView"/>
     <ImageView
             android:id="@+id/direction_2"
-            android:src="@drawable/ic_fan_direction_2_off"
+            android:src="@drawable/ic_fan_direction_2"
             style="@style/HvacButton.FanDirection"/>
     <View
             style="@style/HvacSpacerView"/>
     <ImageView
             android:id="@+id/direction_3"
-            android:src="@drawable/ic_fan_direction_3_off"
+            android:src="@drawable/ic_fan_direction_3"
             style="@style/HvacButton.FanDirection"/>
     <View
             style="@style/HvacSpacerView"/>
     <ImageView
             android:id="@+id/direction_4"
-            android:src="@drawable/ic_fan_direction_4_off"
+            android:src="@drawable/ic_fan_direction_4"
             style="@style/HvacButton.FanDirection"/>
 </merge>

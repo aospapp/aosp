@@ -22,6 +22,8 @@
     <string name="car_permission_desc_camera" msgid="917024932164501426">"Կառավարել մեքենայի տեսախցիկ(ներ)ը"</string>
     <string name="car_permission_label_energy" msgid="7409144323527821558">"օգտագործել մեքենայի լիցքի մասին տվյալները"</string>
     <string name="car_permission_desc_energy" msgid="3392963810053235407">"Ընթերցել մեքենայի էներգառեսուրսների մասին տվյալները"</string>
+    <string name="car_permission_label_adjust_range_remaining" msgid="839033553999920138">"փոխել տարածությունը, որը մեքենան կանցնի մինչև հաջորդ լցակայանը"</string>
+    <string name="car_permission_desc_adjust_range_remaining" msgid="2369321650437370673">"Փոխել տարածությունը, որը մեքենան կանցնի մինչև հաջորդ լցակայանը"</string>
     <string name="car_permission_label_hvac" msgid="1499454192558727843">"օգտագործել մեքենայի HVAC համակարգի տվյալները"</string>
     <string name="car_permission_desc_hvac" msgid="3754229695589774195">"Կառավարել HVAC համակարգը"</string>
     <string name="car_permission_label_mileage" msgid="4661317074631150551">"օգտագործել մեքենայի վազքի տվյալները"</string>
@@ -62,13 +64,19 @@
     <string name="car_permission_desc_car_ux_restrictions_configuration" msgid="5711926927484813777">"Սահմանափակել գործառույթների օգտագործումը"</string>
     <string name="car_permission_label_car_handle_usb_aoap_device" msgid="72783989504378036">"Հաղորդակցվել USB սարքի հետ AOAP ռեժիմում"</string>
     <string name="car_permission_desc_car_handle_usb_aoap_device" msgid="273505990971317034">"Հավելվածին թույլ է տալիս հաղորդակցվել սարքի հետ AOAP ռեժիմում"</string>
+    <string name="car_permission_label_read_car_occupant_awareness_state" msgid="125517953575032758">"Ուղևորի ներկայության որոշման համակարգի կարգավիճակի ընթերցման թույլտվություն"</string>
+    <string name="car_permission_desc_read_car_occupant_awareness_state" msgid="188865882598414986">"Թույլ է տալիս կարդալ ուղևորի ներկայության որոշման համակարգի կարգավիճակը և տվյալները"</string>
+    <string name="car_permission_label_control_car_occupant_awareness_system" msgid="7163330266691094542">"Կառավարել ուղևորի ներկայության որոշման համակարգի տրամագիրը"</string>
+    <string name="car_permission_desc_control_car_occupant_awareness_system" msgid="7123482622084531911">"Թույլ է տալիս կառավարել ուղևորի ներկայության որոշման համակարգի աշխատանքի տրամագրի գործարկումը և դադարեցումը"</string>
     <string name="car_permission_label_bind_input_service" msgid="6698489034024273750">"Ներածման ծառայություն"</string>
     <string name="car_permission_desc_bind_input_service" msgid="1670323419931890170">"Մշակել ներածման իրադարձությունները"</string>
     <string name="car_can_bus_failure" msgid="2334035748788283914">"CAN անվադողի սխալ"</string>
     <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"CAN անվադողը չի պատասխանում: Անջատեք և նորից միացրեք միակցիչը, ապա անջատեք վառոցքը և վերագործարկեք մեքենան:"</string>
-    <string name="activity_blocked_text" msgid="5342114426610711378">"Անվտանգության նկատառումներով այս գործողությունը հասանելի չէ վարելու ռեժիմում:\nՇարունակելու համար կայանեք մեքենան:"</string>
+    <string name="activity_blocked_text" msgid="8088902789540147995">"Դուք չեք կարող օգտագործել այս գործառույթը մեքենա վարելիս"</string>
     <string name="exit_button_message" msgid="8554690915924055685">"Հավելվածն անվտանգ ռեժիմում վերագործարկելու համար սեղմեք<xliff:g id="EXIT_BUTTON">%s</xliff:g> կոճակը:"</string>
     <string name="exit_button" msgid="5829638404777671253">"Հետ"</string>
+    <string name="exit_button_close_application" msgid="8824289547809332460">"Փակել հավելվածը"</string>
+    <string name="exit_button_go_back" msgid="3469083862100560326">"Հետ"</string>
     <string name="car_permission_label_diag_read" msgid="7248894224877702604">"կարդալ ախտորոշման մասին տվյալները"</string>
     <string name="car_permission_desc_diag_read" msgid="1121426363040966178">"Կարդալ մեքենայի ախտորոշման տվյալները։"</string>
     <string name="car_permission_label_diag_clear" msgid="4783070510879698157">"մաքրել ախտորոշման տվյալները"</string>
@@ -87,6 +95,8 @@
     <string name="car_permission_desc_car_engine_detailed" msgid="1746863362811347700">"Օգտագործել շարժիչի մանրամասն տվյալները։"</string>
     <string name="car_permission_label_car_energy_ports" msgid="8548990315169219454">"օգտագործել մեքենայի վառելիքի բաքի կափարիչի և լիցքավորման վարդակի տվյալները"</string>
     <string name="car_permission_desc_car_energy_ports" msgid="7771185999828794949">"Օգտագործել մեքենայի վառելիքի բաքի կափարիչի և լիցքավորման վարդակի տվյալները։"</string>
+    <string name="car_permission_label_control_car_energy_ports" msgid="4375137311026313475">"Կառավարել մեքենայի վառելիքի բաքի կափարիչի և լիցքավորման վարդակի տվյալները"</string>
+    <string name="car_permission_desc_control_car_energy_ports" msgid="7364633710492525387">"Կառավարել մեքենայի վառելիքի բաքի կափարիչի և լիցքավորման վարդակի տվյալները։"</string>
     <string name="car_permission_label_car_identification" msgid="5896712510164020478">"կարդալ մեքենայի նույնականացման տվյալները"</string>
     <string name="car_permission_desc_car_identification" msgid="4132040867171275059">"Օգտագործել մեքենայի նույնականացման տվյալները։"</string>
     <string name="car_permission_label_control_car_doors" msgid="3032058819250195700">"կառավարել մեքենայի դռները"</string>
@@ -99,6 +109,8 @@
     <string name="car_permission_desc_control_car_seats" msgid="2407536601226470563">"Կառավարել մեքենայի նստատեղերը։"</string>
     <string name="car_permission_label_car_info" msgid="4707513570676492315">"օգտագործել մեքենայի հիմնական տվյալները"</string>
     <string name="car_permission_desc_car_info" msgid="2118081474543537653">"Օգտագործել մեքենայի հիմնական տվյալները։"</string>
+    <string name="car_permission_label_vendor_permission_info" msgid="4471260460536888654">"օգտագործել մեքենայի վաճառողի մասին տվյալները"</string>
+    <string name="car_permission_desc_vendor_permission_info" msgid="8152113853528488398">"Օգտագործել մեքենայի վաճառողի մասին տվյալները։"</string>
     <string name="car_permission_label_car_exterior_lights" msgid="541304469604902110">"կարդալ մեքենայի արտաքին լուսավորության կարգավիճակի տվյալները"</string>
     <string name="car_permission_desc_car_exterior_lights" msgid="4038037584100849318">"Օգտագործել մեքենայի արտաքին լուսավորության կարգավիճակի մասին տվյալները։"</string>
     <string name="car_permission_label_control_car_exterior_lights" msgid="101357531386232141">"կարդալ մեքենայի արտաքին լուսավորության կարգավիճակի մասին տվյալները"</string>
@@ -123,5 +135,12 @@
     <string name="car_permission_desc_car_power" msgid="9202079903668652864">"Օգտագործել մեքենայի էլեկտրասնուցման կարգավիճակի մասին տվյալները։"</string>
     <string name="car_permission_label_enroll_trust" msgid="3512907900486690218">"Գրանցել վստահելի սարք"</string>
     <string name="car_permission_desc_enroll_trust" msgid="4148649994602185130">"Թույլատրել վստահելի սարքի գրանցումը"</string>
+    <string name="car_permission_label_car_test_service" msgid="9159328930558208708">"Կառավարել ավտոմեքենայի փորձարկման ռեժիմը"</string>
+    <string name="car_permission_desc_car_test_service" msgid="7426844534110145843">"Կառավարել ավտոմեքենայի փորձարկման ռեժիմը"</string>
+    <string name="car_permission_label_control_car_features" msgid="3905791560378888286">"Միացնել կամ անջատել մեքենայի գործառույթները"</string>
+    <string name="car_permission_desc_control_car_features" msgid="7646711104530599901">"Միացնել կամ անջատել մեքենայի գործառույթները"</string>
+    <string name="car_permission_label_use_car_watchdog" msgid="6973938293170413475">"oգտագործել մեքենայի պահապանին"</string>
+    <string name="car_permission_desc_use_car_watchdog" msgid="8244592601805516086">"Օգտագործել մեքենայի պահապանին"</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"Իմ սարքը"</string>
+    <string name="default_guest_name" msgid="2912812799433131476">"Հյուր"</string>
 </resources>

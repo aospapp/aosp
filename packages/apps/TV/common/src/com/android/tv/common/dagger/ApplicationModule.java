@@ -21,8 +21,10 @@ import android.content.Context;
 import android.os.Looper;
 import com.android.tv.common.dagger.annotations.ApplicationContext;
 import com.android.tv.common.dagger.annotations.MainLooper;
+import com.android.tv.common.util.Clock;
 import dagger.Module;
 import dagger.Provides;
+import dagger.Reusable;
 
 /**
  * Provides application-scope qualifiers for the {@link Application}, the application context, and
@@ -56,5 +58,11 @@ public final class ApplicationModule {
     @Provides
     ContentResolver provideContentResolver() {
         return mApplication.getContentResolver();
+    }
+
+    @Provides
+    @Reusable
+    static Clock providesClock() {
+        return Clock.SYSTEM;
     }
 }

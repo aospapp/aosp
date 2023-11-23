@@ -22,8 +22,8 @@ import android.content.Intent;
 import android.content.res.Resources;
 import android.graphics.drawable.BitmapDrawable;
 import android.os.Bundle;
-import android.os.SystemProperties;
 import android.provider.SearchIndexableResource;
+import android.sysprop.TelephonyProperties;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
 import android.telephony.PhoneNumberUtils;
@@ -37,12 +37,11 @@ import android.util.Log;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceScreen;
 
-import com.android.internal.telephony.TelephonyProperties;
 import com.android.car.developeroptions.R;
 import com.android.car.developeroptions.RestrictedSettingsFragment;
 import com.android.car.developeroptions.Utils;
 import com.android.car.developeroptions.search.BaseSearchIndexProvider;
-import com.android.car.developeroptions.search.Indexable;
+import com.android.settingslib.search.Indexable;
 import com.android.settingslib.search.SearchIndexable;
 
 import java.util.ArrayList;
@@ -181,8 +180,7 @@ public class SimSettings extends RestrictedSettingsFragment implements Indexable
         if (DBG) log("[updateCellularDataValues] mSubInfoList=" + mSubInfoList);
 
         boolean callStateIdle = isCallStateIdle();
-        final boolean ecbMode = SystemProperties.getBoolean(
-                TelephonyProperties.PROPERTY_INECM_MODE, false);
+        final boolean ecbMode = TelephonyProperties.in_ecm_mode().orElse(false);
         if (sir != null) {
             simPref.setSummary(sir.getDisplayName());
             // Enable data preference in msim mode and call state idle

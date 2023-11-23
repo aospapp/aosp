@@ -17,7 +17,7 @@
 package com.android.tv.guide;
 
 import android.content.res.Resources;
-import android.support.v7.widget.RecyclerView;
+import androidx.recyclerview.widget.RecyclerView;
 import android.text.format.DateFormat;
 import android.view.LayoutInflater;
 import android.view.View;

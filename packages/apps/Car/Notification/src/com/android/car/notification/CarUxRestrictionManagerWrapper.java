@@ -16,7 +16,6 @@
 
 package com.android.car.notification;
 
-import android.car.CarNotConnectedException;
 import android.car.drivingstate.CarUxRestrictions;
 import android.car.drivingstate.CarUxRestrictionsManager;
 import android.car.drivingstate.CarUxRestrictionsManager.OnUxRestrictionsChangedListener;
@@ -85,13 +84,12 @@ public class CarUxRestrictionManagerWrapper implements OnUxRestrictionsChangedLi
      *
      * @param carUxRestrictionsManager The CarUxRestrictionsManager to proxy to
      */
-    public void setCarUxRestrictionsManager(
-            CarUxRestrictionsManager carUxRestrictionsManager) {
+    public void setCarUxRestrictionsManager(CarUxRestrictionsManager carUxRestrictionsManager) {
         mCarUxRestrictionsManager = carUxRestrictionsManager;
         try {
             mCarUxRestrictionsManager.registerListener(this);
-        } catch (CarNotConnectedException e) {
-            Log.w(TAG, "Failed to register for ux restiction changes ",e);
+        } catch (RuntimeException e) {
+            Log.w(TAG, "Failed to register for ux restiction changes ", e);
         }
     }
 
@@ -99,11 +97,11 @@ public class CarUxRestrictionManagerWrapper implements OnUxRestrictionsChangedLi
      * Proxy to the same call on CarUxRestrictionsManager
      *
      * @return CarUxRestrictions The current restictions
-     * @throws CarNotConnectedException Thrown if the Car service is unavailable
+     * @throws RuntimeException Thrown if the Car service is unavailable
      */
-    public CarUxRestrictions getCurrentCarUxRestrictions() throws CarNotConnectedException {
+    public CarUxRestrictions getCurrentCarUxRestrictions() throws RuntimeException {
         if (mCarUxRestrictionsManager == null) {
-            throw new CarNotConnectedException();
+            throw new RuntimeException();
         }
         return mCarUxRestrictionsManager.getCurrentCarUxRestrictions();
     }

@@ -59,7 +59,7 @@ public class MapClientService extends ProfileService {
     private MnsService mMnsServer;
     private BluetoothAdapter mAdapter;
     private static MapClientService sMapClientService;
-    private MapBroadcastReceiver mMapReceiver = new MapBroadcastReceiver();
+    private MapBroadcastReceiver mMapReceiver;
 
     public static synchronized MapClientService getMapClientService() {
         if (sMapClientService == null) {
@@ -92,6 +92,8 @@ public class MapClientService extends ProfileService {
      * @return true if connection is successful, false otherwise.
      */
     public synchronized boolean connect(BluetoothDevice device) {
+        enforceCallingOrSelfPermission(BLUETOOTH_PRIVILEGED,
+                "Need BLUETOOTH_PRIVILEGED permission");
         if (device == null) {
             throw new IllegalArgumentException("Null device");
         }
@@ -101,8 +103,9 @@ public class MapClientService extends ProfileService {
             Log.d(TAG, "MAP connect device: " + device
                     + ", InstanceMap start state: " + sb.toString());
         }
-        if (getPriority(device) == BluetoothProfile.PRIORITY_OFF) {
-            Log.w(TAG, "Connection not allowed: <" + device.getAddress() + "> is PRIORITY_OFF");
+        if (getConnectionPolicy(device) == BluetoothProfile.CONNECTION_POLICY_FORBIDDEN) {
+            Log.w(TAG, "Connection not allowed: <" + device.getAddress()
+                    + "> is CONNECTION_POLICY_FORBIDDEN");
             return false;
         }
         MceStateMachine mapStateMachine = mMapInstanceMap.get(device);
@@ -158,6 +161,8 @@ public class MapClientService extends ProfileService {
     }
 
     public synchronized boolean disconnect(BluetoothDevice device) {
+        enforceCallingOrSelfPermission(BLUETOOTH_PRIVILEGED,
+                "Need BLUETOOTH_PRIVILEGED permission");
         if (DBG) {
             StringBuilder sb = new StringBuilder();
             dump(sb);
@@ -217,18 +222,54 @@ public class MapClientService extends ProfileService {
                 : mapStateMachine.getState();
     }
 
-    public boolean setPriority(BluetoothDevice device, int priority) {
+    /**
+     * Set connection policy of the profile and connects it if connectionPolicy is
+     * {@link BluetoothProfile#CONNECTION_POLICY_ALLOWED} or disconnects if connectionPolicy is
+     * {@link BluetoothProfile#CONNECTION_POLICY_FORBIDDEN}
+     *
+     * <p> The device should already be paired.
+     * Connection policy can be one of:
+     * {@link BluetoothProfile#CONNECTION_POLICY_ALLOWED},
+     * {@link BluetoothProfile#CONNECTION_POLICY_FORBIDDEN},
+     * {@link BluetoothProfile#CONNECTION_POLICY_UNKNOWN}
+     *
+     * @param device Paired bluetooth device
+     * @param connectionPolicy is the connection policy to set to for this profile
+     * @return true if connectionPolicy is set, false on error
+     */
+    public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy) {
         if (VDBG) {
-            Log.v(TAG, "Saved priority " + device + " = " + priority);
+            Log.v(TAG, "Saved connectionPolicy " + device + " = " + connectionPolicy);
         }
+        enforceCallingOrSelfPermission(BLUETOOTH_PRIVILEGED,
+                "Need BLUETOOTH_PRIVILEGED permission");
         AdapterService.getAdapterService().getDatabase()
-                .setProfilePriority(device, BluetoothProfile.MAP_CLIENT, priority);
+                .setProfileConnectionPolicy(device, BluetoothProfile.MAP_CLIENT, connectionPolicy);
+        if (connectionPolicy == BluetoothProfile.CONNECTION_POLICY_ALLOWED) {
+            connect(device);
+        } else if (connectionPolicy == BluetoothProfile.CONNECTION_POLICY_FORBIDDEN) {
+            disconnect(device);
+        }
         return true;
     }
 
-    public int getPriority(BluetoothDevice device) {
+    /**
+     * Get the connection policy of the profile.
+     *
+     * <p> The connection policy can be any of:
+     * {@link BluetoothProfile#CONNECTION_POLICY_ALLOWED},
+     * {@link BluetoothProfile#CONNECTION_POLICY_FORBIDDEN},
+     * {@link BluetoothProfile#CONNECTION_POLICY_UNKNOWN}
+     *
+     * @param device Bluetooth device
+     * @return connection policy of the device
+     * @hide
+     */
+    public int getConnectionPolicy(BluetoothDevice device) {
+        enforceCallingOrSelfPermission(BLUETOOTH_PRIVILEGED,
+                "Need BLUETOOTH_PRIVILEGED permission");
         return AdapterService.getAdapterService().getDatabase()
-                .getProfilePriority(device, BluetoothProfile.MAP_CLIENT);
+                .getProfileConnectionPolicy(device, BluetoothProfile.MAP_CLIENT);
     }
 
     public synchronized boolean sendMessage(BluetoothDevice device, Uri[] contacts, String message,
@@ -244,7 +285,7 @@ public class MapClientService extends ProfileService {
     }
 
     @Override
-    protected boolean start() {
+    protected synchronized boolean start() {
         Log.e(TAG, "start()");
 
         if (mMnsServer == null) {
@@ -258,6 +299,7 @@ public class MapClientService extends ProfileService {
 
         mAdapter = BluetoothAdapter.getDefaultAdapter();
 
+        mMapReceiver = new MapBroadcastReceiver();
         IntentFilter filter = new IntentFilter();
         filter.addAction(BluetoothDevice.ACTION_SDP_RECORD);
         filter.addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED);
@@ -272,7 +314,11 @@ public class MapClientService extends ProfileService {
         if (DBG) {
             Log.d(TAG, "stop()");
         }
-        unregisterReceiver(mMapReceiver);
+
+        if (mMapReceiver != null) {
+            unregisterReceiver(mMapReceiver);
+            mMapReceiver = null;
+        }
         if (mMnsServer != null) {
             mMnsServer.stop();
         }
@@ -484,21 +530,21 @@ public class MapClientService extends ProfileService {
         }
 
         @Override
-        public boolean setPriority(BluetoothDevice device, int priority) {
+        public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy) {
             MapClientService service = getService();
             if (service == null) {
                 return false;
             }
-            return service.setPriority(device, priority);
+            return service.setConnectionPolicy(device, connectionPolicy);
         }
 
         @Override
-        public int getPriority(BluetoothDevice device) {
+        public int getConnectionPolicy(BluetoothDevice device) {
             MapClientService service = getService();
             if (service == null) {
-                return BluetoothProfile.PRIORITY_UNDEFINED;
+                return BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
             }
-            return service.getPriority(device);
+            return service.getConnectionPolicy(device);
         }
 
         @Override

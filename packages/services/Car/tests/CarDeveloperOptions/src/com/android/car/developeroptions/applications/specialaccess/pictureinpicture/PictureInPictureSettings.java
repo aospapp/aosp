@@ -41,8 +41,8 @@ import androidx.preference.PreferenceScreen;
 import com.android.car.developeroptions.R;
 import com.android.car.developeroptions.applications.AppInfoBase;
 import com.android.car.developeroptions.search.BaseSearchIndexProvider;
-import com.android.car.developeroptions.search.Indexable;
 import com.android.car.developeroptions.widget.EmptyTextSettings;
+import com.android.settingslib.search.Indexable;
 import com.android.settingslib.search.SearchIndexable;
 import com.android.settingslib.widget.apppreference.AppPreference;
 

@@ -22,6 +22,8 @@
     <string name="car_permission_desc_camera" msgid="917024932164501426">"차량 카메라에 액세스"</string>
     <string name="car_permission_label_energy" msgid="7409144323527821558">"차량 에너지 정보 액세스"</string>
     <string name="car_permission_desc_energy" msgid="3392963810053235407">"차량 에너지 정보에 액세스"</string>
+    <string name="car_permission_label_adjust_range_remaining" msgid="839033553999920138">"차량의 잔여 주행거리 조정"</string>
+    <string name="car_permission_desc_adjust_range_remaining" msgid="2369321650437370673">"차량의 잔여 주행거리를 조정하세요."</string>
     <string name="car_permission_label_hvac" msgid="1499454192558727843">"차량 공조기에 액세스"</string>
     <string name="car_permission_desc_hvac" msgid="3754229695589774195">"차량 공조기에 액세스합니다."</string>
     <string name="car_permission_label_mileage" msgid="4661317074631150551">"차량 주행 거리 정보에 액세스"</string>
@@ -62,13 +64,19 @@
     <string name="car_permission_desc_car_ux_restrictions_configuration" msgid="5711926927484813777">"UX 제한사항 설정"</string>
     <string name="car_permission_label_car_handle_usb_aoap_device" msgid="72783989504378036">"AOAP 모드의 USB 기기와 통신"</string>
     <string name="car_permission_desc_car_handle_usb_aoap_device" msgid="273505990971317034">"AOAP 모드의 기기와 통신하도록 앱을 허용하세요."</string>
+    <string name="car_permission_label_read_car_occupant_awareness_state" msgid="125517953575032758">"Occupant Awareness System 읽기 액세스"</string>
+    <string name="car_permission_desc_read_car_occupant_awareness_state" msgid="188865882598414986">"Occupant Awareness System의 상태 및 감지 데이터를 읽는 것을 허용합니다."</string>
+    <string name="car_permission_label_control_car_occupant_awareness_system" msgid="7163330266691094542">"Occupant Awareness System 그래프 제어"</string>
+    <string name="car_permission_desc_control_car_occupant_awareness_system" msgid="7123482622084531911">"Occupant Awareness System 감지 그래프의 시작 및 중지를 제어하는 것을 허용합니다."</string>
     <string name="car_permission_label_bind_input_service" msgid="6698489034024273750">"차량 입력 서비스"</string>
     <string name="car_permission_desc_bind_input_service" msgid="1670323419931890170">"입력 이벤트 처리"</string>
     <string name="car_can_bus_failure" msgid="2334035748788283914">"CAN 버스 실패"</string>
     <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"CAN 버스가 응답하지 않습니다. 헤드유닛 박스를 분리한 후 다시 연결한 다음 시동을 다시 걸어 보세요."</string>
-    <string name="activity_blocked_text" msgid="5342114426610711378">"안전을 위해 운전 중에는 이용할 수 없는 활동입니다.\n계속하려면 먼저 주차하세요."</string>
+    <string name="activity_blocked_text" msgid="8088902789540147995">"운전 중에는 이 기능을 사용하실 수 없습니다."</string>
     <string name="exit_button_message" msgid="8554690915924055685">"안전한 앱 기능으로 다시 시작하려면 <xliff:g id="EXIT_BUTTON">%s</xliff:g>을(를) 선택하세요."</string>
     <string name="exit_button" msgid="5829638404777671253">"뒤로"</string>
+    <string name="exit_button_close_application" msgid="8824289547809332460">"앱 닫기"</string>
+    <string name="exit_button_go_back" msgid="3469083862100560326">"뒤로"</string>
     <string name="car_permission_label_diag_read" msgid="7248894224877702604">"진단 데이터 읽기"</string>
     <string name="car_permission_desc_diag_read" msgid="1121426363040966178">"차량의 진단 데이터를 읽습니다."</string>
     <string name="car_permission_label_diag_clear" msgid="4783070510879698157">"진단 데이터 삭제"</string>
@@ -87,6 +95,8 @@
     <string name="car_permission_desc_car_engine_detailed" msgid="1746863362811347700">"차량의 상세한 엔진 정보에 액세스합니다."</string>
     <string name="car_permission_label_car_energy_ports" msgid="8548990315169219454">"차량 주유구 캡 및 충전 포트 액세스"</string>
     <string name="car_permission_desc_car_energy_ports" msgid="7771185999828794949">"차량의 주유구 캡 및 충전 포트에 액세스합니다."</string>
+    <string name="car_permission_label_control_car_energy_ports" msgid="4375137311026313475">"차량 주유구 캡 및 충전 포트 액세스 제어"</string>
+    <string name="car_permission_desc_control_car_energy_ports" msgid="7364633710492525387">"차량 주유구 캡 및 충전 포트 액세스를 제어합니다."</string>
     <string name="car_permission_label_car_identification" msgid="5896712510164020478">"차량 ID 읽기"</string>
     <string name="car_permission_desc_car_identification" msgid="4132040867171275059">"차량 ID에 액세스합니다."</string>
     <string name="car_permission_label_control_car_doors" msgid="3032058819250195700">"차량 도어 제어"</string>
@@ -99,6 +109,8 @@
     <string name="car_permission_desc_control_car_seats" msgid="2407536601226470563">"차량 시트를 제어합니다."</string>
     <string name="car_permission_label_car_info" msgid="4707513570676492315">"차량의 기본 정보에 액세스"</string>
     <string name="car_permission_desc_car_info" msgid="2118081474543537653">"차량의 기본 정보에 액세스합니다."</string>
+    <string name="car_permission_label_vendor_permission_info" msgid="4471260460536888654">"차량 공급업체 권한 정보에 액세스합니다."</string>
+    <string name="car_permission_desc_vendor_permission_info" msgid="8152113853528488398">"차량 공급업체 권한 정보에 액세스합니다."</string>
     <string name="car_permission_label_car_exterior_lights" msgid="541304469604902110">"차량 외부 조명 상태 읽기"</string>
     <string name="car_permission_desc_car_exterior_lights" msgid="4038037584100849318">"차량의 외부 조명 상태에 액세스합니다."</string>
     <string name="car_permission_label_control_car_exterior_lights" msgid="101357531386232141">"차량 외부 조명 읽기"</string>
@@ -123,5 +135,12 @@
     <string name="car_permission_desc_car_power" msgid="9202079903668652864">"차량 전원 상태에 액세스합니다."</string>
     <string name="car_permission_label_enroll_trust" msgid="3512907900486690218">"신뢰할 수 있는 기기 등록"</string>
     <string name="car_permission_desc_enroll_trust" msgid="4148649994602185130">"신뢰할 수 있는 기기 등록 허용"</string>
+    <string name="car_permission_label_car_test_service" msgid="9159328930558208708">"차량 테스트 모드 제어"</string>
+    <string name="car_permission_desc_car_test_service" msgid="7426844534110145843">"차량 테스트 모드 제어"</string>
+    <string name="car_permission_label_control_car_features" msgid="3905791560378888286">"차량 기능 사용 설정 또는 사용 중지"</string>
+    <string name="car_permission_desc_control_car_features" msgid="7646711104530599901">"차량 기능 사용 설정 또는 사용 중지"</string>
+    <string name="car_permission_label_use_car_watchdog" msgid="6973938293170413475">"차량 워치독을 사용합니다."</string>
+    <string name="car_permission_desc_use_car_watchdog" msgid="8244592601805516086">"차량 워치독을 사용합니다."</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"내 기기"</string>
+    <string name="default_guest_name" msgid="2912812799433131476">"게스트"</string>
 </resources>

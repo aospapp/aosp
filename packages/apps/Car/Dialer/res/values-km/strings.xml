@@ -26,35 +26,55 @@
     <string name="emergency_call_description" msgid="6700161437750325693">"ការហៅទៅលេខសង្គ្រោះបន្ទាន់"</string>
     <string name="error_contact_deleted" msgid="6356539067659368396">"ទំនាក់ទំនងនេះ​ប្រហែលជា​ត្រូវបាន​លុបចេញ​ហើយ។"</string>
     <string name="error_invalid_phone_number" msgid="5349049631580646136">"មិនអាច​ហៅទៅកាន់​លេខទូរសព្ទនេះ​បានទេ។ សូម​ពិនិត្យមើល​លេខទូរសព្ទ​នេះ រួច​ព្យាយាម​ម្ដងទៀត។"</string>
+    <string name="error_telephony_not_available" msgid="8715829862083386178">"មិន​អាចហៅទូរសព្ទបានទេ។ សូមព្យាយាមម្ដងទៀតនៅពេលក្រោយ។"</string>
     <string name="decline_call" msgid="2505987200485272226">"បដិសេធ"</string>
     <string name="answer_call" msgid="3272474440561548115">"ទទួល​ទូរសព្ទ"</string>
     <string name="call_back" msgid="5745638356098600872">"ហៅ​ទៅ​វិញ"</string>
-    <string name="audio_route_vehicle" msgid="6274519162997743620">"ប៊្លូធូស​របស់​យានជំនិះ"</string>
-    <string name="audio_route_phone_speaker" msgid="407520293892557697">"ទូរសព្ទ​ឧបករណ៍​បំពង​សំឡេង"</string>
-    <string name="audio_route_handset" msgid="1100259514278439355">"កាស"</string>
+    <string name="audio_route_vehicle" msgid="6250361588960528769">"ឧបករណ៍បំពងសំឡេង​រថយន្ត"</string>
+    <string name="audio_route_phone_speaker" msgid="4608904003558187244">"ឧបករណ៍​បំពង​សំឡេង​ទូរសព្ទ"</string>
+    <string name="audio_route_handset" msgid="9133081623895172144">"ទូរសព្ទ"</string>
     <string name="dial_a_number" msgid="7432322177412387160">"ហៅ​ទៅកាន់​លេខទូរសព្ទ"</string>
     <string name="favorites_title" msgid="4767723901530488145">"សំណព្វ"</string>
-    <string name="call_history_title" msgid="1495905524218923242">"ប្រវត្តិហៅ​ទូរសព្ទ"</string>
+    <string name="call_history_title" msgid="7997887846276371553">"ថ្មីៗ"</string>
     <string name="contacts_title" msgid="9201954388634537346">"ទំនាក់ទំនង"</string>
     <string name="dialpad_title" msgid="3746259645005208554">"បន្ទះ​លេខ"</string>
+    <string name="call_log_header_today" msgid="2069013936632793214">"ថ្ងៃនេះ"</string>
+    <string name="call_log_header_yesterday" msgid="4613686845163357847">"ម្សិលមិញ"</string>
+    <string name="call_log_header_older" msgid="3971634717537073179">"ចាស់ៗ"</string>
+    <string name="call_logs_empty" msgid="3084720078894119049">"គ្មានថ្មីទេ"</string>
+    <string name="contact_list_empty" msgid="4225504548491888138">"គ្មានទំនាក់ទំនងទេ"</string>
+    <string name="available_after_sync" msgid="33765918799197782">"មានបន្ទាប់ពីធ្វើសមកាលកម្ម។ សូមប្រាកដថា អ្នក​បានអនុញ្ញាត​ឱ្យចែករំលែក​ទំនាក់ទំនង​នៅលើទូរសព្ទ​របស់អ្នក។"</string>
+    <string name="favorites_empty" msgid="5794510741132758130">"គ្មានសំណព្វទេ"</string>
+    <string name="no_favorites_added" msgid="2359050103464783907">"អ្នក​មិនទាន់​​បាន​បញ្ចូល​​សំណព្វ​ណា​មួយ​នៅ​ឡើយ​ទេ"</string>
     <string name="add_favorite_button" msgid="7914955940249767808">"បញ្ចូលសំណព្វ"</string>
-    <string name="favorites_empty" msgid="6712416359691979975">"អ្នក​មិនទាន់​​បាន​បញ្ចូល​​សំណព្វ​ណា​មួយ​នៅ​ឡើយ​ទេ"</string>
     <string name="search_title" msgid="5412680850141871664">"ស្វែងរកទំនាក់ទំនង"</string>
     <string name="search_hint" msgid="3099066132607042439">"ស្វែងរកទំនាក់ទំនង"</string>
     <string name="type_multiple" msgid="3402949522797441236">"ច្រើន"</string>
     <string name="select_number_dialog_title" msgid="5770700626013782205">"ជ្រើសរើស​លេខទូរសព្ទ"</string>
     <string name="select_number_dialog_just_once_button" msgid="1814381354393374660">"តែ​ម្ដង"</string>
     <string name="select_number_dialog_always_button" msgid="6862338683635863764">"ជានិច្ច"</string>
-    <string name="set_default_number" msgid="5083696228341022224">"កំណត់​លេខទូរសព្ទ​លំនាំដើម"</string>
-    <string name="primary_number_description" msgid="7428950659304219592">"<xliff:g id="LABEL">%1$s</xliff:g>  - លំនាំដើម"</string>
+    <string name="primary_number_description" msgid="1211198148918329509">"<xliff:g id="LABEL">%1$s</xliff:g> លំនាំដើម"</string>
+    <string name="favorite_number_description" msgid="8175362259853807385">"សំណព្វ -  <xliff:g id="LABEL">%1$s</xliff:g>"</string>
+    <string name="local_favorite_number_description" msgid="3723823871011997275">"លេខ​សំណព្វ​ក្នុងតំបន់ -  <xliff:g id="LABEL">%1$s</xliff:g>"</string>
+    <string name="phone_favorites" msgid="2257447553252980575">"សំណព្វ"</string>
+    <string name="local_favorites" msgid="4954852813126882412">"លេខ​សំណព្វ​ក្នុងតំបន់"</string>
+    <string name="no_phone_numbers" msgid="8738691115921148445">"មិនមាន​លេខ​ទូរសព្ទ​ទេ"</string>
     <string name="in_call_notification_channel_name" msgid="1978093630512401778">"ការជូនដំណឹង​អំពីការហៅចូល"</string>
     <string name="notification_incoming_call" msgid="1722904631804432389">"ការ​ហៅ​ចូល"</string>
     <string name="missed_call_notification_channel_name" msgid="1135686963409691772">"ការជូនដំណឹង​អំពីការខកខាន​ទទួល"</string>
-    <string name="notification_missed_call" msgid="7127823385811396529">"ខកខាន​ទទួល"</string>
-    <string name="onhold_call_label" msgid="1937027519810985499">"រង់ចាំ"</string>
+    <plurals name="notification_missed_call" formatted="false" msgid="1018870358427938752">
+      <item quantity="other">ខកខាន​ទទួល (<xliff:g id="NUMBER">%1$d</xliff:g>) </item>
+      <item quantity="one">ខកខាន​ទទួល</item>
+    </plurals>
+    <string name="onhold_call_separator" msgid="2357788035385100805">"•"</string>
+    <string name="swap_call_label" msgid="309322319645637302">"ប្ដូរ​ការហៅ​ទូរសព្ទ"</string>
     <string name="setting_title" msgid="1296639422364732365">"ការកំណត់"</string>
-    <string name="pref_start_page_title" msgid="8243884415248971745">"កំណត់​ទំព័រចាប់ផ្តើម"</string>
-    <string name="sort_order_title" msgid="2713804965189046046">"លំដាប់​ទំនាក់ទំនង"</string>
-    <string name="give_name_first_title" msgid="9036752103567139094">"នាម​ខ្លួន"</string>
+    <string name="pref_start_page_title" msgid="1953465507368478503">"​អេក្រង់ចាប់​ផ្ដើម"</string>
+    <string name="sort_order_title" msgid="975104366728292702">"លំដាប់​ទំនាក់ទំនង"</string>
+    <string name="given_name_first_title" msgid="8072187841056104968">"នាម​ខ្លួន"</string>
     <string name="family_name_first_title" msgid="7721976826282427987">"នាមត្រកូល"</string>
+    <string name="audio_route_dialog_title" msgid="2904553846970171054">"បញ្ចេញសំឡេង​ហៅទូរសព្ទទៅ៖"</string>
+    <string name="audio_route_dialog_subtitle" msgid="8780526104805330121"></string>
+    <string name="ongoing_conf_title" msgid="4161590966144000887">"ការហៅ​ជា​ក្រុម"</string>
+    <string name="ongoing_conf_title_format" msgid="7667048745156395220">"%1$s (%2$d) - "</string>
 </resources>

@@ -83,8 +83,10 @@
     <string name="reset" msgid="6467204151306265796">"אפס את המכשיר"</string>
     <string name="cant_set_up_profile" msgid="4341825293970158436">"לא ניתן להגדיר את הפרופיל"</string>
     <string name="cant_set_up_device" msgid="4120090138983350714">"לא ניתן להגדיר את המכשיר"</string>
+    <string name="something_went_wrong" msgid="3593223774041784329">"משהו השתבש"</string>
     <string name="couldnt_set_up_device" msgid="5137950404283642302">"‏לא ניתן היה להגדיר את המכשיר. לקבלת עזרה יש לפנות למנהל ה-IT."</string>
     <string name="contact_your_admin_for_help" msgid="2009904021552323731">"‏לקבלת עזרה, יש לפנות למנהל ה-IT"</string>
+    <string name="reset_device" msgid="5483853913241939262">"יש לאפס את המכשיר הזה ולנסות להגדירו שוב"</string>
     <string name="device_already_set_up" msgid="507881934487140294">"המכשיר כבר הוגדר"</string>
     <string name="error_wifi" msgid="1850288843966836571">"‏לא ניתן היה להתחבר לרשת Wi-Fi"</string>
     <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"‏במכשיר שלך הופעלה הגנה מפני איפוס. לקבלת עזרה כדאי ליצור קשר עם מנהל ה-IT."</string>
@@ -161,25 +163,34 @@
     <string name="setup_provisioning_header" msgid="4282483198266806271">"מתכונן להגדרת מכשיר העבודה…"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"ההגדרה של אפליקציית הניהול מתבצעת"</string>
     <string name="set_up_everything_else" msgid="4407706086957916501">"הגדרת כל השאר"</string>
-    <string name="now_lets_set_up_everything_else" msgid="2905102208584231894">"עכשיו, נגדיר את כל השאר"</string>
+    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"כדאי להוסיף חשבון פרטי כדי להפיק יותר מהמכשיר"</string>
+    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"‏עכשיו כשפרופיל העבודה שלך מוכן, אפשר להוסיף גם חשבון Google אישי כדי לגשת לאפליקציות ולתוכן."</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"המכשיר הזה שייך לארגון שלך"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"האפליקציה הבאה תשמש לניהול ולמעקב בטלפון זה"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"מתכונן להגדרת פרופיל העבודה…"</string>
-    <string name="work_profile_provisioning_accept_header" msgid="462916780311392444">"תחילה, נגדיר את פרופיל העבודה שלך"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"נתחיל בהגדרת פרופיל העבודה שלך"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"אפליקציות לעבודה נשמרות בפרופיל העבודה"</string>
     <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"השהיית אפליקציות עבודה בסוף היום"</string>
-    <string name="work_profile_provisioning_step_3_header" msgid="7495564624887776704">"‏רק הנתונים בפרופיל העבודה שלך גלויים למנהל ה-IT"</string>
+    <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"‏הנתונים בפרופיל העבודה שלך גלויים למנהל ה-IT"</string>
     <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"מגדיר את פרופיל העבודה שלך…"</string>
-    <string name="work_profile_provisioning_summary" msgid="3917907344897144246">"‏אפליקציות לעבודה נשמרות בפרופיל העבודה. אפשר להשהות את אפליקציות העבודה בסוף היום. רק נתונים בפרופיל העבודה שלך חשופים למנהל ה-IT."</string>
+    <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"‏אפליקציות לעבודה נשמרות בפרופיל העבודה שלך. אפשר להשהות את האפליקציות לעבודה בסוף היום. הנתונים בפרופיל העבודה שלך גלויים למנהל ה-IT."</string>
     <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"נתחיל להגדיר את מכשיר העבודה שלך"</string>
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"אפשר לשמור את אפליקציות העבודה במקום נגיש"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"המכשיר הזה אינו פרטי"</string>
     <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"‏ייתכן שמנהל ה-IT שלך יכול לראות את הנתונים והפעילות במכשיר הזה."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"מגדיר את המכשיר שלך…"</string>
     <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"‏אפשר להשתמש במכשיר הזה כדי לגשת בקלות אל אפליקציות העבודה. המכשיר הזה אינו פרטי, כך שייתכן כי מנהל ה-IT יכול לראות את הנתונים והפעילות שלך. כדי לקבל מידע נוסף יש לפנות אל מנהל ה-IT."</string>
+    <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"‏אפליקציות לעבודה מאוחסנות בפרופיל שלך ומנוהלות על ידי מנהל ה-IT"</string>
+    <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"אפליקציות אישיות מאוחסנות בנפרד ומוסתרות מאפליקציות לעבודה"</string>
+    <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"‏מנהל ה-IT יכול לשלוט במכשיר הזה ולחסום אפליקציות מסוימות"</string>
+    <string name="cope_provisioning_summary" msgid="993014104601034878">"‏אפליקציות לעבודה נשמרות בפרופיל העבודה ומנוהלות על ידי מנהל ה-IT. אפליקציות לשימוש אישי מאוחסנות בנפרד ומוסתרות מאפליקציות לעבודה. מנהל ה-IT יכול לשלוט במכשיר הזה ולחסום אפליקציות מסוימות."</string>
+    <string name="just_a_sec" msgid="6244676028626237220">"רק רגע…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"תזכורת פרטיות"</string>
     <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"‏ייתכן שמנהל ה-IT שלך יכול לראות את הנתונים והפעילות במכשיר הזה"</string>
     <string name="device_provisioning_finished" msgid="3981783240592092906">"המכשיר שלך מוכן."</string>
     <string name="done" msgid="7755227776955952318">"סיום"</string>
+    <string name="financed_device_screen_header" msgid="7890706080917322376">"המכשיר הזה נרכש דרך זיכוי מ-<xliff:g id="CREDITOR_NAME">%1$s</xliff:g>"</string>
+    <string name="creditor_capabilities_header" msgid="6217362648469323253">"ל-<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> יש אפשרות:"</string>
+    <string name="install_creditor_app_description" msgid="6159751782301108878">"להתקין את האפליקציה <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> כדי לבצע תשלומים עבור המכשיר הזה"</string>
+    <string name="lock_device_description" msgid="2940362560732989166">"להגביל את הגישה למכשיר הזה אם לא מתבצעים תשלומים"</string>
 </resources>

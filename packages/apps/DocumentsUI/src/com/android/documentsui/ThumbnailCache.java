@@ -16,23 +16,26 @@
 
 package com.android.documentsui;
 
-import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
-import androidx.core.util.Pools;
+import static androidx.core.util.Preconditions.checkNotNull;
 
 import android.content.ComponentCallbacks2;
 import android.graphics.Bitmap;
 import android.graphics.Point;
 import android.net.Uri;
 import android.util.LruCache;
-import android.util.Pair;
+
+import androidx.annotation.IntDef;
+import androidx.annotation.Nullable;
+import androidx.core.util.Pools;
 
 import com.android.documentsui.base.Shared;
+import com.android.documentsui.base.UserId;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.Objects;
 import java.util.TreeMap;
 
 /**
@@ -44,10 +47,10 @@ public class ThumbnailCache {
     private static final SizeComparator SIZE_COMPARATOR = new SizeComparator();
 
     /**
-     * A 2-dimensional index into {@link #mCache} entries. Pair<Uri, Point> is the key to
+     * A 2-dimensional index into {@link #mCache} entries. {@link CacheKey} is the key to
      * {@link #mCache}. TreeMap is used to search the closest size to a given size and a given uri.
      */
-    private final HashMap<Uri, TreeMap<Point, Pair<Uri, Point>>> mSizeIndex;
+    private final HashMap<SizeIndexKey, TreeMap<Point, CacheKey>> mSizeIndex;
     private final Cache mCache;
 
     /**
@@ -67,16 +70,16 @@ public class ThumbnailCache {
      * @param size the desired size of the thumbnail
      * @return the thumbnail result
      */
-    public Result getThumbnail(Uri uri, Point size) {
-        TreeMap<Point, Pair<Uri, Point>> sizeMap;
-        sizeMap = mSizeIndex.get(uri);
+    public Result getThumbnail(Uri uri, UserId userId, Point size) {
+        TreeMap<Point, CacheKey> sizeMap;
+        sizeMap = mSizeIndex.get(new SizeIndexKey(uri, userId));
         if (sizeMap == null || sizeMap.isEmpty()) {
             // There is not any thumbnail for this uri.
             return Result.obtainMiss();
         }
 
         // Look for thumbnail of the same size.
-        Pair<Uri, Point> cacheKey = sizeMap.get(size);
+        CacheKey cacheKey = sizeMap.get(size);
         if (cacheKey != null) {
             Entry entry = mCache.get(cacheKey);
             if (entry != null) {
@@ -121,15 +124,16 @@ public class ThumbnailCache {
      * @param thumbnail the thumbnail to put in cache
      * @param lastModified last modified value of the thumbnail to track its validity
      */
-    public void putThumbnail(Uri uri, Point size, Bitmap thumbnail, long lastModified) {
-        Pair<Uri, Point> cacheKey = Pair.create(uri, size);
+    public void putThumbnail(Uri uri, UserId userId, Point size, Bitmap thumbnail,
+            long lastModified) {
+        CacheKey cacheKey = new CacheKey(uri, userId, size);
 
-        TreeMap<Point, Pair<Uri, Point>> sizeMap;
+        TreeMap<Point, CacheKey> sizeMap;
         synchronized (mSizeIndex) {
-            sizeMap = mSizeIndex.get(uri);
+            sizeMap = mSizeIndex.get(new SizeIndexKey(uri, userId));
             if (sizeMap == null) {
                 sizeMap = new TreeMap<>(SIZE_COMPARATOR);
-                mSizeIndex.put(uri, sizeMap);
+                mSizeIndex.put(new SizeIndexKey(uri, userId), sizeMap);
             }
         }
 
@@ -141,34 +145,34 @@ public class ThumbnailCache {
     }
 
     /**
-     * Removes all thumbnail cache associated to the given uri.
+     * Removes all thumbnail cache associated to the given uri and user.
      * @param uri the uri which thumbnail cache to remove
      */
-    public void removeUri(Uri uri) {
-        TreeMap<Point, Pair<Uri, Point>> sizeMap;
+    public void removeUri(Uri uri, UserId userId) {
+        TreeMap<Point, CacheKey> sizeMap;
         synchronized (mSizeIndex) {
-            sizeMap = mSizeIndex.get(uri);
+            sizeMap = mSizeIndex.get(new SizeIndexKey(uri, userId));
         }
 
         if (sizeMap != null) {
             // Create an array to hold all values to avoid ConcurrentModificationException because
             // removeKey() will be called by LruCache but we can't modify the map while we're
             // iterating over the collection of values.
-            for (Pair<Uri, Point> index : sizeMap.values().toArray(new Pair[0])) {
+            for (CacheKey index : sizeMap.values().toArray(new CacheKey[0])) {
                 mCache.remove(index);
             }
         }
     }
 
-    private void removeKey(Uri uri, Point size) {
-        TreeMap<Point, Pair<Uri, Point>> sizeMap;
+    private void removeKey(CacheKey cacheKey) {
+        TreeMap<Point, CacheKey> sizeMap;
         synchronized (mSizeIndex) {
-            sizeMap = mSizeIndex.get(uri);
+            sizeMap = mSizeIndex.get(new SizeIndexKey(cacheKey.uri, cacheKey.userId));
         }
 
-        assert(sizeMap != null);
+        assert (sizeMap != null);
         synchronized (sizeMap) {
-            sizeMap.remove(size);
+            sizeMap.remove(cacheKey.point);
         }
     }
 
@@ -291,22 +295,22 @@ public class ThumbnailCache {
         }
     }
 
-    private final class Cache extends LruCache<Pair<Uri, Point>, Entry> {
+    private final class Cache extends LruCache<CacheKey, Entry> {
 
         private Cache(int maxSizeBytes) {
             super(maxSizeBytes);
         }
 
         @Override
-        protected int sizeOf(Pair<Uri, Point> key, Entry value) {
+        protected int sizeOf(CacheKey key, Entry value) {
             return value.mThumbnail.getByteCount();
         }
 
         @Override
         protected void entryRemoved(
-                boolean evicted, Pair<Uri, Point> key, Entry oldValue, Entry newValue) {
+                boolean evicted, CacheKey key, Entry oldValue, Entry newValue) {
             if (newValue == null) {
-                removeKey(key.first, key.second);
+                removeKey(key);
             }
         }
     }
@@ -316,6 +320,75 @@ public class ThumbnailCache {
         public int compare(Point size0, Point size1) {
             // Assume all sizes are roughly square, so we only compare them in one dimension.
             return size0.x - size1.x;
+        }
+    }
+
+    private static class SizeIndexKey {
+        final Uri uri;
+        final UserId userId;
+
+        SizeIndexKey(Uri uri, UserId userId) {
+            this.uri = checkNotNull(uri);
+            this.userId = checkNotNull(userId);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (o == null) {
+                return false;
+            }
+
+            if (this == o) {
+                return true;
+            }
+
+            if (o instanceof SizeIndexKey) {
+                SizeIndexKey other = (SizeIndexKey) o;
+                return Objects.equals(uri, other.uri)
+                        && Objects.equals(userId, other.userId);
+            }
+            return false;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(uri, userId);
+        }
+    }
+
+    private static class CacheKey {
+        final Uri uri;
+        final UserId userId;
+        final Point point;
+
+        CacheKey(Uri uri, UserId userId, Point point) {
+            this.uri = checkNotNull(uri);
+            this.userId = checkNotNull(userId);
+            this.point = checkNotNull(point);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (o == null) {
+                return false;
+            }
+
+            if (this == o) {
+                return true;
+            }
+
+            if (o instanceof CacheKey) {
+                CacheKey other = (CacheKey) o;
+                return Objects.equals(uri, other.uri)
+                        && Objects.equals(userId, other.userId)
+                        && Objects.equals(point, other.point);
+            }
+            return false;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(uri, userId, point);
         }
     }
 }

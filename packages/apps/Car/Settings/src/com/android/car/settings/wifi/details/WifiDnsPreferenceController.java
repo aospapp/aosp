@@ -17,6 +17,7 @@ package com.android.car.settings.wifi.details;
 
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
+import android.net.LinkProperties;
 
 import com.android.car.settings.common.FragmentController;
 
@@ -41,9 +42,13 @@ public class WifiDnsPreferenceController extends
 
     @Override
     protected void updateState(WifiDetailsPreference preference) {
-        String dnsServers = getWifiInfoProvider().getLinkProperties().getDnsServers().stream()
-                .map(InetAddress::getHostAddress)
-                .collect(Collectors.joining(System.lineSeparator()));
+        LinkProperties linkProperties = getWifiInfoProvider().getLinkProperties();
+        String dnsServers = null;
+        if (linkProperties != null) {
+            dnsServers = linkProperties.getDnsServers().stream()
+                    .map(InetAddress::getHostAddress)
+                    .collect(Collectors.joining(System.lineSeparator()));
+        }
 
         if (dnsServers == null) {
             preference.setVisible(false);

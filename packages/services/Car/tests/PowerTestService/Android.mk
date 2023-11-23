@@ -28,7 +28,6 @@ LOCAL_CFLAGS += \
     -Wno-unused-parameter
 
 LOCAL_C_INCLUDES += \
-    frameworks/base/include \
     packages/services/Car/car-lib/native/include
 
 LOCAL_SHARED_LIBRARIES := \

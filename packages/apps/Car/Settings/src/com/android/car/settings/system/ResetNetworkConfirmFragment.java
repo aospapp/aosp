@@ -33,10 +33,8 @@ import android.provider.Telephony;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
-import android.widget.Button;
 import android.widget.Toast;
 
-import androidx.annotation.LayoutRes;
 import androidx.annotation.VisibleForTesting;
 import androidx.annotation.XmlRes;
 import androidx.fragment.app.Fragment;
@@ -45,6 +43,10 @@ import androidx.preference.PreferenceManager;
 import com.android.car.settings.R;
 import com.android.car.settings.common.ErrorDialog;
 import com.android.car.settings.common.SettingsFragment;
+import com.android.car.ui.toolbar.MenuItem;
+
+import java.util.Collections;
+import java.util.List;
 
 /**
  * Final warning presented to user to confirm restoring network settings to the factory default.
@@ -56,6 +58,8 @@ public class ResetNetworkConfirmFragment extends SettingsFragment {
     @VisibleForTesting
     static final String RESTORE_CARRIERS_URI = "content://telephony/carriers/restore";
 
+    private MenuItem mResetButton;
+
     @Override
     @XmlRes
     protected int getPreferenceScreenResId() {
@@ -63,18 +67,18 @@ public class ResetNetworkConfirmFragment extends SettingsFragment {
     }
 
     @Override
-    @LayoutRes
-    protected int getActionBarLayoutId() {
-        return R.layout.action_bar_with_button;
+    public List<MenuItem> getToolbarMenuItems() {
+        return Collections.singletonList(mResetButton);
     }
 
     @Override
-    public void onActivityCreated(Bundle savedInstanceState) {
-        super.onActivityCreated(savedInstanceState);
-        Button resetSettingsButton = requireActivity().findViewById(R.id.action_button1);
-        resetSettingsButton.setText(
-                requireContext().getString(R.string.reset_network_confirm_button_text));
-        resetSettingsButton.setOnClickListener(v -> resetNetwork());
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        mResetButton = new MenuItem.Builder(getContext())
+                .setTitle(R.string.reset_network_confirm_button_text)
+                .setOnClickListener(i -> resetNetwork())
+                .build();
     }
 
     private void resetNetwork() {

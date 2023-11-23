@@ -17,13 +17,13 @@
 package com.android.car.settings.system;
 
 import android.car.drivingstate.CarUxRestrictions;
-import android.car.userlib.CarUserManagerHelper;
 import android.content.Context;
 
 import androidx.preference.Preference;
 
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceController;
+import com.android.car.settings.users.UserHelper;
 
 /**
  * Displays a warning message on the factory reset screen when multiple switchable users are present
@@ -32,12 +32,9 @@ import com.android.car.settings.common.PreferenceController;
 public class MasterClearOtherUsersPresentPreferenceController extends
         PreferenceController<Preference> {
 
-    private final CarUserManagerHelper mCarUserManagerHelper;
-
     public MasterClearOtherUsersPresentPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
-        mCarUserManagerHelper = new CarUserManagerHelper(context);
     }
 
     @Override
@@ -47,6 +44,7 @@ public class MasterClearOtherUsersPresentPreferenceController extends
 
     @Override
     protected void updateState(Preference preference) {
-        preference.setVisible(!mCarUserManagerHelper.getAllSwitchableUsers().isEmpty());
+        UserHelper userHelper = UserHelper.getInstance(getContext());
+        preference.setVisible(!userHelper.getAllSwitchableUsers().isEmpty());
     }
 }

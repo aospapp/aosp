@@ -31,10 +31,10 @@ import androidx.slice.Slice;
 import androidx.slice.builders.ListBuilder;
 import androidx.slice.builders.SliceAction;
 
-import com.android.internal.util.CollectionUtils;
 import com.android.car.developeroptions.R;
 import com.android.car.developeroptions.Utils;
 import com.android.car.developeroptions.slices.CustomSliceable;
+import com.android.internal.util.CollectionUtils;
 import com.android.settingslib.bluetooth.A2dpProfile;
 import com.android.settingslib.bluetooth.HearingAidProfile;
 import com.android.settingslib.bluetooth.LocalBluetoothManager;
@@ -143,14 +143,14 @@ public class MediaOutputIndicatorSlice implements CustomSliceable {
         // Return Hearing Aid device name if it is active
         BluetoothDevice activeDevice = findActiveHearingAidDevice();
         if (activeDevice != null) {
-            return activeDevice.getAliasName();
+            return activeDevice.getAlias();
         }
         // Return A2DP device name if it is active
         final A2dpProfile a2dpProfile = mProfileManager.getA2dpProfile();
         if (a2dpProfile != null) {
             activeDevice = a2dpProfile.getActiveDevice();
             if (activeDevice != null) {
-                return activeDevice.getAliasName();
+                return activeDevice.getAlias();
             }
         }
         // No active device, return default summary

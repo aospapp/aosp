@@ -2,7 +2,9 @@ package com.android.customization.model.clock;
 
 import android.content.ContentResolver;
 import android.content.Context;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.pm.ProviderInfo;
 import android.database.Cursor;
 import android.net.Uri;
@@ -25,6 +27,7 @@ public class ContentProviderClockProvider implements ClockProvider {
     private final Context mContext;
     private final ProviderInfo mProviderInfo;
     private List<Clockface> mClocks;
+    private boolean mClockContentAvailable;
 
     public ContentProviderClockProvider(Context context) {
         mContext = context;
@@ -33,11 +36,25 @@ public class ContentProviderClockProvider implements ClockProvider {
         mProviderInfo = TextUtils.isEmpty(providerAuthority) ? null
                 : mContext.getPackageManager().resolveContentProvider(providerAuthority,
                         PackageManager.MATCH_SYSTEM_ONLY);
+
+        if (TextUtils.isEmpty(mContext.getString(R.string.clocks_stub_package))) {
+            mClockContentAvailable = false;
+        } else {
+            try {
+                ApplicationInfo applicationInfo = mContext.getPackageManager().getApplicationInfo(
+                        mContext.getString(R.string.clocks_stub_package),
+                        PackageManager.MATCH_SYSTEM_ONLY);
+                mClockContentAvailable = applicationInfo != null;
+            } catch (NameNotFoundException e) {
+                mClockContentAvailable = false;
+            }
+        }
     }
 
     @Override
     public boolean isAvailable() {
-        return mProviderInfo != null && (mClocks == null || !mClocks.isEmpty());
+        return mProviderInfo != null && mClockContentAvailable
+                && (mClocks == null || !mClocks.isEmpty());
     }
 
     @Override

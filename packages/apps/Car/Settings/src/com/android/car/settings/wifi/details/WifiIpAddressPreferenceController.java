@@ -18,6 +18,7 @@ package com.android.car.settings.wifi.details;
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
 import android.net.LinkAddress;
+import android.net.LinkProperties;
 
 import com.android.car.settings.common.FragmentController;
 
@@ -41,11 +42,13 @@ public class WifiIpAddressPreferenceController extends
 
     @Override
     protected void updateState(WifiDetailsPreference preference) {
+        LinkProperties linkProperties = getWifiInfoProvider().getLinkProperties();
         String ipv4Address = null;
-
-        for (LinkAddress addr : getWifiInfoProvider().getLinkProperties().getLinkAddresses()) {
-            if (addr.getAddress() instanceof Inet4Address) {
-                ipv4Address = addr.getAddress().getHostAddress();
+        if (linkProperties != null) {
+            for (LinkAddress addr : linkProperties.getLinkAddresses()) {
+                if (addr.getAddress() instanceof Inet4Address) {
+                    ipv4Address = addr.getAddress().getHostAddress();
+                }
             }
         }
 

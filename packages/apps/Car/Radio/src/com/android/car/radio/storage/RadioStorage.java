@@ -28,6 +28,7 @@ import androidx.lifecycle.LiveData;
 
 import com.android.car.broadcastradio.support.Program;
 import com.android.car.broadcastradio.support.platform.ProgramSelectorExt;
+import com.android.car.radio.SkipMode;
 import com.android.car.radio.bands.ProgramType;
 import com.android.car.radio.util.Log;
 
@@ -43,6 +44,8 @@ public class RadioStorage {
 
     private static final String PREF_KEY_RECENT_TYPE = "recentProgramType";
     private static final String PREF_KEY_RECENT_PROGRAM_PREFIX = "recentProgram-";
+
+    private static final String PREF_KEY_SKIP_MODE = "smartSeekMode";
 
     private static RadioStorage sInstance;
 
@@ -188,5 +191,34 @@ public class RadioStorage {
         if (selUriStr.equals("")) return null;
 
         return ProgramSelectorExt.fromUri(Uri.parse(selUriStr));
+    }
+
+    /**
+     * Stores the last {@link SkipMode} set.
+     */
+    public void setSkipMode(@NonNull SkipMode mode) {
+        int value = mode.ordinal();
+        SharedPreferences.Editor editor = mPrefs.edit();
+
+        if (mPrefs.getInt(PREF_KEY_SKIP_MODE,
+                SkipMode.DEFAULT_MODE.ordinal()) != value) {
+            editor.putInt(PREF_KEY_SKIP_MODE, value);
+            editor.apply();
+        }
+    }
+
+    /**
+     * Gets the last {@link SkipMode} set.
+     */
+    @NonNull
+    public SkipMode getSkipMode() {
+        int value = mPrefs.getInt(PREF_KEY_SKIP_MODE, SkipMode.DEFAULT_MODE.ordinal());
+        SkipMode mode = SkipMode.valueOf(value);
+        if (mode == null) {
+            Log.e(TAG, "getSkipMode(): invalid pref value " + value + "; returning "
+                    + SkipMode.DEFAULT_MODE + " instead");
+            mode = SkipMode.DEFAULT_MODE;
+        }
+        return mode;
     }
 }

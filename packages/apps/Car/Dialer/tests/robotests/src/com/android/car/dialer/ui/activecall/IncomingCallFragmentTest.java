@@ -23,12 +23,11 @@ import static org.mockito.Mockito.when;
 import android.telecom.Call;
 import android.widget.TextView;
 
-import androidx.lifecycle.MutableLiveData;
-
 import com.android.car.dialer.CarDialerRobolectricTestRunner;
 import com.android.car.dialer.FragmentTestActivity;
 import com.android.car.dialer.R;
-import com.android.car.dialer.testutils.ShadowAndroidViewModelFactory;
+import com.android.car.dialer.TestDialerApplication;
+import com.android.car.dialer.telecom.InCallServiceImpl;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -36,26 +35,26 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.robolectric.Robolectric;
-import org.robolectric.annotation.Config;
+import org.robolectric.RuntimeEnvironment;
 
-@Config(shadows = {ShadowAndroidViewModelFactory.class})
+import java.util.Collections;
+
 @RunWith(CarDialerRobolectricTestRunner.class)
 public class IncomingCallFragmentTest {
     private IncomingCallFragment mIncomingCallFragment;
     @Mock
     private Call mMockCall;
     @Mock
-    private InCallViewModel mMockInCallViewModel;
+    InCallServiceImpl mMockInCallServiceImpl;
 
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
 
-        ShadowAndroidViewModelFactory.add(InCallViewModel.class, mMockInCallViewModel);
-
-        MutableLiveData<Call> callLiveData = new MutableLiveData<>();
-        callLiveData.setValue(mMockCall);
-        when(mMockInCallViewModel.getIncomingCall()).thenReturn(callLiveData);
+        when(mMockCall.getState()).thenReturn(Call.STATE_RINGING);
+        when(mMockInCallServiceImpl.getCalls()).thenReturn(Collections.singletonList(mMockCall));
+        ((TestDialerApplication) RuntimeEnvironment.application).setupInCallServiceImpl(
+                mMockInCallServiceImpl);
 
         FragmentTestActivity fragmentTestActivity = Robolectric.buildActivity(
                 FragmentTestActivity.class).create().start().resume().get();

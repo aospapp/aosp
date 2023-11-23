@@ -15,6 +15,33 @@
 -->
 
 <resources>
+    <style name="Transparent">
+        <item name="alertDialogTheme">@style/Theme.AlertDialog</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowIsFloating">true</item>
+    </style>
+
+    <style name="Theme.AlertDialog.Base" parent="@style/Theme.AppCompat.DayNight.Dialog.Alert">
+        <item name="colorAccent">@*android:color/accent_device_default_light</item>
+        <item name="android:colorBackground">@color/dialog_background</item>
+    </style>
+
+    <style name="Theme.AlertDialog" parent="Theme.AlertDialog.Base">
+        <item name="android:windowSoftInputMode">adjustResize</item>
+        <item name="android:clipToPadding">true</item>
+        <item name="android:clipChildren">true</item>
+
+        <!-- Redefine the ActionBar style for contentInsetStart -->
+        <!-- <item name="android:actionBarStyle">@style/Widget.ActionBar</item> -->
+
+        <!-- copied from Theme.DeviceDefault.Dialog.Alert -->
+        <item name="dialogCornerRadius">@*android:dimen/config_dialogCornerRadius</item>
+        <item name="android:windowTitleStyle">@*android:style/DialogWindowTitle.DeviceDefault</item>
+        <item name="android:textAppearanceMedium">@style/TextAppearance.DialogMessage</item>
+        <item name="buttonBarButtonStyle">@*android:style/Widget.DeviceDefault.Button.ButtonBar.AlertDialog</item>
+    </style>
+
     <style name="FallbackHome" parent="@android:style/Theme.Material.Wallpaper.NoTitleBar">
         <item name="android:windowTranslucentStatus">true</item>
         <item name="android:windowTranslucentNavigation">true</item>

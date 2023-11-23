@@ -17,7 +17,6 @@
 package com.android.car.settings.applications;
 
 import android.app.admin.DevicePolicyManager;
-import android.car.userlib.CarUserManagerHelper;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.pm.UserInfo;
@@ -25,6 +24,7 @@ import android.telecom.DefaultDialerManager;
 import android.text.TextUtils;
 import android.util.ArraySet;
 
+import com.android.car.settings.users.UserHelper;
 import com.android.internal.telephony.SmsApplication;
 
 import java.util.List;
@@ -61,11 +61,11 @@ public class ApplicationsUtils {
      * least one user.
      */
     public static boolean isProfileOrDeviceOwner(String packageName, DevicePolicyManager dpm,
-            CarUserManagerHelper um) {
+            UserHelper userHelper) {
         if (dpm.isDeviceOwnerAppOnAnyUser(packageName)) {
             return true;
         }
-        List<UserInfo> userInfos = um.getAllUsers();
+        List<UserInfo> userInfos = userHelper.getAllUsers();
         for (int i = 0; i < userInfos.size(); i++) {
             ComponentName cn = dpm.getProfileOwnerAsUser(userInfos.get(i).id);
             if (cn != null && cn.getPackageName().equals(packageName)) {

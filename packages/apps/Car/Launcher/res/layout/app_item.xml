@@ -23,7 +23,6 @@
               android:layout_marginBottom="@dimen/app_grid_row_margin"
               android:layout_marginEnd="@dimen/app_touch_target_margin"
               android:layout_marginStart="@dimen/app_touch_target_margin"
-              android:background="@drawable/app_launcher_ripple_background"
               android:gravity="center"
               android:orientation="vertical"
               android:padding="@dimen/app_touch_target_padding">

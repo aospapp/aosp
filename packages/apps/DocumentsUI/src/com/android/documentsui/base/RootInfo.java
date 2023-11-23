@@ -21,10 +21,8 @@ import static android.provider.DocumentsContract.QUERY_ARG_MIME_TYPES;
 import static com.android.documentsui.base.DocumentInfo.getCursorInt;
 import static com.android.documentsui.base.DocumentInfo.getCursorLong;
 import static com.android.documentsui.base.DocumentInfo.getCursorString;
-import static com.android.documentsui.base.SharedMinimal.VERBOSE;
 import static com.android.documentsui.base.Shared.compareToIgnoreCaseNullable;
-
-import androidx.annotation.IntDef;
+import static com.android.documentsui.base.SharedMinimal.VERBOSE;
 
 import android.content.Context;
 import android.database.Cursor;
@@ -36,6 +34,8 @@ import android.provider.DocumentsContract;
 import android.provider.DocumentsContract.Root;
 import android.text.TextUtils;
 import android.util.Log;
+
+import androidx.annotation.IntDef;
 
 import com.android.documentsui.IconUtils;
 import com.android.documentsui.R;
@@ -58,6 +58,7 @@ public class RootInfo implements Durable, Parcelable, Comparable<RootInfo> {
     // private static final int VERSION_INIT = 1; // Not used anymore
     private static final int VERSION_DROP_TYPE = 2;
     private static final int VERSION_SEARCH_TYPE = 3;
+    private static final int VERSION_USER_ID = 4;
 
     // The values of these constants determine the sort order of various roots in the RootsFragment.
     @IntDef(flag = false, value = {
@@ -65,6 +66,7 @@ public class RootInfo implements Durable, Parcelable, Comparable<RootInfo> {
             TYPE_IMAGES,
             TYPE_VIDEO,
             TYPE_AUDIO,
+            TYPE_DOCUMENTS,
             TYPE_DOWNLOADS,
             TYPE_LOCAL,
             TYPE_MTP,
@@ -78,13 +80,15 @@ public class RootInfo implements Durable, Parcelable, Comparable<RootInfo> {
     public static final int TYPE_IMAGES = 2;
     public static final int TYPE_VIDEO = 3;
     public static final int TYPE_AUDIO = 4;
-    public static final int TYPE_DOWNLOADS = 5;
-    public static final int TYPE_LOCAL = 6;
-    public static final int TYPE_MTP = 7;
-    public static final int TYPE_SD = 8;
-    public static final int TYPE_USB = 9;
-    public static final int TYPE_OTHER = 10;
+    public static final int TYPE_DOCUMENTS = 5;
+    public static final int TYPE_DOWNLOADS = 6;
+    public static final int TYPE_LOCAL = 7;
+    public static final int TYPE_MTP = 8;
+    public static final int TYPE_SD = 9;
+    public static final int TYPE_USB = 10;
+    public static final int TYPE_OTHER = 11;
 
+    public UserId userId;
     public String authority;
     public String rootId;
     public int flags;
@@ -110,6 +114,7 @@ public class RootInfo implements Durable, Parcelable, Comparable<RootInfo> {
 
     @Override
     public void reset() {
+        userId = UserId.UNSPECIFIED_USER;
         authority = null;
         rootId = null;
         flags = 0;
@@ -131,7 +136,12 @@ public class RootInfo implements Durable, Parcelable, Comparable<RootInfo> {
     public void read(DataInputStream in) throws IOException {
         final int version = in.readInt();
         switch (version) {
+            case VERSION_USER_ID:
+                userId = UserId.read(in);
             case VERSION_SEARCH_TYPE:
+                if (version < VERSION_USER_ID) {
+                    userId = UserId.CURRENT_USER;
+                }
                 queryArgs = DurableUtils.readNullableString(in);
             case VERSION_DROP_TYPE:
                 authority = DurableUtils.readNullableString(in);
@@ -152,7 +162,8 @@ public class RootInfo implements Durable, Parcelable, Comparable<RootInfo> {
 
     @Override
     public void write(DataOutputStream out) throws IOException {
-        out.writeInt(VERSION_SEARCH_TYPE);
+        out.writeInt(VERSION_USER_ID);
+        UserId.write(out, userId);
         DurableUtils.writeNullableString(out, queryArgs);
         DurableUtils.writeNullableString(out, authority);
         DurableUtils.writeNullableString(out, rootId);
@@ -189,8 +200,33 @@ public class RootInfo implements Durable, Parcelable, Comparable<RootInfo> {
         }
     };
 
-    public static RootInfo fromRootsCursor(String authority, Cursor cursor) {
+    /**
+     * Returns a new root info copied from the provided root info.
+     */
+    public static RootInfo copyRootInfo(RootInfo root) {
+        final RootInfo newRoot = new RootInfo();
+        newRoot.userId = root.userId;
+        newRoot.authority = root.authority;
+        newRoot.rootId = root.rootId;
+        newRoot.flags = root.flags;
+        newRoot.icon = root.icon;
+        newRoot.title = root.title;
+        newRoot.summary = root.summary;
+        newRoot.documentId = root.documentId;
+        newRoot.availableBytes = root.availableBytes;
+        newRoot.mimeTypes = root.mimeTypes;
+        newRoot.queryArgs = root.queryArgs;
+
+        // derived fields
+        newRoot.derivedType = root.derivedType;
+        newRoot.derivedIcon = root.derivedIcon;
+        newRoot.derivedMimeTypes = root.derivedMimeTypes;
+        return newRoot;
+    }
+
+    public static RootInfo fromRootsCursor(UserId userId, String authority, Cursor cursor) {
         final RootInfo root = new RootInfo();
+        root.userId = userId;
         root.authority = authority;
         root.rootId = getCursorString(cursor, Root.COLUMN_ROOT_ID);
         root.flags = getCursorInt(cursor, Root.COLUMN_FLAGS);
@@ -208,10 +244,7 @@ public class RootInfo implements Durable, Parcelable, Comparable<RootInfo> {
     private void deriveFields() {
         derivedMimeTypes = (mimeTypes != null) ? mimeTypes.split("\n") : null;
 
-        if (isExternalStorageHome()) {
-            derivedType = TYPE_LOCAL;
-            derivedIcon = LOAD_FROM_CONTENT_RESOLVER;
-        } else if (isMtp()) {
+        if (isMtp()) {
             derivedType = TYPE_MTP;
             derivedIcon = R.drawable.ic_usb_storage;
         } else if (isUsb()) {
@@ -235,8 +268,17 @@ public class RootInfo implements Durable, Parcelable, Comparable<RootInfo> {
         } else if (isAudio()) {
             derivedType = TYPE_AUDIO;
             derivedIcon = LOAD_FROM_CONTENT_RESOLVER;
+        } else if (isDocuments()) {
+            derivedType = TYPE_DOCUMENTS;
+            derivedIcon = LOAD_FROM_CONTENT_RESOLVER;
+            // The mime type of Documents root from MediaProvider is "*/*" for performance concern.
+            // Align the supported mime types with document search chip
+            derivedMimeTypes = MimeTypes.getDocumentMimeTypeArray();
         } else if (isRecents()) {
             derivedType = TYPE_RECENTS;
+        } else if (isBugReport()) {
+            derivedType = TYPE_OTHER;
+            derivedIcon = R.drawable.ic_root_bugreport;
         } else {
             derivedType = TYPE_OTHER;
         }
@@ -248,11 +290,15 @@ public class RootInfo implements Durable, Parcelable, Comparable<RootInfo> {
         return DocumentsContract.buildRootUri(authority, rootId);
     }
 
+    public boolean isBugReport() {
+        return Providers.AUTHORITY_BUGREPORT.equals(authority);
+    }
+
     public boolean isRecents() {
         return authority == null && rootId == null;
     }
 
-    /*
+    /**
      * Return true, if the root is from ExternalStorage and the id is home. Otherwise, return false.
      */
     public boolean isExternalStorageHome() {
@@ -285,6 +331,11 @@ public class RootInfo implements Durable, Parcelable, Comparable<RootInfo> {
                 && Providers.ROOT_ID_AUDIO.equals(rootId);
     }
 
+    public boolean isDocuments() {
+        return Providers.AUTHORITY_MEDIA.equals(authority)
+                && Providers.ROOT_ID_DOCUMENTS.equals(rootId);
+    }
+
     public boolean isMtp() {
         return Providers.AUTHORITY_MTP.equals(authority);
     }
@@ -296,7 +347,8 @@ public class RootInfo implements Durable, Parcelable, Comparable<RootInfo> {
         return derivedType == TYPE_IMAGES
                 || derivedType == TYPE_VIDEO
                 || derivedType == TYPE_AUDIO
-                || derivedType == TYPE_RECENTS;
+                || derivedType == TYPE_RECENTS
+                || derivedType == TYPE_DOCUMENTS;
     }
 
     /*
@@ -307,6 +359,10 @@ public class RootInfo implements Durable, Parcelable, Comparable<RootInfo> {
                 || derivedType == TYPE_MTP
                 || derivedType == TYPE_USB
                 || derivedType == TYPE_SD;
+    }
+
+    public boolean isPhoneStorage() {
+        return derivedType == TYPE_LOCAL;
     }
 
     public boolean hasSettings() {
@@ -357,12 +413,14 @@ public class RootInfo implements Durable, Parcelable, Comparable<RootInfo> {
         return (flags & Root.FLAG_REMOVABLE_USB) != 0;
     }
 
+    /**
+     * Returns true if this root supports cross profile.
+     */
+    public boolean supportsCrossProfile() {
+        return isLibrary() || isDownloads() || isPhoneStorage();
+    }
+
     private Drawable loadMimeTypeIcon(Context context) {
-
-        if (isExternalStorageHome()) {
-            return IconUtils.loadMimeIcon(context, DocumentsContract.Document.MIME_TYPE_DIR);
-        }
-
         switch (derivedType) {
             case TYPE_IMAGES:
                 return IconUtils.loadMimeIcon(context, MimeTypes.IMAGE_MIME);
@@ -375,24 +433,25 @@ public class RootInfo implements Durable, Parcelable, Comparable<RootInfo> {
         }
     }
 
-    public Drawable loadIcon(Context context) {
+    public Drawable loadIcon(Context context, boolean maybeShowBadge) {
         if (derivedIcon == LOAD_FROM_CONTENT_RESOLVER) {
             return loadMimeTypeIcon(context);
         } else if (derivedIcon != 0) {
+            // derivedIcon is set with the resources of the current user.
             return context.getDrawable(derivedIcon);
         } else {
-            return IconUtils.loadPackageIcon(context, authority, icon);
+            return IconUtils.loadPackageIcon(context, userId, authority, icon, maybeShowBadge);
         }
     }
 
-    public Drawable loadDrawerIcon(Context context) {
+    public Drawable loadDrawerIcon(Context context, boolean maybeShowBadge) {
         if (derivedIcon == LOAD_FROM_CONTENT_RESOLVER) {
             return IconUtils.applyTintColor(context, loadMimeTypeIcon(context),
                     R.color.item_root_icon);
         } else if (derivedIcon != 0) {
             return IconUtils.applyTintColor(context, derivedIcon, R.color.item_root_icon);
         } else {
-            return IconUtils.loadPackageIcon(context, authority, icon);
+            return IconUtils.loadPackageIcon(context, userId, authority, icon, maybeShowBadge);
         }
     }
 
@@ -412,7 +471,8 @@ public class RootInfo implements Durable, Parcelable, Comparable<RootInfo> {
 
         if (o instanceof RootInfo) {
             RootInfo other = (RootInfo) o;
-            return Objects.equals(authority, other.authority)
+            return Objects.equals(userId, other.userId)
+                    && Objects.equals(authority, other.authority)
                     && Objects.equals(rootId, other.rootId);
         }
 
@@ -421,7 +481,7 @@ public class RootInfo implements Durable, Parcelable, Comparable<RootInfo> {
 
     @Override
     public int hashCode() {
-        return Objects.hash(authority, rootId);
+        return Objects.hash(userId, authority, rootId);
     }
 
     @Override
@@ -443,7 +503,8 @@ public class RootInfo implements Durable, Parcelable, Comparable<RootInfo> {
     @Override
     public String toString() {
         return "Root{"
-                + "authority=" + authority
+                + "userId=" + userId
+                + ", authority=" + authority
                 + ", rootId=" + rootId
                 + ", title=" + title
                 + ", isUsb=" + isUsb()

@@ -60,6 +60,11 @@
     <string name="forget" msgid="892068061425802502">"Удалить"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"Подключено через Wi-Fi Direct."</string>
     <string name="connects_via_network" msgid="5990041581556733898">"Подключено к текущей сети с IP-адресом <xliff:g id="IP_ADDRESS">%1$s</xliff:g>."</string>
+    <string name="recommendation_summary" msgid="2979700524954307566">"Служба печати по умолчанию предоставляет базовый набор функций. Выбрав другую службу, вы можете получить доступ к расширенным функциям."</string>
+    <string name="recommendations_heading" msgid="5086762263560605249">"Рекомендуемые службы"</string>
+    <string name="recommendation_install_summary" msgid="374785283809791669">"Выберите, чтобы установить"</string>
+    <string name="recommendation_enable_summary" msgid="3500907868251326224">"Выберите, чтобы включить"</string>
+    <string name="recommendation_manage" msgid="4683640588502866284">"Управление службами"</string>
     <string name="security" msgid="2279008326210305401">"Безопасность"</string>
     <string name="certificate_update_request" msgid="1314796413107139475">"Для принтера предоставлен новый сертификат безопасности. Возможно, под видом принтера работает другое устройство. Принять новый сертификат?"</string>
     <string name="not_encrypted_request" msgid="4871472176807381642">"Принтер больше не принимает зашифрованные задания. Продолжить печать?"</string>
@@ -68,4 +73,5 @@
     <string name="connections" msgid="8895413761760117180">"Подключения"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Службе печати по умолчанию требуется доступ к данным о местоположении, чтобы найти устройства поблизости."</string>
     <string name="fix" msgid="7784394272611365393">"Настроить разрешения"</string>
+    <string name="print" msgid="7851318072404916362">"Печать"</string>
 </resources>

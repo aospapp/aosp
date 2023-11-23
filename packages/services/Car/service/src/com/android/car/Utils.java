@@ -142,18 +142,18 @@ public class Utils {
      */
     public static class TransitionLog {
         private String mServiceName; // name of the service or tag
-        private int mFromState; // old state
-        private int mToState; // new state
+        private Object mFromState; // old state
+        private Object mToState; // new state
         private long mTimestampMs; // System.currentTimeMillis()
         private String mExtra; // Additional information as a String
 
-        public TransitionLog(String name, int fromState, int toState, long timestamp,
+        public TransitionLog(String name, Object fromState, Object toState, long timestamp,
                 String extra) {
             this(name, fromState, toState, timestamp);
             mExtra = extra;
         }
 
-        public TransitionLog(String name, int fromState, int toState, long timeStamp) {
+        public TransitionLog(String name, Object fromState, Object toState, long timeStamp) {
             mServiceName = name;
             mFromState = fromState;
             mToState = toState;

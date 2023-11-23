@@ -17,6 +17,7 @@
 package com.android.tv.settings.device.apps.specialaccess;
 
 import android.app.NotificationManager;
+import android.app.tvsettings.TvSettingsEnums;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.pm.PackageItemInfo;
@@ -143,4 +144,8 @@ public class NotificationAccess extends SettingsPreferenceFragment {
         }
     }
 
+    @Override
+    protected int getPageId() {
+        return TvSettingsEnums.APPS_SPECIAL_APP_ACCESS_NOTIFICATION_ACCESS;
+    }
 }

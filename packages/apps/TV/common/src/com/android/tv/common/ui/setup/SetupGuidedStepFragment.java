@@ -19,11 +19,11 @@ package com.android.tv.common.ui.setup;
 import static android.content.Context.ACCESSIBILITY_SERVICE;
 
 import android.os.Bundle;
-import android.support.v17.leanback.app.GuidedStepFragment;
-import android.support.v17.leanback.widget.GuidanceStylist;
-import android.support.v17.leanback.widget.GuidedAction;
-import android.support.v17.leanback.widget.GuidedActionsStylist;
-import android.support.v17.leanback.widget.VerticalGridView;
+import androidx.leanback.app.GuidedStepFragment;
+import androidx.leanback.widget.GuidanceStylist;
+import androidx.leanback.widget.GuidedAction;
+import androidx.leanback.widget.GuidedActionsStylist;
+import androidx.leanback.widget.VerticalGridView;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.View.AccessibilityDelegate;
@@ -53,9 +53,9 @@ public abstract class SetupGuidedStepFragment extends GuidedStepFragment {
             LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View view = super.onCreateView(inflater, container, savedInstanceState);
         Bundle arguments = getArguments();
-        view.findViewById(android.support.v17.leanback.R.id.action_fragment_root)
+        view.findViewById(androidx.leanback.R.id.action_fragment_root)
                 .setPadding(0, 0, 0, 0);
-        mContentFragment = view.findViewById(android.support.v17.leanback.R.id.content_fragment);
+        mContentFragment = view.findViewById(androidx.leanback.R.id.content_fragment);
         LinearLayout.LayoutParams guidanceLayoutParams =
                 (LinearLayout.LayoutParams) mContentFragment.getLayoutParams();
         guidanceLayoutParams.weight = 0;
@@ -69,7 +69,7 @@ public abstract class SetupGuidedStepFragment extends GuidedStepFragment {
                     getResources()
                             .getDimensionPixelOffset(R.dimen.setup_done_button_container_width);
             // Guided actions list
-            View list = view.findViewById(android.support.v17.leanback.R.id.guidedactions_list);
+            View list = view.findViewById(androidx.leanback.R.id.guidedactions_list);
             MarginLayoutParams marginLayoutParams = (MarginLayoutParams) list.getLayoutParams();
             // Use content view to check layout direction while view is being created.
             if (getResources().getConfiguration().getLayoutDirection()
@@ -93,12 +93,12 @@ public abstract class SetupGuidedStepFragment extends GuidedStepFragment {
         gridView.setWindowAlignmentOffset(offset);
         gridView.setWindowAlignmentOffsetPercent(0);
         gridView.setItemAlignmentOffsetPercent(0);
-        ((ViewGroup) view.findViewById(android.support.v17.leanback.R.id.guidedactions_list))
+        ((ViewGroup) view.findViewById(androidx.leanback.R.id.guidedactions_list))
                 .setTransitionGroup(false);
         // Needed for the shared element transition.
         // content_frame is defined in leanback.
         ViewGroup group =
-                (ViewGroup) view.findViewById(android.support.v17.leanback.R.id.content_frame);
+                (ViewGroup) view.findViewById(androidx.leanback.R.id.content_frame);
         group.setClipChildren(false);
         group.setClipToPadding(false);
         return view;

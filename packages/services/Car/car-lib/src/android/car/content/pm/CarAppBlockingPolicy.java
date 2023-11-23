@@ -85,16 +85,19 @@ public final class CarAppBlockingPolicy implements Parcelable {
         payloadParcel.recycle();
     }
 
-    public static final Parcelable.Creator<CarAppBlockingPolicy> CREATOR
-            = new Parcelable.Creator<CarAppBlockingPolicy>() {
-        public CarAppBlockingPolicy createFromParcel(Parcel in) {
-            return new CarAppBlockingPolicy(in);
-        }
+    public static final Parcelable.Creator<CarAppBlockingPolicy> CREATOR =
+            new Parcelable.Creator<CarAppBlockingPolicy>() {
 
-        public CarAppBlockingPolicy[] newArray(int size) {
-            return new CarAppBlockingPolicy[size];
-        }
-    };
+                @Override
+                public CarAppBlockingPolicy createFromParcel(Parcel in) {
+                    return new CarAppBlockingPolicy(in);
+                }
+
+                @Override
+                public CarAppBlockingPolicy[] newArray(int size) {
+                    return new CarAppBlockingPolicy[size];
+                }
+            };
 
     @Override
     public int hashCode() {

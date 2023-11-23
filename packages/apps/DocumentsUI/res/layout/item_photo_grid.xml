@@ -103,6 +103,25 @@
 
         </FrameLayout>
 
+        <FrameLayout
+            android:id="@+id/icon_briefcase"
+            android:layout_width="@dimen/button_touch_size"
+            android:layout_height="@dimen/button_touch_size"
+            android:layout_alignParentBottom="true"
+            android:layout_alignParentEnd="true"
+            android:pointerIcon="hand">
+
+            <ImageView
+                android:layout_height="@dimen/briefcase_icon_size_photo"
+                android:layout_width="@dimen/briefcase_icon_size_photo"
+                android:src="@drawable/ic_briefcase_white"
+                android:padding="5dp"
+                android:background="@drawable/circle_button_background"
+                android:layout_gravity="center"
+                android:scaleType="fitCenter"
+                android:contentDescription="@string/a11y_work"/>
+        </FrameLayout>
+
         <!-- An overlay that draws the item border when it is focused. -->
         <View
             android:layout_width="wrap_content"

@@ -18,7 +18,8 @@
 <PreferenceScreen
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:settings="http://schemas.android.com/apk/res-auto"
-    android:title="@string/developer_options_settings">
+    android:title="@string/developer_options_settings"
+    android:key="@string/psk_developer_options">
     <PreferenceCategory
         android:title="@string/debug_debugging_category">
         <SwitchPreference

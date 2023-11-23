@@ -26,7 +26,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        app:layout_constraintGuide_begin="@dimen/appbar_first_row_height"/>
+        app:layout_constraintGuide_begin="@dimen/car_ui_toolbar_first_row_height"/>
 
     <Space
         android:id="@+id/control_bar_first_row_guideline"
@@ -47,60 +47,16 @@
         android:layout_height="0dp"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintLeft_toLeftOf="parent"
-        app:layout_constraintRight_toRightOf="parent"/>
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
 
-    <FrameLayout
-        android:id="@+id/nav_icon_container"
-        android:layout_width="@dimen/appbar_view_nav_button_width"
-        android:layout_height="@dimen/appbar_first_row_height"
-        android:padding="@dimen/app_switch_widget_icon_padding"
-        android:background="@drawable/appbar_view_icon_background"
+    <com.android.car.ui.toolbar.Toolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:title="@string/fragment_playback_title"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintLeft_toLeftOf="parent">
-        <ImageView
-            android:id="@+id/nav_icon"
-            android:layout_width="@dimen/appbar_view_icon_size"
-            android:layout_height="@dimen/appbar_view_icon_size"
-            android:src="@drawable/ic_expand_more"
-            android:layout_gravity="center"
-            android:scaleType="fitXY"
-            android:tint="@color/appbar_view_icon_tint"/>
-    </FrameLayout>
-
-    <TextView
-        android:id="@+id/playback_title"
-        style="@style/AppBarTitleStyle"
-        android:text="@string/fragment_playback_title"
-        app:layout_constraintTop_toTopOf="@id/nav_icon_container"
-        app:layout_constraintBottom_toBottomOf="@id/nav_icon_container"
-        app:layout_constraintLeft_toRightOf="@id/nav_icon_container"
-        app:layout_constraintRight_toLeftOf="@+id/queue_button"/>
-
-    <ImageView
-        android:id="@+id/queue_button"
-        android:layout_width="@dimen/appbar_view_icon_touch_target_size"
-        android:layout_height="@dimen/appbar_view_icon_touch_target_size"
-        android:layout_marginEnd="@dimen/playback_queue_button_margin_end"
-        android:src="@drawable/ic_queue_button"
-        android:scaleType="center"
-        android:background="@drawable/appbar_view_icon_background"
-        app:layout_constraintTop_toTopOf="@id/nav_icon_container"
-        app:layout_constraintBottom_toBottomOf="@id/nav_icon_container"
-        app:layout_constraintRight_toLeftOf="@+id/app_icon_container"/>
-
-    <com.android.car.media.common.MediaAppSelectorWidget
-        android:id="@+id/app_icon_container"
-        android:layout_width="@dimen/app_switch_widget_width"
-        android:layout_height="@dimen/appbar_view_icon_touch_target_size"
-        android:padding="@dimen/app_switch_widget_icon_padding"
-        android:orientation="horizontal"
-        android:gravity="center"
-        android:background="@drawable/appbar_view_icon_background"
-        app:switchingEnabled="false"
-        app:layout_constraintTop_toTopOf="@id/nav_icon_container"
-        app:layout_constraintBottom_toBottomOf="@id/nav_icon_container"
-        app:layout_constraintRight_toRightOf="parent"/>
+        app:car_ui_state="subpage"/>
 
     <include
         style="@style/MetadataContainerStyle"
@@ -111,27 +67,36 @@
         app:layout_constraintTop_toBottomOf="@id/app_bar_guideline"
         app:layout_constraintBottom_toTopOf="@+id/control_bar_first_row_guideline"/>
 
-    <SeekBar
+    <!-- @id/seek_bar should be hidden when @id/control_bar_scrim is expanded, and shown when the
+    scrim is collapsed. Since its visibility is also controlled by MetadataController, it could
+    become visible again even if the scrim is still expanded. To solve that we add a wrapper around
+    it and hide/show the wrapper when the scrim is expanded/collapsed.-->
+    <FrameLayout
         style="@style/SeekBarStyle"
-        android:id="@+id/seek_bar"
+        android:id="@+id/seek_bar_container"
         android:layout_gravity="center"
-        android:clickable="false"
-        android:focusable="false"
         android:layout_marginStart="@dimen/playback_seekbar_margin_x"
         android:layout_marginEnd="@dimen/playback_seekbar_margin_x"
-        android:paddingEnd="@dimen/playback_seekbar_padding_x"
-        android:paddingStart="@dimen/playback_seekbar_padding_x"
-        android:progressDrawable="@drawable/seekbar_background"
-        android:thumb="@drawable/seekbar_thumb"
-        android:thumbOffset="@dimen/playback_seekbar_thumb_offset"
-        android:splitTrack="false"
-        android:progressTint="@color/progress_bar_highlight"
-        android:progressBackgroundTint="@color/progress_bar_background"
-        android:background="@null"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/metadata_container"
-        app:layout_constraintBottom_toTopOf="@+id/control_bar_first_row_guideline"/>
+        app:layout_constraintBottom_toTopOf="@+id/control_bar_first_row_guideline">
+        <SeekBar
+            android:id="@+id/seek_bar"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clickable="false"
+            android:focusable="false"
+            android:paddingEnd="@dimen/playback_seekbar_padding_x"
+            android:paddingStart="@dimen/playback_seekbar_padding_x"
+            android:progressDrawable="@drawable/seekbar_background"
+            android:thumb="@drawable/seekbar_thumb"
+            android:thumbOffset="@dimen/playback_seekbar_thumb_offset"
+            android:splitTrack="false"
+            android:progressTint="@color/progress_bar_highlight"
+            android:progressBackgroundTint="@color/progress_bar_background"
+            android:background="@null"/>
+    </FrameLayout>
 
     <Space
         android:id="@+id/queue_list_top_constraint"
@@ -145,16 +110,22 @@
         android:layout_height="@dimen/fragment_playback_queue_overlap_bottom"
         app:layout_constraintTop_toTopOf="@+id/control_bar_first_row_guideline"/>
 
-    <com.android.car.apps.common.widget.PagedRecyclerView
-        android:id="@+id/queue_list"
+    <!-- The queue_container is a workaround for a bug in PagedRecyclerView (b/136669451). -->
+    <RelativeLayout
+        android:id="@+id/queue_container"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:visibility="gone"
         app:layout_constraintTop_toTopOf="@+id/queue_list_top_constraint"
-        app:layout_constraintBottom_toBottomOf="@+id/queue_list_bottom_constraint"
-        android:fadeScrollbars="true"
-        android:requiresFadingEdge="vertical"
-        android:fadingEdgeLength="@dimen/queue_fading_edge_length"/>
+        app:layout_constraintBottom_toBottomOf="@+id/queue_list_bottom_constraint">
+        <com.android.car.ui.recyclerview.CarUiRecyclerView
+            android:id="@+id/queue_list"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone"
+            android:fadeScrollbars="true"
+            android:requiresFadingEdge="vertical"
+            android:fadingEdgeLength="@dimen/queue_fading_edge_length"/>
+    </RelativeLayout>
 
     <include
         layout="@layout/scrim_overlay"
@@ -163,8 +134,8 @@
         android:layout_height="0dp"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintLeft_toLeftOf="parent"
-        app:layout_constraintRight_toRightOf="parent"/>
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
 
     <com.android.car.media.common.PlaybackControlsActionBar
         android:id="@+id/playback_controls"
@@ -174,6 +145,6 @@
         app:columns="5"
         app:enableOverflow="true"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintLeft_toLeftOf="parent"
-        app:layout_constraintRight_toRightOf="parent"/>
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
 </androidx.constraintlayout.widget.ConstraintLayout>

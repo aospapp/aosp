@@ -15,22 +15,29 @@
     limitations under the License.
 -->
 
-<FrameLayout
+<RelativeLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:paddingEnd="@dimen/edit_username_padding_end"
-    android:paddingStart="@dimen/edit_username_padding_start"
-    android:paddingTop="@dimen/edit_username_text_padding_top">
+    android:layout_height="match_parent">
 
-    <EditText
-        android:id="@+id/user_name_text_edit"
+    <FrameLayout
+        xmlns:android="http://schemas.android.com/apk/res/android"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:focusableInTouchMode="true"
-        android:hint="@string/user_name_label"
-        android:imeOptions="actionDone|flagNoExtractUi"
-        android:inputType="text"
-        android:maxLines="1"
-        android:textAppearance="?android:attr/textAppearanceLarge"/>
-</FrameLayout>
+        android:layout_height="match_parent"
+        android:layout_alignParentTop="true"
+        android:paddingEnd="@dimen/edit_username_padding_end"
+        android:paddingStart="@dimen/edit_username_padding_start"
+        android:paddingTop="@dimen/edit_username_text_padding_top">
+
+        <EditText
+            android:id="@+id/user_name_text_edit"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:focusableInTouchMode="true"
+            android:hint="@string/user_name_label"
+            android:imeOptions="actionDone|flagNoExtractUi"
+            android:inputType="text"
+            android:maxLines="1"
+            android:textAppearance="?android:attr/textAppearanceLarge"/>
+    </FrameLayout>
+</RelativeLayout>

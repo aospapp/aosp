@@ -39,6 +39,8 @@ import android.view.accessibility.CaptioningManager;
 import android.view.accessibility.CaptioningManager.CaptionStyle;
 import android.view.accessibility.CaptioningManager.CaptioningChangeListener;
 import android.widget.RelativeLayout;
+
+import com.android.tv.common.flags.TunerFlags;
 import com.android.tv.tuner.data.Cea708Data.CaptionPenAttr;
 import com.android.tv.tuner.data.Cea708Data.CaptionPenColor;
 import com.android.tv.tuner.data.Cea708Data.CaptionWindow;
@@ -46,10 +48,15 @@ import com.android.tv.tuner.data.Cea708Data.CaptionWindowAttr;
 import com.android.tv.tuner.exoplayer.text.SubtitleView;
 import com.android.tv.tuner.layout.ScaledLayout;
 import com.google.android.exoplayer.text.CaptionStyleCompat;
+import com.google.android.exoplayer2.text.Cue;
+import com.google.auto.factory.AutoFactory;
+import com.google.auto.factory.Provided;
+
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -90,9 +97,11 @@ public class CaptionWindowLayout extends RelativeLayout implements View.OnLayout
 
     private CaptionLayout mCaptionLayout;
     private CaptionStyleCompat mCaptionStyleCompat;
+    private com.google.android.exoplayer2.text.CaptionStyleCompat mCaptionStyleCompatExoV2;
 
     // TODO: Replace SubtitleView to {@link com.google.android.exoplayer.text.SubtitleLayout}.
     private final SubtitleView mSubtitleView;
+    private final com.google.android.exoplayer2.ui.SubtitleView mSubtitleViewExoV2;
     private int mRowLimit = 0;
     private final SpannableStringBuilder mBuilder = new SpannableStringBuilder();
     private final List<CharacterStyle> mCharacterStyles = new ArrayList<>();
@@ -105,12 +114,19 @@ public class CaptionWindowLayout extends RelativeLayout implements View.OnLayout
     private int mLastCaptionLayoutHeight;
     private int mWindowJustify;
     private int mPrintDirection;
+    private final TunerFlags mTunerFlags;
 
     private class SystemWideCaptioningChangeListener extends CaptioningChangeListener {
         @Override
         public void onUserStyleChanged(CaptionStyle userStyle) {
-            mCaptionStyleCompat = CaptionStyleCompat.createFromCaptionStyle(userStyle);
-            mSubtitleView.setStyle(mCaptionStyleCompat);
+            if (mTunerFlags.useExoplayerV2()) {
+                mCaptionStyleCompatExoV2 = com.google.android.exoplayer2.text.CaptionStyleCompat
+                                                   .createFromCaptionStyle(userStyle);
+                mSubtitleViewExoV2.setStyle(mCaptionStyleCompatExoV2);
+            } else {
+                mCaptionStyleCompat = CaptionStyleCompat.createFromCaptionStyle(userStyle);
+                mSubtitleView.setStyle(mCaptionStyleCompat);
+            }
             updateWidestChar();
         }
 
@@ -121,32 +137,57 @@ public class CaptionWindowLayout extends RelativeLayout implements View.OnLayout
         }
     }
 
-    public CaptionWindowLayout(Context context) {
-        this(context, null);
+    /**
+     * Factory for {@link CaptionWindowLayout}.
+     *
+     * <p>This wrapper class keeps other classes from needing to reference the {@link AutoFactory}
+     * generated class.
+     */
+    public interface Factory {
+        public CaptionWindowLayout create(Context context);
     }
 
-    public CaptionWindowLayout(Context context, AttributeSet attrs) {
-        this(context, attrs, 0);
+    @AutoFactory(implementing = Factory.class)
+    public CaptionWindowLayout(Context context, @Provided TunerFlags tunerFlags) {
+        this(context, null, tunerFlags);
     }
 
-    public CaptionWindowLayout(Context context, AttributeSet attrs, int defStyleAttr) {
+    public CaptionWindowLayout(Context context, AttributeSet attrs, TunerFlags tunerFlags) {
+        this(context, attrs, 0, tunerFlags);
+    }
+
+    public CaptionWindowLayout(
+            Context context,
+            AttributeSet attrs,
+            int defStyleAttr,
+            TunerFlags tunerFlags) {
         super(context, attrs, defStyleAttr);
 
-        // Add a subtitle view to the layout.
-        mSubtitleView = new SubtitleView(context);
+        mTunerFlags = tunerFlags;
         LayoutParams params =
                 new RelativeLayout.LayoutParams(
                         ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        addView(mSubtitleView, params);
-
         // Set the system wide cc preferences to the subtitle view.
         CaptioningManager captioningManager =
                 (CaptioningManager) context.getSystemService(Context.CAPTIONING_SERVICE);
         mFontScale = captioningManager.getFontScale();
-        mCaptionStyleCompat =
-                CaptionStyleCompat.createFromCaptionStyle(captioningManager.getUserStyle());
-        mSubtitleView.setStyle(mCaptionStyleCompat);
-        mSubtitleView.setText("");
+
+        // Add a subtitle view to the layout.
+        mSubtitleViewExoV2 = new com.google.android.exoplayer2.ui.SubtitleView(context);
+        mSubtitleView = new SubtitleView(context);
+        if (mTunerFlags.useExoplayerV2()) {
+            addView(mSubtitleViewExoV2, params);
+            mCaptionStyleCompatExoV2 =
+                    com.google.android.exoplayer2.text.CaptionStyleCompat
+                            .createFromCaptionStyle(captioningManager.getUserStyle());
+            mSubtitleViewExoV2.setStyle(mCaptionStyleCompatExoV2);
+        } else {
+            addView(mSubtitleView, params);
+            mCaptionStyleCompat =
+                    CaptionStyleCompat.createFromCaptionStyle(captioningManager.getUserStyle());
+            mSubtitleView.setStyle(mCaptionStyleCompat);
+            mSubtitleView.setText("");
+        }
         captioningManager.addCaptioningChangeListener(new SystemWideCaptioningChangeListener());
         updateWidestChar();
     }
@@ -348,7 +389,7 @@ public class CaptionWindowLayout extends RelativeLayout implements View.OnLayout
         switch (horizontalMode) {
             case ANCHOR_HORIZONTAL_MODE_LEFT:
                 gravity = Gravity.LEFT;
-                mSubtitleView.setTextAlignment(Alignment.ALIGN_NORMAL);
+                setCaptionsTextAlignment(Alignment.ALIGN_NORMAL);
                 scaleStartCol = scaleCol;
                 break;
             case ANCHOR_HORIZONTAL_MODE_CENTER:
@@ -366,7 +407,9 @@ public class CaptionWindowLayout extends RelativeLayout implements View.OnLayout
                     widestTextBuilder.append(mWidestChar);
                 }
                 Paint paint = new Paint();
-                paint.setTypeface(mCaptionStyleCompat.typeface);
+                if (!mTunerFlags.useExoplayerV2()) {
+                    paint.setTypeface(mCaptionStyleCompat.typeface);
+                }
                 paint.setTextSize(mTextSize);
                 float maxWindowWidth = paint.measureText(widestTextBuilder.toString());
                 float halfMaxWidthScale =
@@ -378,7 +421,7 @@ public class CaptionWindowLayout extends RelativeLayout implements View.OnLayout
                     // caption window multiplied by average alphabets char width, then align the
                     // left side of the window with the left side of the expected max window.
                     gravity = Gravity.LEFT;
-                    mSubtitleView.setTextAlignment(Alignment.ALIGN_NORMAL);
+                    setCaptionsTextAlignment(Alignment.ALIGN_NORMAL);
                     scaleStartCol = scaleCol - halfMaxWidthScale;
                     scaleEndCol = 1.0f;
                 } else {
@@ -389,14 +432,14 @@ public class CaptionWindowLayout extends RelativeLayout implements View.OnLayout
                     // The anchor point is located at the horizontal center of the window in both
                     // cases.
                     gravity = Gravity.CENTER_HORIZONTAL;
-                    mSubtitleView.setTextAlignment(Alignment.ALIGN_CENTER);
+                    setCaptionsTextAlignment(Alignment.ALIGN_CENTER);
                     scaleStartCol = scaleCol - gap;
                     scaleEndCol = scaleCol + gap;
                 }
                 break;
             case ANCHOR_HORIZONTAL_MODE_RIGHT:
                 gravity = Gravity.RIGHT;
-                mSubtitleView.setTextAlignment(Alignment.ALIGN_OPPOSITE);
+                setCaptionsTextAlignment(Alignment.ALIGN_OPPOSITE);
                 scaleEndCol = scaleCol;
                 break;
         }
@@ -427,7 +470,7 @@ public class CaptionWindowLayout extends RelativeLayout implements View.OnLayout
         setGravity(gravity);
         setWindowStyle(captionWindow.windowStyle);
         if (mWindowJustify == CaptionWindowAttr.JUSTIFY_CENTER) {
-            mSubtitleView.setTextAlignment(Alignment.ALIGN_CENTER);
+            setCaptionsTextAlignment(Alignment.ALIGN_CENTER);
         }
         if (captionWindow.visible) {
             show();
@@ -459,14 +502,14 @@ public class CaptionWindowLayout extends RelativeLayout implements View.OnLayout
     private boolean isKoreanLanguageTrack() {
         return mCaptionLayout != null
                 && mCaptionLayout.getCaptionTrack() != null
-                && mCaptionLayout.getCaptionTrack().language != null
-                && "KOR".compareToIgnoreCase(mCaptionLayout.getCaptionTrack().language) == 0;
+                && mCaptionLayout.getCaptionTrack().hasLanguage()
+                && "KOR".equalsIgnoreCase(mCaptionLayout.getCaptionTrack().getLanguage());
     }
 
     private boolean isWideAspectRatio() {
         return mCaptionLayout != null
                 && mCaptionLayout.getCaptionTrack() != null
-                && mCaptionLayout.getCaptionTrack().wideAspectRatio;
+                && mCaptionLayout.getCaptionTrack().getWideAspectRatio();
     }
 
     private void updateWidestChar() {
@@ -474,7 +517,9 @@ public class CaptionWindowLayout extends RelativeLayout implements View.OnLayout
             mWidestChar = KOR_ALPHABET;
         } else {
             Paint paint = new Paint();
-            paint.setTypeface(mCaptionStyleCompat.typeface);
+            if (!mTunerFlags.useExoplayerV2()) {
+                paint.setTypeface(mCaptionStyleCompat.typeface);
+            }
             Charset latin1 = Charset.forName("ISO-8859-1");
             float widestCharWidth = 0f;
             for (int i = 0; i < 256; ++i) {
@@ -489,6 +534,27 @@ public class CaptionWindowLayout extends RelativeLayout implements View.OnLayout
         updateTextSize();
     }
 
+    private void setCaptionsTextAlignment(Alignment textAlignment){
+        if (mTunerFlags.useExoplayerV2()){
+            switch (textAlignment) {
+                case ALIGN_NORMAL:
+                    mSubtitleViewExoV2.setTextAlignment(View.TEXT_ALIGNMENT_INHERIT);
+                    break;
+                case ALIGN_OPPOSITE:
+                    mSubtitleViewExoV2.setTextAlignment(View.TEXT_ALIGNMENT_TEXT_END);
+                    break;
+                case ALIGN_CENTER:
+                    mSubtitleViewExoV2.setTextAlignment(View.TEXT_ALIGNMENT_CENTER);
+                    break;
+                default:
+                    mSubtitleViewExoV2.setTextAlignment(View.TEXT_ALIGNMENT_INHERIT);
+                    break;
+            }
+        } else {
+            mSubtitleView.setTextAlignment(textAlignment);
+        }
+    }
+
     private void updateTextSize() {
         if (mCaptionLayout == null) return;
 
@@ -500,7 +566,9 @@ public class CaptionWindowLayout extends RelativeLayout implements View.OnLayout
         }
         String widestText = widestTextBuilder.toString();
         Paint paint = new Paint();
-        paint.setTypeface(mCaptionStyleCompat.typeface);
+        if (!mTunerFlags.useExoplayerV2()) {
+            paint.setTypeface(mCaptionStyleCompat.typeface);
+        }
         float startFontSize = 0f;
         float endFontSize = 255f;
         Rect boundRect = new Rect();
@@ -523,8 +591,13 @@ public class CaptionWindowLayout extends RelativeLayout implements View.OnLayout
         mTextSize = endFontSize * mFontScale;
         paint.setTextSize(mTextSize);
         float whiteSpaceWidth = paint.measureText(" ");
-        mSubtitleView.setWhiteSpaceWidth(whiteSpaceWidth);
-        mSubtitleView.setTextSize(mTextSize);
+
+        if (mTunerFlags.useExoplayerV2()) {
+            mSubtitleViewExoV2.setFixedTextSize(0, mTextSize);
+        } else {
+            mSubtitleView.setWhiteSpaceWidth(whiteSpaceWidth);
+            mSubtitleView.setTextSize(mTextSize);
+        }
     }
 
     private int getScreenColumnCount() {
@@ -564,7 +637,15 @@ public class CaptionWindowLayout extends RelativeLayout implements View.OnLayout
 
     public void clearText() {
         mBuilder.clear();
-        mSubtitleView.setText("");
+        if (mTunerFlags.useExoplayerV2()) {
+            mSubtitleViewExoV2.setCues(Collections.emptyList());
+        } else {
+            mSubtitleView.setText("");
+        }
+    }
+
+    public void setCues(List<Cue> cues) {
+        mSubtitleViewExoV2.setCues(cues);
     }
 
     private void updateText(String text, boolean appended) {

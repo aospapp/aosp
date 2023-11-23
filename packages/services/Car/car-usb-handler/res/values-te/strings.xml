@@ -19,9 +19,7 @@
     <string name="app_name" msgid="6963366455471441257">"USB హ్యాండ్లర్‌"</string>
     <string name="usb_saved_devices" msgid="2829442070749964872">"సేవ్ చేసిన పరికరాలు"</string>
     <string name="usb_pref_delete_title" msgid="3885061814853467483">"USB పరికర కొరకు హాండీలింగ్ యాప్‌ని తొలగించండి"</string>
-    <!-- String.format failed for translation -->
-    <!-- no translation found for usb_pref_delete_message (5849493572520646218) -->
-    <skip />
+    <string name="usb_pref_delete_message" msgid="5849493572520646218">"%1$s‌ను ఆటోమేటిక్‌గా హ్యాండిల్ చేసే యాప్‌ను ఖచ్చితంగా తొలగించాలని మీరు అనుకుంటున్నారా?"</string>
     <string name="usb_pref_delete_yes" msgid="7803356145103146036">"అవును"</string>
     <string name="usb_pref_delete_cancel" msgid="5999791462730255929">"రద్దు చేయి"</string>
     <string name="usb_resolving_handlers" msgid="1943100136172948686">"మద్దతుగల హ్యాండ్లర్‌లను పొందడం"</string>

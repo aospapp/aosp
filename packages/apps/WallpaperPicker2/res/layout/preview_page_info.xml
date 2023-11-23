@@ -21,8 +21,7 @@
     android:layout_width="match_parent"
     android:orientation="vertical"
     android:paddingHorizontal="@dimen/preview_attribution_pane_horizontal_padding"
-    android:background="@drawable/preview_bottom_sheet_background"
-    android:theme="@android:style/Theme.DeviceDefault.Settings">
+    android:theme="@style/WallpaperPicker.BottomPaneStyle">
 
     <Space
         android:id="@+id/preview_attribution_pane_title_spacer"
@@ -38,7 +37,7 @@
         android:forceHasOverlappingRendering="false"
         android:gravity="center"
         android:singleLine="true"
-        android:textAppearance="@style/HeaderTextAppearance"
+        android:textAppearance="@style/TitleTextAppearance"
         android:textColor="@color/material_white_100"/>
 
     <TextView
@@ -49,7 +48,7 @@
         android:layout_marginTop="@dimen/preview_attribution_pane_author_top_margin"
         android:forceHasOverlappingRendering="false"
         android:gravity="center"
-        android:textAppearance="@*android:style/TextAppearance.DeviceDefault.Subhead"
+        android:textAppearance="@style/SubtitleTextAppearance"
         android:textColor="@color/material_white_100"
         android:visibility="gone"/>
 
@@ -60,7 +59,8 @@
         android:minHeight="@dimen/preview_attribution_pane_description_height"
         android:forceHasOverlappingRendering="false"
         android:gravity="center_horizontal"
-        android:textAppearance="@*android:style/TextAppearance.DeviceDefault.Caption"
+        android:textAppearance="@android:style/TextAppearance.DeviceDefault.Small"
+        android:textSize="12dp"
         android:textColor="@color/material_white_100"
         android:visibility="gone"/>
 

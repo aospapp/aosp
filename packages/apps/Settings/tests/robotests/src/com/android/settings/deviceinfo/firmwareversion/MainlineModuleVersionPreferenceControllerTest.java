@@ -19,6 +19,7 @@ package com.android.settings.deviceinfo.firmwareversion;
 import static com.android.settings.core.BasePreferenceController.AVAILABLE;
 import static com.android.settings.core.BasePreferenceController.UNSUPPORTED_ON_DEVICE;
 import static com.android.settings.deviceinfo.firmwareversion.MainlineModuleVersionPreferenceController.MODULE_UPDATE_INTENT;
+import static com.android.settings.deviceinfo.firmwareversion.MainlineModuleVersionPreferenceController.MODULE_UPDATE_V2_INTENT;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -31,11 +32,8 @@ import android.content.Context;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
-import android.util.FeatureFlagUtils;
 
 import androidx.preference.Preference;
-
-import com.android.settings.core.FeatureFlags;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -91,7 +89,7 @@ public class MainlineModuleVersionPreferenceControllerTest {
 
     @Test
     public void getAvailabilityStatus_hasMainlineModulePackageInfo_available() throws Exception {
-        setupModulePackage();
+        setupModulePackage("test version 123");
 
         final MainlineModuleVersionPreferenceController controller =
                 new MainlineModuleVersionPreferenceController(mContext, "key");
@@ -100,8 +98,34 @@ public class MainlineModuleVersionPreferenceControllerTest {
     }
 
     @Test
-    public void updateStates_canHandleIntent_setIntentToPreference() throws Exception {
-        setupModulePackage();
+    public void updateState_canHandleV2Intent_setIntentToPreference() throws Exception {
+        setupModulePackage("test version 123");
+        when(mPackageManager.resolveActivity(MODULE_UPDATE_V2_INTENT, 0))
+                .thenReturn(new ResolveInfo());
+        final MainlineModuleVersionPreferenceController controller =
+                new MainlineModuleVersionPreferenceController(mContext, "key");
+
+        controller.updateState(mPreference);
+
+        assertThat(mPreference.getIntent()).isEqualTo(MODULE_UPDATE_V2_INTENT);
+    }
+
+    @Test
+    public void updateState_canHandleV2Intent_preferenceShouldBeSelectable() throws Exception {
+        setupModulePackage("test version 123");
+        when(mPackageManager.resolveActivity(MODULE_UPDATE_V2_INTENT, 0))
+                .thenReturn(new ResolveInfo());
+        final MainlineModuleVersionPreferenceController controller =
+                new MainlineModuleVersionPreferenceController(mContext, "key");
+
+        controller.updateState(mPreference);
+
+        assertThat(mPreference.isSelectable()).isTrue();
+    }
+
+    @Test
+    public void updateState_canHandleIntent_setIntentToPreference() throws Exception {
+        setupModulePackage("test version 123");
         when(mPackageManager.resolveActivity(MODULE_UPDATE_INTENT, 0))
                 .thenReturn(new ResolveInfo());
 
@@ -114,9 +138,25 @@ public class MainlineModuleVersionPreferenceControllerTest {
     }
 
     @Test
-    public void updateStates_cannotHandleIntent_setNullToPreference() throws Exception {
-        setupModulePackage();
+    public void updateState_canHandleIntent_preferenceShouldBeSelectable() throws Exception {
+        setupModulePackage("test version 123");
         when(mPackageManager.resolveActivity(MODULE_UPDATE_INTENT, 0))
+                .thenReturn(new ResolveInfo());
+
+        final MainlineModuleVersionPreferenceController controller =
+                new MainlineModuleVersionPreferenceController(mContext, "key");
+
+        controller.updateState(mPreference);
+
+        assertThat(mPreference.isSelectable()).isTrue();
+    }
+
+    @Test
+    public void updateState_cannotHandleIntent_setNullToPreference() throws Exception {
+        setupModulePackage("test version 123");
+        when(mPackageManager.resolveActivity(MODULE_UPDATE_INTENT, 0))
+                .thenReturn(null);
+        when(mPackageManager.resolveActivity(MODULE_UPDATE_V2_INTENT, 0))
                 .thenReturn(null);
 
         final MainlineModuleVersionPreferenceController controller =
@@ -127,9 +167,38 @@ public class MainlineModuleVersionPreferenceControllerTest {
         assertThat(mPreference.getIntent()).isNull();
     }
 
-    private void setupModulePackage() throws Exception {
+    @Test
+    public void getSummary_versionIsNull_returnNull() throws Exception {
+        setupModulePackage(null);
+
+        final MainlineModuleVersionPreferenceController controller =
+                new MainlineModuleVersionPreferenceController(mContext, "key");
+
+        assertThat(controller.getSummary()).isNull();
+    }
+
+    @Test
+    public void getSummary_versionIsMonth_returnMonth() throws Exception {
+        setupModulePackage("2019-05");
+
+        final MainlineModuleVersionPreferenceController controller =
+                new MainlineModuleVersionPreferenceController(mContext, "key");
+
+        assertThat(controller.getSummary()).isEqualTo("May 01, 2019");
+    }
+
+    @Test
+    public void getSummary_versionIsDate_returnDate() throws Exception {
+        setupModulePackage("2019-05-13");
+
+        final MainlineModuleVersionPreferenceController controller =
+                new MainlineModuleVersionPreferenceController(mContext, "key");
+
+        assertThat(controller.getSummary()).isEqualTo("May 13, 2019");
+    }
+
+    private void setupModulePackage(String version) throws Exception {
         final String provider = "test.provider";
-        final String version = "test version 123";
         final PackageInfo info = new PackageInfo();
         info.versionName = version;
         when(mContext.getString(

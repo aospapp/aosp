@@ -26,6 +26,7 @@
     <string name="trace_is_being_recorded" msgid="5947378146009337469">"Snimanje praćenja tragova"</string>
     <string name="tap_to_stop_tracing" msgid="6533282719573871806">"Dodirnite da zaustavite praćenje tragova"</string>
     <string name="clear_saved_traces" msgid="4809195654452260944">"Obriši sačuvane tragove"</string>
+    <string name="clear_saved_traces_summary" msgid="6035923138201219577">"Tragovi se brišu nakon mjesec dana"</string>
     <string name="clear_saved_traces_question" msgid="2184026613055303818">"Obrisati sačuvane tragove?"</string>
     <string name="all_traces_will_be_deleted" msgid="6646545462206955920">"Svi tragovi će se izbrisati iz /data/local/traces"</string>
     <string name="clear" msgid="5484761795406948056">"Obriši"</string>

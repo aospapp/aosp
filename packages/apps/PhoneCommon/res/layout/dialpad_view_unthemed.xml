@@ -60,6 +60,11 @@
 
     </LinearLayout>
 
+    <View
+        android:id="@+id/dialpad_digits_top_separator"
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="?attr/dialpad_separator_color" />
     <!-- Text field and possibly soft menu button above the keypad where
      the digits are displayed. -->
     <LinearLayout

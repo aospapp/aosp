@@ -16,6 +16,8 @@
 
 package com.android.documentsui;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import static junit.framework.Assert.assertEquals;
 import static junit.framework.Assert.assertTrue;
 
@@ -53,6 +55,7 @@ public class GlobalSearchLoaderTest {
     private TestEnv mEnv;
     private TestActivity mActivity;
     private GlobalSearchLoader mLoader;
+    private Bundle mQueryArgs = new Bundle();
 
     @Before
     public void setUp() {
@@ -63,24 +66,22 @@ public class GlobalSearchLoaderTest {
         mEnv.state.action = State.ACTION_BROWSE;
         mEnv.state.acceptMimes = new String[]{"*/*"};
 
-        final Bundle queryArgs = new Bundle();
-        queryArgs.putString(DocumentsContract.QUERY_ARG_DISPLAY_NAME, SEARCH_STRING);
+        mQueryArgs.putString(DocumentsContract.QUERY_ARG_DISPLAY_NAME, SEARCH_STRING);
         mLoader = new GlobalSearchLoader(mActivity, mEnv.providers, mEnv.state,
-                TestImmediateExecutor.createLookup(), new TestFileTypeLookup(), queryArgs);
+                TestImmediateExecutor.createLookup(), new TestFileTypeLookup(), mQueryArgs,
+                TestProvidersAccess.USER_ID);
 
         final DocumentInfo doc = mEnv.model.createFile(SEARCH_STRING + ".jpg", FILE_FLAG);
         doc.lastModified = System.currentTimeMillis();
-        mEnv.mockProviders.get(TestProvidersAccess.HOME.authority)
+        mEnv.mockProviders.get(TestProvidersAccess.DOWNLOADS.authority)
                 .setNextChildDocumentsReturns(doc);
 
-        TestProvidersAccess.HOME.flags |= DocumentsContract.Root.FLAG_SUPPORTS_SEARCH;
-        mEnv.state.showAdvanced = true;
+        TestProvidersAccess.DOWNLOADS.flags |= DocumentsContract.Root.FLAG_SUPPORTS_SEARCH;
     }
 
     @After
     public void tearDown() {
-        TestProvidersAccess.HOME.flags &= ~DocumentsContract.Root.FLAG_SUPPORTS_SEARCH;
-        mEnv.state.showAdvanced = false;
+        TestProvidersAccess.DOWNLOADS.flags &= ~DocumentsContract.Root.FLAG_SUPPORTS_SEARCH;
     }
 
     @Test
@@ -98,44 +99,27 @@ public class GlobalSearchLoaderTest {
     }
 
     @Test
-    public void testShowAdvance_recentRoot_beIgnored() {
-        TestProvidersAccess.IMAGE.flags |= DocumentsContract.Root.FLAG_SUPPORTS_SEARCH;
-        assertTrue(mLoader.shouldIgnoreRoot(TestProvidersAccess.IMAGE));
-        TestProvidersAccess.IMAGE.flags &= ~DocumentsContract.Root.FLAG_SUPPORTS_SEARCH;
+    public void testShowAdvance_storageRoot_beIgnored() {
+        TestProvidersAccess.HOME.flags |= DocumentsContract.Root.FLAG_SUPPORTS_SEARCH;
+        assertTrue(mLoader.shouldIgnoreRoot(TestProvidersAccess.HOME));
+        TestProvidersAccess.HOME.flags &= ~(DocumentsContract.Root.FLAG_SUPPORTS_SEARCH);
     }
 
     @Test
-    public void testShowAdvance_imageRoot_beIgnored() {
-        TestProvidersAccess.IMAGE.flags |= DocumentsContract.Root.FLAG_SUPPORTS_SEARCH
-                | DocumentsContract.Root.FLAG_LOCAL_ONLY;
-        assertTrue(mLoader.shouldIgnoreRoot(TestProvidersAccess.IMAGE));
-        TestProvidersAccess.IMAGE.flags &= ~(DocumentsContract.Root.FLAG_SUPPORTS_SEARCH
-                | DocumentsContract.Root.FLAG_LOCAL_ONLY);
+    public void testCrossProfileRoot_notInTextSearch_beIgnored() {
+        mEnv.state.supportsCrossProfile = true;
+        mQueryArgs.remove(DocumentsContract.QUERY_ARG_DISPLAY_NAME);
+        TestProvidersAccess.DOWNLOADS.userId = TestProvidersAccess.OtherUser.USER_ID;
+        assertThat(mLoader.shouldIgnoreRoot(TestProvidersAccess.DOWNLOADS)).isTrue();
+        TestProvidersAccess.DOWNLOADS.userId = TestProvidersAccess.USER_ID;
     }
 
     @Test
-    public void testShowAdvance_videoRoot_beIgnored() {
-        TestProvidersAccess.VIDEO.flags |= DocumentsContract.Root.FLAG_SUPPORTS_SEARCH
-                | DocumentsContract.Root.FLAG_LOCAL_ONLY;
-        assertTrue(mLoader.shouldIgnoreRoot(TestProvidersAccess.VIDEO));
-        TestProvidersAccess.VIDEO.flags &= ~(DocumentsContract.Root.FLAG_SUPPORTS_SEARCH
-                | DocumentsContract.Root.FLAG_LOCAL_ONLY);
-    }
-
-    @Test
-    public void testShowAdvance_audioRoot_beIgnored() {
-        TestProvidersAccess.AUDIO.flags |= DocumentsContract.Root.FLAG_SUPPORTS_SEARCH
-                | DocumentsContract.Root.FLAG_LOCAL_ONLY;
-        assertTrue(mLoader.shouldIgnoreRoot(TestProvidersAccess.AUDIO));
-        TestProvidersAccess.AUDIO.flags &= ~(DocumentsContract.Root.FLAG_SUPPORTS_SEARCH
-                | DocumentsContract.Root.FLAG_LOCAL_ONLY);
-    }
-
-    @Test
-    public void testShowAdvance_downloadRoot_beIgnored() {
-        TestProvidersAccess.DOWNLOADS.flags |= DocumentsContract.Root.FLAG_SUPPORTS_SEARCH;
-        assertTrue(mLoader.shouldIgnoreRoot(TestProvidersAccess.DOWNLOADS));
-        TestProvidersAccess.DOWNLOADS.flags &= ~DocumentsContract.Root.FLAG_SUPPORTS_SEARCH;
+    public void testCrossProfileRoot_inTextSearch_beIncluded() {
+        mEnv.state.supportsCrossProfile = true;
+        TestProvidersAccess.DOWNLOADS.userId = TestProvidersAccess.OtherUser.USER_ID;
+        assertThat(mLoader.shouldIgnoreRoot(TestProvidersAccess.DOWNLOADS)).isFalse();
+        TestProvidersAccess.DOWNLOADS.userId = TestProvidersAccess.USER_ID;
     }
 
     @Test
@@ -143,7 +127,7 @@ public class GlobalSearchLoaderTest {
         final DocumentInfo doc = mEnv.model.createFolder(SEARCH_STRING);
         doc.lastModified = System.currentTimeMillis();
 
-        mEnv.mockProviders.get(TestProvidersAccess.HOME.authority)
+        mEnv.mockProviders.get(TestProvidersAccess.DOWNLOADS.authority)
                 .setNextChildDocumentsReturns(doc);
 
         final DirectoryResult result = mLoader.loadInBackground();
@@ -154,6 +138,22 @@ public class GlobalSearchLoaderTest {
         c.moveToNext();
         final String mimeType = c.getString(c.getColumnIndex(Document.COLUMN_MIME_TYPE));
         assertEquals(Document.MIME_TYPE_DIR, mimeType);
+    }
+
+    @Test
+    public void testShowOrHideHiddenFiles() {
+        final DocumentInfo doc = mEnv.model.createFile(".test" + SEARCH_STRING);
+        doc.lastModified = System.currentTimeMillis();
+        mEnv.mockProviders.get(TestProvidersAccess.DOWNLOADS.authority)
+                .setNextChildDocumentsReturns(doc);
+
+        assertEquals(false, mLoader.mState.showHiddenFiles);
+        DirectoryResult result = mLoader.loadInBackground();
+        assertEquals(0, result.cursor.getCount());
+
+        mLoader.mState.showHiddenFiles = true;
+        result = mLoader.loadInBackground();
+        assertEquals(1, result.cursor.getCount());
     }
 
     @Test
@@ -171,6 +171,39 @@ public class GlobalSearchLoaderTest {
     }
 
     @Test
+    public void testSearchResult_includeDirectory_excludedOtherUsers() {
+        mEnv.state.canShareAcrossProfile = false;
+
+        TestProvidersAccess.DOWNLOADS.userId = TestProvidersAccess.USER_ID;
+        TestProvidersAccess.PICKLES.userId = TestProvidersAccess.OtherUser.USER_ID;
+        TestProvidersAccess.PICKLES.flags |= (DocumentsContract.Root.FLAG_SUPPORTS_SEARCH
+                | DocumentsContract.Root.FLAG_LOCAL_ONLY);
+
+        final DocumentInfo currentUserDoc = mEnv.model.createFile(
+                SEARCH_STRING + "_currentUser.pdf");
+        currentUserDoc.lastModified = System.currentTimeMillis();
+        mEnv.mockProviders.get(TestProvidersAccess.DOWNLOADS.authority)
+                .setNextChildDocumentsReturns(currentUserDoc);
+
+        final DocumentInfo otherUserDoc = mEnv.model.createFile(SEARCH_STRING + "_otherUser.png");
+        otherUserDoc.lastModified = System.currentTimeMillis();
+        mEnv.mockProviders.get(TestProvidersAccess.PICKLES.authority)
+                .setNextChildDocumentsReturns(otherUserDoc);
+
+        final DirectoryResult result = mLoader.loadInBackground();
+        final Cursor c = result.cursor;
+
+        assertThat(c.getCount()).isEqualTo(1);
+        c.moveToNext();
+        final String docName = c.getString(c.getColumnIndex(Document.COLUMN_DISPLAY_NAME));
+        assertThat(docName).contains("currentUser");
+
+        TestProvidersAccess.DOWNLOADS.userId = TestProvidersAccess.USER_ID;
+        TestProvidersAccess.PICKLES.userId = TestProvidersAccess.USER_ID;
+        TestProvidersAccess.PICKLES.flags &= ~DocumentsContract.Root.FLAG_SUPPORTS_SEARCH;
+    }
+
+    @Test
     public void testSearchResult_includeSearchString() {
         final DocumentInfo pdfDoc = mEnv.model.createFile(SEARCH_STRING + ".pdf");
         pdfDoc.lastModified = System.currentTimeMillis();
@@ -181,7 +214,7 @@ public class GlobalSearchLoaderTest {
         final DocumentInfo testApkDoc = mEnv.model.createFile("test.apk");
         testApkDoc.lastModified = System.currentTimeMillis();
 
-        mEnv.mockProviders.get(TestProvidersAccess.HOME.authority)
+        mEnv.mockProviders.get(TestProvidersAccess.DOWNLOADS.authority)
                 .setNextChildDocumentsReturns(pdfDoc, apkDoc, testApkDoc);
 
         mEnv.state.sortModel.sortByUser(
@@ -212,10 +245,11 @@ public class GlobalSearchLoaderTest {
         final DocumentInfo testApkDoc = mEnv.model.createFile("test.apk");
         testApkDoc.lastModified = System.currentTimeMillis();
 
-        mEnv.mockProviders.get(TestProvidersAccess.HAMMY.authority)
+        mEnv.mockProviders.get(TestProvidersAccess.PICKLES.authority)
                 .setNextChildDocumentsReturns(pdfDoc, apkDoc, testApkDoc);
 
-        TestProvidersAccess.HAMMY.flags |= DocumentsContract.Root.FLAG_SUPPORTS_SEARCH;
+        TestProvidersAccess.PICKLES.flags |= (DocumentsContract.Root.FLAG_SUPPORTS_SEARCH
+                | DocumentsContract.Root.FLAG_LOCAL_ONLY);
 
         mEnv.state.sortModel.sortByUser(
                 SortModel.SORT_DIMENSION_ID_TITLE, SortDimension.SORT_DIRECTION_ASCENDING);
@@ -225,6 +259,105 @@ public class GlobalSearchLoaderTest {
 
         assertEquals(3, c.getCount());
 
-        TestProvidersAccess.HAMMY.flags &= ~DocumentsContract.Root.FLAG_SUPPORTS_SEARCH;
+        TestProvidersAccess.PICKLES.flags &= ~(DocumentsContract.Root.FLAG_SUPPORTS_SEARCH
+                | DocumentsContract.Root.FLAG_LOCAL_ONLY);
+    }
+
+    @Test
+    public void testSearchResult_includeCurrentUserRootOnly() {
+        mEnv.state.canShareAcrossProfile = false;
+        mEnv.state.supportsCrossProfile = true;
+
+        final DocumentInfo pdfDoc = mEnv.model.createFile(SEARCH_STRING + ".pdf");
+        pdfDoc.lastModified = System.currentTimeMillis();
+
+        final DocumentInfo apkDoc = mEnv.model.createFile(SEARCH_STRING + ".apk");
+        apkDoc.lastModified = System.currentTimeMillis();
+
+        final DocumentInfo testApkDoc = mEnv.model.createFile("test.apk");
+        testApkDoc.lastModified = System.currentTimeMillis();
+
+        mEnv.mockProviders.get(TestProvidersAccess.PICKLES.authority)
+                .setNextChildDocumentsReturns(pdfDoc, apkDoc, testApkDoc);
+        TestProvidersAccess.PICKLES.userId = TestProvidersAccess.OtherUser.USER_ID;
+
+        TestProvidersAccess.PICKLES.flags |= (DocumentsContract.Root.FLAG_SUPPORTS_SEARCH
+                | DocumentsContract.Root.FLAG_LOCAL_ONLY);
+        mEnv.state.sortModel.sortByUser(
+                SortModel.SORT_DIMENSION_ID_TITLE, SortDimension.SORT_DIRECTION_ASCENDING);
+
+        final DirectoryResult result = mLoader.loadInBackground();
+        final Cursor c = result.cursor;
+
+        assertEquals(1, c.getCount());
+
+        TestProvidersAccess.PICKLES.userId = TestProvidersAccess.USER_ID;
+        TestProvidersAccess.PICKLES.flags &= ~(DocumentsContract.Root.FLAG_SUPPORTS_SEARCH
+                | DocumentsContract.Root.FLAG_LOCAL_ONLY);
+    }
+
+
+    @Test
+    public void testSearchResult_includeBothUsersRoots() {
+        mEnv.state.canShareAcrossProfile = true;
+        mEnv.state.supportsCrossProfile = true;
+
+        final DocumentInfo pdfDoc = mEnv.model.createFile(SEARCH_STRING + ".pdf");
+        pdfDoc.lastModified = System.currentTimeMillis();
+
+        final DocumentInfo apkDoc = mEnv.model.createFile(SEARCH_STRING + ".apk");
+        apkDoc.lastModified = System.currentTimeMillis();
+
+        final DocumentInfo testApkDoc = mEnv.model.createFile("test.apk");
+        testApkDoc.lastModified = System.currentTimeMillis();
+
+        mEnv.mockProviders.get(TestProvidersAccess.PICKLES.authority)
+                .setNextChildDocumentsReturns(pdfDoc, apkDoc, testApkDoc);
+        TestProvidersAccess.PICKLES.userId = TestProvidersAccess.OtherUser.USER_ID;
+
+        TestProvidersAccess.PICKLES.flags |= (DocumentsContract.Root.FLAG_SUPPORTS_SEARCH
+                | DocumentsContract.Root.FLAG_LOCAL_ONLY);
+        mEnv.state.sortModel.sortByUser(
+                SortModel.SORT_DIMENSION_ID_TITLE, SortDimension.SORT_DIRECTION_ASCENDING);
+
+        final DirectoryResult result = mLoader.loadInBackground();
+        final Cursor c = result.cursor;
+
+        assertEquals(3, c.getCount());
+
+        TestProvidersAccess.PICKLES.userId = TestProvidersAccess.USER_ID;
+        TestProvidersAccess.PICKLES.flags &= ~(DocumentsContract.Root.FLAG_SUPPORTS_SEARCH
+                | DocumentsContract.Root.FLAG_LOCAL_ONLY);
+    }
+
+
+    @Test
+    public void testSearchResult_emptyCurrentUsersRoot() {
+        mEnv.state.canShareAcrossProfile = false;
+        mEnv.state.supportsCrossProfile = true;
+
+        final DocumentInfo pdfDoc = mEnv.model.createFile(SEARCH_STRING + ".pdf");
+        pdfDoc.lastModified = System.currentTimeMillis();
+
+        mEnv.mockProviders.get(TestProvidersAccess.PICKLES.authority)
+                .setNextChildDocumentsReturns(pdfDoc);
+
+        TestProvidersAccess.DOWNLOADS.userId = TestProvidersAccess.OtherUser.USER_ID;
+        TestProvidersAccess.PICKLES.userId = TestProvidersAccess.OtherUser.USER_ID;
+        TestProvidersAccess.PICKLES.flags |= (DocumentsContract.Root.FLAG_SUPPORTS_SEARCH
+                | DocumentsContract.Root.FLAG_LOCAL_ONLY);
+        mEnv.state.sortModel.sortByUser(
+                SortModel.SORT_DIMENSION_ID_TITLE, SortDimension.SORT_DIRECTION_ASCENDING);
+
+        final DirectoryResult result = mLoader.loadInBackground();
+        assertThat(result.cursor.getCount()).isEqualTo(0);
+        // We don't expect exception even if all roots are from other users.
+        assertThat(result.exception).isNull();
+
+
+        TestProvidersAccess.DOWNLOADS.userId = TestProvidersAccess.USER_ID;
+        TestProvidersAccess.PICKLES.userId = TestProvidersAccess.USER_ID;
+        TestProvidersAccess.PICKLES.flags &= ~(DocumentsContract.Root.FLAG_SUPPORTS_SEARCH
+                | DocumentsContract.Root.FLAG_LOCAL_ONLY);
     }
 }

@@ -15,19 +15,18 @@
  */
 package com.android.documentsui;
 
-import androidx.annotation.DrawableRes;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ShortcutInfo;
 import android.content.pm.ShortcutManager;
 import android.graphics.drawable.Icon;
 
-import com.android.documentsui.R;
+import androidx.annotation.DrawableRes;
+
 import com.android.documentsui.base.Providers;
 import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.base.Shared;
 import com.android.documentsui.files.FilesActivity;
-import com.android.documentsui.prefs.ScopedPreferences;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -40,12 +39,10 @@ import java.util.Map;
  */
 public final class ShortcutsUpdater {
 
-    private final ScopedPreferences mPrefs;
     private final Context mContext;
 
-    public ShortcutsUpdater(Context context, ScopedPreferences prefs) {
+    public ShortcutsUpdater(Context context) {
         mContext = context;
-        mPrefs = prefs;
     }
 
     public void update(Collection<RootInfo> roots) {
@@ -93,9 +90,7 @@ public final class ShortcutsUpdater {
             // } else
             if (root.isAdvanced() && root.authority.equals(Providers.AUTHORITY_STORAGE)) {
                 // internal storage
-                if (mPrefs.getShowDeviceRoot()) {
-                    devices.add(0, createShortcut(root, R.drawable.ic_advanced_shortcut));
-                }
+                devices.add(0, createShortcut(root, R.drawable.ic_advanced_shortcut));
             } else if (root.isAdvanced()) {
                 // probably just bugreports provider
                 devices.add(0, createShortcut(root, R.drawable.ic_folder_shortcut));

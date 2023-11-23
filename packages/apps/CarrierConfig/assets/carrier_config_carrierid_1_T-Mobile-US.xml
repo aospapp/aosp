@@ -11,6 +11,8 @@
     <boolean name="carrier_wfc_supports_wifi_only_bool" value="true"/>
     <boolean name="mmsCloseConnection" value="true"/>
     <boolean name="rtt_supported_bool" value="true"/>
+    <boolean name="hide_tty_hco_vco_with_rtt" value="true"/>
+    <boolean name="wfc_carrier_name_override_by_pnn_bool" value="true"/>
     <int name="maxImageHeight" value="1944"/>
     <int name="maxImageWidth" value="2592"/>
     <int name="maxMessageSize" value="1048576"/>
@@ -24,4 +26,7 @@
     <string-array name="wfc_operator_error_codes_string_array" num="1">
         <item value="REG09|0"/>
     </string-array>
+    <string name="5g_icon_display_grace_period_string"
+        value="connected_mmwave,legacy,30;connected,legacy,30;not_restricted_rrc_idle,legacy,30;
+        not_restricted_rrc_con,legacy,30"/>
 </carrier_config>

@@ -22,6 +22,8 @@ import android.os.IBinder;
 import android.os.RemoteException;
 import android.util.Log;
 
+import com.android.internal.annotations.GuardedBy;
+
 import java.io.PrintWriter;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -39,6 +41,9 @@ class CarTestService extends ICarTest.Stub implements CarServiceBase {
     private final Context mContext;
     private final ICarImpl mICarImpl;
 
+    private final Object mLock = new Object();
+
+    @GuardedBy("mLock")
     private final Map<IBinder, TokenDeathRecipient> mTokens = new HashMap<>();
 
     CarTestService(Context context, ICarImpl carImpl) {
@@ -69,7 +74,7 @@ class CarTestService extends ICarTest.Stub implements CarServiceBase {
         Log.d(TAG, "stopCarService, token: " + token);
         ICarImpl.assertPermission(mContext, Car.PERMISSION_CAR_TEST_SERVICE);
 
-        synchronized (this) {
+        synchronized (mLock) {
             if (mTokens.containsKey(token)) {
                 Log.w(TAG, "Calling stopCarService twice with the same token.");
                 return;
@@ -80,7 +85,7 @@ class CarTestService extends ICarTest.Stub implements CarServiceBase {
             token.linkToDeath(deathRecipient, 0);
 
             if (mTokens.size() == 1) {
-                mICarImpl.release();
+                CarServiceUtils.runOnMainSync(mICarImpl::release);
             }
         }
     }
@@ -92,15 +97,17 @@ class CarTestService extends ICarTest.Stub implements CarServiceBase {
         releaseToken(token);
     }
 
-    private synchronized void releaseToken(IBinder token) {
+    private void releaseToken(IBinder token) {
         Log.d(TAG, "releaseToken, token: " + token);
-        DeathRecipient deathRecipient = mTokens.remove(token);
-        if (deathRecipient != null) {
-            token.unlinkToDeath(deathRecipient, 0);
-        }
+        synchronized (mLock) {
+            DeathRecipient deathRecipient = mTokens.remove(token);
+            if (deathRecipient != null) {
+                token.unlinkToDeath(deathRecipient, 0);
+            }
 
-        if (mTokens.size() == 0) {
-            CarServiceUtils.runOnMain(mICarImpl::init);
+            if (mTokens.size() == 0) {
+                CarServiceUtils.runOnMainSync(mICarImpl::init);
+            }
         }
     }
 

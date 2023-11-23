@@ -36,7 +36,6 @@ import androidx.test.filters.MediumTest;
 import androidx.test.filters.SmallTest;
 
 import com.android.managedprovisioning.R;
-import com.android.managedprovisioning.finalization.FinalizationController;
 import com.android.managedprovisioning.model.ProvisioningParams;
 import com.android.managedprovisioning.task.AbstractProvisioningTask;
 import com.android.managedprovisioning.task.CopyAccountToUserTask;
@@ -66,7 +65,6 @@ public class ProfileOwnerProvisioningControllerTest extends ProvisioningControll
             "com.test.admin.AdminReceiver");
 
     @Mock private ProvisioningControllerCallback mCallback;
-    @Mock private FinalizationController mFinalizationController;
     @Mock private UserManager mUserManager;
     private Context mContext;
     private ProvisioningParams mParams;
@@ -209,7 +207,6 @@ public class ProfileOwnerProvisioningControllerTest extends ProvisioningControll
                 mContext,
                 mParams,
                 TEST_PARENT_USER_ID,
-                mCallback,
-                mFinalizationController);
+                mCallback);
     }
 }

@@ -36,7 +36,4 @@ public interface CarServiceBase {
     default void vehicleHalReconnected() {}
 
     void dump(PrintWriter writer);
-
-    /** Called when we only want to dump metrics instead of everything else. */
-    default void dumpMetrics(PrintWriter writer) {};
 }

@@ -15,11 +15,15 @@
  */
 package com.android.tv.tuner.api;
 
-import com.android.tv.tuner.data.nano.Channel;
+import android.util.Log;
+import com.android.tv.tuner.data.Channel;
+
 
 /** Channel information gathered from a <em>scan</em> */
 public final class ScanChannel {
+    private static final String TAG = "ScanChannel";
     public final int type;
+    public final Channel.DeliverySystemType deliverySystemType;
     public final int frequency;
     public final String modulation;
     public final String filename;
@@ -31,25 +35,60 @@ public final class ScanChannel {
     public final Integer radioFrequencyNumber;
 
     public static ScanChannel forTuner(
-            int frequency, String modulation, Integer radioFrequencyNumber) {
+            String deliverySystemType, int frequency, String modulation,
+            Integer radioFrequencyNumber) {
         return new ScanChannel(
-                Channel.TunerType.TYPE_TUNER, frequency, modulation, null, radioFrequencyNumber);
+                Channel.TunerType.TYPE_TUNER_VALUE, lookupDeliveryStringToInt(deliverySystemType),
+                frequency, modulation, null, radioFrequencyNumber);
     }
 
     public static ScanChannel forFile(int frequency, String filename) {
-        return new ScanChannel(Channel.TunerType.TYPE_FILE, frequency, "file:", filename, null);
+        return new ScanChannel(Channel.TunerType.TYPE_FILE_VALUE,
+                Channel.DeliverySystemType.DELIVERY_SYSTEM_UNDEFINED, frequency, "file:",
+                filename, null);
     }
 
     private ScanChannel(
             int type,
+            Channel.DeliverySystemType deliverySystemType,
             int frequency,
             String modulation,
             String filename,
             Integer radioFrequencyNumber) {
         this.type = type;
+        this.deliverySystemType = deliverySystemType;
         this.frequency = frequency;
         this.modulation = modulation;
         this.filename = filename;
         this.radioFrequencyNumber = radioFrequencyNumber;
+    }
+
+    private static Channel.DeliverySystemType lookupDeliveryStringToInt(String deliverySystemType) {
+        Channel.DeliverySystemType ret;
+        switch (deliverySystemType) {
+            case "A":
+                ret = Channel.DeliverySystemType.DELIVERY_SYSTEM_ATSC;
+                break;
+            case "C":
+                ret = Channel.DeliverySystemType.DELIVERY_SYSTEM_DVBC;
+                break;
+            case "S":
+                ret = Channel.DeliverySystemType.DELIVERY_SYSTEM_DVBS;
+                break;
+            case "S2":
+                ret = Channel.DeliverySystemType.DELIVERY_SYSTEM_DVBS2;
+                break;
+            case "T":
+                ret = Channel.DeliverySystemType.DELIVERY_SYSTEM_DVBT;
+                break;
+            case "T2":
+                ret = Channel.DeliverySystemType.DELIVERY_SYSTEM_DVBT2;
+                break;
+            default:
+                Log.e(TAG, "Unknown delivery system type");
+                ret = Channel.DeliverySystemType.DELIVERY_SYSTEM_UNDEFINED;
+                break;
+        }
+        return ret;
     }
 }

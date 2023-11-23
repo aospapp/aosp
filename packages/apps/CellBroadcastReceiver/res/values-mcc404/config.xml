@@ -19,4 +19,6 @@
         <!-- Channel 60 for area update info is required by Indian government -->
         <item>0x03C:type=area, emergency=false</item>
     </string-array>
+    <!-- Show area update info settings in CellBroadcastReceiver and information in SIM status in Settings app -->
+    <bool name="config_showAreaUpdateInfoSettings">true</bool>
 </resources>

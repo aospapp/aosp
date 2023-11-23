@@ -18,35 +18,42 @@
 <PreferenceScreen
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:settings="http://schemas.android.com/apk/res-auto"
-    android:title="@string/about_settings">
-    <Preference
-        android:key="@string/pk_model_info"
-        android:title="@string/model_info"
-        settings:controller="com.android.car.settings.system.ModelInfoPreferenceController"/>
-    <Preference
+    android:title="@string/about_settings"
+    android:key="@string/psk_about_settings">
+    <com.android.car.ui.preference.CarUiPreference
+        android:fragment="com.android.car.settings.system.HardwareInfoFragment"
+        android:key="@string/pk_hardware_info"
+        android:title="@string/hardware_info"
+        settings:controller="com.android.car.settings.system.HardwareInfoPreferenceController"/>
+    <com.android.car.ui.preference.CarUiPreference
         android:key="@string/pk_firmware_version"
         android:title="@string/firmware_version"
-        settings:controller="com.android.car.settings.system.FirmwareVersionPreferenceController"/>
-    <Preference
+        settings:controller="com.android.car.settings.system.FirmwareVersionPreferenceController"
+        settings:showChevron="false"/>
+    <com.android.car.ui.preference.CarUiPreference
         android:key="@string/pk_security_patch"
         android:title="@string/security_patch"
-        settings:controller="com.android.car.settings.system.SecurityPatchPreferenceController"/>
-    <Preference
+        settings:controller="com.android.car.settings.system.SecurityPatchPreferenceController"
+        settings:showChevron="false"/>
+    <com.android.car.ui.preference.CarUiPreference
         android:key="@string/pk_kernel_version"
         android:title="@string/kernel_version"
-        settings:controller="com.android.car.settings.system.KernelVersionPreferenceController"/>
-    <Preference
+        settings:controller="com.android.car.settings.system.KernelVersionPreferenceController"
+        settings:showChevron="false"/>
+    <com.android.car.ui.preference.CarUiPreference
         android:key="@string/pk_build_number"
         android:title="@string/build_number"
-        settings:controller="com.android.car.settings.system.BuildNumberPreferenceController"/>
+        settings:controller="com.android.car.settings.system.BuildNumberPreferenceController"
+        settings:showChevron="false"/>
     <Preference
         android:key="@string/pk_regulatory_labels"
         android:title="@string/regulatory_labels"
         settings:controller="com.android.car.settings.common.DefaultRestrictionsPreferenceController">
         <intent android:action="android.settings.SHOW_REGULATORY_INFO"/>
     </Preference>
-    <Preference
+    <com.android.car.ui.preference.CarUiPreference
         android:key="@string/pk_about_bluetooth_mac_address"
         android:title="@string/bluetooth_mac_address"
-        settings:controller="com.android.car.settings.system.BluetoothMacAddressPreferenceController"/>
+        settings:controller="com.android.car.settings.system.BluetoothMacAddressPreferenceController"
+        settings:showChevron="false"/>
 </PreferenceScreen>

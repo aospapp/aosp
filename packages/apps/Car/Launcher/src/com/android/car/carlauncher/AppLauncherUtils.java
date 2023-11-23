@@ -16,11 +16,16 @@
 
 package com.android.car.carlauncher;
 
+import static java.lang.annotation.RetentionPolicy.SOURCE;
+
 import android.annotation.Nullable;
+import android.app.Activity;
 import android.app.ActivityOptions;
 import android.car.Car;
 import android.car.CarNotConnectedException;
 import android.car.content.pm.CarPackageManager;
+import android.car.media.CarMediaManager;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.LauncherActivityInfo;
@@ -29,14 +34,20 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.os.Process;
 import android.service.media.MediaBrowserService;
+import android.text.TextUtils;
 import android.util.Log;
 
+import com.android.car.media.common.source.MediaSourceViewModel;
+
+import androidx.annotation.IntDef;
 import androidx.annotation.NonNull;
 
+import java.lang.annotation.Retention;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -45,8 +56,13 @@ import java.util.Set;
  * Util class that contains helper method used by app launcher classes.
  */
 class AppLauncherUtils {
-
     private static final String TAG = "AppLauncherUtils";
+
+    @Retention(SOURCE)
+    @IntDef({APP_TYPE_LAUNCHABLES, APP_TYPE_MEDIA_SERVICES})
+    @interface AppTypes {}
+    static final int APP_TYPE_LAUNCHABLES = 1;
+    static final int APP_TYPE_MEDIA_SERVICES = 2;
 
     private AppLauncherUtils() {
     }
@@ -63,70 +79,109 @@ class AppLauncherUtils {
      *
      * @param app the requesting app's AppMetaData
      */
-    static void launchApp(Context context, AppMetaData app) {
+    static void launchApp(Context context, Intent intent) {
         ActivityOptions options = ActivityOptions.makeBasic();
         options.setLaunchDisplayId(context.getDisplayId());
-        context.startActivity(app.getMainLaunchIntent(), options.toBundle());
+        context.startActivity(intent, options.toBundle());
     }
 
     /** Bundles application and services info. */
     static class LauncherAppsInfo {
-        /** Map of all apps' metadata keyed by package name. */
-        private final Map<String, AppMetaData> mApplications;
+        /*
+         * Map of all car launcher components' (including launcher activities and media services)
+         * metadata keyed by ComponentName.
+         */
+        private final Map<ComponentName, AppMetaData> mLaunchables;
 
-        /** Map of all the media services keyed by package name. */
-        private final Map<String, ResolveInfo> mMediaServices;
+        /** Map of all the media services keyed by ComponentName. */
+        private final Map<ComponentName, ResolveInfo> mMediaServices;
 
-        LauncherAppsInfo(@NonNull Map<String, AppMetaData> apps,
-                @NonNull Map<String, ResolveInfo> mediaServices) {
-            mApplications = apps;
+        LauncherAppsInfo(@NonNull Map<ComponentName, AppMetaData> launchablesMap,
+                @NonNull Map<ComponentName, ResolveInfo> mediaServices) {
+            mLaunchables = launchablesMap;
             mMediaServices = mediaServices;
         }
 
         /** Returns true if all maps are empty. */
         boolean isEmpty() {
-            return mApplications.isEmpty() && mMediaServices.isEmpty();
+            return mLaunchables.isEmpty() && mMediaServices.isEmpty();
         }
 
-        /** Returns whether the given package name is a media service. */
-        boolean isMediaService(String packageName) {
-            return mMediaServices.containsKey(packageName);
+        /**
+         * Returns whether the given componentName is a media service.
+         */
+        boolean isMediaService(ComponentName componentName) {
+            return mMediaServices.containsKey(componentName);
         }
 
-        /** Returns the {@link AppMetaData} for the given package name. */
+        /** Returns the {@link AppMetaData} for the given componentName. */
         @Nullable
-        AppMetaData getAppMetaData(String packageName) {
-            return mApplications.get(packageName);
+        AppMetaData getAppMetaData(ComponentName componentName) {
+            return mLaunchables.get(componentName);
         }
 
-        /** Returns a new list of the applications' {@link AppMetaData}. */
+        /** Returns a new list of all launchable components' {@link AppMetaData}. */
         @NonNull
-        List<AppMetaData> getApplicationsList() {
-            return new ArrayList<>(mApplications.values());
+        List<AppMetaData> getLaunchableComponentsList() {
+            return new ArrayList<>(mLaunchables.values());
         }
     }
 
     private final static LauncherAppsInfo EMPTY_APPS_INFO = new LauncherAppsInfo(
             Collections.emptyMap(), Collections.emptyMap());
 
+    /*
+     * Gets the media source in a given package. If there are multiple sources in the package,
+     * returns the first one.
+     */
+    static ComponentName getMediaSource(@NonNull PackageManager packageManager,
+            @NonNull String packageName) {
+        Intent mediaIntent = new Intent();
+        mediaIntent.setPackage(packageName);
+        mediaIntent.setAction(MediaBrowserService.SERVICE_INTERFACE);
+
+        List<ResolveInfo> mediaServices = packageManager.queryIntentServices(mediaIntent,
+                PackageManager.GET_RESOLVED_FILTER);
+
+        if (mediaServices == null || mediaServices.isEmpty()) {
+            return null;
+        }
+        String defaultService = mediaServices.get(0).serviceInfo.name;
+        if (!TextUtils.isEmpty(defaultService)) {
+            return new ComponentName(packageName, defaultService);
+        }
+        return null;
+    }
+
     /**
-     * Gets all the apps that we want to see in the launcher in unsorted order. Includes media
-     * services without launcher activities.
+     * Gets all the components that we want to see in the launcher in unsorted order, including
+     * launcher activities and media services.
      *
-     * @param blackList         A (possibly empty) list of apps to hide
-     * @param launcherApps      The {@link LauncherApps} system service
-     * @param carPackageManager The {@link CarPackageManager} system service
-     * @param packageManager    The {@link PackageManager} system service
+     * @param blackList             A (possibly empty) list of apps (package names) to hide
+     * @param customMediaComponents A (possibly empty) list of media components (component names)
+     *                              that shouldn't be shown in Launcher because their applications'
+     *                              launcher activities will be shown
+     * @param appTypes              Types of apps to show (e.g.: all, or media sources only)
+     * @param openMediaCenter       Whether launcher should navigate to media center when the
+     *                              user selects a media source.
+     * @param launcherApps          The {@link LauncherApps} system service
+     * @param carPackageManager     The {@link CarPackageManager} system service
+     * @param packageManager        The {@link PackageManager} system service
      * @return a new {@link LauncherAppsInfo}
      */
     @NonNull
-    static LauncherAppsInfo getAllLauncherApps(
+    static LauncherAppsInfo getLauncherApps(
             @NonNull Set<String> blackList,
+            @NonNull Set<String> customMediaComponents,
+            @AppTypes int appTypes,
+            boolean openMediaCenter,
             LauncherApps launcherApps,
             CarPackageManager carPackageManager,
-            PackageManager packageManager) {
+            PackageManager packageManager,
+            CarMediaManager carMediaManager) {
 
-        if (launcherApps == null || carPackageManager == null || packageManager == null) {
+        if (launcherApps == null || carPackageManager == null || packageManager == null
+                || carMediaManager == null) {
             return EMPTY_APPS_INFO;
         }
 
@@ -136,56 +191,112 @@ class AppLauncherUtils {
         List<LauncherActivityInfo> availableActivities =
                 launcherApps.getActivityList(null, Process.myUserHandle());
 
-        Map<String, AppMetaData> apps = new HashMap<>(
+        Map<ComponentName, AppMetaData> launchablesMap = new HashMap<>(
                 mediaServices.size() + availableActivities.size());
-        Map<String, ResolveInfo> mediaServicesMap = new HashMap<>(mediaServices.size());
+        Map<ComponentName, ResolveInfo> mediaServicesMap = new HashMap<>(mediaServices.size());
 
         // Process media services
-        for (ResolveInfo info : mediaServices) {
-            String packageName = info.serviceInfo.packageName;
-            mediaServicesMap.put(packageName, info);
-            if (shouldAdd(packageName, apps, blackList)) {
-                final boolean isDistractionOptimized = true;
+        if ((appTypes & APP_TYPE_MEDIA_SERVICES) != 0) {
+            for (ResolveInfo info : mediaServices) {
+                String packageName = info.serviceInfo.packageName;
+                String className = info.serviceInfo.name;
+                ComponentName componentName = new ComponentName(packageName, className);
+                mediaServicesMap.put(componentName, info);
+                if (shouldAddToLaunchables(componentName, blackList, customMediaComponents,
+                        appTypes, APP_TYPE_MEDIA_SERVICES)) {
+                    final boolean isDistractionOptimized = true;
 
-                Intent intent = new Intent(Car.CAR_INTENT_ACTION_MEDIA_TEMPLATE);
-                intent.putExtra(Car.CAR_EXTRA_MEDIA_PACKAGE, packageName);
+                    Intent intent = new Intent(Car.CAR_INTENT_ACTION_MEDIA_TEMPLATE);
+                    intent.putExtra(Car.CAR_EXTRA_MEDIA_COMPONENT, componentName.flattenToString());
 
-                AppMetaData appMetaData = new AppMetaData(
+                    AppMetaData appMetaData = new AppMetaData(
                         info.serviceInfo.loadLabel(packageManager),
-                        packageName,
+                        componentName,
                         info.serviceInfo.loadIcon(packageManager),
                         isDistractionOptimized,
-                        intent,
-                        packageManager.getLaunchIntentForPackage(packageName));
-                apps.put(packageName, appMetaData);
+                        context -> {
+                            if (openMediaCenter) {
+                                AppLauncherUtils.launchApp(context, intent);
+                            } else {
+                                selectMediaSourceAndFinish(context, componentName, carMediaManager);
+                            }
+                        },
+                        context -> AppLauncherUtils.launchApp(context,
+                            packageManager.getLaunchIntentForPackage(packageName)));
+                    launchablesMap.put(componentName, appMetaData);
+                }
             }
         }
 
         // Process activities
-        for (LauncherActivityInfo info : availableActivities) {
-            String packageName = info.getComponentName().getPackageName();
-            if (shouldAdd(packageName, apps, blackList)) {
-                boolean isDistractionOptimized =
+        if ((appTypes & APP_TYPE_LAUNCHABLES) != 0) {
+            for (LauncherActivityInfo info : availableActivities) {
+                ComponentName componentName = info.getComponentName();
+                String packageName = componentName.getPackageName();
+                if (shouldAddToLaunchables(componentName, blackList, customMediaComponents,
+                        appTypes, APP_TYPE_LAUNCHABLES)) {
+                    boolean isDistractionOptimized =
                         isActivityDistractionOptimized(carPackageManager, packageName,
-                                info.getName());
+                            info.getName());
 
-                AppMetaData appMetaData = new AppMetaData(
+                    Intent intent = new Intent(Intent.ACTION_MAIN)
+                        .setComponent(componentName)
+                        .addCategory(Intent.CATEGORY_LAUNCHER)
+                        .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+
+                    AppMetaData appMetaData = new AppMetaData(
                         info.getLabel(),
-                        packageName,
+                        componentName,
                         info.getBadgedIcon(0),
                         isDistractionOptimized,
-                        packageManager.getLaunchIntentForPackage(packageName),
+                        context -> AppLauncherUtils.launchApp(context, intent),
                         null);
-                apps.put(packageName, appMetaData);
+                    launchablesMap.put(componentName, appMetaData);
+                }
             }
         }
 
-        return new LauncherAppsInfo(apps, mediaServicesMap);
+        return new LauncherAppsInfo(launchablesMap, mediaServicesMap);
     }
 
-    private static boolean shouldAdd(String packageName, Map<String, AppMetaData> apps,
-            @NonNull Set<String> blackList) {
-        return !apps.containsKey(packageName) && !blackList.contains(packageName);
+    private static boolean shouldAddToLaunchables(@NonNull ComponentName componentName,
+            @NonNull Set<String> blackList,
+            @NonNull Set<String> customMediaComponents,
+            @AppTypes int appTypesToShow,
+            @AppTypes int componentAppType) {
+        if (blackList.contains(componentName.getPackageName())) {
+            return false;
+        }
+        switch (componentAppType) {
+            // Process media services
+            case APP_TYPE_MEDIA_SERVICES:
+                // For a media service in customMediaComponents, if its application's launcher
+                // activity will be shown in the Launcher, don't show the service's icon in the
+                // Launcher.
+                if (customMediaComponents.contains(componentName.flattenToString())
+                        && (appTypesToShow & APP_TYPE_LAUNCHABLES) != 0) {
+                    return false;
+                }
+                return true;
+            // Process activities
+            case APP_TYPE_LAUNCHABLES:
+                return true;
+            default:
+                Log.e(TAG, "Invalid componentAppType : " + componentAppType);
+                return false;
+        }
+    }
+
+    private static void selectMediaSourceAndFinish(Context context, ComponentName componentName,
+            CarMediaManager carMediaManager) {
+        try {
+            carMediaManager.setMediaSource(componentName, CarMediaManager.MEDIA_SOURCE_MODE_BROWSE);
+            if (context instanceof Activity) {
+                ((Activity) context).finish();
+            }
+        } catch (CarNotConnectedException e) {
+            Log.e(TAG, "Car not connected", e);
+        }
     }
 
     /**

@@ -15,7 +15,8 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        package="com.android.car.test" android:sharedUserId="android.uid.system">
+        package="com.android.car.test"
+        android:sharedUserId="com.google.android.car.uid.kitchensink">
 
     <uses-permission android:name="android.Manifest.permission.MODIFY_AUDIO_ROUTING" />
     <uses-permission android:name="android.car.permission.CONTROL_CAR_CLIMATE" />
@@ -28,6 +29,7 @@
     <uses-permission android:name="android.car.permission.CAR_CONTROL_AUDIO_VOLUME" />
     <uses-permission android:name="android.car.permission.CAR_CONTROL_AUDIO_SETTINGS" />
     <uses-permission android:name="android.car.permission.STORAGE_MONITORING" />
+    <uses-permission android:name="android.car.permission.READ_CAR_OCCUPANT_AWARENESS_STATE" />
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
             android:targetPackage="com.android.car.test"
@@ -42,25 +44,15 @@
                 <action android:name="android.car.content.pm.CarAppBlockingPolicyService"/>
             </intent-filter>
         </service>
-        <service android:name="com.android.car.MockedVmsTestBase$MockPublisherClient"
-             android:exported="true"
-             android:permission="android.car.permission.BIND_VMS_CLIENT"/>
 
-        <service android:name="com.android.car.VmsPublisherClientPermissionTest$PublisherClientExpectedPermission"
-                 android:exported="true"
-                 android:permission="android.car.permission.BIND_VMS_CLIENT"/>
-        <service android:name="com.android.car.VmsPublisherClientPermissionTest$PublisherClientWrongPermission"
-                 android:exported="true"
-                 android:permission="android.car.permission.VMS_PUBLISHER"/>
-        <service android:name="com.android.car.VmsPublisherClientPermissionTest$PublisherClientMissingPermission"
-                 android:exported="true"/>
-
-        <activity android:name="com.android.car.SystemActivityMonitoringServiceTest$ActivityA"/>
-        <activity android:name="com.android.car.SystemActivityMonitoringServiceTest$ActivityB"/>
-        <activity android:name="com.android.car.SystemActivityMonitoringServiceTest$ActivityC"/>
-        <activity android:name="com.android.car.SystemActivityMonitoringServiceTest$ActivityThatFinishesImmediately"/>
-        <activity android:name="com.android.car.SystemActivityMonitoringServiceTest$BlockingActivity"
-                  android:taskAffinity="com.android.car.carservicetest.block"/>
+        <activity android:name="com.android.car.CarUxRestrictionsManagerServiceTest$ActivityViewTestActivity"/>
+        <activity android:name="com.android.car.pm.ActivityBlockingActivityTest$NonDoNoHistoryActivity"
+                  android:noHistory="true"/>
+        <activity android:name="com.android.car.pm.ActivityBlockingActivityTest$NonDoActivity"/>
+        <activity android:name="com.android.car.pm.ActivityBlockingActivityTest$DoActivity"
+            android:label="DoActivity">
+            <meta-data android:name="distractionOptimized" android:value="true"/>
+        </activity>
 
         <receiver android:name="com.android.car.CarStorageMonitoringBroadcastReceiver"
             android:exported="true"

@@ -39,7 +39,9 @@ LOCAL_PRIVILEGED_MODULE := true
 
 LOCAL_CERTIFICATE := platform
 
-LOCAL_STATIC_JAVA_LIBRARIES += vehicle-hal-support-lib
+LOCAL_STATIC_JAVA_LIBRARIES += \
+    vehicle-hal-support-lib \
+    car-experimental-api-static-lib
 
 LOCAL_STATIC_ANDROID_LIBRARIES += \
     com.google.android.material_material \

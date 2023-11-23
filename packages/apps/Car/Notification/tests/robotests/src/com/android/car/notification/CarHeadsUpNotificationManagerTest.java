@@ -40,6 +40,7 @@ import android.service.notification.NotificationListenerService;
 import android.service.notification.StatusBarNotification;
 import android.view.View;
 
+import com.android.car.notification.headsup.CarHeadsUpNotificationAppContainer;
 import com.android.car.notification.testutils.ShadowApplicationPackageManager;
 import com.android.car.notification.testutils.ShadowCarAssistUtils;
 
@@ -48,6 +49,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.mockito.Spy;
 import org.robolectric.RobolectricTestRunner;
@@ -81,8 +83,11 @@ public class CarHeadsUpNotificationManagerTest {
     @Mock
     NotificationDataManager mNotificationDataManager;
 
+    @Mock
+    StatusBarNotification mStatusBarNotification;
+
     @Spy
-    StatusBarNotification mStatusBarNotificationSpy;
+    AlertEntry mAlertEntrySpy;
 
     private CarHeadsUpNotificationManager mManager;
 
@@ -99,14 +104,14 @@ public class CarHeadsUpNotificationManagerTest {
     private static final long POST_TIME = 12345l;
     private static final UserHandle USER_HANDLE = new UserHandle(12);
 
-    private StatusBarNotification mNotification1;
-    private StatusBarNotification mNotification2;
-    private StatusBarNotification mNotification_carInformationHeadsUp;
-    private StatusBarNotification mNotification_messageHeadsUp;
-    private StatusBarNotification mNotification_navigationHeadsUp;
-    private StatusBarNotification mNotification_callHeadsUp;
-    private StatusBarNotification mNotification_inboxHeadsUp;
-    private Map<String, StatusBarNotification> mActiveNotifications;
+    private AlertEntry mNotification1;
+    private AlertEntry mNotification2;
+    private AlertEntry mNotification_carInformationHeadsUp;
+    private AlertEntry mNotification_messageHeadsUp;
+    private AlertEntry mNotification_navigationHeadsUp;
+    private AlertEntry mNotification_callHeadsUp;
+    private AlertEntry mNotification_inboxHeadsUp;
+    private Map<String, AlertEntry> mActiveNotifications;
 
     @Before
     public void setupBaseActivityAndLayout() {
@@ -114,6 +119,8 @@ public class CarHeadsUpNotificationManagerTest {
 
         mContext = RuntimeEnvironment.application;
         ShadowApplicationPackageManager.setResources(mContext.getResources());
+        mAlertEntrySpy = Mockito.spy(new AlertEntry(mStatusBarNotification));
+
         when(mRankingMock.getChannel()).thenReturn(mNotificationChannelMock);
 
         when(mClickHandlerFactory.getClickHandler(any())).thenReturn(new View.OnClickListener() {
@@ -160,27 +167,28 @@ public class CarHeadsUpNotificationManagerTest {
                 .setExtras(bundle)
                 .setSmallIcon(android.R.drawable.sym_def_app_icon);
 
-        mNotification1 = new StatusBarNotification(PKG_1, OP_PKG,
+        mNotification1 = new AlertEntry(new StatusBarNotification(PKG_1, OP_PKG,
                 ID, TAG, UID, INITIAL_PID, mNotificationBuilder1.build(), USER_HANDLE,
-                OVERRIDE_GROUP_KEY, POST_TIME);
-        mNotification2 = new StatusBarNotification(PKG_2, OP_PKG,
+                OVERRIDE_GROUP_KEY, POST_TIME));
+        mNotification2 = new AlertEntry(new StatusBarNotification(PKG_2, OP_PKG,
                 ID, TAG, UID, INITIAL_PID, mNotificationBuilder2.build(), USER_HANDLE,
-                OVERRIDE_GROUP_KEY, POST_TIME);
-        mNotification_carInformationHeadsUp = new StatusBarNotification(PKG_1, OP_PKG,
-                ID, TAG, UID, INITIAL_PID, mNotificationBuilder_carInformationHeadsUp.build(),
-                USER_HANDLE, OVERRIDE_GROUP_KEY, POST_TIME);
-        mNotification_messageHeadsUp = new StatusBarNotification(PKG_1, OP_PKG,
+                OVERRIDE_GROUP_KEY, POST_TIME));
+        mNotification_carInformationHeadsUp = new AlertEntry(
+                new StatusBarNotification(PKG_1, OP_PKG, ID, TAG, UID, INITIAL_PID,
+                        mNotificationBuilder_carInformationHeadsUp.build(),
+                        USER_HANDLE, OVERRIDE_GROUP_KEY, POST_TIME));
+        mNotification_messageHeadsUp = new AlertEntry(new StatusBarNotification(PKG_1, OP_PKG,
                 ID, TAG, UID, INITIAL_PID, mNotificationBuilder_messageHeadsUp.build(),
-                USER_HANDLE, OVERRIDE_GROUP_KEY, POST_TIME);
-        mNotification_navigationHeadsUp = new StatusBarNotification(PKG_1, OP_PKG,
+                USER_HANDLE, OVERRIDE_GROUP_KEY, POST_TIME));
+        mNotification_navigationHeadsUp = new AlertEntry(new StatusBarNotification(PKG_1, OP_PKG,
                 ID, TAG, UID, INITIAL_PID, mNotificationBuilder_navigationHeadsUp.build(),
-                USER_HANDLE, OVERRIDE_GROUP_KEY, POST_TIME);
-        mNotification_callHeadsUp = new StatusBarNotification(PKG_1, OP_PKG,
+                USER_HANDLE, OVERRIDE_GROUP_KEY, POST_TIME));
+        mNotification_callHeadsUp = new AlertEntry(new StatusBarNotification(PKG_1, OP_PKG,
                 ID, TAG, UID, INITIAL_PID, mNotificationBuilder_callHeadsUp.build(),
-                USER_HANDLE, OVERRIDE_GROUP_KEY, POST_TIME);
-        mNotification_inboxHeadsUp = new StatusBarNotification(PKG_1, OP_PKG,
+                USER_HANDLE, OVERRIDE_GROUP_KEY, POST_TIME));
+        mNotification_inboxHeadsUp = new AlertEntry(new StatusBarNotification(PKG_1, OP_PKG,
                 ID, TAG, UID, INITIAL_PID, mNotificationBuilder_inboxHeadsUp.build(),
-                USER_HANDLE, OVERRIDE_GROUP_KEY, POST_TIME);
+                USER_HANDLE, OVERRIDE_GROUP_KEY, POST_TIME));
 
         mActiveNotifications = new HashMap<>();
         initializeWithFactory();
@@ -215,9 +223,9 @@ public class CarHeadsUpNotificationManagerTest {
 
     @Test
     public void maybeRemoveHeadsUp_noCurrentNotifications_shouldNotCallClearView() {
-        mManager.maybeRemoveHeadsUp(mStatusBarNotificationSpy);
+        mManager.maybeRemoveHeadsUp(mAlertEntrySpy);
 
-        verify(mStatusBarNotificationSpy, times(1)).getKey();
+        verify(mAlertEntrySpy, times(1)).getKey();
     }
 
     /**
@@ -456,7 +464,7 @@ public class CarHeadsUpNotificationManagerTest {
 
     private void initializeWithFactory() {
         mManager = new CarHeadsUpNotificationManager(mContext, mClickHandlerFactory,
-                mNotificationDataManager) {
+                mNotificationDataManager, new CarHeadsUpNotificationAppContainer(mContext)) {
             @Override
             protected NotificationListenerService.Ranking getRanking() {
                 return mRankingMock;

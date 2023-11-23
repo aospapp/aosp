@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 
+  ~ Copyright (C) 2019 The Android Open Source Project
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~
+  ~      http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+   -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="default_device_name" msgid="405493967512651629">"Dispositivo associato"</string>
+    <string name="add_device_title" msgid="6166003577845888151">"Aggiungi un dispositivo associato"</string>
+    <string name="add_associated_device_title" msgid="3275596124326477381">"Collega un dispositivo complementare"</string>
+    <string name="add_associated_device_instruction" msgid="1015406964657139291">"Puoi usare il telefono come dispositivo complementare per gestire la tua esperienza di guida"</string>
+    <string name="associated_device_install_app" msgid="981663561198924864">"Verifica che l\'"<b>"app complementare"</b>" sia installata sul telefono"</string>
+    <string name="associated_device_pairing_code_title" msgid="5118861901337336309">"Conferma il codice sul telefono"</string>
+    <string name="associated_device_pairing_message" msgid="7319249426394299109">"Conferma che questo codice corrisponde a quello visualizzato sul telefono"</string>
+    <string name="associated_device_success" msgid="584760065696870256">"Il dispositivo è stato associato correttamente"</string>
+    <string name="associated_device_select_device" msgid="1931869046289060602">"Apri l\'app e collegala a &lt;b&gt;<xliff:g id="CAR_NAME">%1$s</xliff:g>&lt;b&gt;"</string>
+    <string name="remove_associated_device_title" msgid="4060806982019423895">"Rimuovere &lt;b&gt;<xliff:g id="CAR_NAME">%1$s</xliff:g>&lt;/b&gt;?"</string>
+    <string name="remove_associated_device_message" msgid="3991333597951462900">"L\'auto non sarà più accoppiata a questo dispositivo. Dovrai inoltre rimuovere questa auto dall\'app complementare."</string>
+    <string name="device_removed_success_toast_text" msgid="3242832156490823936">"<xliff:g id="PHONE_NAME">%1$s</xliff:g> rimosso"</string>
+    <string name="device_removed_failure_toast_text" msgid="3756625943664982395">"Impossibile rimuovere <xliff:g id="PHONE_NAME">%1$s</xliff:g>"</string>
+    <string name="continue_setup_toast_text" msgid="8487187853051037413">"Continua la configurazione sul telefono"</string>
+    <string name="error_screen_title" msgid="3977744142045194903">"Si è verificato un errore"</string>
+    <string name="error_screen_message" msgid="1217200461704367056">"Questa schermata non può mostrare i contenuti correttamente. Riprova."</string>
+    <string name="turn_on_bluetooth_title" msgid="2877749869113938263">"Attiva Bluetooth"</string>
+    <string name="turn_on_bluetooth_message" msgid="5087006108685547788">"La tua auto deve disporre del Bluetooth per impostare il telefono come dispositivo complementare."</string>
+    <string name="turn_on_bluetooth_dialog_title" msgid="8693712073791430461">"Attivare il Bluetooth?"</string>
+    <string name="turn_on_bluetooth_dialog_message" msgid="5347157597209022072">"La tua auto deve disporre del Bluetooth per collegarsi al dispositivo complementare."</string>
+    <string name="accept" msgid="1454710793329618813">"Accetta"</string>
+    <string name="reject" msgid="4315432282758892890">"Rifiuta"</string>
+    <string name="confirm" msgid="3748997214719276945">"Conferma"</string>
+    <string name="cancel" msgid="4306609731174629323">"Annulla"</string>
+    <string name="remove" msgid="5513398257088729188">"Rimuovi"</string>
+    <string name="ok" msgid="2825038997730899083">"OK"</string>
+    <string name="connection" msgid="2798490936433656846">"Connessione"</string>
+    <string name="forget_title" msgid="3027608547243824729">"Rimuovi questo dispositivo"</string>
+    <string name="forget" msgid="2069897665699141222">"Rimuovi"</string>
+    <string name="disable" msgid="4619854429066283970">"Disattiva"</string>
+    <string name="enable" msgid="7656386199154111316">"Attiva"</string>
+    <string name="continue_button" msgid="2748318968566159950">"Continua"</string>
+    <string name="retry" msgid="3783419451480721367">"Riprova"</string>
+    <string name="turn_on" msgid="4288754850470994812">"Attiva"</string>
+    <string name="not_now" msgid="8764692269093707622">"Non ora"</string>
+    <string name="connected" msgid="8051190714042020471">"Collegato"</string>
+    <string name="notDetected" msgid="4115229772085594506">"Non rilevato"</string>
+    <string name="disconnected" msgid="8526513868622591894">"Scollegato"</string>
+    <string name="unknown" msgid="555736316465118024">"Sconosciuto"</string>
+    <string name="app_running_msg_channel_name" msgid="87011783084544733">"Servizio di messaggistica telefonica in esecuzione"</string>
+    <string name="app_running_msg_notification_title" msgid="388907180286994900">"Il servizio di messaggistica telefonica è attivo"</string>
+    <string name="app_running_msg_notification_content" msgid="4602261901969140233">"Ricezione di SMS tramite dispositivo complementare"</string>
+    <string name="trusted_device_feature_title" msgid="2690568414493283969">"Sblocca il profilo con il telefono"</string>
+    <string name="trusted_device_feature_instruction" msgid="2546439818978826962">"Verifica la tua app complementare per impostare le opzioni di sblocco"</string>
+    <string name="trusted_device_item_title" msgid="4390572381407233745">"Consenti a &lt;b&gt;<xliff:g id="PHONE_NAME">%1$s</xliff:g>&lt;/b&gt; di sbloccare il mio profilo"</string>
+    <string name="device_not_connected_dialog_title" msgid="1157155922752758658">"Il telefono deve avere una connessione attiva"</string>
+    <string name="device_not_connected_dialog_message" msgid="4987412656697205324">"Per attivare questa funzionalità, assicurati che l\'auto e il telefono abbiano il Bluetooth attivato e che il telefono si trovi vicino al veicolo"</string>
+    <string name="trusted_device_enrollment_success_message" msgid="2080578779942302923">"Ora &lt;b&gt;<xliff:g id="PHONE_NAME">%1$s</xliff:g>&lt;/b&gt; può sbloccare il tuo profilo"</string>
+    <string name="create_profile_lock_dialog_title" msgid="7865225698595414341">"Crea un blocco del profilo principale"</string>
+    <string name="create_profile_lock_dialog_message" msgid="5078929325894045416">"Per utilizzare il telefono per sbloccare il profilo, ti serve un blocco del profilo principale come backup"</string>
+    <string name="unlock_profile_to_finish_title" msgid="6542028315996392302">"Sblocca il profilo per terminare"</string>
+    <string name="unlock_profile_to_finish_message" msgid="8616094218201557262">"Hai creato un nuovo blocco profilo. Ora, inseriscilo di nuovo per confermare che il telefono può sbloccare automaticamente il profilo"</string>
+    <string name="disable_device_connection_text" msgid="4361795552013963732">"Scollega questo dispositivo"</string>
+    <string name="enable_device_connection_text" msgid="7742550392552935783">"Ricollega questo dispositivo"</string>
+    <string name="trusted_device_notification_channel_name" msgid="6717174570621750321">"Sblocca con il telefono"</string>
+    <string name="trusted_device_notification_title" msgid="249913439061543209">"Consenti al telefono di sbloccare il tuo profilo"</string>
+    <string name="trusted_device_notification_content" msgid="7536321078698712456">"Tocca qui per autorizzare questa funzionalità"</string>
+    <string name="trusted_device_enrollment_error_dialog_title" msgid="8120284275374458606">"Si è verificato un errore"</string>
+    <string name="trusted_device_enrollment_error_dialog_message" msgid="7205036748277720461">"La funzionalità non può essere disattivata in questo momento. Riprova."</string>
+    <string name="create_phone_lock_dialog_title" msgid="9160142569534569820">"Crea un blocco schermo sul telefono"</string>
+    <string name="create_phone_lock_dialog_message" msgid="8209460622086922427">"Sul telefono non è configurato un blocco schermo. Per sbloccare il profilo della tua auto con il telefono, devi prima creare un blocco schermo, noto anche come passcode, nelle impostazioni del telefono."</string>
+</resources>

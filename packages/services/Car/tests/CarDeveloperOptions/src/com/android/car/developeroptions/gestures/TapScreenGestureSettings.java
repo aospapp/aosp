@@ -21,13 +21,13 @@ import android.content.SharedPreferences;
 import android.hardware.display.AmbientDisplayConfiguration;
 import android.provider.SearchIndexableResource;
 
-import com.android.internal.logging.nano.MetricsProto;
 import com.android.car.developeroptions.R;
 import com.android.car.developeroptions.dashboard.DashboardFragment;
 import com.android.car.developeroptions.dashboard.suggestions.SuggestionFeatureProvider;
 import com.android.car.developeroptions.overlay.FeatureFactory;
 import com.android.car.developeroptions.search.BaseSearchIndexProvider;
-import com.android.car.developeroptions.search.Indexable;
+import com.android.internal.logging.nano.MetricsProto;
+import com.android.settingslib.search.Indexable;
 import com.android.settingslib.search.SearchIndexable;
 
 import java.util.Arrays;

@@ -27,6 +27,7 @@ import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.TransitionDrawable;
 import android.os.AsyncTask;
+import android.view.View;
 import android.widget.ImageView;
 
 import androidx.annotation.Nullable;
@@ -44,7 +45,7 @@ public abstract class Asset {
      */
     protected static Drawable getPlaceholderDrawable(
             Context context, ImageView imageView, int placeholderColor) {
-        Point imageViewDimensions = getImageViewDimensions(imageView);
+        Point imageViewDimensions = getViewDimensions(imageView);
         Bitmap placeholderBitmap =
                 Bitmap.createBitmap(imageViewDimensions.x, imageViewDimensions.y, Config.ARGB_8888);
         placeholderBitmap.eraseColor(placeholderColor);
@@ -52,16 +53,13 @@ public abstract class Asset {
     }
 
     /**
-     * Returns the visible height and width in pixels of the provided ImageView, or if it hasn't been
-     * laid out yet, then gets the absolute value of the layout params.
+     * Returns the visible height and width in pixels of the provided ImageView, or if it hasn't
+     * been laid out yet, then gets the absolute value of the layout params.
      */
-    private static Point getImageViewDimensions(ImageView imageView) {
-        int width = imageView.getWidth() > 0
-                ? imageView.getWidth()
-                : Math.abs(imageView.getLayoutParams().width);
-        int height = imageView.getHeight() > 0
-                ? imageView.getHeight()
-                : Math.abs(imageView.getLayoutParams().height);
+    private static Point getViewDimensions(View view) {
+        int width = view.getWidth() > 0 ? view.getWidth() : Math.abs(view.getLayoutParams().width);
+        int height = view.getHeight() > 0 ? view.getHeight()
+                : Math.abs(view.getLayoutParams().height);
 
         return new Point(width, height);
     }
@@ -79,31 +77,32 @@ public abstract class Asset {
     /**
      * Decodes and downscales a bitmap region off the main UI thread.
      *
-     * @param rect         Rect representing the crop region in terms of the original image's resolution.
+     * @param rect         Rect representing the crop region in terms of the original image's
+     *                     resolution.
      * @param targetWidth  Width of target view in physical pixels.
      * @param targetHeight Height of target view in physical pixels.
-     * @param receiver     Called with the decoded bitmap region or null if there was an error decoding
-     *                     the bitmap region.
+     * @param receiver     Called with the decoded bitmap region or null if there was an error
+     *                     decoding the bitmap region.
      */
     public abstract void decodeBitmapRegion(Rect rect, int targetWidth, int targetHeight,
-                                            BitmapReceiver receiver);
+            BitmapReceiver receiver);
 
     /**
      * Calculates the raw dimensions of the asset at its original resolution off the main UI thread.
      * Avoids decoding the entire bitmap if possible to conserve memory.
      *
      * @param activity Activity in which this decoding request is made. Allows for early termination
-     *                 of fetching image data and/or decoding to a bitmap. May be null, in which case the request
-     *                 is made in the application context instead.
-     * @param receiver Called with the decoded raw dimensions of the whole image or null if there was
-     *                 an error decoding the dimensions.
+     *                 of fetching image data and/or decoding to a bitmap. May be null, in which
+     *                 case the request is made in the application context instead.
+     * @param receiver Called with the decoded raw dimensions of the whole image or null if there
+     *                 was an error decoding the dimensions.
      */
     public abstract void decodeRawDimensions(@Nullable Activity activity,
-                                             DimensionsReceiver receiver);
+            DimensionsReceiver receiver);
 
     /**
-     * Returns whether this asset has access to a separate, lower fidelity source of image data (that
-     * may be able to be loaded more quickly to simulate progressive loading).
+     * Returns whether this asset has access to a separate, lower fidelity source of image data
+     * (that may be able to be loaded more quickly to simulate progressive loading).
      */
     public boolean hasLowResDataSource() {
         return false;
@@ -117,7 +116,7 @@ public abstract class Asset {
      *                       post-decoding.
      */
     public void loadLowResDrawable(Activity activity, ImageView imageView, int placeholderColor,
-                                   BitmapTransformation transformation) {
+            BitmapTransformation transformation) {
         // No op
     }
 
@@ -129,12 +128,14 @@ public abstract class Asset {
     /**
      * Loads a Drawable for this asset into the provided ImageView. While waiting for the image to
      * load, first loads a ColorDrawable based on the provided placeholder color.
-     *  @param context         Activity hosting the ImageView.
+     *
+     * @param context          Activity hosting the ImageView.
      * @param imageView        ImageView which is the target view of this asset.
-     * @param placeholderColor Color of placeholder set to ImageView while waiting for image to load.
+     * @param placeholderColor Color of placeholder set to ImageView while waiting for image to
+     *                         load.
      */
     public void loadDrawable(final Context context, final ImageView imageView,
-                             int placeholderColor) {
+            int placeholderColor) {
         // Transition from a placeholder ColorDrawable to the decoded bitmap when the ImageView in
         // question is empty.
         final boolean needsTransition = imageView.getDrawable() == null;
@@ -144,7 +145,8 @@ public abstract class Asset {
         }
 
         // Set requested height and width to the either the actual height and width of the view in
-        // pixels, or if it hasn't been laid out yet, then to the absolute value of the layout params.
+        // pixels, or if it hasn't been laid out yet, then to the absolute value of the layout
+        // params.
         int width = imageView.getWidth() > 0
                 ? imageView.getWidth()
                 : Math.abs(imageView.getLayoutParams().width);
@@ -179,11 +181,13 @@ public abstract class Asset {
     /**
      * Loads a Drawable for this asset into the provided ImageView, providing a crossfade transition
      * with the given duration from the Drawable previously set on the ImageView.
-     * @param context                 Activity hosting the ImageView.
+     *
+     * @param context                  Activity hosting the ImageView.
      * @param imageView                ImageView which is the target view of this asset.
      * @param transitionDurationMillis Duration of the crossfade, in milliseconds.
      * @param drawableLoadedListener   Listener called once the transition has begun.
-     * @param placeholderColor         Color of the placeholder if the provided ImageView is empty before the
+     * @param placeholderColor         Color of the placeholder if the provided ImageView is empty
+     *                                 before the
      */
     public void loadDrawableWithTransition(
             final Context context,
@@ -191,13 +195,14 @@ public abstract class Asset {
             final int transitionDurationMillis,
             @Nullable final DrawableLoadedListener drawableLoadedListener,
             int placeholderColor) {
-        Point imageViewDimensions = getImageViewDimensions(imageView);
+        Point imageViewDimensions = getViewDimensions(imageView);
 
         // Transition from a placeholder ColorDrawable to the decoded bitmap when the ImageView in
         // question is empty.
         boolean needsPlaceholder = imageView.getDrawable() == null;
         if (needsPlaceholder) {
-            imageView.setImageDrawable(getPlaceholderDrawable(context, imageView, placeholderColor));
+            imageView.setImageDrawable(
+                    getPlaceholderDrawable(context, imageView, placeholderColor));
         }
 
         decodeBitmap(imageViewDimensions.x, imageViewDimensions.y, new BitmapReceiver() {
@@ -212,8 +217,10 @@ public abstract class Asset {
                         Drawable existingDrawable = imageView.getDrawable();
 
                         if (existingDrawable instanceof TransitionDrawable) {
-                            // Take only the second layer in the existing TransitionDrawable so we don't keep
-                            // around a reference to older layers which are no longer shown (this way we avoid a
+                            // Take only the second layer in the existing TransitionDrawable so
+                            // we don't keep
+                            // around a reference to older layers which are no longer shown (this
+                            // way we avoid a
                             // memory leak).
                             TransitionDrawable existingTransitionDrawable =
                                     (TransitionDrawable) existingDrawable;
@@ -259,7 +266,8 @@ public abstract class Asset {
          * Called with raw dimensions of asset or null if the asset is unable to decode the raw
          * dimensions.
          *
-         * @param dimensions Dimensions as a Point where width is represented by "x" and height by "y".
+         * @param dimensions Dimensions as a Point where width is represented by "x" and height by
+         *                   "y".
          */
         void onDimensionsDecoded(@Nullable Point dimensions);
     }
@@ -272,10 +280,10 @@ public abstract class Asset {
     }
 
     /**
-     * Custom AsyncTask which returns a copy of the given bitmap which is center cropped and scaled to
-     * fit in the given ImageView.
+     * Custom AsyncTask which returns a copy of the given bitmap which is center cropped and scaled
+     * to fit in the given ImageView.
      */
-    protected static class CenterCropBitmapTask extends AsyncTask<Void, Void, Bitmap> {
+    public static class CenterCropBitmapTask extends AsyncTask<Void, Void, Bitmap> {
 
         private Bitmap mBitmap;
         private BitmapReceiver mBitmapReceiver;
@@ -283,12 +291,12 @@ public abstract class Asset {
         private int mImageViewWidth;
         private int mImageViewHeight;
 
-        public CenterCropBitmapTask(Bitmap bitmap, ImageView imageView,
-                                    BitmapReceiver bitmapReceiver) {
+        public CenterCropBitmapTask(Bitmap bitmap, View view,
+                BitmapReceiver bitmapReceiver) {
             mBitmap = bitmap;
             mBitmapReceiver = bitmapReceiver;
 
-            Point imageViewDimensions = getImageViewDimensions(imageView);
+            Point imageViewDimensions = getViewDimensions(view);
 
             mImageViewWidth = imageViewDimensions.x;
             mImageViewHeight = imageViewDimensions.y;
@@ -307,7 +315,8 @@ public abstract class Asset {
                     (float) bitmapHeight / measuredHeight);
 
             Bitmap scaledBitmap = Bitmap.createScaledBitmap(
-                    mBitmap, Math.round(bitmapWidth / scale), Math.round(bitmapHeight / scale), true);
+                    mBitmap, Math.round(bitmapWidth / scale), Math.round(bitmapHeight / scale),
+                    true);
 
             int horizontalGutterPx = Math.max(0, (scaledBitmap.getWidth() - measuredWidth) / 2);
             int verticalGutterPx = Math.max(0, (scaledBitmap.getHeight() - measuredHeight) / 2);

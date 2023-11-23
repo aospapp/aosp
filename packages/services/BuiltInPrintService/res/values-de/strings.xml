@@ -60,6 +60,11 @@
     <string name="forget" msgid="892068061425802502">"Entfernen"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"Verbindung über Wi-Fi Direct"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"Verbindung über das aktuelle Netzwerk mit der IP-Adresse <xliff:g id="IP_ADDRESS">%1$s</xliff:g>"</string>
+    <string name="recommendation_summary" msgid="2979700524954307566">"Der Standarddruckdienst bietet Basisoptionen. Ein anderer Druckdienst hat für diesen Drucker möglicherweise weitere Optionen."</string>
+    <string name="recommendations_heading" msgid="5086762263560605249">"Empfohlene Dienste"</string>
+    <string name="recommendation_install_summary" msgid="374785283809791669">"Zum Installieren auswählen"</string>
+    <string name="recommendation_enable_summary" msgid="3500907868251326224">"Zum Aktivieren auswählen"</string>
+    <string name="recommendation_manage" msgid="4683640588502866284">"Dienste verwalten"</string>
     <string name="security" msgid="2279008326210305401">"Sicherheit"</string>
     <string name="certificate_update_request" msgid="1314796413107139475">"Dieser Drucker hat ein neues Sicherheitszertifikat oder ein anderes Gerät nutzt dessen Identität. Möchtest du das neue Zertifikat akzeptieren?"</string>
     <string name="not_encrypted_request" msgid="4871472176807381642">"Dieser Drucker akzeptiert keine verschlüsselten Aufträge mehr. Weiter drucken?"</string>
@@ -68,4 +73,5 @@
     <string name="connections" msgid="8895413761760117180">"Verbindungen"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Der Standarddruckdienst erfordert eine Berechtigung zur Standortermittlung, um Geräte in der Nähe zu finden."</string>
     <string name="fix" msgid="7784394272611365393">"Berechtigung prüfen"</string>
+    <string name="print" msgid="7851318072404916362">"Drucken"</string>
 </resources>

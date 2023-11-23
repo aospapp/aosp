@@ -18,11 +18,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.android.tv.tuner.tests" >
 
-    <uses-sdk android:minSdkVersion="23" android:targetSdkVersion="27" />
+    <uses-sdk android:minSdkVersion="23" android:targetSdkVersion="29" />
 
     <instrumentation
         android:name="androidx.test.runner.AndroidJUnitRunner"
-        android:targetPackage="com.android.tv" />
+        android:targetPackage="com.android.tv.tuner.sample.dvb" />
 
     <application android:label="TunerTvInputTests" >
         <uses-library android:name="android.test.runner" />

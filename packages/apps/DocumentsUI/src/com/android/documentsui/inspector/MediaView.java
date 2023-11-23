@@ -238,9 +238,12 @@ public class MediaView extends TableView implements MediaDisplay {
                         String formattedAddress;
                         StringBuilder addressBuilder = new StringBuilder("");
                         addressBuilder.append(address.getAddressLine(0));
-                        for (int i = 1; i < address.getMaxAddressLineIndex(); i++) {
+                        for (int i = 1; i <= address.getMaxAddressLineIndex(); i++) {
                             addressBuilder.append("\n");
-                            addressBuilder.append(address.getAddressLine(i));
+                            String addressLine = address.getAddressLine(i);
+                            if (addressLine != null) {
+                                addressBuilder.append(addressLine);
+                            }
                         }
                         formattedAddress = addressBuilder.toString();
                         table.put(R.string.metadata_address, formattedAddress);

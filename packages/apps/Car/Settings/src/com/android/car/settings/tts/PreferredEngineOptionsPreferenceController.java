@@ -31,6 +31,7 @@ import com.android.car.settings.R;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.Logger;
 import com.android.car.settings.common.PreferenceController;
+import com.android.car.ui.preference.CarUiPreference;
 
 /** Populates the possible tts engines to set as the preferred engine. */
 public class PreferredEngineOptionsPreferenceController extends
@@ -64,17 +65,17 @@ public class PreferredEngineOptionsPreferenceController extends
         mTts = new TextToSpeech(getContext(), /* listener= */ null);
 
         for (TextToSpeech.EngineInfo engine : mEnginesHelper.getEngines()) {
-            TtsPreference preference = new TtsPreference(getContext(), engine);
+            CarUiPreference preference = new CarUiPreference(getContext());
             preference.setKey(engine.name);
             preference.setTitle(engine.label);
+            preference.setShowChevron(false);
             preference.setOnPreferenceClickListener(pref -> {
-                TextToSpeech.EngineInfo engineInfo = ((TtsPreference) pref).getEngineInfo();
                 TextToSpeech.EngineInfo current = mEnginesHelper.getEngineInfo(
                         mTts.getCurrentEngine());
-                if (TextUtils.equals(engineInfo.label, current.label)) {
+                if (TextUtils.equals(engine.label, current.label)) {
                     return false;
                 }
-                updateDefaultEngine(engineInfo.name);
+                updateDefaultEngine(engine.name);
                 return true;
             });
             getPreference().addPreference(preference);
@@ -106,7 +107,7 @@ public class PreferredEngineOptionsPreferenceController extends
     protected void updateState(PreferenceGroup preference) {
         TextToSpeech.EngineInfo current = mEnginesHelper.getEngineInfo(mTts.getCurrentEngine());
         for (int i = 0; i < preference.getPreferenceCount(); i++) {
-            TtsPreference pref = (TtsPreference) preference.getPreference(i);
+            CarUiPreference pref = (CarUiPreference) preference.getPreference(i);
             if (pref.getTitle().equals(current.label)) {
                 pref.setSummary(R.string.text_to_speech_current_engine);
             } else {

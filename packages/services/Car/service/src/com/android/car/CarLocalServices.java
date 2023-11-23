@@ -17,6 +17,7 @@
 package com.android.car;
 
 import android.annotation.Nullable;
+import android.car.Car;
 import android.car.hardware.power.CarPowerManager;
 import android.content.Context;
 import android.util.ArrayMap;
@@ -90,10 +91,12 @@ public class CarLocalServices {
      */
     @Nullable
     public static CarPowerManager createCarPowerManager(Context context) {
+        // This does not require connection as binder will be passed to CarPowerManager directly.
+        Car car = new Car(context, /* service= */null, /* handler= */ null);
         CarPowerManagementService service = getService(CarPowerManagementService.class);
         if (service == null) {
             return null;
         }
-        return new CarPowerManager(service, context, null);
+        return new CarPowerManager(car, service);
     }
 }

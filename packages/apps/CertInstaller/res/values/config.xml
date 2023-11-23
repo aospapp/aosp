@@ -15,6 +15,6 @@
 -->
 
 <resources>
-  <bool name="config_auto_cert_approval">true</bool>
+  <string name="config_system_install_component" translatable="false">com.android.settings/com.android.settings.security.CredentialStorage</string>
 </resources>
 

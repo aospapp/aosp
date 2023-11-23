@@ -16,8 +16,7 @@ limitations under the License.
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <!-- no translation found for control_bar_expand_collapse_button (3420351169078117938) -->
-    <skip />
+    <string name="control_bar_expand_collapse_button" msgid="3420351169078117938">"“展开”/“收起”按钮"</string>
     <string name="car_drawer_open" msgid="2676372472514742324">"打开抽屉式导航栏"</string>
     <string name="car_drawer_close" msgid="5329374630462464855">"关闭抽屉式导航栏"</string>
     <string name="restricted_while_driving" msgid="2278031053760704437">"驾车时无法使用此功能。"</string>

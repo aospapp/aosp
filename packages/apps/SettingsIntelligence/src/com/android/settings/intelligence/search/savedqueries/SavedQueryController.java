@@ -16,18 +16,18 @@
 
 package com.android.settings.intelligence.search.savedqueries;
 
-import android.app.LoaderManager;
 import android.content.Context;
-import android.content.Loader;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import androidx.loader.app.LoaderManager;
+import androidx.loader.content.Loader;
 
 import com.android.settings.intelligence.R;
 import com.android.settings.intelligence.overlay.FeatureFactory;
+import com.android.settings.intelligence.search.SearchCommon;
 import com.android.settings.intelligence.search.SearchFeatureProvider;
-import com.android.settings.intelligence.search.SearchFragment;
 import com.android.settings.intelligence.search.SearchResult;
 import com.android.settings.intelligence.search.SearchResultsAdapter;
 
@@ -59,11 +59,11 @@ public class SavedQueryController implements LoaderManager.LoaderCallbacks,
     @Override
     public Loader onCreateLoader(int id, Bundle args) {
         switch (id) {
-            case SearchFragment.SearchLoaderId.SAVE_QUERY_TASK:
+            case SearchCommon.SearchLoaderId.SAVE_QUERY_TASK:
                 return new SavedQueryRecorder(mContext, args.getString(ARG_QUERY));
-            case SearchFragment.SearchLoaderId.REMOVE_QUERY_TASK:
+            case SearchCommon.SearchLoaderId.REMOVE_QUERY_TASK:
                 return new SavedQueryRemover(mContext);
-            case SearchFragment.SearchLoaderId.SAVED_QUERIES:
+            case SearchCommon.SearchLoaderId.SAVED_QUERIES:
                 return mSearchFeatureProvider.getSavedQueryLoader(mContext);
         }
         return null;
@@ -72,11 +72,11 @@ public class SavedQueryController implements LoaderManager.LoaderCallbacks,
     @Override
     public void onLoadFinished(Loader loader, Object data) {
         switch (loader.getId()) {
-            case SearchFragment.SearchLoaderId.REMOVE_QUERY_TASK:
-                mLoaderManager.restartLoader(SearchFragment.SearchLoaderId.SAVED_QUERIES,
+            case SearchCommon.SearchLoaderId.REMOVE_QUERY_TASK:
+                mLoaderManager.restartLoader(SearchCommon.SearchLoaderId.SAVED_QUERIES,
                         null /* args */, this /* callback */);
                 break;
-            case SearchFragment.SearchLoaderId.SAVED_QUERIES:
+            case SearchCommon.SearchLoaderId.SAVED_QUERIES:
                 if (SearchFeatureProvider.DEBUG) {
                     Log.d(TAG, "Saved queries loaded");
                 }
@@ -107,7 +107,7 @@ public class SavedQueryController implements LoaderManager.LoaderCallbacks,
     public void saveQuery(String query) {
         final Bundle args = new Bundle();
         args.putString(ARG_QUERY, query);
-        mLoaderManager.restartLoader(SearchFragment.SearchLoaderId.SAVE_QUERY_TASK, args,
+        mLoaderManager.restartLoader(SearchCommon.SearchLoaderId.SAVE_QUERY_TASK, args,
                 this /* callback */);
     }
 
@@ -116,7 +116,7 @@ public class SavedQueryController implements LoaderManager.LoaderCallbacks,
      */
     public void removeQueries() {
         final Bundle args = new Bundle();
-        mLoaderManager.restartLoader(SearchFragment.SearchLoaderId.REMOVE_QUERY_TASK, args,
+        mLoaderManager.restartLoader(SearchCommon.SearchLoaderId.REMOVE_QUERY_TASK, args,
                 this /* callback */);
     }
 
@@ -124,7 +124,7 @@ public class SavedQueryController implements LoaderManager.LoaderCallbacks,
         if (SearchFeatureProvider.DEBUG) {
             Log.d(TAG, "loading saved queries");
         }
-        mLoaderManager.restartLoader(SearchFragment.SearchLoaderId.SAVED_QUERIES, null /* args */,
+        mLoaderManager.restartLoader(SearchCommon.SearchLoaderId.SAVED_QUERIES, null /* args */,
                 this /* callback */);
     }
 }

@@ -23,16 +23,15 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
-
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 
 
 /** Unit test for {@link FileSizeFormatter}. */
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 public class FileSizeFormatterTest {
     private Context mContext;
 
@@ -42,67 +41,67 @@ public class FileSizeFormatterTest {
     }
 
     @Test
-    public void formatFileSize_zero() throws Exception {
+    public void formatFileSize_zero() {
         assertThat(
                 FileSizeFormatter.formatFileSize(
                         mContext,
-                        0 /* size */,
+                        /* sizeBytes= */ 0,
                         com.android.internal.R.string.gigabyteShort,
                         GIGABYTE_IN_BYTES))
                 .isEqualTo("0.00 GB");
     }
 
     @Test
-    public void formatFileSize_smallSize() throws Exception {
+    public void formatFileSize_smallSize() {
         assertThat(
                 FileSizeFormatter.formatFileSize(
                         mContext,
-                        MEGABYTE_IN_BYTES * 11 /* size */,
+                        /* sizeBytes= */ MEGABYTE_IN_BYTES * 11,
                         com.android.internal.R.string.gigabyteShort,
                         GIGABYTE_IN_BYTES))
                 .isEqualTo("0.01 GB");
     }
 
     @Test
-    public void formatFileSize_lessThanOneSize() throws Exception {
+    public void formatFileSize_lessThanOneSize() {
         assertThat(
                 FileSizeFormatter.formatFileSize(
                         mContext,
-                        MEGABYTE_IN_BYTES * 155 /* size */,
+                        /* sizeBytes= */ MEGABYTE_IN_BYTES * 155,
                         com.android.internal.R.string.gigabyteShort,
                         GIGABYTE_IN_BYTES))
                 .isEqualTo("0.16 GB");
     }
 
     @Test
-    public void formatFileSize_greaterThanOneSize() throws Exception {
+    public void formatFileSize_greaterThanOneSize() {
         assertThat(
                 FileSizeFormatter.formatFileSize(
                         mContext,
-                        MEGABYTE_IN_BYTES * 1551 /* size */,
+                        /* sizeBytes= */ MEGABYTE_IN_BYTES * 1551,
                         com.android.internal.R.string.gigabyteShort,
                         GIGABYTE_IN_BYTES))
                 .isEqualTo("1.6 GB");
     }
 
     @Test
-    public void formatFileSize_greaterThanTen() throws Exception {
+    public void formatFileSize_greaterThanTen() {
         // Should round down due to truncation
         assertThat(
                 FileSizeFormatter.formatFileSize(
                         mContext,
-                        GIGABYTE_IN_BYTES * 15 + MEGABYTE_IN_BYTES * 50 /* size */,
+                        /* sizeBytes= */ GIGABYTE_IN_BYTES * 15 + MEGABYTE_IN_BYTES * 50,
                         com.android.internal.R.string.gigabyteShort,
                         GIGABYTE_IN_BYTES))
                 .isEqualTo("15 GB");
     }
 
     @Test
-    public void formatFileSize_handlesNegativeFileSizes() throws Exception {
+    public void formatFileSize_handlesNegativeFileSizes() {
         assertThat(
                 FileSizeFormatter.formatFileSize(
                         mContext,
-                        MEGABYTE_IN_BYTES * -155 /* size */,
+                        /* sizeBytes= */ MEGABYTE_IN_BYTES * -155,
                         com.android.internal.R.string.gigabyteShort,
                         GIGABYTE_IN_BYTES))
                 .isEqualTo("-0.16 GB");

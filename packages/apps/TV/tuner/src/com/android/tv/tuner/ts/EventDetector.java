@@ -20,12 +20,13 @@ import android.util.Log;
 import android.util.SparseArray;
 import android.util.SparseBooleanArray;
 import com.android.tv.tuner.api.Tuner;
+import com.android.tv.tuner.data.Channel.DeliverySystemType;
 import com.android.tv.tuner.data.PsiData;
 import com.android.tv.tuner.data.PsipData;
 import com.android.tv.tuner.data.PsipData.EitItem;
+import com.android.tv.tuner.data.Track.AtscAudioTrack;
+import com.android.tv.tuner.data.Track.AtscCaptionTrack;
 import com.android.tv.tuner.data.TunerChannel;
-import com.android.tv.tuner.data.nano.Track.AtscAudioTrack;
-import com.android.tv.tuner.data.nano.Track.AtscCaptionTrack;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -51,6 +52,7 @@ public class EventDetector {
     private final SparseBooleanArray mVctCaptionTracksFound = new SparseBooleanArray();
     private final SparseBooleanArray mEitCaptionTracksFound = new SparseBooleanArray();
     private final List<EventListener> mEventListeners = new ArrayList<>();
+    private DeliverySystemType mDeliverySystemType;
     private int mFrequency;
     private String mModulation;
     private int mProgramNumber = ALL_PROGRAM_NUMBERS;
@@ -170,6 +172,7 @@ public class EventDetector {
                     }
                     tunerChannel.setAudioTracks(audioTracks);
                     tunerChannel.setCaptionTracks(captionTracks);
+                    tunerChannel.setDeliverySystemType(mDeliverySystemType);
                     tunerChannel.setFrequency(mFrequency);
                     tunerChannel.setModulation(mModulation);
                     mChannelMap.put(tunerChannel.getProgramNumber(), tunerChannel);
@@ -209,6 +212,7 @@ public class EventDetector {
                     int channelProgramNumber = channel.getServiceId();
                     tunerChannel.setAudioTracks(audioTracks);
                     tunerChannel.setCaptionTracks(captionTracks);
+                    tunerChannel.setDeliverySystemType(mDeliverySystemType);
                     tunerChannel.setFrequency(mFrequency);
                     tunerChannel.setModulation(mModulation);
                     mChannelMap.put(tunerChannel.getProgramNumber(), tunerChannel);
@@ -252,10 +256,18 @@ public class EventDetector {
 
     private void reset() {
         // TODO: Use TsParser.reset()
+        int[] deliverySystemTypes = mTunerHal.getDeliverySystemTypes();
+        boolean isDvbSignal = false;
+        for (int i = 0; i < deliverySystemTypes.length; i++) {
+            if (Tuner.isDvbDeliverySystem(deliverySystemTypes[i])) {
+                isDvbSignal = true;
+                break;
+            }
+        }
         mTsParser =
                 new TsParser(
                         mTsOutputListener,
-                        Tuner.isDvbDeliverySystem(mTunerHal.getDeliverySystemType()));
+                        isDvbSignal);
         mPidSet.clear();
         mVctProgramNumberSet.clear();
         mSdtProgramNumberSet.clear();
@@ -272,8 +284,10 @@ public class EventDetector {
      * @param programNumber The program number if this is for handling tune request. For scanning
      *     purpose, supply {@link #ALL_PROGRAM_NUMBERS}.
      */
-    public void startDetecting(int frequency, String modulation, int programNumber) {
+    public void startDetecting(DeliverySystemType deliverySystemType, int frequency,
+                               String modulation, int programNumber) {
         reset();
+        mDeliverySystemType = deliverySystemType;
         mFrequency = frequency;
         mModulation = modulation;
         mProgramNumber = programNumber;

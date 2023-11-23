@@ -17,13 +17,14 @@
 package com.android.tv.testing;
 
 import android.content.Context;
+import com.android.tv.common.flags.impl.DefaultLegacyFlags;
 import com.android.tv.util.TvInputManagerHelper;
 
 /** Fake TvInputManagerHelper. */
 public class FakeTvInputManagerHelper extends TvInputManagerHelper {
 
     public FakeTvInputManagerHelper(Context context) {
-        super(context, new FakeTvInputManager());
+        super(context, new FakeTvInputManager(), DefaultLegacyFlags.DEFAULT);
     }
 
     public FakeTvInputManager getFakeTvInputManager() {

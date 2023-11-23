@@ -19,13 +19,13 @@ package com.android.car.settings.system;
 import static android.content.Context.CARRIER_CONFIG_SERVICE;
 
 import android.car.drivingstate.CarUxRestrictions;
-import android.car.userlib.CarUserManagerHelper;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.os.PersistableBundle;
+import android.os.UserManager;
 import android.telephony.CarrierConfigManager;
 import android.text.TextUtils;
 
@@ -49,13 +49,13 @@ public class SystemUpdatePreferenceController extends PreferenceController<Prefe
 
     private static final Logger LOG = new Logger(SystemUpdatePreferenceController.class);
 
-    private final CarUserManagerHelper mCarUserManagerHelper;
+    private final UserManager mUserManager;
     private boolean mActivityFound;
 
     public SystemUpdatePreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
-        mCarUserManagerHelper = new CarUserManagerHelper(context);
+        mUserManager = UserManager.get(context);
     }
 
     @Override
@@ -68,7 +68,7 @@ public class SystemUpdatePreferenceController extends PreferenceController<Prefe
         if (!getContext().getResources().getBoolean(R.bool.config_show_system_update_settings)) {
             return UNSUPPORTED_ON_DEVICE;
         }
-        return mCarUserManagerHelper.isCurrentProcessAdminUser() ? AVAILABLE : DISABLED_FOR_USER;
+        return mUserManager.isAdminUser() ? AVAILABLE : DISABLED_FOR_USER;
     }
 
     @Override

@@ -83,8 +83,7 @@
     <string name="font_size_summary" msgid="9120023206321191067">"ಪರದೆಯ ಮೇಲೆ ಪಠ್ಯದ ಗಾತ್ರವನ್ನು ಹಿಗ್ಗಿಸಿ ಅಥವಾ ಕುಗ್ಗಿಸಿ."</string>
     <string name="font_size_make_smaller_desc" msgid="5780829318985556969">"ಚಿಕ್ಕದಾಗಿಸು"</string>
     <string name="font_size_make_larger_desc" msgid="2907824418252785875">"ದೊಡ್ಡದಾಗಿಸು"</string>
-    <!-- no translation found for font_size_preview_text (360019784926073822) -->
-    <skip />
+    <string name="font_size_preview_text" msgid="360019784926073822">"Servez à ce monsieur une bière et des kiwis."</string>
     <string name="font_size_preview_text_headline" msgid="8038650525913995091">"ಮಾದರಿ ಪಠ್ಯ"</string>
     <string name="font_size_preview_text_title" msgid="2593520249400910305">"Oz ನ ಅದ್ಭುತವಾದ ಮಾಂತ್ರಿಕ"</string>
     <string name="font_size_preview_text_subtitle" msgid="6106782964143379331">"ಅಧ್ಯಾಯ 11: Oz ನ ಅದ್ಭುತವಾದ ಎಮೆರಾಲ್ಡ್ ಸಿಟಿ"</string>
@@ -180,7 +179,7 @@
     <string name="connected_device_connected_title" msgid="6255107326608785482">"ಪ್ರಸ್ತುತ ಸಂಪರ್ಕಿಸಲಾಗಿದೆ"</string>
     <string name="connected_device_saved_title" msgid="8270136893488475163">"ಉಳಿಸಿರುವ ಸಾಧನಗಳು"</string>
     <string name="connected_device_add_device_summary" msgid="7960491471270158891">"ಜೋಡಿಸಲು ಬ್ಲೂಟೂತ್ ಆನ್ ಆಗುತ್ತದೆ"</string>
-    <string name="connected_device_connections_title" msgid="9205000271382018428">"ಸಂಪರ್ಕ ಆದ್ಯತೆಗಳು"</string>
+    <string name="connected_device_connections_title" msgid="9205000271382018428">"ಕನೆಕ್ಷನ್ ಆದ್ಯತೆಗಳು"</string>
     <string name="connected_device_previously_connected_title" msgid="225918223397410428">"ಹಿಂದೆ ಸಂಪರ್ಕಗೊಂಡಿದ್ದ ಸಾಧನಗಳು"</string>
     <string name="connected_device_previously_connected_screen_title" msgid="2018789662358162716">"ಹಿಂದೆ ಸಂಪರ್ಕಗೊಂಡಿದ್ದ"</string>
     <string name="connected_device_bluetooth_turned_on_toast" msgid="4652326177920814476">"ಬ್ಲೂಟೂತ್ ಆನ್ ಮಾಡಲಾಗಿದೆ"</string>
@@ -208,7 +207,7 @@
     <string name="proxy_error_empty_port" msgid="8034561724923076215">"ನೀವು ಪೋರ್ಟ್‌ ಕ್ಷೇತ್ರವನ್ನು ಪೂರ್ಣಗೊಳಿಸುವ ಅಗತ್ಯವಿದೆ."</string>
     <string name="proxy_error_empty_host_set_port" msgid="8471455809508588255">"ಹೋಸ್ಟ್ ಕ್ಷೇತ್ರವು ಖಾಲಿ ಇದ್ದಲ್ಲಿ, ಪೋರ್ಟ್‌ ಕ್ಷೇತ್ರವು ಕೂಡ ಖಾಲಿ ಇರಬೇಕು."</string>
     <string name="proxy_error_invalid_port" msgid="4046559920586100637">"ನೀವು ಟೈಪ್‌ ಮಾಡಿದ ಪೋರ್ಟ್ ಮಾನ್ಯವಾಗಿಲ್ಲ."</string>
-    <string name="proxy_warning_limited_support" msgid="9026539134219095768">"ಬ್ರೌಸರ್ HTTP ಪ್ರಾಕ್ಸಿ ಬಳಸಿಕೊಂಡಿದೆ. ಇತರೆ ಆಪ್‌ಗಳು ಬಳಸಿಕೊಳ್ಳದೆ ಇರಬಹುದು."</string>
+    <string name="proxy_warning_limited_support" msgid="9026539134219095768">"ಬ್ರೌಸರ್ HTTP ಪ್ರಾಕ್ಸಿ ಬಳಸಿಕೊಂಡಿದೆ. ಇತರೆ ಆ್ಯಪ್‌ಗಳು ಬಳಸಿಕೊಳ್ಳದೆ ಇರಬಹುದು."</string>
     <string name="proxy_url_title" msgid="882042361706435904">"PAC URL: "</string>
     <string name="radio_info_dl_kbps" msgid="2903778264453410272">"DL ಬ್ಯಾಂಡ್‌ವಿಡ್ತ್ (kbps):"</string>
     <string name="radio_info_ul_kbps" msgid="3802245899811732716">"UL ಬ್ಯಾಂಡ್‌ವಿಡ್ತ್ (kbps):"</string>
@@ -481,8 +480,7 @@
     <string name="face_lock_screen_setup_skip_dialog_text" product="tablet" msgid="2998863111689476550">"ನಿಮ್ಮ ಟ್ಯಾಬ್ಲೆಟ್ ಅನ್ನು ಸ್ಕ್ರೀನ್ ಲಾಕ್ ಆಯ್ಕೆಯ ಜೊತೆಗೆ ಸುರಕ್ಷಿತಗೊಳಿಸಿ, ಆದ್ದರಿಂದ ಅದು ಕಳೆದುಹೋದಾಗ ಅಥವಾ ಅಪಹರಣವಾದಾಗ ಅದನ್ನು ಯಾರಾದರೂ ಬಳಸಲು ಸಾಧ್ಯವಾಗುವುದಿಲ್ಲ. ಮುಖ ಗುರುತಿಸುವಿಕೆಯನ್ನು ಸೆಟಪ್ ಮಾಡಲು ನಿಮಗೆ ಸ್ಕ್ರೀನ್ ಲಾಕ್‌ ಆಯ್ಕೆಯೂ ಸಹ ಅಗತ್ಯವಿದೆ. ರದ್ದುಗೊಳಿಸಿ ಟ್ಯಾಪ್ ಮಾಡಿ, ನಂತರ ಪಿನ್ ಅನ್ನು ಹೊಂದಿಸಿ ಅಥವಾ ಮತ್ತೊಂದು ಸ್ಕ್ರೀನ್ ಲಾಕ್ ಆಯ್ಕೆಯನ್ನು ಆರಿಸಿ."</string>
     <string name="face_lock_screen_setup_skip_dialog_text" product="device" msgid="6780557259734235952">"ನಿಮ್ಮ ಸಾಧನವನ್ನು ಸ್ಕ್ರೀನ್ ಲಾಕ್ ಆಯ್ಕೆಯ ಜೊತೆಗೆ ಸುರಕ್ಷಿತಗೊಳಿಸಿ, ಆದ್ದರಿಂದ ಅದು ಕಳೆದುಹೋದಾಗ ಅಥವಾ ಅಪಹರಣವಾದಾಗ ಅದನ್ನು ಯಾರಾದರೂ ಬಳಸಲು ಸಾಧ್ಯವಾಗುವುದಿಲ್ಲ. ಮುಖ ಗುರುತಿಸುವಿಕೆಯನ್ನು ಸೆಟಪ್ ಮಾಡಲು ನಿಮಗೆ ಸ್ಕ್ರೀನ್ ಲಾಕ್‌ ಆಯ್ಕೆಯೂ ಸಹ ಅಗತ್ಯವಿದೆ. ರದ್ದುಗೊಳಿಸಿ ಟ್ಯಾಪ್ ಮಾಡಿ, ನಂತರ ಪಿನ್ ಅನ್ನು ಹೊಂದಿಸಿ ಅಥವಾ ಮತ್ತೊಂದು ಸ್ಕ್ರೀನ್ ಲಾಕ್ ಆಯ್ಕೆಯನ್ನು ಆರಿಸಿ."</string>
     <string name="face_lock_screen_setup_skip_dialog_text" product="default" msgid="8541640018478926775">"ನಿಮ್ಮ ಫೋನ್ ಅನ್ನು ಸ್ಕ್ರೀನ್ ಲಾಕ್ ಆಯ್ಕೆಯ ಜೊತೆಗೆ ಸುರಕ್ಷಿತಗೊಳಿಸಿ, ಆದ್ದರಿಂದ ಅದು ಕಳೆದುಹೋದಾಗ ಅಥವಾ ಅಪಹರಣವಾದಾಗ ಅದನ್ನು ಯಾರಾದರೂ ಬಳಸಲು ಸಾಧ್ಯವಾಗುವುದಿಲ್ಲ. ಮುಖ ಗುರುತಿಸುವಿಕೆಯನ್ನು ಸೆಟಪ್ ಮಾಡಲು ನಿಮಗೆ ಸ್ಕ್ರೀನ್ ಲಾಕ್‌ ಆಯ್ಕೆಯೂ ಸಹ ಅಗತ್ಯವಿದೆ. ರದ್ದುಗೊಳಿಸಿ ಟ್ಯಾಪ್ ಮಾಡಿ, ನಂತರ ಪಿನ್ ಅನ್ನು ಹೊಂದಿಸಿ ಅಥವಾ ಮತ್ತೊಂದು ಸ್ಕ್ರೀನ್ ಲಾಕ್ ಆಯ್ಕೆಯನ್ನು ಆರಿಸಿ."</string>
-    <!-- no translation found for lock_screen_pin_skip_title (8217519439213393785) -->
-    <skip />
+    <string name="lock_screen_pin_skip_title" msgid="8217519439213393785">"ಪಿನ್ ಸೆಟಪ್ ಸ್ಕಿಪ್ ಮಾಡಬೇಕೇ?"</string>
     <string name="lock_screen_password_skip_title" msgid="3725788215672959827">"ಪಾಸ್‌ವರ್ಡ್ ಸೆಟಪ್ ಸ್ಕಿಪ್ ಮಾಡುವುದೇ?"</string>
     <string name="lock_screen_pattern_skip_title" msgid="4237030500353932005">"ಪ್ಯಾಟರ್ನ್ ಸೆಟಪ್ ಸ್ಕಿಪ್ ಮಾಡುವುದೇ?"</string>
     <string name="security_settings_fingerprint_enroll_setup_screen_lock" msgid="9036983528330627756">"ಸ್ಕ್ರೀನ್ ಲಾಕ್ ಹೊಂದಿಸಿ"</string>
@@ -505,7 +503,7 @@
     <string name="fingerprint_delete_message" msgid="5895802741486967970">"ನೀವು ಈ ಫಿಂಗರ್‌ ಫ್ರಿಂಟ್ ಅಳಿಸಲು ಬಯಸುವಿರಾ?"</string>
     <string name="fingerprint_last_delete_message" msgid="3346252479778971442">"ನಿಮ್ಮ ಫೋನ್ ಅನ್‌ಲಾಕ್ ಮಾಡಲು, ಖರೀದಿಗಳನ್ನು ದೃಢೀಕರಿಸಲು ಅಥವಾ ಅಪ್ಲಿಕೇಶನ್‌ಗಳಿಗೆ ಸೈನ್ ಇನ್ ಮಾಡಲು ನಿಮ್ಮ ಫಿಂಗರ್‌ ಪ್ರಿಂಟ್‌ಗಳನ್ನು ಬಳಸಲು ನಿಮಗೆ ಸಾಧ್ಯವಾಗುವುದಿಲ್ಲ."</string>
     <string name="fingerprint_last_delete_message_profile_challenge" msgid="5385095150532247025">"ನಿಮ್ಮ ಕೆಲಸದ ಪ್ರೊಫೈಲ್ ಅನ್‌ಲಾಕ್ ಮಾಡಲು, ಖರೀದಿಗಳನ್ನು ದೃಢೀಕರಿಸಲು ಅಥವಾ ಕೆಲಸದ ಅಪ್ಲಿಕೇಶನ್‌ಗಳಿಗೆ ಸೈನ್ ಇನ್ ಮಾಡಲು ನಿಮ್ಮ ಫಿಂಗರ್‌ ಪ್ರಿಂಟ್‌ಗಳನ್ನು ಬಳಸಲು ನಿಮಗೆ ಸಾಧ್ಯವಾಗುವುದಿಲ್ಲ."</string>
-    <string name="fingerprint_last_delete_confirm" msgid="7984595457589664004">"ಹೌದು, ತೆಗೆದುಹಾಕು"</string>
+    <string name="fingerprint_last_delete_confirm" msgid="7984595457589664004">"ಹೌದು, ತೆಗೆದುಹಾಕಿ"</string>
     <string name="crypt_keeper_settings_title" msgid="839783588093862748">"ಎನ್‌ಕ್ರಿಪ್ಷನ್"</string>
     <string name="crypt_keeper_encrypt_title" product="tablet" msgid="2292129135369853167">"ಟ್ಯಾಬ್ಲೆಟ್ ಅನ್ನು ಎನ್‌ಕ್ರಿಪ್ಟ್ ಮಾಡು"</string>
     <string name="crypt_keeper_encrypt_title" product="default" msgid="3110852053238357832">"ಫೋನ್ ಎನ್‌ಕ್ರಿಪ್ಟ್"</string>
@@ -629,7 +627,7 @@
     <string name="unlock_disable_frp_warning_content_unknown_fingerprint_profile" msgid="1201259228331105948">"ನಿಮ್ಮ ಸ್ಕ್ರೀನ್ ಲಾಕ್ ಇಲ್ಲದೆ ಪ್ರೊಫೈಲ್ ರಕ್ಷಣೆ ವೈಶಿಷ್ಟ್ಯಗಳು ಕಾರ್ಯನಿರ್ವಹಿಸುವುದಿಲ್ಲ.<xliff:g id="EMPTY_LINE">
 
 </xliff:g>ಈ ಪ್ರೊಫೈಲ್‌ನಿಂದ ನಿಮ್ಮ ಉಳಿಸಲಾದ ಫಿಂಗರ್‌ಪ್ರಿಂಟ್‌ಗಳನ್ನು ಸಹ ತೆಗೆದುಹಾಕಲಾಗುವುದು ಮತ್ತು ನಿಮ್ಮ ಫೋನ್ ಅನ್‌ಲಾಕ್ ಮಾಡಲು, ಖರೀದಿಗಳನ್ನು ದೃಢೀಕರಿಸಲು ಅಥವಾ ಅವುಗಳ ಮೂಲಕ ಅಪ್ಲಿಕೇಶನ್‌ಗಳಿಗೆ ಸೈನ್ ಇನ್ ಮಾಡಲು ನಿಮಗೆ ಸಾಧ್ಯವಾಗುವುದಿಲ್ಲ."</string>
-    <string name="unlock_disable_frp_warning_ok" msgid="2373890505202766456">"ಹೌದು, ತೆಗೆದುಹಾಕು"</string>
+    <string name="unlock_disable_frp_warning_ok" msgid="2373890505202766456">"ಹೌದು, ತೆಗೆದುಹಾಕಿ"</string>
     <string name="unlock_change_lock_pattern_title" msgid="7622476883851319877">"ಅನ್‌ಲಾಕ್ ನಮೂನೆಯನ್ನು ಬದಲಾಯಿಸಿ"</string>
     <string name="unlock_change_lock_pin_title" msgid="6671224158800812238">"ಅನ್‌ಲಾಕ್ ಪಿನ್‌ ಬದಲಾಯಿಸಿ"</string>
     <string name="unlock_change_lock_password_title" msgid="7886432065775170719">"ಅನ್‌ಲಾಕ್ ಪಾಸ್‌ವರ್ಡ್‌ ಬದಲಾಯಿಸಿ"</string>
@@ -669,7 +667,6 @@
       <item quantity="one"> <xliff:g id="NUMBER_1">%d</xliff:g> ಗಿಂತ ಕಡಿಮೆ ಅಂಕಿಗಳನ್ನು ಹೊಂದಿರಬೇಕು</item>
       <item quantity="other"> <xliff:g id="NUMBER_1">%d</xliff:g> ಗಿಂತ ಕಡಿಮೆ ಅಂಕಿಗಳನ್ನು ಹೊಂದಿರಬೇಕು</item>
     </plurals>
-    <string name="lockpassword_pin_contains_non_digits" msgid="1501729742023195556">"ಕೇವಲ 0-9 ಅಂಕಿಗಳನ್ನು ಮಾತ್ರ ಹೊಂದಿರಬೇಕು"</string>
     <string name="lockpassword_pin_recently_used" msgid="5556148774911741103">"ಇತ್ತೀಚಿನ ಪಿನ್ ಬಳಸಲು ಸಾಧನದ ನಿರ್ವಾಹಕರು ಅನುಮತಿಸುವುದಿಲ್ಲ"</string>
     <string name="lockpassword_pin_blacklisted_by_admin" msgid="2752037810571200697">"ಸರಳವಾದ ಪಿನ್‌ಗಳನ್ನು ನಿಮ್ಮ IT ನಿರ್ವಾಹಕರಿಂದ ನಿರ್ಬಂಧಿಸಲಾಗಿದೆ. ಬೇರೆಯ ಪಿನ್ ಪ್ರಯತ್ನಿಸಿ."</string>
     <string name="lockpassword_illegal_character" msgid="3577712947676261351">"ಇದು ಅಮಾನ್ಯ ಅಕ್ಷರವನ್ನು ಒಳಗೊಂಡಿರಬಾರದು"</string>
@@ -699,6 +696,10 @@
     <plurals name="lockpassword_password_requires_nonletter" formatted="false" msgid="3692485784007607387">
       <item quantity="one">ಕನಿಷ್ಠ <xliff:g id="COUNT">%d</xliff:g> ಅಕ್ಷರೇತರ ಕ್ಯಾರೆಕ್ಟರ್‌ಗಳನ್ನು ಹೊಂದಿರಬೇಕು</item>
       <item quantity="other">ಕನಿಷ್ಠ <xliff:g id="COUNT">%d</xliff:g> ಅಕ್ಷರೇತರ ಕ್ಯಾರೆಕ್ಟರ್‌ಗಳನ್ನು ಹೊಂದಿರಬೇಕು</item>
+    </plurals>
+    <plurals name="lockpassword_password_requires_nonnumerical" formatted="false" msgid="6943707011152180150">
+      <item quantity="one">ಕನಿಷ್ಠ <xliff:g id="COUNT">%d</xliff:g> ಸಂಖ್ಯೆಯಲ್ಲದ ಅಕ್ಷರಗಳನ್ನು ಹೊಂದಿರಬೇಕು</item>
+      <item quantity="other">ಕನಿಷ್ಠ <xliff:g id="COUNT">%d</xliff:g> ಸಂಖ್ಯೆಯಲ್ಲದ ಅಕ್ಷರಗಳನ್ನು ಹೊಂದಿರಬೇಕು</item>
     </plurals>
     <string name="lockpassword_password_recently_used" msgid="6944729699375087431">"ಇತ್ತೀಚಿನ ಪಾಸ್‌ವರ್ಡ್ ಬಳಸಲು ಸಾಧನದ ನಿರ್ವಾಹಕರು ಅನುಮತಿಸುವುದಿಲ್ಲ"</string>
     <string name="lockpassword_password_blacklisted_by_admin" msgid="4988166770148440755">"ಸರಳವಾದ ಪಾಸ್‌ವರ್ಡ್‌ಗಳನ್ನು ನಿಮ್ಮ IT ನಿರ್ವಾಹಕರಿಂದ ನಿರ್ಬಂಧಿಸಲಾಗಿದೆ. ಬೇರೆಯ ಪಾಸ್‌ವರ್ಡ್‌ ಪ್ರಯತ್ನಿಸಿ."</string>
@@ -907,8 +908,8 @@
     <string name="wifi_hidden_network_warning" msgid="8182333050353796473">"ನಿಮ್ಮ ನೆಟ್‌ವರ್ಕ್ ID ಯನ್ನು ರೂಟರ್ ಪ್ರಸಾರ ಮಾಡದಿದ್ದಲ್ಲಿ ಆದರೆ ಭವಿಷ್ಯದಲ್ಲಿ ನೀವು ಅದಕ್ಕೆ ಸಂಪರ್ಕಿಸಲು ಬಯಸಿದರೆ, ನೀವು ನೆಟ್‌ವರ್ಕ್ ಅನ್ನು ಮರೆಮಾಡಲಾಗಿರುವುದು ಎಂದು ಹೊಂದಿಸಬಹುದು.\n\nನಿಮ್ಮ ಫೋನ್ ನಿಯಮಿತವಾಗಿ ನೆಟ್ವರ್ಕ್ ಅನ್ನು ಹುಡುಕಲು ಸಿಗ್ನಲ್ ಅನ್ನು ಪ್ರಸಾರ ಮಾಡುವುದರಿಂದ ಭದ್ರತಾ ಅಪಾಯ ಎದುರಾಗಬಹುದು.\n\nನೆಟ್‌ವರ್ಕ್‌ ಅನ್ನು ಮರೆಮಾಡಿದ ಕೂಡಲೇ ರೂಟರ್ ಸೆಟ್ಟಿಂಗ್‌ಗಳು ಬದಲಾಗುವುದಿಲ್ಲ."</string>
     <string name="wifi_signal" msgid="696548364467704808">"ಸಿಗ್ನಲ್ ಸಾಮರ್ಥ್ಯ"</string>
     <string name="wifi_status" msgid="3439931558930689940">"ಸ್ಥಿತಿ"</string>
-    <string name="tx_wifi_speed" msgid="2571810085003261073">"ಲಿಂಕ್ ವೇಗವನ್ನು ಪ್ರಸಾರ ಮಾಡಿ"</string>
-    <string name="rx_wifi_speed" msgid="7392873246110937187">"ಲಿಂಕ್ ವೇಗವನ್ನು ಸ್ವೀಕರಿಸಿ"</string>
+    <string name="tx_wifi_speed" msgid="2571810085003261073">"ಟ್ರಾನ್ಸ್‌ಮಿಟ್ ಲಿಂಕ್ ವೇಗ"</string>
+    <string name="rx_wifi_speed" msgid="7392873246110937187">"ಸ್ವೀಕರಿಸುವ ಲಿಂಕ್ ವೇಗ"</string>
     <string name="wifi_frequency" msgid="6132852924995724246">"ಫ್ರೀಕ್ವೆನ್ಸಿ"</string>
     <string name="wifi_ip_address" msgid="5572539114989914831">"IP ವಿಳಾಸ"</string>
     <string name="passpoint_label" msgid="7429247462404128615">"ಇದರ ಮೂಲಕ ಉಳಿಸಲಾಗಿದೆ"</string>
@@ -939,7 +940,7 @@
     <string name="wifi_dpp_scan_qr_code_join_network" msgid="3085162928804379545">"“<xliff:g id="SSID">%1$s</xliff:g>” ಗೆ ಸಂಪರ್ಕಿಸಲು QR ಕೋಡ್ ಅನ್ನು ಕೆಳಗೆ ಕೇಂದ್ರೀಕರಿಸಿ"</string>
     <string name="wifi_dpp_scan_qr_code_join_unknown_network" msgid="5682308317067290738">"QR ಕೋಡ್ ಸ್ಕ್ಯಾನ್ ಮಾಡುವ ಮೂಲಕ ವೈ-ಫೈ ಗೆ ಸೇರಿ"</string>
     <string name="wifi_dpp_share_wifi" msgid="1724161216219646284">"ವೈ-ಫೈ ಹಂಚಿಕೊಳ್ಳಿ"</string>
-    <string name="wifi_dpp_scan_qr_code_with_another_device" msgid="4357387474444884759">"“<xliff:g id="SSID">%1$s</xliff:g>” ಗೆ ಸಂಪರ್ಕಪಡಿಸಲು ಮತ್ತು ಪಾಸ್‌ವರ್ಡ್ ಹಂಚಿಕೊಳ್ಳಲು ಈ QR ಕೋಡ್ ಅನ್ನು ಸ್ಕ್ಯಾನ್ ಮಾಡಿ"</string>
+    <string name="wifi_dpp_scan_qr_code_with_another_device" msgid="4357387474444884759">"“<xliff:g id="SSID">%1$s</xliff:g>” ಗೆ ಕನೆಕ್ಟ್ ಮಾಡಲು ಮತ್ತು ಪಾಸ್‌ವರ್ಡ್ ಹಂಚಿಕೊಳ್ಳಲು ಈ QR ಕೋಡ್ ಅನ್ನು ಸ್ಕ್ಯಾನ್ ಮಾಡಿ"</string>
     <string name="wifi_dpp_scan_open_network_qr_code_with_another_device" msgid="572011882416511818">"“<xliff:g id="SSID">%1$s</xliff:g>” ಗೆ ಸಂಪರ್ಕಪಡಿಸಲು ಈ QR ಕೋಡ್ ಅನ್ನು ಸ್ಕ್ಯಾನ್ ಮಾಡಿ"</string>
     <string name="wifi_dpp_could_not_detect_valid_qr_code" msgid="27667719861826438">"QR ಕೋಡ್ ಅನ್ನು ಓದಲು ಸಾಧ್ಯವಾಗುತ್ತಿಲ್ಲ. ಕೋಡ್ ಮರುನಮೂದಿಸಿ ಅಥವಾ ಪುನಃ ಪ್ರಯತ್ನಿಸಿ"</string>
     <string name="wifi_dpp_failure_authentication_or_configuration" msgid="9142051662156233679">"ಪುನಃ ಪ್ರಯತ್ನಿಸಿ. ಸಮಸ್ಯೆ ಮುಂದುವರಿದರೆ, ಸಾಧನ ತಯಾರಕರನ್ನು ಸಂಪರ್ಕಿಸಿ"</string>
@@ -959,7 +960,7 @@
     <string name="wifi_dpp_sharing_wifi_with_this_device" msgid="2540529164687476827">"ಈ ಸಾಧನದೊಂದಿಗೆ ವೈ-ಫೈ ಅನ್ನು ಹಂಚಿಕೊಳ್ಳಲಾಗುತ್ತಿದೆ…"</string>
     <string name="wifi_dpp_connecting" msgid="4229290407210299897">"ಸಂಪರ್ಕಿಸುತ್ತಿದೆ…"</string>
     <string name="wifi_dpp_share_hotspot" msgid="847987212473038179">"ಹಾಟ್‌ಸ್ಪಾಟ್ ಹಂಚಿಕೊಳ್ಳಿ"</string>
-    <string name="wifi_dpp_lockscreen_title" msgid="3910665850075275963">"ಇದು ನೀವೇ ಎಂಬುದನ್ನು ಖಚಿತಪಡಿಸಿಕೊಳ್ಳಿ"</string>
+    <string name="wifi_dpp_lockscreen_title" msgid="3910665850075275963">"ಇದು ನೀವೇ ಎಂದು ದೃಢೀಕರಿಸಿ"</string>
     <string name="wifi_dpp_wifi_password" msgid="8007558344032612455">"ವೈ-ಫೈ ಪಾಸ್‌ವರ್ಡ್: <xliff:g id="PASSWORD">%1$s</xliff:g>"</string>
     <string name="wifi_dpp_hotspot_password" msgid="6172326289042241924">"ಹಾಟ್‌ಸ್ಪಾಟ್ ಪಾಸ್‌ವರ್ಡ್: <xliff:g id="PASSWORD">%1$s</xliff:g>"</string>
     <string name="wifi_dpp_add_device" msgid="1347056725253936358">"ಸಾಧನವನ್ನು ಸೇರಿಸಿ"</string>
@@ -1092,13 +1093,19 @@
     <item msgid="2552412793005571845">"@*android:string/wfc_mode_cellular_preferred_summary"</item>
     <item msgid="742811521969300868">"@*android:string/wfc_mode_wifi_only_summary"</item>
   </string-array>
-    <!-- no translation found for wifi_calling_mode_choices_v2:0 (9149346657812979257) -->
-    <!-- no translation found for wifi_calling_mode_choices_v2:2 (6007360612667098926) -->
+  <string-array name="wifi_calling_mode_choices_v2">
+    <item msgid="9149346657812979257">"ವೈ-ಫೈ"</item>
+    <item msgid="4421333712484542489">"ಮೊಬೈಲ್"</item>
+    <item msgid="6007360612667098926">"ವೈ-ಫೈ ಮಾತ್ರ"</item>
+  </string-array>
   <string-array name="wifi_calling_mode_choices_without_wifi_only">
     <item msgid="3658897985297386665">"@*android:string/wfc_mode_wifi_preferred_summary"</item>
     <item msgid="4191802193352447215">"@*android:string/wfc_mode_cellular_preferred_summary"</item>
   </string-array>
-    <!-- no translation found for wifi_calling_mode_choices_v2_without_wifi_only:0 (6452246499629557266) -->
+  <string-array name="wifi_calling_mode_choices_v2_without_wifi_only">
+    <item msgid="6452246499629557266">"ವೈ-ಫೈ"</item>
+    <item msgid="2271962426654621656">"ಮೊಬೈಲ್"</item>
+  </string-array>
     <string name="wifi_calling_mode_wifi_preferred_summary" msgid="8298294808362169798">"ವೈ-ಫೈ ಲಭ್ಯವಿಲ್ಲದಿದ್ದರೆ, ಮೊಬೈಲ್ ನೆಟ್‌ವರ್ಕ್ ಬಳಸಿ"</string>
     <string name="wifi_calling_mode_cellular_preferred_summary" msgid="4906499810156794061">"ಮೊಬೈಲ್ ನೆಟ್‌ವರ್ಕ್ ಲಭ್ಯವಿಲ್ಲದಿದ್ದರೆ, ವೈ-ಫೈ ಬಳಸಿ"</string>
     <string name="wifi_calling_mode_wifi_only_summary" msgid="6928556021002500522">"ವೈ-ಫೈ ಬಳಸಿ ಕರೆ ಮಾಡಿ. ವೈ-ಫೈ ಸಂಪರ್ಕ ಕಡಿತಗೊಂಡರೆ, ಕರೆ ಕೊನೆಗೊಳ್ಳುತ್ತದೆ."</string>
@@ -1265,14 +1272,14 @@
     <string name="sim_lock_settings_summary_off" msgid="348656447968142307">"ಆಫ್"</string>
     <string name="sim_lock_settings_summary_on" msgid="3440707542514810045">"ಲಾಕ್ ಮಾಡಲಾಗಿದೆ"</string>
     <string name="sim_lock_settings_title" msgid="877336472752342977">"ಸಿಮ್‌ ಕಾರ್ಡ್‌ ಲಾಕ್"</string>
-    <string name="sim_pin_toggle" msgid="2026507420678167488">"ಸಿಮ್‌ ಕಾರ್ಡ್ ಲಾಕ್ ಮಾಡು"</string>
+    <string name="sim_pin_toggle" msgid="2026507420678167488">"ಸಿಮ್‌ ಕಾರ್ಡ್ ಲಾಕ್ ಮಾಡಿ"</string>
     <string name="sim_lock_on" product="tablet" msgid="3917977767884071323">"ಟ್ಯಾಬ್ಲೆಟ್ ಬಳಸಲು ಪಿನ್‌ ಅಗತ್ಯವಿದೆ"</string>
     <string name="sim_lock_on" product="default" msgid="1363159192182487883">"ಫೋನ್ ಬಳಸಲು ಪಿನ್‌ ಅಗತ್ಯವಿದೆ"</string>
     <string name="sim_lock_off" product="tablet" msgid="8428566346685080195">"ಟ್ಯಾಬ್ಲೆಟ್ ಬಳಸಲು ಪಿನ್‌ ಅಗತ್ಯವಿದೆ"</string>
     <string name="sim_lock_off" product="default" msgid="5873747770983496755">"ಫೋನ್ ಬಳಸಲು ಪಿನ್‌ ಅಗತ್ಯವಿದೆ"</string>
     <string name="sim_pin_change" msgid="5615972926944053213">"ಸಿಮ್‌ ಪಿನ್‌ ಬದಲಾಯಿಸು"</string>
     <string name="sim_enter_pin" msgid="149201344579560481">"ಸಿಮ್‌ ಪಿನ್‌"</string>
-    <string name="sim_enable_sim_lock" msgid="4478794975656337476">"ಸಿಮ್‌ ಕಾರ್ಡ್ ಲಾಕ್ ಮಾಡು"</string>
+    <string name="sim_enable_sim_lock" msgid="4478794975656337476">"ಸಿಮ್‌ ಕಾರ್ಡ್ ಲಾಕ್ ಮಾಡಿ"</string>
     <string name="sim_disable_sim_lock" msgid="394864376519820956">"ಸಿಮ್‌ ಕಾರ್ಡ್‌ ಅನ್‌ಲಾಕ್ ಮಾಡು"</string>
     <string name="sim_enter_old" msgid="8984991229691526849">"ಹಳೆಯ ಸಿಮ್‌ ಪಿನ್‌"</string>
     <string name="sim_enter_new" msgid="1720792957661107585">"ಹೊಸ ಸಿಮ್‌ ಪಿನ್‌"</string>
@@ -1330,7 +1337,7 @@
     <string name="status_number_sim_slot" product="tablet" msgid="4518232285651165459">"MDN (ಸಿಮ್ ಸ್ಲಾಟ್ %1$d)"</string>
     <string name="status_number_sim_slot" product="default" msgid="3660851494421332328">"ಫೋನ್ ಸಂಖ್ಯೆ (ಸಿಮ್ ಸ್ಲಾಟ್ %1$d)"</string>
     <string name="status_number_sim_status" product="tablet" msgid="8069693515860290952">"ಸಿಮ್‌ ನಲ್ಲಿ MDN"</string>
-    <string name="status_number_sim_status" product="default" msgid="6602562692270457610">"ಸಿಮ್‌ನಲ್ಲಿ ಫೋನ್ ಸಂಖ್ಯೆ"</string>
+    <string name="status_number_sim_status" product="default" msgid="6602562692270457610">"ಸಿಮ್‌ನ ಫೋನ್ ಸಂಖ್ಯೆ"</string>
     <string name="status_min_number" msgid="8346889546673707777">"ನಿಮಿ"</string>
     <string name="status_msid_number" msgid="7808175928664357661">"MSID"</string>
     <string name="status_prl_version" msgid="5634561205739199042">"PRL ಆವೃತ್ತಿ"</string>
@@ -1607,7 +1614,7 @@
     <string name="tether_settings_title_wifi" msgid="2060965130234484613">"ಪೋರ್ಟಬಲ್ ಹಾಟ್‌ಸ್ಪಾಟ್"</string>
     <string name="tether_settings_title_bluetooth" msgid="1999590158102569959">"ಬ್ಲೂಟೂತ್‌‌ ಟೆಥರಿಂಗ್‌"</string>
     <string name="tether_settings_title_usb_bluetooth" msgid="1159128764162788159">"ಟೆಥರಿಂಗ್‌"</string>
-    <string name="tether_settings_title_all" msgid="6935843543433954181">"ಹಾಟ್‌ಸ್ಪಾಟ್ ಮತ್ತು ಟೆಥರಿಂಗ್"</string>
+    <string name="tether_settings_title_all" msgid="6935843543433954181">"ಹಾಟ್‌ಸ್ಪಾಟ್ &amp; ಟೆಥರಿಂಗ್"</string>
     <string name="tether_settings_summary_hotspot_on_tether_on" msgid="1289593649526514499">"ಹಾಟ್‌ಸ್ಪಾಟ್ ಆನ್ ಆಗಿದೆ, ಟೆಥರಿಂಗ್‌"</string>
     <string name="tether_settings_summary_hotspot_on_tether_off" msgid="8010689354668285422">"ಹಾಟ್‌ಸ್ಪಾಟ್ ಆನ್ ಆಗಿದೆ"</string>
     <string name="tether_settings_summary_hotspot_off_tether_on" msgid="1349909238672649877">"ಟೆಥರಿಂಗ್‌"</string>
@@ -1739,14 +1746,14 @@
     <string name="lockpassword_confirm_your_password_header_frp" msgid="7326670978891793470">"ಪಾಸ್‌ವರ್ಡ್‌ ಪರಿಶೀಲಿಸಿ"</string>
     <string name="lockpassword_invalid_pin" msgid="3059022215815900137">"ತಪ್ಪಾದ ಪಿನ್‌"</string>
     <string name="lockpassword_invalid_password" msgid="8374331995318204099">"ತಪ್ಪು ಪಾಸ್‌ವರ್ಡ್‌"</string>
-    <string name="lockpattern_need_to_unlock_wrong" msgid="1328670466959377948">"ತಪ್ಪು ಪ್ಯಾಟರ್ನ್"</string>
+    <string name="lockpattern_need_to_unlock_wrong" msgid="1328670466959377948">"ಪ್ಯಾಟರ್ನ್ ತಪ್ಪಾಗಿದೆ"</string>
     <string name="lock_settings_title" msgid="233657584969886812">"ಸಾಧನ ಭದ್ರತೆ"</string>
     <string name="lockpattern_change_lock_pattern_label" msgid="333149762562581510">"ಅನ್‌ಲಾಕ್ ನಮೂನೆಯನ್ನು ಬದಲಾಯಿಸಿ"</string>
     <string name="lockpattern_change_lock_pin_label" msgid="3435796032210265723">"ಅನ್‌ಲಾಕ್ ಪಿನ್‌ ಬದಲಾಯಿಸಿ"</string>
     <string name="lockpattern_recording_intro_header" msgid="2262005028838969839">"ಅನ್‌ಲಾಕ್‌ ಪ್ಯಾಟರ್ನ್ ಚಿತ್ರಿಸಿ"</string>
     <string name="lockpattern_recording_intro_footer" msgid="5426745740754065099">"ಸಹಾಯಕ್ಕಾಗಿ ಮೆನು ಒತ್ತಿರಿ."</string>
     <string name="lockpattern_recording_inprogress" msgid="4060818382176523671">"ಬಳಿಕ ಬೆರಳು ತೆಗೆಯಿರಿ"</string>
-    <string name="lockpattern_recording_incorrect_too_short" msgid="6374760294545431845">"ಕನಿಷ್ಠ <xliff:g id="NUMBER">%d</xliff:g> ಡಾಟ್‌ಗಳನ್ನು ಸಂಪರ್ಕಿಸಿ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ."</string>
+    <string name="lockpattern_recording_incorrect_too_short" msgid="6374760294545431845">"ಕನಿಷ್ಠ <xliff:g id="NUMBER">%d</xliff:g> ಡಾಟ್‌ಗಳನ್ನು ಕನೆಕ್ಟ್ ಮಾಡಿ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ."</string>
     <string name="lockpattern_pattern_entered_header" msgid="2108106638322637851">"ಪ್ಯಾಟರ್ನ್ ರೆಕಾರ್ಡ್ ಆಗಿದೆ"</string>
     <string name="lockpattern_need_to_confirm" msgid="4079482507985867389">"ಖಚಿತಪಡಿಸಲು ಪ್ಯಾಟರ್ನ್ ಚಿತ್ರಿಸಿ"</string>
     <string name="lockpattern_pattern_confirmed_header" msgid="5603156929428721407">"ನಿಮ್ಮ ಹೊಸ ಅನ್‌ಲಾಕ್‌ ಪ್ಯಾಟರ್ನ್"</string>
@@ -2271,10 +2278,10 @@
     <string name="battery_tip_smart_battery_title" product="device" msgid="7419448992583346364">"ನಿಮ್ಮ ಸಾಧನದ ಬ್ಯಾಟರಿ ಬಾಳಿಕೆಯನ್ನು ಸುಧಾರಿಸಿ"</string>
     <string name="battery_tip_smart_battery_summary" msgid="5344821856478265778">"ಬ್ಯಾಟರಿ ನಿರ್ವಾಹಕರನ್ನು ಆನ್‌ ಮಾಡಿ"</string>
     <string name="battery_tip_early_heads_up_title" msgid="707163785378746813">"ಬ್ಯಾಟರಿ ಸೇವರ್‌ ಆನ್‌ ಮಾಡಿ"</string>
-    <string name="battery_tip_early_heads_up_summary" msgid="4231489566422395156">"ಬ್ಯಾಟರಿ ಸಾಮಾನ್ಯಕ್ಕಿಂತ ಮೊದಲೇ ರನ್ ಆಗಬಹುದು"</string>
-    <string name="battery_tip_early_heads_up_done_title" msgid="112550885882648429">"ಬ್ಯಾಟರಿ ರಕ್ಷಕ ಆನ್ ಆಗಿದೆ"</string>
+    <string name="battery_tip_early_heads_up_summary" msgid="4231489566422395156">"ಬ್ಯಾಟರಿ ಸಾಮಾನ್ಯಕ್ಕಿಂತ ಮೊದಲೇ ಖಾಲಿಯಾಗಬಹುದು"</string>
+    <string name="battery_tip_early_heads_up_done_title" msgid="112550885882648429">"ಬ್ಯಾಟರಿ ಸೇವರ್ ಆನ್ ಆಗಿದೆ"</string>
     <string name="battery_tip_early_heads_up_done_summary" msgid="8692257022962771181">"ಕೆಲವು ವೈಶಿಷ್ಟ್ಯಗಳು ಸೀಮಿತವಾಗಿರಬಹುದು"</string>
-    <string name="battery_tip_high_usage_title" product="default" msgid="4103005178310487352">"ಫೋನ್ ಸಾಮಾನ್ಯಕ್ಕಿಂತ ಹೆಚ್ಚಿನದನ್ನು ಬಳಸಿದೆ"</string>
+    <string name="battery_tip_high_usage_title" product="default" msgid="4103005178310487352">"ಫೋನ್ ಅನ್ನು ಸಾಮಾನ್ಯಕ್ಕಿಂತ ಹೆಚ್ಚು ಬಳಸಲಾಗಿದೆ"</string>
     <string name="battery_tip_high_usage_title" product="tablet" msgid="1019583260005768965">"ಟ್ಯಾಬ್ಲೆಟ್ ಸಾಮಾನ್ಯಕ್ಕಿಂತ ಹೆಚ್ಚಿನದನ್ನು ಬಳಸಿದೆ"</string>
     <string name="battery_tip_high_usage_title" product="device" msgid="8304138287288309490">"ಸಾಧನವು ಸಾಮಾನ್ಯಕ್ಕಿಂತ ಹೆಚ್ಚಿನದನ್ನು ಬಳಸಿದೆ"</string>
     <string name="battery_tip_high_usage_summary" msgid="5514749872957528189">"ಬ್ಯಾಟರಿ ಸಾಮಾನ್ಯ ಅವಧಿಗಿಂತ ಮೊದಲೇ ಖಾಲಿಯಾಗಬಹುದು"</string>
@@ -2603,7 +2610,7 @@
     <string name="sync_enabled" msgid="535172627223336983">"ಸಿಂಕ್ ಆನ್ ಆಗಿದೆ"</string>
     <string name="sync_disabled" msgid="713721807204805062">"ಸಿಂಕ್‌ ಆಫ್ ಆಗಿದೆ"</string>
     <string name="sync_error" msgid="988155155932442765">"ಸಿಂಕ್ ದೋಷ"</string>
-    <string name="last_synced" msgid="4511434057768999129">"ಕೊನೆಯದಾಗಿ ಸಿಂಕ್ ಮಾಡಿರುವುದು <xliff:g id="LAST_SYNC_TIME">%1$s</xliff:g>"</string>
+    <string name="last_synced" msgid="4511434057768999129">"ಕೊನೆಯದಾಗಿ ಸಿಂಕ್ ಮಾಡಿರುವುದು: <xliff:g id="LAST_SYNC_TIME">%1$s</xliff:g>"</string>
     <string name="sync_in_progress" msgid="1311828882739675714">"ಇದೀಗ ಸಿಂಕ್‌ ಮಾಡಲಾಗುತ್ತಿದೆ…"</string>
     <string name="settings_backup" msgid="3261579634252074247">"ಬ್ಯಾಕಪ್ ಸೆಟ್ಟಿಂಗ್‌ಗಳು"</string>
     <string name="settings_backup_summary" msgid="2563360505501354777">"ನನ್ನ ಸೆಟ್ಟಿಂಗ್‌ಗಳನ್ನು ಬ್ಯಾಕ್‌ ಅಪ್ ಮಾಡು"</string>
@@ -2612,7 +2619,7 @@
     <string name="sync_one_time_sync" msgid="6005174168405784256">"ಈಗ ಸಿಂಕ್ ಮಾಡಲು ಟ್ಯಾಪ್ ಮಾಡಿ<xliff:g id="LAST_SYNC_TIME">
 %1$s</xliff:g>"</string>
     <string name="sync_gmail" msgid="4457967084840001296">"Gmail"</string>
-    <string name="sync_calendar" msgid="6573708019827519372">"ಕ್ಯಾಲೆಂಡರ್"</string>
+    <string name="sync_calendar" msgid="6573708019827519372">"Calendar"</string>
     <string name="sync_contacts" msgid="5687434785723746534">"ಸಂಪರ್ಕಗಳು"</string>
     <string name="sync_plug" msgid="6703804441408427257"><font fgcolor="#ffffffff">"Google ಸಿಂಕ್‌ಗೆ ಸ್ವಾಗತ!"</font>" \nನಿಮ್ಮ ಸಂಪರ್ಕಗಳು, ಪೂರ್ವನಿಗದಿಗಳು, ಮತ್ತು ನೀವು ಎಲ್ಲಿದ್ದೀರೋ ಅಲ್ಲಿಂದಲೇ ಇನ್ನಷ್ಟನ್ನು ಪ್ರವೇಶಿಸಲು ಅನುಮತಿಸಲು ಡೇಟಾವನ್ನು ಸಿಂಕ್‌ ಮಾಡಲು Google ನ ಒಂದು ತೊಡಗುವಿಕೆಯಾಗಿದೆ."</string>
     <string name="header_application_sync_settings" msgid="4581847153669774489">"ಅಪ್ಲಿಕೇಶನ್ ಸಿಂಕ್ ಸೆಟ್ಟಿಂಗ್‌ಗಳು"</string>
@@ -2918,7 +2925,7 @@
     <string name="nfc_payment_favor_open" msgid="3739055715000436749">"ಮತ್ತೊಂದು ಪಾವತಿ ಅಪ್ಲಿಕೇಶನ್ ತೆರೆದಿರುವುದನ್ನು ಹೊರತುಪಡಿಸಿ"</string>
     <string name="nfc_payment_pay_with" msgid="8412558374792061266">"ಟ್ಯಾಪ್‌ ಮಾಡಿ ಮತ್ತು ಪಾವತಿ ಟರ್ಮಿನಲ್‌ನಲ್ಲಿ, ಇದರ ಮೂಲಕ ಪಾವತಿಸಿ:"</string>
     <string name="nfc_how_it_works_title" msgid="6531433737926327904">"ಟರ್ಮಿನಲ್‌ನಲ್ಲಿ ಪಾವತಿಸಲಾಗುತ್ತಿದೆ"</string>
-    <string name="nfc_how_it_works_content" msgid="9174575836302449343">"ಪಾವತಿ ಅಪ್ಲಿಕೇಶನ್ ಹೊಂದಿಸಿ. ನಂತರ ಸಂಪರ್ಕವಿಲ್ಲದ ಚಿಹ್ನೆಯೊಂದಿಗೆ ಯಾವುದೇ ಟರ್ಮಿನಲ್‌ಗೆ ನಿಮ್ಮ ಫೋನ್ ಅನ್ನು ಹಿಡಿದುಕೊಳ್ಳಿ."</string>
+    <string name="nfc_how_it_works_content" msgid="9174575836302449343">"ಪಾವತಿ ಆ್ಯಪ್ ಹೊಂದಿಸಿ. ನಂತರ ಸಂಪರ್ಕವಿಲ್ಲದ ಚಿಹ್ನೆಯೊಂದಿಗೆ ಯಾವುದೇ ಟರ್ಮಿನಲ್‌ಗೆ ನಿಮ್ಮ ಫೋನ್ ಅನ್ನು ಹಿಡಿದುಕೊಳ್ಳಿ."</string>
     <string name="nfc_how_it_works_got_it" msgid="2432535672153247411">"ತಿಳಿಯಿತು"</string>
     <string name="nfc_more_title" msgid="2825856411836382264">"ಇನ್ನಷ್ಟು..."</string>
     <string name="nfc_payment_set_default_label" msgid="3997927342761454042">"ನಿಮ್ಮ ಪ್ರಾಶಸ್ತ್ಯವನ್ನು ಹೊಂದಿಸಬೇಕೆ?"</string>
@@ -3117,7 +3124,7 @@
     <string name="keywords_default_payment_app" msgid="845369409578423996">"ಪಾವತಿ, ಡಿಫಾಲ್ಟ್"</string>
     <string name="keywords_ambient_display" msgid="8835182491798487184">"ಒಳಬರುವ ಅಧಿಸೂಚನೆ"</string>
     <string name="keywords_hotspot_tethering" msgid="1723591462602613867">"usb ಟೆಥರ್, ಬ್ಲೂಟೂತ್ ಟೆಥರ್, ವೈಫೈ ಹಾಟ್‌ಸ್ಪಾಟ್"</string>
-    <string name="keywords_touch_vibration" msgid="2081175517528255224">"ಹ್ಯಾಪ್ಟಿಕ್ಸ್, ಕಂಪನ, ಪರದೆ, ಸಂವೇದನೆ"</string>
+    <string name="keywords_touch_vibration" msgid="2081175517528255224">"ಹ್ಯಾಪ್ಟಿಕ್ಸ್, ವೈಬ್ರೇಟ್‌, ಪರದೆ, ಸಂವೇದನೆ"</string>
     <string name="keywords_ring_vibration" msgid="4210509151866460210">"ಹ್ಯಾಪ್ಟಿಕ್ಸ್, ವೈಬ್ರೇಟ್‌, ಫೋನ್, ಕರೆ, ಸೂಕ್ಷ್ಮತೆ, ರಿಂಗ್"</string>
     <string name="keywords_notification_vibration" msgid="1077515502086745166">"ಹ್ಯಾಪ್ಟಿಕ್ಸ್, ವೈಬ್ರೇಟ್‌, ಸೂಕ್ಷ್ಮತೆ"</string>
     <string name="keywords_battery_saver_sticky" msgid="8733804259716284872">"ಬ್ಯಾಟರಿ ಸೇವರ್, ಸ್ಟಿಕಿ, ತಡೆ ಹಿಡಿ, ಪವರ್ ಸೇವರ್, ಬ್ಯಾಟರಿ"</string>
@@ -3142,7 +3149,7 @@
     <string name="other_sound_settings" msgid="5250376066099818676">"ಇತರ ಧ್ವನಿಗಳು"</string>
     <string name="dial_pad_tones_title" msgid="8877212139988655769">"ಡಯಲ್‌ ಪ್ಯಾಡ್‌ ಟೋನ್‌ಗಳು"</string>
     <string name="screen_locking_sounds_title" msgid="4407110895465866809">"ಸ್ಕ್ರೀನ್ ಲಾಕಿಂಗ್ ಧ್ವನಿಗಳು"</string>
-    <string name="charging_sounds_title" msgid="5070437987230894287">"ಚಾರ್ಜಿಂಗ್ ಧ್ವನಿಗಳು ಮತ್ತು ಕಂಪನ"</string>
+    <string name="charging_sounds_title" msgid="5070437987230894287">"ಚಾರ್ಜಿಂಗ್ ಧ್ವನಿಗಳು ಮತ್ತು ವೈಬ್ರೇಟ್‌"</string>
     <string name="docking_sounds_title" msgid="2573137471605541366">"ಡಾಕಿಂಗ್ ಧ್ವನಿಗಳು"</string>
     <string name="touch_sounds_title" msgid="165237488496165652">"ಸ್ಪರ್ಶ ಧ್ವನಿಗಳು"</string>
     <string name="vibrate_on_touch_title" msgid="6360155469279157684">"ಸ್ಪರ್ಶಿಸಿದಾಗ ವೈಬ್ರೇಷನ್‌"</string>
@@ -3316,7 +3323,7 @@
     <string name="locked_work_profile_notification_title" msgid="8307025804986190658">"ಕೆಲಸದ ಪ್ರೊಫೈಲ್ ಅನ್ನು ಲಾಕ್ ಮಾಡಿದಾಗ"</string>
     <string name="lock_screen_notifications_summary_show" msgid="5788874994455257378">"ಅಧಿಸೂಚನೆ ವಿಷಯವನ್ನು ಪೂರ್ತಿ ತೋರಿಸು"</string>
     <string name="lock_screen_notifications_summary_hide" msgid="3668806866535260143">"ಸೂಕ್ಷ್ಮ ವಿಷಯವನ್ನು ಮರೆಮಾಡು"</string>
-    <string name="lock_screen_notifications_summary_disable" msgid="3259929507369817672">"ಅಧಿಸೂಚನೆಗಳನ್ನು ತೋರಿಸಲೇ ಬೇಡ"</string>
+    <string name="lock_screen_notifications_summary_disable" msgid="3259929507369817672">"ಅಧಿಸೂಚನೆಗಳನ್ನು ತೋರಿಸಬೇಡಿ"</string>
     <string name="lock_screen_notifications_interstitial_message" msgid="4230189215124387818">"ಸಾಧನ ಲಾಕ್‌ ಆದಾಗ, ಅಧಿಸೂಚನೆಗಳು ಹೇಗೆ ಕಾಣಿಸಿಕೊಳ್ಳಬೇಕು?"</string>
     <string name="lock_screen_notifications_interstitial_title" msgid="2832587379332443505">"ಅಧಿಸೂಚನೆಗಳು"</string>
     <string name="lock_screen_notifications_summary_show_profile" msgid="8908775469657073273">"ಉದ್ಯೋಗದ ಅಧಿಸೂಚನೆ ವಿಷಯವನ್ನು ಪೂರ್ತಿ ತೋರಿಸು"</string>
@@ -3626,7 +3633,7 @@
     <string name="runtime_permissions_summary_no_permissions_requested" msgid="3901636077467389637">"ಯಾವುದೇ ಅನುಮತಿಗಳನ್ನು ವಿನಂತಿಸಿಲ್ಲ"</string>
     <string name="filter_all_apps" msgid="4042756539846043675">"ಎಲ್ಲಾ ಅಪ್ಲಿಕೇಶನ್‌ಗಳು"</string>
     <string name="filter_enabled_apps" msgid="5888459261768538489">"ಸ್ಥಾಪಿಸಲಾದ ಅಪ್ಲಿಕೇಶನ್‌ಗಳು"</string>
-    <string name="filter_instant_apps" msgid="8087483282854072366">"ತತ್‌ಕ್ಷಣ ಆಪ್‌ಗಳು"</string>
+    <string name="filter_instant_apps" msgid="8087483282854072366">"ಇನ್‌ಸ್ಟಂಟ್ ಆ್ಯಪ್‌ಗಳು"</string>
     <string name="filter_personal_apps" msgid="3473268022652904457">"ವೈಯಕ್ತಿಕ"</string>
     <string name="filter_work_apps" msgid="4202483998339465542">"ಕೆಲಸ"</string>
     <string name="filter_notif_all_apps" msgid="1862666327228804896">"ಅಪ್ಲಿಕೇಶನ್‌ಗಳು: ಎಲ್ಲ"</string>
@@ -3657,7 +3664,7 @@
     <string name="default_apps_title" msgid="3848048391400989931">"ಡಿಫಾಲ್ಟ್"</string>
     <string name="default_for_work" msgid="7290411716804495366">"ಕೆಲಸದ ಡಿಫಾಲ್ಟ್"</string>
     <string name="assist_and_voice_input_title" msgid="324148194703846130">"ಸಹಾಯ &amp; ಧ್ವನಿ ಇನ್‌ಪುಟ್"</string>
-    <string name="default_assist_title" msgid="2060846994203235317">"ಅಪ್ಲಿಕೇಶನ್ ಸಹಾಯ"</string>
+    <string name="default_assist_title" msgid="2060846994203235317">"ಸಹಾಯಕ ಆ್ಯಪ್"</string>
     <string name="assistant_security_warning_title" msgid="8014460924169723059">"<xliff:g id="ASSISTANT_APP_NAME">%s</xliff:g> ಅನ್ನು ನಿಮ್ಮ ಸಹಾಯಕವನ್ನಾಗಿ ಮಾಡುವುದೇ?"</string>
     <string name="assistant_security_warning" msgid="1304057692847069938">"ನಿಮ್ಮ ಪರದೆಯಲ್ಲಿ ಗೋಚರಿಸುವ ಅಥವಾ ಅಪ್ಲಿಕೇಶನ್‌ಗಳಲ್ಲಿಯೇ ಪ್ರವೇಶಿಸಬಹುದಾದಂತಹ ಮಾಹಿತಿ ಸೇರಿದಂತೆ ನಿಮ್ಮ ಸಿಸ್ಟಂನಲ್ಲಿ ಬಳಕೆಯಲ್ಲಿರುವ ಅಪ್ಲಿಕೇಶನ್‌ಗಳ ಕುರಿತು ಮಾಹಿತಿಯನ್ನು ಓದಲು ಸಹಾಯಕಕ್ಕೆ ಸಾಧ್ಯವಾಗಬಹುದು."</string>
     <string name="assistant_security_warning_agree" msgid="5105692801460137289">"ಅನುಮೋದಿಸು"</string>
@@ -3785,7 +3792,7 @@
     <string name="zen_access_revoke_warning_dialog_title" msgid="6850994585577513299">"<xliff:g id="APP">%1$s</xliff:g> ಅಪ್ಲಿಕೇಶನ್‌ಗೆ ಅಡಚಣೆ ಮಾಡಬೇಡಿಗೆ ಪ್ರವೇಶವನ್ನು ಹಿಂತೆಗೆದುಕೊಳ್ಳುವುದೇ?"</string>
     <string name="zen_access_revoke_warning_dialog_summary" msgid="3487422193181311403">"ಈ ಅಪ್ಲಿಕೇಶನ್ ರಚಿಸಿರುವಂತಹ ಎಲ್ಲ ಅಡಚಣೆ ಮಾಡಬೇಡಿ ನಿಯಮಗಳನ್ನು ತೆಗೆದುಹಾಕಲಾಗುತ್ತದೆ."</string>
     <string name="ignore_optimizations_on" msgid="4373971641328943551">"ಆಪ್ಟಿಮೈಸ್ ಮಾಡಬೇಡಿ"</string>
-    <string name="ignore_optimizations_off" msgid="4372289432580282870">"ಆಪ್ಟಿಮೈಸ್ ಮಾಡು"</string>
+    <string name="ignore_optimizations_off" msgid="4372289432580282870">"ಆಪ್ಟಿಮೈಸ್ ಮಾಡಿ"</string>
     <string name="ignore_optimizations_on_desc" msgid="2904484569799521559">"ನಿಮ್ಮ ಬ್ಯಾಟರಿಯನ್ನು ತ್ವರಿತವಾಗಿ ಬರಿದಾಗಿಸಬಹುದು. ಹಿನ್ನೆಲೆ ಬ್ಯಾಟರಿ ಬಳಸದಂತೆ ಅಪ್ಲಿಕೇಶನ್ ಅನ್ನು ಇನ್ನು ಮುಂದೆ ನಿರ್ಬಂಧಿಸಲಾಗುವುದಿಲ್ಲ."</string>
     <string name="ignore_optimizations_off_desc" msgid="5598702251817814289">"ಉತ್ತಮ ಬ್ಯಾಟರಿ ಬಾಳಿಕೆಗೆ ಶಿಫಾರಸು ಮಾಡಲಾಗಿದೆ"</string>
     <string name="ignore_optimizations_title" msgid="7924345545276166305">"ಬ್ಯಾಟರಿ ಆಪ್ಟಿಮೈಸೇಶನ್‌ಗಳನ್ನು ಕಡೆಗಣಿಸಲು <xliff:g id="APP">%s</xliff:g> ಗೆ ಅನುಮತಿಸುವುದೇ?"</string>
@@ -3886,7 +3893,7 @@
     <string name="condition_zen_title" msgid="2128184708916052585">"ಅಡಚಣೆ ಮಾಡಬೇಡಿ ಆನ್ ಆಗಿದೆ"</string>
     <string name="condition_zen_summary_phone_muted" msgid="4396050395522974654">"ಫೋನ್ ಅನ್ನು ಮ್ಯೂಟ್ ಮಾಡಲಾಗಿದೆ"</string>
     <string name="condition_zen_summary_with_exceptions" msgid="3435216391993785818">"ವಿನಾಯಿತಿಗಳು ಸೇರಿವೆ"</string>
-    <string name="condition_battery_title" msgid="6704870010912986274">"ಬ್ಯಾಟರಿ ರಕ್ಷಕ ಆನ್ ಆಗಿದೆ"</string>
+    <string name="condition_battery_title" msgid="6704870010912986274">"ಬ್ಯಾಟರಿ ಸೇವರ್ ಆನ್ ಆಗಿದೆ"</string>
     <string name="condition_battery_summary" msgid="1236078243905690620">"ವೈಶಿಷ್ಟ್ಯಗಳನ್ನು ನಿರ್ಬಂಧಿಸಲಾಗಿದೆ"</string>
     <string name="condition_cellular_title" msgid="6605277435894307935">"ಮೊಬೈಲ್ ಡೇಟಾ ಆಫ್ ಆಗಿದೆ"</string>
     <string name="condition_cellular_summary" msgid="3607459310548343777">"ಇಂಟರ್ನೆಟ್, ಕೇವಲ ವೈ-ಫೈ ಮೂಲಕ ಲಭ್ಯವಿದೆ"</string>
@@ -4030,7 +4037,7 @@
     <string name="notification_log_details_ashmem" msgid="4272241723105041393">"ಆಶ್ಮೆಮ್"</string>
     <string name="notification_log_details_alerted" msgid="1891749888625061319">"ಅಧಿಸೂಚನೆಯ ಎಚ್ಚರಿಕೆಯನ್ನು ನೀಡಲಾಗಿದೆ"</string>
     <string name="notification_log_details_sound" msgid="4028782443557466322">"ಶಬ್ದ"</string>
-    <string name="notification_log_details_vibrate" msgid="8372400602058888072">"ಕಂಪನ"</string>
+    <string name="notification_log_details_vibrate" msgid="8372400602058888072">"ವೈಬ್ರೇಟ್‌"</string>
     <string name="notification_log_details_vibrate_pattern" msgid="7015554755444260922">"ಪ್ಯಾಟರ್ನ್"</string>
     <string name="notification_log_details_default" msgid="455451833359888182">"ಡಿಫಾಲ್ಟ್"</string>
     <string name="notification_log_details_none" msgid="4294690532744821638">"ಯಾವುದೂ ಇಲ್ಲ"</string>
@@ -4232,7 +4239,7 @@
     <string name="storage_music_audio" msgid="3661289086715297149">"ಸಂಗೀತ ಮತ್ತು ಆಡಿಯೋ"</string>
     <string name="storage_games" msgid="7740038143749092373">"ಗೇಮ್‌ಗಳು"</string>
     <string name="storage_other_apps" msgid="3202407095387420842">"ಇತರ ಅಪ್ಲಿಕೇಶನ್‌ಗಳು"</string>
-    <string name="storage_files" msgid="2087824267937487880">"ಫೈಲ್‌ಗಳು"</string>
+    <string name="storage_files" msgid="2087824267937487880">"Files"</string>
     <string name="storage_size_large_alternate" msgid="1317796542509105857">"<xliff:g id="NUMBER">^1</xliff:g>"<small>" "<font size="20">"<xliff:g id="UNIT">^2</xliff:g>"</font></small>""</string>
     <string name="storage_volume_total" msgid="5021484171514159913">"<xliff:g id="TOTAL">%1$s</xliff:g> ನಲ್ಲಿ ಬಳಸಿರುವುದು"</string>
     <string name="storage_percent_full" msgid="6924662861545958442">"ಬಳಕೆಯಾಗಿದೆ"</string>
@@ -4262,7 +4269,7 @@
     <string name="storage_manager_indicator_on" msgid="5295306384982062320">"ಆನ್"</string>
     <string name="install_type_instant" msgid="6248487669862821874">"ತತ್‌ಕ್ಷಣದ ಅಪ್ಲಿಕೇಶನ್"</string>
     <string name="automatic_storage_manager_deactivation_warning" msgid="7867793739491286374">"ಸಂಗ್ರಹಣೆ ನಿರ್ವಾಹಕವನ್ನು ಆಫ್ ಮಾಡುವುದೇ?"</string>
-    <string name="storage_movies_tv" msgid="7282484273991655296">"ಚಲನಚಿತ್ರ ಮತ್ತು ಟಿವಿ ಅಪ್ಲಿಕೇಶನ್‌ಗಳು"</string>
+    <string name="storage_movies_tv" msgid="7282484273991655296">"ಚಲನಚಿತ್ರ ಮತ್ತು ಟಿವಿ ಆ್ಯಪ್‍‍ಗಳು"</string>
     <string name="carrier_provisioning" msgid="3309125279191534469">"ವಾಹಕ ಪೂರೈಕೆಯ ಮಾಹಿತಿ"</string>
     <string name="trigger_carrier_provisioning" msgid="6284005970057901477">"ಟ್ರಿಗ್ಗರ್ ವಾಹಕ ಪೂರೈಕೆ"</string>
     <string name="zen_suggestion_title" msgid="2134699720214231950">"ಅಡಚಣೆ ಮಾಡಬೇಡಿ ಅನ್ನು ಅಪ್‌ಡೇಟ್‌ ಮಾಡಿ"</string>
@@ -4272,6 +4279,8 @@
     <string name="disabled_feature_reason_slow_down_phone" msgid="1819157849156814583">"ಇದರಿಂದ, ಫೋನ್‌ನ ಕಾರ್ಯಾಚರಣೆ ನಿಧಾನವಾಗುತ್ತದೆ"</string>
     <string name="enable_gnss_raw_meas_full_tracking" msgid="3397182995626655581">"ಫೋರ್ಸ್‌ ಫುಲ್ GNSS ಅಳತೆಗಳು"</string>
     <string name="enable_gnss_raw_meas_full_tracking_summary" msgid="2469305990718976105">"ಯಾವುದೇ ಡ್ಯೂಟಿ ಸೈಕ್ಲಿಂಗ್ ಇಲ್ಲದೆ ಎಲ್ಲಾ GNSS ಕಾನ್ಸ್ಟಲೇಶನ್‌ಗಳು ಮತ್ತು ಆವರ್ತನೆಗಳನ್ನು ಟ್ರ್ಯಾಕ್ ಮಾಡಿ"</string>
+    <string name="enable_user_switch_message" msgid="8613014373053051092">"ಡೀಬಗ್ ಬಳಕೆದಾರರ ಸ್ವಿಚ್"</string>
+    <string name="enable_user_switch_message_summary" msgid="3354160264601132060">"ಬಳಕೆದಾರರನ್ನು ಬದಲಾಯಿಸುವಾಗ ವಿವರವಾದ ಮಾಹಿತಿಯನ್ನು ಪ್ರದರ್ಶಿಸುತ್ತದೆ"</string>
     <string name="allow_background_activity_starts" msgid="6754016668813082728">"ಹಿನ್ನೆಲೆ ಚಟುವಟಿಕೆ ಪ್ರಾರಂಭಗಳನ್ನು ಅನುಮತಿಸಿ"</string>
     <string name="allow_background_activity_starts_summary" msgid="8170749270869606692">"ಎಲ್ಲಾ ಹಿನ್ನೆಲೆ ಚಟುವಟಿಕೆ ಪ್ರಾರಂಭಿಸುವಿಕೆಗಳನ್ನು ಅನುಮತಿಸುತ್ತದೆ"</string>
     <string name="show_first_crash_dialog" msgid="3682063068903692710">"ಯಾವಾಗಲೂ ಕ್ರ್ಯಾಶ್ ಸಂವಾದವನ್ನು ತೋರಿಸಿ"</string>
@@ -4320,7 +4329,7 @@
     <string name="prevent_ringing_option_vibrate" msgid="6456505293904544108">"ವೈಬ್ರೇಟ್‌"</string>
     <string name="prevent_ringing_option_mute" msgid="53662688921253613">"ಮ್ಯೂಟ್"</string>
     <string name="prevent_ringing_option_none" msgid="1450985763137666231">"ಏನೂ ಮಾಡಬೇಡಿ"</string>
-    <string name="prevent_ringing_option_vibrate_summary" msgid="7961818570574683926">"(ವೈಬ್ರೇಟ್‌) ನಲ್ಲಿ"</string>
+    <string name="prevent_ringing_option_vibrate_summary" msgid="7961818570574683926">"ಆನ್ ಆಗಿದೆ (ವೈಬ್ರೇಟ್‌)"</string>
     <string name="prevent_ringing_option_mute_summary" msgid="3509459199090688328">"(ಮ್ಯೂಟ್) ನಲ್ಲಿ"</string>
     <string name="prevent_ringing_option_none_summary" msgid="5152618221093037451">"ಆಫ್"</string>
     <string name="pref_title_network_details" msgid="3971074015034595956">"ನೆಟ್‌ವರ್ಕ್‌ ವಿವರಗಳು"</string>
@@ -4464,7 +4473,7 @@
     <string name="privacy_dashboard_title" msgid="8764930992456607513">"ಗೌಪ್ಯತೆ"</string>
     <string name="privacy_dashboard_summary" msgid="7916431309860824945">"ಅನುಮತಿಗಳು, ಖಾತೆ ಚಟುವಟಿಕೆ, ವೈಯಕ್ತಿಕ ಡೇಟಾ"</string>
     <string name="contextual_card_dismiss_remove" msgid="1750420285615827309">"ತೆಗೆದುಹಾಕಿ"</string>
-    <string name="contextual_card_dismiss_keep" msgid="3204450672928193661">"ಇರಿಸಿಕೊಳ್ಳಿ"</string>
+    <string name="contextual_card_dismiss_keep" msgid="3204450672928193661">"Keep"</string>
     <string name="contextual_card_dismiss_confirm_message" msgid="2352465079667730312">"ಈ ಸಲಹೆಯನ್ನು ತೆಗೆದುಹಾಕುವುದೇ?"</string>
     <string name="contextual_card_removed_message" msgid="4047307820743366876">"ಸಲಹೆಯನ್ನು ತೆಗೆದುಹಾಕಲಾಗಿದೆ"</string>
     <string name="contextual_card_undo_dismissal_text" msgid="5009245286931852012">"ರದ್ದುಗೊಳಿಸಿ"</string>

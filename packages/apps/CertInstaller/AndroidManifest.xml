@@ -9,6 +9,7 @@
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.MANAGE_USERS" />
     <uses-permission android:name="android.permission.ACCESS_ALL_DOWNLOADS" />
+    <uses-permission android:name="android.permission.HIDE_NON_SYSTEM_OVERLAY_WINDOWS" />
 
     <application android:label="@string/app_name"
                  android:allowBackup="false">
@@ -26,7 +27,7 @@
                 <data android:mimeType="application/x-x509-user-cert" />
                 <data android:mimeType="application/x-x509-server-cert" />
                 <data android:mimeType="application/x-pkcs12" />
-                <data android:mimeType="application/application/x-pem-file" />
+                <data android:mimeType="application/x-pem-file" />
                 <data android:mimeType="application/pkix-cert" />
                 <data android:mimeType="application/x-wifi-config" />
             </intent-filter>

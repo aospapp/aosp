@@ -16,7 +16,7 @@
 
 package com.android.services.telephony;
 
-import android.telecom.Conference;
+import android.net.Uri;
 import android.telecom.Connection;
 import android.telecom.PhoneAccountHandle;
 
@@ -30,7 +30,7 @@ import java.util.List;
  * TelephonyConnection-based conference call for GSM conferences and IMS conferences (which may
  * be either GSM-based or CDMA-based).
  */
-public class TelephonyConference extends Conference implements Holdable {
+public class TelephonyConference extends TelephonyConferenceBase implements Holdable {
 
     private boolean mIsHoldable;
 
@@ -91,6 +91,22 @@ public class TelephonyConference extends Conference implements Holdable {
         } catch (CallStateException e) {
             Log.e(this, e, "Exception thrown trying to separate a conference call");
         }
+    }
+
+    @Override
+    public void onAnswer(int videoState) {
+        Log.e(this, new Exception(), "Answer not supported for GSM conference call.");
+    }
+
+    @Override
+    public void onReject() {
+        Log.e(this, new Exception(), "Reject not supported for GSM conference call.");
+    }
+
+    @Override
+    public void onAddConferenceParticipants(List<Uri> participants) {
+        Log.e(this, new Exception(), "Adding Conference Participants not supported " +
+                " for GSM conference call.");
     }
 
     @Override

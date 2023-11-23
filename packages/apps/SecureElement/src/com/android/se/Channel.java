@@ -134,7 +134,11 @@ public class Channel implements IBinder.DeathRecipient {
                 throw new SecurityException("MANAGE CHANNEL command not allowed");
             }
             if ((command[1] == (byte) 0xA4) && (command[2] == (byte) 0x04)) {
-                throw new SecurityException("SELECT by DF name command not allowed");
+                // SELECT by DF name is only allowed for CarrierPrivilege applications
+                // or system privilege applications
+                if (ChannelAccess.ACCESS.ALLOWED != mChannelAccess.getPrivilegeAccess()) {
+                    throw new SecurityException("SELECT by DF name command not allowed");
+                }
             }
         }
 
@@ -236,8 +240,12 @@ public class Channel implements IBinder.DeathRecipient {
             // if not an exception is thrown
             mTerminal.getAccessControlEnforcer().checkCommand(this, command);
         } else {
-            throw new SecurityException("Access Controller not set for Terminal: "
-                    + mTerminal.getName());
+            // Allow access to Privileged App even if Access Control Enforcer is
+            // not initialized
+            if (ChannelAccess.ACCESS.ALLOWED != mChannelAccess.getPrivilegeAccess()) {
+                throw new SecurityException("Access Controller not set for Terminal: "
+                        + mTerminal.getName());
+            }
         }
     }
 

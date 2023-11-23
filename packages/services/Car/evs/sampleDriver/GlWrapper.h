@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_HARDWARE_AUTOMOTIVE_EVS_V1_0_DISPLAY_GLWRAPPER_H
-#define ANDROID_HARDWARE_AUTOMOTIVE_EVS_V1_0_DISPLAY_GLWRAPPER_H
+#ifndef ANDROID_HARDWARE_AUTOMOTIVE_EVS_V1_1_DISPLAY_GLWRAPPER_H
+#define ANDROID_HARDWARE_AUTOMOTIVE_EVS_V1_1_DISPLAY_GLWRAPPER_H
 
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
@@ -24,38 +24,40 @@
 #include <GLES3/gl3.h>
 #include <GLES3/gl3ext.h>
 
-#include <gui/ISurfaceComposer.h>
-#include <gui/Surface.h>
-#include <gui/SurfaceComposerClient.h>
-
-#include <android/hardware/automotive/evs/1.0/types.h>
+#include <android/frameworks/automotive/display/1.0/IAutomotiveDisplayProxyService.h>
+#include <android/hardware/automotive/evs/1.1/types.h>
+#include <android-base/logging.h>
+#include <bufferqueueconverter/BufferQueueConverter.h>
 
 
 using ::android::sp;
-using ::android::SurfaceComposerClient;
-using ::android::SurfaceControl;
-using ::android::Surface;
-using ::android::hardware::automotive::evs::V1_0::BufferDesc;
+using ::android::SurfaceHolder;
+using BufferDesc_1_0 = ::android::hardware::automotive::evs::V1_0::BufferDesc;
+using BufferDesc_1_1 = ::android::hardware::automotive::evs::V1_1::BufferDesc;
+using ::android::frameworks::automotive::display::V1_0::IAutomotiveDisplayProxyService;
+using ::android::hardware::graphics::bufferqueue::V2_0::IGraphicBufferProducer;
 
 
 class GlWrapper {
 public:
-    bool initialize();
+    GlWrapper()
+        : mSurfaceHolder(android::SurfaceHolderUniquePtr(nullptr, nullptr)) {}
+    bool initialize(sp<IAutomotiveDisplayProxyService> pWindowService, uint64_t displayId);
     void shutdown();
 
-    bool updateImageTexture(const BufferDesc& buffer);
+    bool updateImageTexture(const BufferDesc_1_0& buffer);
+    bool updateImageTexture(const BufferDesc_1_1& buffer);
     void renderImageToScreen();
 
-    void showWindow();
-    void hideWindow();
+    void showWindow(sp<IAutomotiveDisplayProxyService>& pWindowService, uint64_t id);
+    void hideWindow(sp<IAutomotiveDisplayProxyService>& pWindowService, uint64_t id);
 
     unsigned getWidth()     { return mWidth; };
     unsigned getHeight()    { return mHeight; };
 
 private:
-    sp<SurfaceComposerClient>   mFlinger;
-    sp<SurfaceControl>          mFlingerSurfaceControl;
-    sp<Surface>                 mFlingerSurface;
+    sp<IGraphicBufferProducer>  mGfxBufferProducer;
+
     EGLDisplay                  mDisplay;
     EGLSurface                  mSurface;
     EGLContext                  mContext;
@@ -67,6 +69,13 @@ private:
 
     GLuint mTextureMap    = 0;
     GLuint mShaderProgram = 0;
+
+    // Opaque handle for a native hardware buffer defined in
+    // frameworks/native/opengl/include/EGL/eglplatform.h
+    ANativeWindow*                  mWindow;
+
+    // Pointer to a Surface wrapper.
+    android::SurfaceHolderUniquePtr mSurfaceHolder;
 };
 
-#endif // ANDROID_HARDWARE_AUTOMOTIVE_EVS_V1_0_DISPLAY_GLWRAPPER_H
+#endif // ANDROID_HARDWARE_AUTOMOTIVE_EVS_V1_1_DISPLAY_GLWRAPPER_H

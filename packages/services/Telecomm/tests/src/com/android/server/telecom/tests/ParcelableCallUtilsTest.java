@@ -2,22 +2,19 @@ package com.android.server.telecom.tests;
 
 import static com.android.server.telecom.TelecomSystem.*;
 
+import static junit.framework.Assert.assertEquals;
 import static junit.framework.Assert.assertFalse;
 import static junit.framework.Assert.assertTrue;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
 
 import android.content.ComponentName;
-import android.content.Context;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.telecom.Connection;
-import android.telecom.GatewayInfo;
 import android.telecom.ParcelableCall;
 import android.telecom.PhoneAccountHandle;
 import android.test.suitebuilder.annotation.SmallTest;
@@ -26,12 +23,13 @@ import com.android.server.telecom.Call;
 import com.android.server.telecom.CallerInfoLookupHelper;
 import com.android.server.telecom.CallsManager;
 import com.android.server.telecom.ClockProxy;
-import com.android.server.telecom.ConnectionServiceRepository;
 import com.android.server.telecom.ParcelableCallUtils;
 import com.android.server.telecom.PhoneAccountRegistrar;
 import com.android.server.telecom.PhoneNumberUtilsAdapter;
 import com.android.server.telecom.TelecomSystem;
+import com.android.server.telecom.ui.ToastFactory;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -44,6 +42,7 @@ public class ParcelableCallUtilsTest extends TelecomTestCase {
 
     private SyncRoot mLock = new SyncRoot() {};
     @Mock private ClockProxy mClockProxy;
+    @Mock private ToastFactory mToastProxy;
     @Mock private CallsManager mCallsManager;
     @Mock private CallerInfoLookupHelper mCallerInfoLookupHelper;
     @Mock private PhoneNumberUtilsAdapter mPhoneNumberUtilsAdapter;
@@ -60,9 +59,10 @@ public class ParcelableCallUtilsTest extends TelecomTestCase {
         when(mCallsManager.getCallerInfoLookupHelper()).thenReturn(mCallerInfoLookupHelper);
         when(mCallsManager.getPhoneAccountRegistrar()).thenReturn(mPhoneAccountRegistrar);
         when(mPhoneAccountRegistrar.getPhoneAccountUnchecked(any())).thenReturn(null);
-        when(mPhoneNumberUtilsAdapter.isLocalEmergencyNumber(any(), any())).thenReturn(false);
+        when(mComponentContextFixture.getTelephonyManager().isEmergencyNumber(any()))
+                .thenReturn(false);
         mCall = new Call("1",
-                null /* context */,
+                mContext /* context */,
                 mCallsManager,
                 mLock,
                 null /* ConnectionServiceRepository */,
@@ -75,7 +75,14 @@ public class ParcelableCallUtilsTest extends TelecomTestCase {
                 Call.CALL_DIRECTION_INCOMING,
                 false /* shouldAttachToExistingConnection */,
                 false /* isConference */,
-                mClockProxy /* ClockProxy */);
+                mClockProxy /* ClockProxy */,
+                mToastProxy);
+    }
+
+    @Override
+    @After
+    public void tearDown() throws Exception {
+        super.tearDown();
     }
 
     @SmallTest
@@ -136,6 +143,48 @@ public class ParcelableCallUtilsTest extends TelecomTestCase {
         assertFalse(parceledExtras.containsKey(Connection.EXTRA_SIP_INVITE));
         assertFalse(parceledExtras.containsKey("SomeExtra"));
         assertFalse(parceledExtras.containsKey(Connection.EXTRA_CALL_SUBJECT));
+    }
+
+    @SmallTest
+    @Test
+    public void testVerificationStatusParcelingForScreening() {
+        checkVerStatParcelingForCallScreening(Connection.VERIFICATION_STATUS_NOT_VERIFIED, false);
+        checkVerStatParcelingForCallScreening(Connection.VERIFICATION_STATUS_NOT_VERIFIED, true);
+        checkVerStatParcelingForCallScreening(Connection.VERIFICATION_STATUS_PASSED, false);
+        checkVerStatParcelingForCallScreening(Connection.VERIFICATION_STATUS_PASSED, true);
+        checkVerStatParcelingForCallScreening(Connection.VERIFICATION_STATUS_FAILED, false);
+        checkVerStatParcelingForCallScreening(Connection.VERIFICATION_STATUS_FAILED, true);
+    }
+
+    @SmallTest
+    @Test
+    public void testVerificationStatusParcelingForDialer() {
+        checkVerStatParcelingForDialer(Connection.VERIFICATION_STATUS_NOT_VERIFIED, false);
+        checkVerStatParcelingForDialer(Connection.VERIFICATION_STATUS_NOT_VERIFIED, true);
+        checkVerStatParcelingForDialer(Connection.VERIFICATION_STATUS_PASSED, false);
+        checkVerStatParcelingForDialer(Connection.VERIFICATION_STATUS_PASSED, true);
+        checkVerStatParcelingForDialer(Connection.VERIFICATION_STATUS_FAILED, false);
+        checkVerStatParcelingForDialer(Connection.VERIFICATION_STATUS_FAILED, true);
+    }
+
+    private void checkVerStatParcelingForCallScreening(int connectionVerificationStatus,
+            boolean isForSystemDialer) {
+        mCall.setCallerNumberVerificationStatus(connectionVerificationStatus);
+        ParcelableCall call = ParcelableCallUtils.toParcelableCallForScreening(mCall,
+                isForSystemDialer /* isPartOfSystemDialer */);
+        assertEquals(connectionVerificationStatus, call.getCallerNumberVerificationStatus());
+    }
+
+    private void checkVerStatParcelingForDialer(int connectionVerificationStatus,
+            boolean isForSystemDialer) {
+        mCall.setCallerNumberVerificationStatus(connectionVerificationStatus);
+        ParcelableCall call = ParcelableCallUtils.toParcelableCall(mCall,
+                false /* includevideoProvider */,
+                null /* phoneAccountRegistrar */,
+                false /* supportsExternalCalls */,
+                false /* includeRttCall */,
+                isForSystemDialer /* isForSystemDialer */);
+        assertEquals(connectionVerificationStatus, call.getCallerNumberVerificationStatus());
     }
 
     private Bundle getSomeExtras() {

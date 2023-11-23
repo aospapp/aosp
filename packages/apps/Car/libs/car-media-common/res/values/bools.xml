@@ -17,11 +17,9 @@
 <resources>
     <bool name="use_media_source_color_for_fab_spinner">true</bool>
 
-    <!-- This value must remain false for production builds. It is intended to be overlaid in
-        the simulator, so media app developers can notice quickly that they are sending invalid
-        art (see MediaItemMetadata and MediaButtonController).
-        The same effect can be achieved with: adb shell setprop log.tag.MediaItemFlagInvalidArt 1
-    -->
-    <bool name="flag_invalid_media_art">false</bool>
+    <!-- Whether to show a linear progress bar in minimized control bar or not. -->
+    <bool name="show_linear_progress_bar">true</bool>
+    <!-- Whether to show a circular progress bar in control bar and minimized control bar or not. -->
+    <bool name="show_circular_progress_bar">false</bool>
 
 </resources>

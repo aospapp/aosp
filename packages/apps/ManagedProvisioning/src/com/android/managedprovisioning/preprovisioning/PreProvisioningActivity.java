@@ -19,6 +19,7 @@ package com.android.managedprovisioning.preprovisioning;
 import static android.app.admin.DevicePolicyManager.ACTION_ADMIN_POLICY_COMPLIANCE;
 import static android.app.admin.DevicePolicyManager.ACTION_GET_PROVISIONING_MODE;
 
+import static com.android.managedprovisioning.model.ProvisioningParams.PROVISIONING_MODE_FINANCED_DEVICE;
 import static com.android.managedprovisioning.model.ProvisioningParams.PROVISIONING_MODE_FULLY_MANAGED_DEVICE_LEGACY;
 
 import android.annotation.IntDef;
@@ -51,6 +52,7 @@ import com.android.managedprovisioning.preprovisioning.PreProvisioningController
 import com.android.managedprovisioning.preprovisioning.consent.ConsentUiHelperFactory;
 import com.android.managedprovisioning.preprovisioning.consent.ConsentUiHelper;
 import com.android.managedprovisioning.preprovisioning.consent.ConsentUiHelperCallback;
+import com.android.managedprovisioning.provisioning.FinancedDeviceLandingActivity;
 import com.android.managedprovisioning.provisioning.LandingActivity;
 import com.android.managedprovisioning.provisioning.ProvisioningActivity;
 import com.google.android.setupcompat.util.WizardManagerHelper;
@@ -70,6 +72,7 @@ public class PreProvisioningActivity extends SetupGlifLayoutActivity implements
     private static final int CHANGE_LAUNCHER_REQUEST_CODE = 4;
     private static final int ADMIN_INTEGRATED_FLOW_PREPARE_REQUEST_CODE = 5;
     private static final int GET_PROVISIONING_MODE_REQUEST_CODE = 6;
+    private static final int FINANCED_DEVICE_PREPARE_REQUEST_CODE = 7;
 
     // Note: must match the constant defined in HomeSettings
     private static final String EXTRA_SUPPORT_MANAGED_PROFILES = "support_managed_profiles";
@@ -195,12 +198,24 @@ public class PreProvisioningActivity extends SetupGlifLayoutActivity implements
                     if(data != null && mController.updateProvisioningParamsFromIntent(data)) {
                         mController.showUserConsentScreen();
                     } else {
+                        ProvisionLogger.loge(
+                                "Invalid data object returned from GET_PROVISIONING_MODE.");
                         showFactoryResetDialog(R.string.cant_set_up_device,
                                 R.string.contact_your_admin_for_help);
                     }
                 } else {
+                    ProvisionLogger.loge("Invalid result code from GET_PROVISIONING_MODE. Expected "
+                            + RESULT_OK + " but got " + resultCode + ".");
                     showFactoryResetDialog(R.string.cant_set_up_device,
                             R.string.contact_your_admin_for_help);
+                }
+                break;
+            case FINANCED_DEVICE_PREPARE_REQUEST_CODE:
+                if (resultCode == RESULT_OK) {
+                    startFinancedDeviceFlow();
+                } else {
+                    setResult(resultCode);
+                    finish();
                 }
                 break;
             default:
@@ -303,6 +318,11 @@ public class PreProvisioningActivity extends SetupGlifLayoutActivity implements
         showDialog(dialogBuilder, LAUNCHER_INVALID_DIALOG);
     }
 
+    @Override
+    public void abortProvisioning() {
+        onProvisioningAborted();
+    }
+
     private void requestLauncherPick() {
         Intent changeLauncherIntent = new Intent(Settings.ACTION_HOME_SETTINGS);
         changeLauncherIntent.putExtra(EXTRA_SUPPORT_MANAGED_PROFILES, true);
@@ -341,6 +361,11 @@ public class PreProvisioningActivity extends SetupGlifLayoutActivity implements
         mController.showUserConsentScreen();
     }
 
+    private void startFinancedDeviceFlow() {
+        mController.setProvisioningMode(PROVISIONING_MODE_FINANCED_DEVICE);
+        mController.continueProvisioningAfterUserConsent();
+    }
+
     @Override
     public void showFactoryResetDialog(Integer titleId, int messageId) {
         SimpleDialog.Builder dialogBuilder = new SimpleDialog.Builder()
@@ -363,6 +388,14 @@ public class PreProvisioningActivity extends SetupGlifLayoutActivity implements
         WizardManagerHelper.copyWizardManagerExtras(getIntent(), intent);
         intent.putExtra(ProvisioningParams.EXTRA_PROVISIONING_PARAMS, params);
         startActivityForResult(intent, ADMIN_INTEGRATED_FLOW_PREPARE_REQUEST_CODE);
+    }
+
+    @Override
+    public void prepareFinancedDeviceFlow(ProvisioningParams params) {
+        Intent intent = new Intent(this, FinancedDeviceLandingActivity.class);
+        WizardManagerHelper.copyWizardManagerExtras(getIntent(), intent);
+        intent.putExtra(ProvisioningParams.EXTRA_PROVISIONING_PARAMS, params);
+        startActivityForResult(intent, FINANCED_DEVICE_PREPARE_REQUEST_CODE);
     }
 
     @Override

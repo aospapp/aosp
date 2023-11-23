@@ -19,11 +19,16 @@ package com.android.managedprovisioning.finalization;
 import android.app.Activity;
 import android.app.Service;
 import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
 import android.os.IBinder;
 import android.os.UserHandle;
 
+import com.android.managedprovisioning.analytics.MetricsWriterFactory;
+import com.android.managedprovisioning.analytics.ProvisioningAnalyticsTracker;
+import com.android.managedprovisioning.common.ManagedProvisioningSharedPreferences;
 import com.android.managedprovisioning.common.ProvisionLogger;
+import com.android.managedprovisioning.common.SettingsFacade;
 import com.android.managedprovisioning.common.Utils;
 import com.android.managedprovisioning.finalization.DpcReceivedSuccessReceiver.Callback;
 import com.android.managedprovisioning.model.ProvisioningParams;
@@ -35,19 +40,20 @@ import com.android.managedprovisioning.model.ProvisioningParams;
  */
 public class SendDpcBroadcastService extends Service implements Callback {
 
-    static String EXTRA_PROVISIONING_PARAMS =
+    public static String EXTRA_PROVISIONING_PARAMS =
             "com.android.managedprovisioning.PROVISIONING_PARAMS";
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        final Context context = getApplicationContext();
         ProvisioningParams params = intent.getParcelableExtra(EXTRA_PROVISIONING_PARAMS);
         Utils utils = new Utils();
         ProvisioningIntentProvider helper = new ProvisioningIntentProvider();
-        UserHandle managedProfileUserHandle = utils.getManagedProfile(getApplicationContext());
+        UserHandle managedProfileUserHandle = utils.getManagedProfile(context);
         int managedProfileUserIdentifier = managedProfileUserHandle.getIdentifier();
         Intent completeIntent =
                 helper.createProvisioningCompleteIntent(params,
-                        managedProfileUserIdentifier, utils, getApplicationContext());
+                        managedProfileUserIdentifier, utils, context);
         // Use an ordered broadcast, so that we only finish when the DPC has received it.
         // Avoids a lag in the transition between provisioning and the DPC.
         BroadcastReceiver dpcReceivedSuccessReceiver =
@@ -60,8 +66,13 @@ public class SendDpcBroadcastService extends Service implements Callback {
         ProvisionLogger.logd("Provisioning complete broadcast has been sent to user "
                 + managedProfileUserIdentifier);
 
+        final ProvisioningAnalyticsTracker provisioningAnalyticsTracker =
+                new ProvisioningAnalyticsTracker(
+                        MetricsWriterFactory.getMetricsWriter(context, new SettingsFacade()),
+                        new ManagedProvisioningSharedPreferences(context));
+
         helper.maybeLaunchDpc(
-                params, managedProfileUserIdentifier, utils, getApplicationContext());
+                params, managedProfileUserIdentifier, utils, context, provisioningAnalyticsTracker);
 
         return START_STICKY;
     }

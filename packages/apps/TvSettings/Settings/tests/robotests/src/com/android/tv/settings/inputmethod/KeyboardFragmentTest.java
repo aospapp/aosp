@@ -32,7 +32,6 @@ import androidx.preference.PreferenceScreen;
 
 import com.android.tv.settings.R;
 import com.android.tv.settings.testutils.ShadowInputMethodManager;
-import com.android.tv.settings.testutils.TvShadowActivityThread;
 import com.android.tv.settings.testutils.Utils;
 
 import org.junit.Before;
@@ -47,7 +46,7 @@ import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowUserManager;
 
 @RunWith(RobolectricTestRunner.class)
-@Config(shadows = {TvShadowActivityThread.class, ShadowInputMethodManager.class})
+@Config(shadows = {ShadowInputMethodManager.class})
 public class KeyboardFragmentTest {
     @Spy
     private KeyboardFragment mKeyboardFragment;

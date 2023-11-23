@@ -83,8 +83,7 @@
     <string name="font_size_summary" msgid="9120023206321191067">"Make the text on screen smaller or larger."</string>
     <string name="font_size_make_smaller_desc" msgid="5780829318985556969">"Make smaller"</string>
     <string name="font_size_make_larger_desc" msgid="2907824418252785875">"Make larger"</string>
-    <!-- no translation found for font_size_preview_text (360019784926073822) -->
-    <skip />
+    <string name="font_size_preview_text" msgid="360019784926073822">"Servez à ce monsieur une bière et des kiwis."</string>
     <string name="font_size_preview_text_headline" msgid="8038650525913995091">"Sample text"</string>
     <string name="font_size_preview_text_title" msgid="2593520249400910305">"The Wonderful Wizard of Oz"</string>
     <string name="font_size_preview_text_subtitle" msgid="6106782964143379331">"Chapter 11: The Wonderful Emerald City of Oz"</string>
@@ -185,7 +184,7 @@
     <string name="connected_device_previously_connected_screen_title" msgid="2018789662358162716">"Previously connected"</string>
     <string name="connected_device_bluetooth_turned_on_toast" msgid="4652326177920814476">"Bluetooth turned on"</string>
     <string name="previous_connected_see_all" msgid="7237095013087310923">"See all"</string>
-    <string name="date_and_time" msgid="2957463607025909857">"Date &amp; time"</string>
+    <string name="date_and_time" msgid="2957463607025909857">"Date and time"</string>
     <string name="choose_timezone" msgid="8215332993926818147">"Choose time zone"</string>
     <!-- no translation found for intent_sender_data_label (2009833999785758727) -->
     <skip />
@@ -320,7 +319,7 @@
     <string name="roaming_reenable_title" msgid="6985082191178297921">"Allow data roaming?"</string>
     <string name="networks" msgid="3073876464102136771">"Operator selection"</string>
     <string name="sum_carrier_select" msgid="8964744180598499121">"Choose a network operator"</string>
-    <string name="date_and_time_settings_title" msgid="7827088656940910631">"Date &amp; time"</string>
+    <string name="date_and_time_settings_title" msgid="7827088656940910631">"Date and time"</string>
     <string name="date_and_time_settings_title_setup_wizard" msgid="1573030770187844365">"Set date and time"</string>
     <string name="date_and_time_settings_summary" msgid="4617979434474713417">"Set date, time, time zone, &amp; formats"</string>
     <string name="date_time_auto" msgid="2679132152303750218">"Use network-provided time"</string>
@@ -481,8 +480,7 @@
     <string name="face_lock_screen_setup_skip_dialog_text" product="tablet" msgid="2998863111689476550">"Protect your tablet with a screen lock option so that no one will be able to use it if it is lost or stolen. You also need a screen lock option to set up face authentication. Tap Cancel, then set a PIN or choose another screen lock option."</string>
     <string name="face_lock_screen_setup_skip_dialog_text" product="device" msgid="6780557259734235952">"Protect your device with a screen lock option so that no one will be able to use it if it is lost or stolen. You also need a screen lock option to set up face authentication. Tap Cancel, then set a PIN or choose another screen lock option."</string>
     <string name="face_lock_screen_setup_skip_dialog_text" product="default" msgid="8541640018478926775">"Protect your phone with a screen lock option so that no one will be able to use it if it is lost or stolen. You also need a screen lock option to set up face authentication. Tap Cancel, then set a PIN or choose another screen lock option."</string>
-    <!-- no translation found for lock_screen_pin_skip_title (8217519439213393785) -->
-    <skip />
+    <string name="lock_screen_pin_skip_title" msgid="8217519439213393785">"Skip PIN Setup?"</string>
     <string name="lock_screen_password_skip_title" msgid="3725788215672959827">"Skip Password Setup?"</string>
     <string name="lock_screen_pattern_skip_title" msgid="4237030500353932005">"Skip Pattern Setup?"</string>
     <string name="security_settings_fingerprint_enroll_setup_screen_lock" msgid="9036983528330627756">"Set up screen lock"</string>
@@ -669,7 +667,6 @@
       <item quantity="other">Must be fewer than <xliff:g id="NUMBER_1">%d</xliff:g> digits</item>
       <item quantity="one">Must be fewer than <xliff:g id="NUMBER_0">%d</xliff:g> digit</item>
     </plurals>
-    <string name="lockpassword_pin_contains_non_digits" msgid="1501729742023195556">"Must only contain digits 0-9"</string>
     <string name="lockpassword_pin_recently_used" msgid="5556148774911741103">"Device admin doesn\'t allow using a recent PIN"</string>
     <string name="lockpassword_pin_blacklisted_by_admin" msgid="2752037810571200697">"Common PINs are blocked by your IT admin. Try a different PIN."</string>
     <string name="lockpassword_illegal_character" msgid="3577712947676261351">"This can\'t include an invalid character"</string>
@@ -699,6 +696,10 @@
     <plurals name="lockpassword_password_requires_nonletter" formatted="false" msgid="3692485784007607387">
       <item quantity="other">Must contain at least <xliff:g id="COUNT">%d</xliff:g> non-letter characters</item>
       <item quantity="one">Must contain at least 1 non-letter character</item>
+    </plurals>
+    <plurals name="lockpassword_password_requires_nonnumerical" formatted="false" msgid="6943707011152180150">
+      <item quantity="other">Must contain at least <xliff:g id="COUNT">%d</xliff:g> non-numeric characters</item>
+      <item quantity="one">Must contain at least 1 non-numeric character</item>
     </plurals>
     <string name="lockpassword_password_recently_used" msgid="6944729699375087431">"Device admin doesn\'t allow using a recent password"</string>
     <string name="lockpassword_password_blacklisted_by_admin" msgid="4988166770148440755">"Common passwords are blocked by your IT admin. Try a different password."</string>
@@ -1092,13 +1093,19 @@
     <item msgid="2552412793005571845">"@*android:string/wfc_mode_cellular_preferred_summary"</item>
     <item msgid="742811521969300868">"@*android:string/wfc_mode_wifi_only_summary"</item>
   </string-array>
-    <!-- no translation found for wifi_calling_mode_choices_v2:0 (9149346657812979257) -->
-    <!-- no translation found for wifi_calling_mode_choices_v2:2 (6007360612667098926) -->
+  <string-array name="wifi_calling_mode_choices_v2">
+    <item msgid="9149346657812979257">"Wi-Fi"</item>
+    <item msgid="4421333712484542489">"Mobile"</item>
+    <item msgid="6007360612667098926">"Wi-Fi only"</item>
+  </string-array>
   <string-array name="wifi_calling_mode_choices_without_wifi_only">
     <item msgid="3658897985297386665">"@*android:string/wfc_mode_wifi_preferred_summary"</item>
     <item msgid="4191802193352447215">"@*android:string/wfc_mode_cellular_preferred_summary"</item>
   </string-array>
-    <!-- no translation found for wifi_calling_mode_choices_v2_without_wifi_only:0 (6452246499629557266) -->
+  <string-array name="wifi_calling_mode_choices_v2_without_wifi_only">
+    <item msgid="6452246499629557266">"Wi-Fi"</item>
+    <item msgid="2271962426654621656">"Mobile"</item>
+  </string-array>
     <string name="wifi_calling_mode_wifi_preferred_summary" msgid="8298294808362169798">"If Wi‑Fi is unavailable, use mobile network"</string>
     <string name="wifi_calling_mode_cellular_preferred_summary" msgid="4906499810156794061">"If mobile network is unavailable, use Wi‑Fi"</string>
     <string name="wifi_calling_mode_wifi_only_summary" msgid="6928556021002500522">"Call over Wi‑Fi. If Wi‑Fi is lost, call will end."</string>
@@ -1563,7 +1570,7 @@
     <string name="restore_default_apn_completed" msgid="5671734152740058937">"Reset default APN settings completed"</string>
     <string name="reset_dashboard_title" msgid="7084966342252178530">"Reset options"</string>
     <string name="reset_dashboard_summary" msgid="8778383341461126642">"Network, apps or device can be reset"</string>
-    <string name="reset_network_title" msgid="8944059136930806211">"Reset Wi-Fi, mobile &amp; Bluetooth"</string>
+    <string name="reset_network_title" msgid="8944059136930806211">"Reset Wi-Fi, mobile and Bluetooth"</string>
     <string name="reset_network_desc" msgid="4982633363916261109">"This will reset all network settings, including:\n\n"<li>"Wi‑Fi"</li>\n<li>"Mobile data"</li>\n<li>"Bluetooth"</li></string>
     <string name="reset_esim_title" msgid="7630781767040831893">"Erase downloaded SIMs"</string>
     <string name="reset_esim_desc" msgid="433226911566802">"To download replacement SIMs, contact your operator. This won’t cancel any mobile service plans."</string>
@@ -1571,13 +1578,13 @@
     <string name="reset_network_final_desc" msgid="2463817067048751373">"Reset all network settings? You can’t undo this action."</string>
     <string name="reset_network_final_desc_esim" msgid="4676436976372555750">"Reset all network settings and delete downloaded SIMs? You can’t undo this action."</string>
     <string name="reset_network_final_button_text" msgid="345255333127794393">"Reset settings"</string>
-    <string name="reset_network_confirm_title" msgid="2432145031070536008">"Reset?"</string>
+    <string name="reset_network_confirm_title" msgid="2432145031070536008">"Want to reset?"</string>
     <string name="network_reset_not_available" msgid="6146655531868016281">"Network reset is not available for this user"</string>
     <string name="reset_network_complete_toast" msgid="128225929536005495">"Network settings have been reset"</string>
     <string name="reset_esim_error_title" msgid="4728931209471875632">"Can’t delete SIMs"</string>
     <string name="reset_esim_error_msg" msgid="4716366079119742235">"Downloaded SIMs can’t be deleted due to an error.\n\nRestart your device and try again."</string>
-    <string name="master_clear_title" msgid="1560712943955904673">"Erase all data (factory reset)"</string>
-    <string name="master_clear_short_title" msgid="919098101581335101">"Erase all data (factory reset)"</string>
+    <string name="master_clear_title" msgid="1560712943955904673">"Delete all data (factory reset)"</string>
+    <string name="master_clear_short_title" msgid="919098101581335101">"Delete all data (factory reset)"</string>
     <string name="master_clear_desc" product="tablet" msgid="3432373610755760899">"This will erase all data from your tablet’s "<b>"internal storage"</b>", including:\n\n"<li>"Your Google Account"</li>\n<li>"System and app data and settings"</li>\n<li>"Downloaded apps"</li></string>
     <string name="master_clear_desc" product="default" msgid="8765543541962866697">"This will erase all data from your phone’s "<b>"internal storage"</b>", including:\n\n"<li>"Your Google Account"</li>\n<li>"System and app data and settings"</li>\n<li>"Downloaded apps"</li></string>
     <string name="master_clear_accounts" product="default" msgid="3432884235445405376">\n\n"You are currently signed in to the following accounts:\n"</string>
@@ -1607,7 +1614,7 @@
     <string name="tether_settings_title_wifi" msgid="2060965130234484613">"Portable hotspot"</string>
     <string name="tether_settings_title_bluetooth" msgid="1999590158102569959">"Bluetooth tethering"</string>
     <string name="tether_settings_title_usb_bluetooth" msgid="1159128764162788159">"Tethering"</string>
-    <string name="tether_settings_title_all" msgid="6935843543433954181">"Hotspot &amp; tethering"</string>
+    <string name="tether_settings_title_all" msgid="6935843543433954181">"Hotspot and tethering"</string>
     <string name="tether_settings_summary_hotspot_on_tether_on" msgid="1289593649526514499">"Hotspot on, tethering"</string>
     <string name="tether_settings_summary_hotspot_on_tether_off" msgid="8010689354668285422">"Hotspot on"</string>
     <string name="tether_settings_summary_hotspot_off_tether_on" msgid="1349909238672649877">"Tethering"</string>
@@ -1937,9 +1944,9 @@
     <string name="language_input_gesture_summary_on_with_assist" msgid="315262339899294132"></string>
     <string name="language_input_gesture_summary_on_non_assist" msgid="6054599939153669225"></string>
     <string name="language_input_gesture_summary_off" msgid="4108509077072348546"></string>
-    <string name="language_settings" msgid="3551012802762495835">"Languages &amp; input"</string>
+    <string name="language_settings" msgid="3551012802762495835">"Languages and input"</string>
     <string name="language_empty_list_user_restricted" msgid="3837176532474949716">"You don’t have permission to change the device language."</string>
-    <string name="language_keyboard_settings_title" msgid="2672573191605298938">"Languages &amp; input"</string>
+    <string name="language_keyboard_settings_title" msgid="2672573191605298938">"Languages and input"</string>
     <string name="input_assistance" msgid="6442646949054057707">"Tools"</string>
     <string name="keyboard_settings_category" msgid="5857591390023852850">"Keyboard &amp; input methods"</string>
     <string name="phone_language" msgid="8471728119195198790">"Languages"</string>
@@ -2034,7 +2041,7 @@
     <string name="vision_settings_description" msgid="3476589459009287332">"You can customise this device to fit your needs. These accessibility features can be changed later in Settings."</string>
     <string name="vision_settings_suggestion_title" msgid="7268661419110951128">"Change font size"</string>
     <string name="screen_reader_category_title" msgid="6300714148519645544">"Screen readers"</string>
-    <string name="audio_and_captions_category_title" msgid="6140472938769619212">"Audio &amp; on-screen text"</string>
+    <string name="audio_and_captions_category_title" msgid="6140472938769619212">"Audio and on-screen text"</string>
     <string name="display_category_title" msgid="545168481672250195">"Display"</string>
     <string name="interaction_control_category_title" msgid="8775039211811947683">"Interaction controls"</string>
     <string name="user_installed_services_category_title" msgid="4288689493753221319">"Downloaded services"</string>
@@ -2052,12 +2059,12 @@
     <string name="accessibility_screen_magnification_short_summary" msgid="5698545174944494486">"Tap 3 times to zoom"</string>
     <string name="accessibility_screen_magnification_navbar_short_summary" msgid="5418767043532322397">"Tap a button to zoom"</string>
     <string name="accessibility_screen_magnification_summary" msgid="3363006902079431772"><b>"To zoom"</b>", quickly tap the screen 3 times.\n"<ul><li>"Drag 2 or more fingers to scroll"</li>\n<li>"Pinch 2 or more fingers to adjust zoom"</li></ul>\n\n<b>"To zoom temporarily"</b>", quickly tap the screen 3 times and hold down your finger on the third tap.\n"<ul><li>"Drag to move around the screen"</li>\n<li>"Lift finger to zoom out"</li></ul>\n\n"You can\'t zoom in on the keyboard and navigation bar."</string>
-    <string name="accessibility_screen_magnification_navbar_summary" msgid="4726360285256503132">"When magnification is turned on, use the Accessibility button at the bottom of the screen to quickly magnify.\n\n"<b>"To zoom"</b>", tap the Accessibility button, then tap anywhere on the screen.\n"<ul><li>"Drag 2 or more fingers to scroll"</li>\n<li>"Pinch 2 or more fingers to adjust zoom"</li></ul>\n\n<b>"To zoom temporarily"</b>", tap the Accessibility button, then touch &amp; hold anywhere on the screen.\n"<ul><li>"Drag to move around the screen"</li>\n<li>"Lift finger to zoom out"</li></ul>\n\n"You can’t zoom in on the keyboard or navigation bar."</string>
+    <string name="accessibility_screen_magnification_navbar_summary" msgid="4726360285256503132">"When magnification is turned on, use the Accessibility button at the bottom of the screen to quickly magnify.\n\n"<b>"To zoom"</b>", tap the Accessibility button, then tap anywhere on the screen.\n"<ul><li>"Drag 2 or more fingers to scroll"</li>\n<li>"Pinch 2 or more fingers to adjust zoom"</li></ul>\n\n<b>"To zoom temporarily"</b>", tap the Accessibility button, then touch and hold anywhere on the screen.\n"<ul><li>"Drag to move around the screen"</li>\n<li>"Lift finger to zoom out"</li></ul>\n\n"You can’t zoom in on the keyboard or navigation bar."</string>
     <string name="accessibility_screen_magnification_navbar_configuration_warning" msgid="6477234309484795550">"The accessibility button is set to <xliff:g id="SERVICE">%1$s</xliff:g>. To use magnification, touch &amp; hold the accessibility button, then select magnification."</string>
     <string name="accessibility_global_gesture_preference_title" msgid="3842279082831426816">"Volume key shortcut"</string>
     <string name="accessibility_shortcut_service_title" msgid="3516052294376744060">"Shortcut service"</string>
     <string name="accessibility_shortcut_service_on_lock_screen_title" msgid="1279441617927949980">"Allow from lock screen"</string>
-    <string name="accessibility_shortcut_description" msgid="1427049334225166395">"When the shortcut is on, you can press both volume keys for 3 seconds to start an accessibility feature."</string>
+    <string name="accessibility_shortcut_description" msgid="1427049334225166395">"When the shortcut is on, you can press both volume keys for three seconds to start an accessibility feature."</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="5652244684961877255">"High-contrast text"</string>
     <string name="accessibility_toggle_screen_magnification_auto_update_preference_title" msgid="2466317284195934003">"Auto update screen magnification"</string>
     <string name="accessibility_toggle_screen_magnification_auto_update_preference_summary" msgid="6625473745911276917">"Update screen magnification on app transitions"</string>
@@ -2078,7 +2085,7 @@
     <string name="accessibility_control_timeout_preference_title" msgid="2771808346038759474">"Time to take action"</string>
     <string name="accessibility_content_timeout_preference_summary" msgid="853829064617918179">"Choose how long to show messages that you need to read, but are visible only temporarily.\n\nNot all apps support this setting."</string>
     <string name="accessibility_control_timeout_preference_summary" msgid="8582212299606932160">"Choose how long to show messages that ask you to take action, but are visible only temporarily.\n\nNot all apps support this setting."</string>
-    <string name="accessibility_long_press_timeout_preference_title" msgid="5029685114164868477">"Touch &amp; hold delay"</string>
+    <string name="accessibility_long_press_timeout_preference_title" msgid="5029685114164868477">"Touch and hold delay"</string>
     <string name="accessibility_display_inversion_preference_title" msgid="3852635518618938998">"Colour inversion"</string>
     <string name="accessibility_display_inversion_preference_subtitle" msgid="69291255322175323">"May affect performance"</string>
     <string name="accessibility_autoclick_preference_title" msgid="9164599088410340405">"Dwell timing"</string>
@@ -2132,7 +2139,7 @@
     <string name="accessibility_vibration_summary_off" msgid="2894044066550518676">"Ring &amp; notification set to off"</string>
     <string name="accessibility_vibration_summary_low" msgid="2884160616131878204">"Ring &amp; notification set to low"</string>
     <string name="accessibility_vibration_summary_medium" msgid="3141272492346527298">"Ring &amp; notification set to medium"</string>
-    <string name="accessibility_vibration_summary_high" msgid="4188677504368202861">"Ring &amp; notification set to high"</string>
+    <string name="accessibility_vibration_summary_high" msgid="4188677504368202861">"Ring and notification set to high"</string>
     <string name="accessibility_vibration_intensity_off" msgid="4427927348723998194">"Off"</string>
     <string name="accessibility_vibration_intensity_low" msgid="8250688473513963211">"Low"</string>
     <string name="accessibility_vibration_intensity_medium" msgid="2249931147940383011">"Medium"</string>
@@ -2195,7 +2202,7 @@
       <item quantity="other"><xliff:g id="COUNT">%1$d</xliff:g> print jobs</item>
       <item quantity="one">1 print job</item>
     </plurals>
-    <string name="print_settings_title" msgid="2886445296786932763">"Printing services"</string>
+    <string name="print_settings_title" msgid="2886445296786932763">"Print services"</string>
     <string name="print_no_services_installed" msgid="3387777739528003794">"No services installed"</string>
     <string name="print_no_printers_found" msgid="5090925427392294881">"No printers found"</string>
     <string name="print_menu_item_settings" msgid="2654804159012579508">"Settings"</string>
@@ -2928,7 +2935,7 @@
     <string name="restriction_menu_reset" msgid="3642252461410370554">"Remove restrictions"</string>
     <string name="restriction_menu_change_pin" msgid="592512748243421101">"Change PIN"</string>
     <string name="app_notifications_switch_label" msgid="670683308275498821">"Show notifications"</string>
-    <string name="help_label" msgid="1296484776243905646">"Help &amp; feedback"</string>
+    <string name="help_label" msgid="1296484776243905646">"Help and feedback"</string>
     <string name="support_summary" msgid="3278943815956130740">"Help articles, phone &amp; chat, getting started"</string>
     <string name="user_account_title" msgid="2108666882630552859">"Account for content"</string>
     <string name="user_picture_title" msgid="6664602422948159123">"Photo ID"</string>
@@ -3024,7 +3031,7 @@
       <item quantity="other">Show %d hidden items</item>
       <item quantity="one">Show %d hidden item</item>
     </plurals>
-    <string name="network_dashboard_title" msgid="8288134139584687806">"Network &amp; Internet"</string>
+    <string name="network_dashboard_title" msgid="8288134139584687806">"Network and Internet"</string>
     <string name="network_dashboard_summary_mobile" msgid="5560545061217580626">"mobile"</string>
     <string name="network_dashboard_summary_data_usage" msgid="4695629715072542102">"data usage"</string>
     <string name="network_dashboard_summary_hotspot" msgid="3928610802321995214">"hotspot"</string>
@@ -3033,7 +3040,7 @@
     <string name="connected_devices_dashboard_no_nfc_summary" msgid="2610085597733526722">"Bluetooth, driving mode"</string>
     <string name="connected_devices_dashboard_no_driving_mode_summary" msgid="3524409078596318803">"Bluetooth, NFC"</string>
     <string name="connected_devices_dashboard_no_driving_mode_no_nfc_summary" msgid="7881286613528299400">"Bluetooth"</string>
-    <string name="app_and_notification_dashboard_title" msgid="8448096608058843730">"Apps &amp; notifications"</string>
+    <string name="app_and_notification_dashboard_title" msgid="8448096608058843730">"Apps and notifications"</string>
     <string name="app_and_notification_dashboard_summary" msgid="4165181440955038145">"Assistant, recent apps, default apps"</string>
     <string name="notification_settings_work_profile" msgid="7190550347842400029">"Notification access is not available for apps in the work profile."</string>
     <string name="account_dashboard_title" msgid="4734300939532555885">"Accounts"</string>
@@ -3935,7 +3942,7 @@
     <string name="cell_data_template" msgid="5473177306229738078">"<xliff:g id="AMOUNT">^1</xliff:g> mobile data"</string>
     <string name="wifi_data_template" msgid="3146090439147042068">"<xliff:g id="AMOUNT">^1</xliff:g> Wi-Fi data"</string>
     <string name="ethernet_data_template" msgid="6414118030827090119">"<xliff:g id="AMOUNT">^1</xliff:g> ethernet data"</string>
-    <string name="billing_cycle" msgid="5740717948341713190">"Data warning &amp; limit"</string>
+    <string name="billing_cycle" msgid="5740717948341713190">"Data warning and limit"</string>
     <string name="app_usage_cycle" msgid="213483325132959663">"App data usage cycle"</string>
     <string name="cell_data_warning" msgid="8902740337286652689">"<xliff:g id="ID_1">^1</xliff:g> data warning"</string>
     <string name="cell_data_limit" msgid="3175933829235314233">"<xliff:g id="ID_1">^1</xliff:g> data limit"</string>
@@ -4101,9 +4108,9 @@
     <string name="deletion_helper_manual_title" msgid="1011785013431162078">"Manual"</string>
     <string name="deletion_helper_preference_title" msgid="797270307034242206">"Free up space now"</string>
     <string name="gesture_preference_title" msgid="583646591518373785">"Gestures"</string>
-    <string name="gesture_preference_summary" product="default" msgid="2990736567599191163">"Quick gestures to control your phone"</string>
-    <string name="gesture_preference_summary" product="tablet" msgid="8303793594714075580">"Quick gestures to control your tablet"</string>
-    <string name="gesture_preference_summary" product="device" msgid="7792199669106960922">"Quick gestures to control your device"</string>
+    <string name="gesture_preference_summary" product="default" msgid="2990736567599191163">"Quick Gestures to control your phone"</string>
+    <string name="gesture_preference_summary" product="tablet" msgid="8303793594714075580">"Quick Gestures to control your tablet"</string>
+    <string name="gesture_preference_summary" product="device" msgid="7792199669106960922">"Quick Gestures to control your device"</string>
     <string name="double_tap_power_for_camera_title" msgid="5480829329052517484">"Jump to camera"</string>
     <string name="double_tap_power_for_camera_summary" msgid="6591026425496323965">"To quickly open camera, press the power button twice. Works from any screen."</string>
     <string name="double_tap_power_for_camera_suggestion_title" msgid="509078029429865036">"Open camera quickly"</string>
@@ -4229,7 +4236,7 @@
     <string name="app_names_concatenation_template_2" msgid="8267577900046506189">"<xliff:g id="FIRST_APP_NAME">%1$s</xliff:g>, <xliff:g id="SECOND_APP_NAME">%2$s</xliff:g>"</string>
     <string name="app_names_concatenation_template_3" msgid="5129064036161862327">"<xliff:g id="FIRST_APP_NAME">%1$s</xliff:g>, <xliff:g id="SECOND_APP_NAME">%2$s</xliff:g>, <xliff:g id="THIRD_APP_NAME">%3$s</xliff:g>"</string>
     <string name="storage_photos_videos" msgid="1890829312367477559">"Photos &amp; videos"</string>
-    <string name="storage_music_audio" msgid="3661289086715297149">"Music &amp; audio"</string>
+    <string name="storage_music_audio" msgid="3661289086715297149">"Music and audio"</string>
     <string name="storage_games" msgid="7740038143749092373">"Games"</string>
     <string name="storage_other_apps" msgid="3202407095387420842">"Other apps"</string>
     <string name="storage_files" msgid="2087824267937487880">"Files"</string>
@@ -4262,7 +4269,7 @@
     <string name="storage_manager_indicator_on" msgid="5295306384982062320">"On"</string>
     <string name="install_type_instant" msgid="6248487669862821874">"Instant app"</string>
     <string name="automatic_storage_manager_deactivation_warning" msgid="7867793739491286374">"Turn off the storage manager?"</string>
-    <string name="storage_movies_tv" msgid="7282484273991655296">"Movie &amp; TV apps"</string>
+    <string name="storage_movies_tv" msgid="7282484273991655296">"Movie and TV apps"</string>
     <string name="carrier_provisioning" msgid="3309125279191534469">"Operator Provisioning Info"</string>
     <string name="trigger_carrier_provisioning" msgid="6284005970057901477">"Trigger Operator Provisioning"</string>
     <string name="zen_suggestion_title" msgid="2134699720214231950">"Update Do Not Disturb"</string>
@@ -4272,6 +4279,8 @@
     <string name="disabled_feature_reason_slow_down_phone" msgid="1819157849156814583">"It will slow down this phone"</string>
     <string name="enable_gnss_raw_meas_full_tracking" msgid="3397182995626655581">"Force full GNSS measurements"</string>
     <string name="enable_gnss_raw_meas_full_tracking_summary" msgid="2469305990718976105">"Track all GNSS constellations and frequencies with no duty cycling"</string>
+    <string name="enable_user_switch_message" msgid="8613014373053051092">"Debug user switch"</string>
+    <string name="enable_user_switch_message_summary" msgid="3354160264601132060">"Show detailed information during user switch"</string>
     <string name="allow_background_activity_starts" msgid="6754016668813082728">"Allow background activity starts"</string>
     <string name="allow_background_activity_starts_summary" msgid="8170749270869606692">"Allow all background activity starts"</string>
     <string name="show_first_crash_dialog" msgid="3682063068903692710">"Always show crash dialogue"</string>

@@ -16,15 +16,22 @@
 
 package com.android.car.settings.network;
 
+import android.content.Context;
+import android.net.ConnectivityManager;
+
 import androidx.annotation.XmlRes;
 
 import com.android.car.settings.R;
+import com.android.car.settings.common.CarSettingActivities;
 import com.android.car.settings.common.SettingsFragment;
+import com.android.car.settings.search.CarBaseSearchIndexProvider;
+import com.android.settingslib.search.SearchIndexable;
 
 /**
  * Shows the list of mobile networks if there are multiple. Clicking into any one of these mobile
  * networks shows {@link MobileNetworkFragment} for that specific mobile network.
  */
+@SearchIndexable
 public class MobileNetworkListFragment extends SettingsFragment {
 
     @Override
@@ -32,4 +39,14 @@ public class MobileNetworkListFragment extends SettingsFragment {
     protected int getPreferenceScreenResId() {
         return R.xml.mobile_network_list_fragment;
     }
+
+    public static final CarBaseSearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
+            new CarBaseSearchIndexProvider(R.xml.mobile_network_fragment,
+                    CarSettingActivities.MobileNetworkListActivity.class) {
+                @Override
+                protected boolean isPageSearchEnabled(Context context) {
+                    return NetworkUtils.hasMobileNetwork(
+                            context.getSystemService(ConnectivityManager.class));
+                }
+            };
 }

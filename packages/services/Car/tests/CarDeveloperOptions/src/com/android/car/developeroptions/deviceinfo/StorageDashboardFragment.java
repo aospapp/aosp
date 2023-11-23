@@ -46,12 +46,12 @@ import com.android.car.developeroptions.deviceinfo.storage.StorageSummaryDonutPr
 import com.android.car.developeroptions.deviceinfo.storage.UserIconLoader;
 import com.android.car.developeroptions.deviceinfo.storage.VolumeSizesLoader;
 import com.android.car.developeroptions.search.BaseSearchIndexProvider;
-import com.android.car.developeroptions.search.Indexable;
 import com.android.car.developeroptions.widget.EntityHeaderController;
 import com.android.settingslib.applications.StorageStatsSource;
 import com.android.settingslib.core.AbstractPreferenceController;
 import com.android.settingslib.deviceinfo.PrivateStorageInfo;
 import com.android.settingslib.deviceinfo.StorageManagerVolumeProvider;
+import com.android.settingslib.search.Indexable;
 import com.android.settingslib.search.SearchIndexable;
 
 import java.util.ArrayList;

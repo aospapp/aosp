@@ -16,6 +16,9 @@
 
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
                   xmlns:settings="http://schemas.android.com/apk/res-auto"
-                  android:key="@string/pk_location_recent_requests_screen"
-                  android:title="@string/location_settings_recent_requests_title"
-                  settings:controller="com.android.car.settings.location.RecentLocationRequestsPreferenceController"/>
+                  android:key="@string/psk_location_recent_requests"
+                  android:title="@string/location_settings_recent_requests_title">
+    <com.android.car.settings.common.LogicalPreferenceGroup
+        android:key="@string/pk_location_recent_requests"
+        settings:controller="com.android.car.settings.location.RecentLocationRequestsPreferenceController"/>
+</PreferenceScreen>

@@ -60,6 +60,11 @@
     <string name="forget" msgid="892068061425802502">"ભૂલી જાઓ"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"Wi-Fi Direct મારફતે કનેક્ટ થશે"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"હાલના નેટવર્ક મારફતે <xliff:g id="IP_ADDRESS">%1$s</xliff:g> પર કનેક્ટ થશે"</string>
+    <string name="recommendation_summary" msgid="2979700524954307566">"ડિફૉલ્ટ પ્રિન્ટ સેવા મૂળભૂત વિકલ્પો આપે છે. આ પ્રિન્ટર માટેના અન્ય વિકલ્પો બીજી પ્રિન્ટ સેવામાંથી ઉપલબ્ધ હોઈ શકે છે."</string>
+    <string name="recommendations_heading" msgid="5086762263560605249">"સુઝાવ આપેલી સેવાઓ"</string>
+    <string name="recommendation_install_summary" msgid="374785283809791669">"ઇન્સ્ટૉલ કરવા માટે પસંદ કરો"</string>
+    <string name="recommendation_enable_summary" msgid="3500907868251326224">"ચાલુ કરવા માટે પસંદ કરો"</string>
+    <string name="recommendation_manage" msgid="4683640588502866284">"સેવાઓ મેનેજ કરો"</string>
     <string name="security" msgid="2279008326210305401">"સુરક્ષા"</string>
     <string name="certificate_update_request" msgid="1314796413107139475">"આ પ્રિન્ટરે નવું સુરક્ષા પ્રમાણપત્ર રજૂ કર્યું છે અથવા કોઈ અન્ય ડિવાઇસ ખોટી ઓળખ રજૂ કરી રહ્યું છે. શું નવા પ્રમાણપત્રનો સ્વીકાર કરીએ?"</string>
     <string name="not_encrypted_request" msgid="4871472176807381642">"આ પ્રિન્ટર હવે કોઈ એન્ક્રિપ્ટ કરેલા કાર્યનો સ્વીકાર કરતું નથી. પ્રિન્ટ કરવાનું ચાલુ રાખીએ?"</string>
@@ -68,4 +73,5 @@
     <string name="connections" msgid="8895413761760117180">"કનેક્શન"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"ડિફૉલ્ટ પ્રિન્ટ સેવાને નજીકના ડિવાઇસ શોઘવા સ્થાન માટેની પરવાનગીની જરૂર છે."</string>
     <string name="fix" msgid="7784394272611365393">"પરવાનગીનો રિવ્યૂ કરો"</string>
+    <string name="print" msgid="7851318072404916362">"પ્રિન્ટ કરો"</string>
 </resources>

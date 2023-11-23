@@ -241,8 +241,8 @@ public class AccountSyncDetailsPreferenceController extends
             if (intent != null) {
                 try {
                     getFragmentController().startIntentSenderForResult(intent,
-                            uid, /* fillInIntent= */ null, /* flagsMask= */0,
-                            /* flagsValues= */0, /* options= */null,
+                            uid, /* fillInIntent= */ null, /* flagsMask= */ 0,
+                            /* flagsValues= */ 0, /* options= */ null,
                             this::onAccountRequestApproved);
                     return true;
                 } catch (IntentSender.SendIntentException e) {

@@ -23,9 +23,11 @@ import static android.net.metrics.IpReachabilityEvent.PROVISIONING_LOST_ORGANIC;
 
 import android.content.Context;
 import android.net.ConnectivityManager;
+import android.net.INetd;
 import android.net.LinkProperties;
 import android.net.RouteInfo;
 import android.net.ip.IpNeighborMonitor.NeighborEvent;
+import android.net.ip.IpNeighborMonitor.NeighborEventConsumer;
 import android.net.metrics.IpConnectivityLog;
 import android.net.metrics.IpReachabilityEvent;
 import android.net.netlink.StructNdMsg;
@@ -36,10 +38,14 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.PowerManager;
 import android.os.PowerManager.WakeLock;
+import android.os.RemoteException;
 import android.os.SystemClock;
+import android.text.TextUtils;
 import android.util.Log;
 
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.internal.util.Preconditions;
+import com.android.networkstack.R;
 
 import java.io.PrintWriter;
 import java.net.Inet6Address;
@@ -132,20 +138,29 @@ public class IpReachabilityMonitor {
     private static final boolean DBG = Log.isLoggable(TAG, Log.DEBUG);
     private static final boolean VDBG = Log.isLoggable(TAG, Log.VERBOSE);
 
+    // Upper and lower bound for NUD probe parameters.
+    protected static final int MAX_NUD_SOLICIT_NUM = 15;
+    protected static final int MIN_NUD_SOLICIT_NUM = 5;
+    protected static final int MAX_NUD_SOLICIT_INTERVAL_MS = 1000;
+    protected static final int MIN_NUD_SOLICIT_INTERVAL_MS = 750;
+
     public interface Callback {
-        // This callback function must execute as quickly as possible as it is
-        // run on the same thread that listens to kernel neighbor updates.
-        //
-        // TODO: refactor to something like notifyProvisioningLost(String msg).
-        public void notifyLost(InetAddress ip, String logMsg);
+        /**
+         * This callback function must execute as quickly as possible as it is
+         * run on the same thread that listens to kernel neighbor updates.
+         *
+         * TODO: refactor to something like notifyProvisioningLost(String msg).
+         */
+        void notifyLost(InetAddress ip, String logMsg);
     }
 
     /**
-     * Encapsulates IpReachabilityMonitor depencencies on systems that hinder unit testing.
+     * Encapsulates IpReachabilityMonitor dependencies on systems that hinder unit testing.
      * TODO: consider also wrapping MultinetworkPolicyTracker in this interface.
      */
     interface Dependencies {
         void acquireWakeLock(long durationMs);
+        IpNeighborMonitor makeIpNeighborMonitor(Handler h, SharedLog log, NeighborEventConsumer cb);
 
         static Dependencies makeDefault(Context context, String iface) {
             final String lockName = TAG + "." + iface;
@@ -155,6 +170,11 @@ public class IpReachabilityMonitor {
             return new Dependencies() {
                 public void acquireWakeLock(long durationMs) {
                     lock.acquire(durationMs);
+                }
+
+                public IpNeighborMonitor makeIpNeighborMonitor(Handler h, SharedLog log,
+                        NeighborEventConsumer cb) {
+                    return new IpNeighborMonitor(h, log, cb);
                 }
             };
         }
@@ -167,32 +187,51 @@ public class IpReachabilityMonitor {
     private final Dependencies mDependencies;
     private final boolean mUsingMultinetworkPolicyTracker;
     private final ConnectivityManager mCm;
-    private final IpConnectivityLog mMetricsLog = new IpConnectivityLog();
+    private final IpConnectivityLog mMetricsLog;
+    private final Context mContext;
+    private final INetd mNetd;
     private LinkProperties mLinkProperties = new LinkProperties();
     private Map<InetAddress, NeighborEvent> mNeighborWatchList = new HashMap<>();
     // Time in milliseconds of the last forced probe request.
     private volatile long mLastProbeTimeMs;
+    private int mNumSolicits;
+    private int mInterSolicitIntervalMs;
 
     public IpReachabilityMonitor(
             Context context, InterfaceParams ifParams, Handler h, SharedLog log, Callback callback,
-            boolean usingMultinetworkPolicyTracker) {
+            boolean usingMultinetworkPolicyTracker, final INetd netd) {
         this(context, ifParams, h, log, callback, usingMultinetworkPolicyTracker,
-                Dependencies.makeDefault(context, ifParams.name));
+                Dependencies.makeDefault(context, ifParams.name), new IpConnectivityLog(), netd);
     }
 
     @VisibleForTesting
     IpReachabilityMonitor(Context context, InterfaceParams ifParams, Handler h, SharedLog log,
-            Callback callback, boolean usingMultinetworkPolicyTracker, Dependencies dependencies) {
+            Callback callback, boolean usingMultinetworkPolicyTracker, Dependencies dependencies,
+            final IpConnectivityLog metricsLog, final INetd netd) {
         if (ifParams == null) throw new IllegalArgumentException("null InterfaceParams");
 
+        mContext = context;
         mInterfaceParams = ifParams;
         mLog = log.forSubComponent(TAG);
         mCallback = callback;
         mUsingMultinetworkPolicyTracker = usingMultinetworkPolicyTracker;
         mCm = context.getSystemService(ConnectivityManager.class);
         mDependencies = dependencies;
+        mMetricsLog = metricsLog;
+        mNetd = netd;
+        Preconditions.checkNotNull(mNetd);
+        Preconditions.checkArgument(!TextUtils.isEmpty(mInterfaceParams.name));
 
-        mIpNeighborMonitor = new IpNeighborMonitor(h, mLog,
+        // In case the overylaid parameters specify an invalid configuration, set the parameters
+        // to the hardcoded defaults first, then set them to the values used in the steady state.
+        try {
+            setNeighborParameters(MIN_NUD_SOLICIT_NUM, MIN_NUD_SOLICIT_INTERVAL_MS);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to adjust neighbor parameters with hardcoded defaults");
+        }
+        setNeighbourParametersForSteadyState();
+
+        mIpNeighborMonitor = mDependencies.makeIpNeighborMonitor(h, mLog,
                 (NeighborEvent event) -> {
                     if (mInterfaceParams.index != event.ifindex) return;
                     if (!mNeighborWatchList.containsKey(event.ip)) return;
@@ -204,6 +243,8 @@ public class IpReachabilityMonitor {
                     if (event.nudState == StructNdMsg.NUD_FAILED) {
                         mLog.w("ALERT neighbor went from: " + prev + " to: " + event);
                         handleNeighborLost(event);
+                    } else if (event.nudState == StructNdMsg.NUD_REACHABLE) {
+                        maybeRestoreNeighborParameters();
                     }
                 });
         mIpNeighborMonitor.start();
@@ -300,7 +341,14 @@ public class IpReachabilityMonitor {
             // TODO: Consider using NeighborEvent#isValid() here; it's more
             // strict but may interact badly if other entries are somehow in
             // NUD_INCOMPLETE (say, during network attach).
-            if (entry.getValue().nudState != StructNdMsg.NUD_FAILED) continue;
+            final NeighborEvent val = entry.getValue();
+
+            // Find all the neighbors that have gone into FAILED state.
+            // Ignore entries for which we have never received an event. If there are neighbors
+            // that never respond to ARP/ND, the kernel will send several FAILED events, then
+            // an INCOMPLETE event, and then more FAILED events. The INCOMPLETE event will
+            // populate the map and the subsequent FAILED event will be processed.
+            if (val == null || val.nudState != StructNdMsg.NUD_FAILED) continue;
 
             ip = entry.getKey();
             for (RouteInfo route : mLinkProperties.getRoutes()) {
@@ -331,13 +379,31 @@ public class IpReachabilityMonitor {
         logNudFailed(lostProvisioning);
     }
 
+    private void maybeRestoreNeighborParameters() {
+        for (Map.Entry<InetAddress, NeighborEvent> entry : mNeighborWatchList.entrySet()) {
+            if (DBG) {
+                Log.d(TAG, "neighbour IPv4(v6): " + entry.getKey() + " neighbour state: "
+                        + StructNdMsg.stringForNudState(entry.getValue().nudState));
+            }
+            final NeighborEvent val = entry.getValue();
+            // If an entry is null, consider that probing for that neighbour has completed.
+            if (val == null || val.nudState != StructNdMsg.NUD_REACHABLE) return;
+        }
+
+        // Probing for all neighbours in the watchlist is complete and the connection is stable,
+        // restore NUD probe parameters to steadystate value. In the case where neighbours
+        // are responsive, this code will run before the wakelock expires.
+        setNeighbourParametersForSteadyState();
+    }
+
     private boolean avoidingBadLinks() {
         return !mUsingMultinetworkPolicyTracker || mCm.shouldAvoidBadWifi();
     }
 
     public void probeAll() {
-        final List<InetAddress> ipProbeList = new ArrayList<>(mNeighborWatchList.keySet());
+        setNeighbourParametersPostRoaming();
 
+        final List<InetAddress> ipProbeList = new ArrayList<>(mNeighborWatchList.keySet());
         if (!ipProbeList.isEmpty()) {
             // Keep the CPU awake long enough to allow all ARP/ND
             // probes a reasonable chance at success. See b/23197666.
@@ -357,20 +423,51 @@ public class IpReachabilityMonitor {
         mLastProbeTimeMs = SystemClock.elapsedRealtime();
     }
 
-    private static long getProbeWakeLockDuration() {
-        // Ideally, this would be computed by examining the values of:
-        //
-        //     /proc/sys/net/ipv[46]/neigh/<ifname>/ucast_solicit
-        //
-        // and:
-        //
-        //     /proc/sys/net/ipv[46]/neigh/<ifname>/retrans_time_ms
-        //
-        // For now, just make some assumptions.
-        final long numUnicastProbes = 3;
-        final long retransTimeMs = 1000;
+    private long getProbeWakeLockDuration() {
         final long gracePeriodMs = 500;
-        return (numUnicastProbes * retransTimeMs) + gracePeriodMs;
+        return (long) (mNumSolicits * mInterSolicitIntervalMs) + gracePeriodMs;
+    }
+
+    private void setNeighbourParametersPostRoaming() {
+        setNeighborParametersFromResources(R.integer.config_nud_postroaming_solicit_num,
+                R.integer.config_nud_postroaming_solicit_interval);
+    }
+
+    private void setNeighbourParametersForSteadyState() {
+        setNeighborParametersFromResources(R.integer.config_nud_steadystate_solicit_num,
+                R.integer.config_nud_steadystate_solicit_interval);
+    }
+
+    private void setNeighborParametersFromResources(final int numResId, final int intervalResId) {
+        try {
+            final int numSolicits = mContext.getResources().getInteger(numResId);
+            final int interSolicitIntervalMs = mContext.getResources().getInteger(intervalResId);
+            setNeighborParameters(numSolicits, interSolicitIntervalMs);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to adjust neighbor parameters");
+        }
+    }
+
+    private void setNeighborParameters(int numSolicits, int interSolicitIntervalMs)
+            throws RemoteException, IllegalArgumentException {
+        Preconditions.checkArgument(numSolicits >= MIN_NUD_SOLICIT_NUM,
+                "numSolicits must be at least " + MIN_NUD_SOLICIT_NUM);
+        Preconditions.checkArgument(numSolicits <= MAX_NUD_SOLICIT_NUM,
+                "numSolicits must be at most " + MAX_NUD_SOLICIT_NUM);
+        Preconditions.checkArgument(interSolicitIntervalMs >= MIN_NUD_SOLICIT_INTERVAL_MS,
+                "interSolicitIntervalMs must be at least " + MIN_NUD_SOLICIT_INTERVAL_MS);
+        Preconditions.checkArgument(interSolicitIntervalMs <= MAX_NUD_SOLICIT_INTERVAL_MS,
+                "interSolicitIntervalMs must be at most " + MAX_NUD_SOLICIT_INTERVAL_MS);
+
+        for (int family : new Integer[]{INetd.IPV4, INetd.IPV6}) {
+            mNetd.setProcSysNet(family, INetd.NEIGH, mInterfaceParams.name, "retrans_time_ms",
+                    Integer.toString(interSolicitIntervalMs));
+            mNetd.setProcSysNet(family, INetd.NEIGH, mInterfaceParams.name, "ucast_solicit",
+                    Integer.toString(numSolicits));
+        }
+
+        mNumSolicits = numSolicits;
+        mInterSolicitIntervalMs = interSolicitIntervalMs;
     }
 
     private void logEvent(int probeType, int errorCode) {

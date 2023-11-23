@@ -22,13 +22,10 @@ import static android.view.WindowManagerPolicyConstants.NAV_BAR_MODE_GESTURAL;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 
 import com.android.settings.R;
 import com.android.settings.core.BasePreferenceController;
-
-import java.util.ArrayList;
 
 public class SystemNavigationPreferenceController extends BasePreferenceController {
 
@@ -46,9 +43,9 @@ public class SystemNavigationPreferenceController extends BasePreferenceControll
 
     @Override
     public CharSequence getSummary() {
-        if (isEdgeToEdgeEnabled(mContext)) {
+        if (isGestureNavigationEnabled(mContext)) {
             return mContext.getText(R.string.edge_to_edge_navigation_title);
-        } else if (isSwipeUpEnabled(mContext)) {
+        } else if (is2ButtonNavigationEnabled(mContext)) {
             return mContext.getText(R.string.swipe_up_to_switch_apps_title);
         } else {
             return mContext.getText(R.string.legacy_navigation_title);
@@ -89,43 +86,13 @@ public class SystemNavigationPreferenceController extends BasePreferenceControll
         }
     }
 
-    static boolean isSwipeUpEnabled(Context context) {
-        if (isEdgeToEdgeEnabled(context)) {
-            return false;
-        }
+    static boolean is2ButtonNavigationEnabled(Context context) {
         return NAV_BAR_MODE_2BUTTON == context.getResources().getInteger(
                 com.android.internal.R.integer.config_navBarInteractionMode);
     }
 
-    static boolean isEdgeToEdgeEnabled(Context context) {
+    static boolean isGestureNavigationEnabled(Context context) {
         return NAV_BAR_MODE_GESTURAL == context.getResources().getInteger(
                 com.android.internal.R.integer.config_navBarInteractionMode);
-    }
-
-    static boolean isGestureNavSupportedByDefaultLauncher(Context context) {
-        final ComponentName cn = context.getPackageManager().getHomeActivities(new ArrayList<>());
-        if (cn == null) {
-            // There is no default home app set for the current user, don't make any changes yet.
-            return true;
-        }
-        ComponentName recentsComponentName = ComponentName.unflattenFromString(context.getString(
-                com.android.internal.R.string.config_recentsComponentName));
-        return recentsComponentName.getPackageName().equals(cn.getPackageName());
-    }
-
-    static String getDefaultHomeAppName(Context context) {
-        final PackageManager pm = context.getPackageManager();
-        final ComponentName cn = pm.getHomeActivities(new ArrayList<>());
-        if (cn != null) {
-            try {
-                ApplicationInfo ai = pm.getApplicationInfo(cn.getPackageName(), 0);
-                if (ai != null) {
-                    return pm.getApplicationLabel(ai).toString();
-                }
-            } catch (final PackageManager.NameNotFoundException e) {
-                // Do nothing
-            }
-        }
-        return "";
     }
 }

@@ -20,7 +20,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.media.tv.TvContract.Channels;
 import android.os.Bundle;
-import android.support.v17.leanback.widget.VerticalGridView;
+import androidx.leanback.widget.VerticalGridView;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;

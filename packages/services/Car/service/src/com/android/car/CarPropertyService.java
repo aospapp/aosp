@@ -18,12 +18,15 @@ package com.android.car;
 
 import static java.lang.Integer.toHexString;
 
+import android.car.Car;
 import android.car.hardware.CarPropertyConfig;
 import android.car.hardware.CarPropertyValue;
 import android.car.hardware.property.CarPropertyEvent;
 import android.car.hardware.property.ICarProperty;
 import android.car.hardware.property.ICarPropertyEventListener;
 import android.content.Context;
+import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.util.Log;
@@ -31,21 +34,23 @@ import android.util.Pair;
 import android.util.SparseArray;
 
 import com.android.car.hal.PropertyHalService;
+import com.android.internal.annotations.GuardedBy;
 
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * This class implements the binder interface for ICarProperty.aidl to make it easier to create
- * multiple managers that deal with Vehicle Properties. To create a new service, simply extend
- * this class and call the super() constructor with the appropriate arguments for the new service.
- * {@link CarHvacService} shows the basic usage.
+ * multiple managers that deal with Vehicle Properties. The property Ids in this class are IDs in
+ * manager level.
  */
 public class CarPropertyService extends ICarProperty.Stub
         implements CarServiceBase, PropertyHalService.PropertyHalListener {
@@ -53,11 +58,17 @@ public class CarPropertyService extends ICarProperty.Stub
     private static final String TAG = "Property.service";
     private final Context mContext;
     private final Map<IBinder, Client> mClientMap = new ConcurrentHashMap<>();
-    private Map<Integer, CarPropertyConfig<?>> mConfigs;
+    @GuardedBy("mLock")
+    private final Map<Integer, CarPropertyConfig<?>> mConfigs = new HashMap<>();
     private final PropertyHalService mHal;
     private boolean mListenerIsSet = false;
     private final Map<Integer, List<Client>> mPropIdClientMap = new ConcurrentHashMap<>();
     private final Object mLock = new Object();
+    @GuardedBy("mLock")
+    private final SparseArray<SparseArray<Client>> mSetOperationClientMap = new SparseArray<>();
+    private final HandlerThread mHandlerThread =
+            CarServiceUtils.getHandlerThread(getClass().getSimpleName());
+    private final Handler mHandler = new Handler(mHandlerThread.getLooper());
 
     public CarPropertyService(Context context, PropertyHalService hal) {
         if (DBG) {
@@ -135,12 +146,13 @@ public class CarPropertyService extends ICarProperty.Stub
 
     @Override
     public void init() {
-        if (mConfigs == null) {
+        synchronized (mLock) {
             // Cache the configs list to avoid subsequent binder calls
-            mConfigs = mHal.getPropertyList();
-            if (DBG) {
-                Log.d(TAG, "cache CarPropertyConfigs " + mConfigs.size());
-            }
+            mConfigs.clear();
+            mConfigs.putAll(mHal.getPropertyList());
+        }
+        if (DBG) {
+            Log.d(TAG, "cache CarPropertyConfigs " + mConfigs.size());
         }
     }
 
@@ -153,10 +165,36 @@ public class CarPropertyService extends ICarProperty.Stub
         mPropIdClientMap.clear();
         mHal.setListener(null);
         mListenerIsSet = false;
+        synchronized (mLock) {
+            mSetOperationClientMap.clear();
+        }
     }
 
     @Override
     public void dump(PrintWriter writer) {
+        writer.println("*CarPropertyService*");
+        synchronized (mLock) {
+            writer.println("    Listener is set for PropertyHalService: " + mListenerIsSet);
+            writer.println("    There are " + mClientMap.size() + " clients "
+                    + "using CarPropertyService.");
+            writer.println("    Properties registered: ");
+            for (int propId : mPropIdClientMap.keySet()) {
+                writer.println("        propId: 0x" + toHexString(propId)
+                        + " is registered by " + mPropIdClientMap.get(propId).size()
+                        + " client(s).");
+            }
+            writer.println("    Properties changed by CarPropertyService: ");
+            for (int i = 0; i < mSetOperationClientMap.size(); i++) {
+                int propId = mSetOperationClientMap.keyAt(i);
+                SparseArray areaIdToClient = mSetOperationClientMap.valueAt(i);
+                for (int j = 0; j < areaIdToClient.size(); j++) {
+                    int areaId = areaIdToClient.keyAt(j);
+                    writer.println("        propId: 0x" + toHexString(propId)
+                            + " areaId: 0x" + toHexString(areaId)
+                            + " by client: " + areaIdToClient.valueAt(j));
+                }
+            }
+        }
     }
 
     @Override
@@ -164,21 +202,24 @@ public class CarPropertyService extends ICarProperty.Stub
         if (DBG) {
             Log.d(TAG, "registerListener: propId=0x" + toHexString(propId) + " rate=" + rate);
         }
-        if (mConfigs.get(propId) == null) {
-            // Do not attempt to register an invalid propId
-            Log.e(TAG, "registerListener:  propId is not in config list:  " + propId);
-            return;
-        }
-        ICarImpl.assertPermission(mContext, mHal.getReadPermission(propId));
         if (listener == null) {
             Log.e(TAG, "registerListener: Listener is null.");
             throw new IllegalArgumentException("listener cannot be null.");
         }
 
         IBinder listenerBinder = listener.asBinder();
-
+        CarPropertyConfig propertyConfig;
+        Client finalClient;
         synchronized (mLock) {
-            // Get the client for this listener
+            propertyConfig = mConfigs.get(propId);
+            if (propertyConfig == null) {
+                // Do not attempt to register an invalid propId
+                Log.e(TAG, "registerListener:  propId is not in config list: 0x" + toHexString(
+                        propId));
+                return;
+            }
+            ICarImpl.assertPermission(mContext, mHal.getReadPermission(propId));
+            // Get or create the client for this listener
             Client client = mClientMap.get(listenerBinder);
             if (client == null) {
                 client = new Client(listener);
@@ -201,29 +242,36 @@ public class CarPropertyService extends ICarProperty.Stub
             if (rate > mHal.getSampleRate(propId)) {
                 mHal.subscribeProperty(propId, rate);
             }
+            finalClient = client;
         }
-        // Send the latest value(s) to the registering listener only
-        List<CarPropertyEvent> events = new LinkedList<CarPropertyEvent>();
-        if (mConfigs.get(propId).isGlobalProperty()) {
+
+        // propertyConfig and client are NonNull.
+        mHandler.post(() ->
+                getAndDispatchPropertyInitValue(propertyConfig, finalClient));
+    }
+
+    private void getAndDispatchPropertyInitValue(CarPropertyConfig config, Client client) {
+        List<CarPropertyEvent> events = new LinkedList<>();
+        int propId = config.getPropertyId();
+        if (config.isGlobalProperty()) {
             CarPropertyValue value = mHal.getProperty(propId, 0);
-            // CarPropertyEvent without a CarPropertyValue can not be used by any listeners.
             if (value != null) {
                 CarPropertyEvent event = new CarPropertyEvent(
-                    CarPropertyEvent.PROPERTY_EVENT_PROPERTY_CHANGE, value);
+                        CarPropertyEvent.PROPERTY_EVENT_PROPERTY_CHANGE, value);
                 events.add(event);
             }
         } else {
-            for (int areaId : mConfigs.get(propId).getAreaIds()) {
+            for (int areaId : config.getAreaIds()) {
                 CarPropertyValue value = mHal.getProperty(propId, areaId);
                 if (value != null) {
                     CarPropertyEvent event = new CarPropertyEvent(
-                        CarPropertyEvent.PROPERTY_EVENT_PROPERTY_CHANGE, value);
+                            CarPropertyEvent.PROPERTY_EVENT_PROPERTY_CHANGE, value);
                     events.add(event);
                 }
             }
         }
         try {
-            listener.onEvent(events);
+            client.getListener().onEvent(events);
         } catch (RemoteException ex) {
             // If we cannot send a record, its likely the connection snapped. Let the binder
             // death handle the situation.
@@ -251,16 +299,20 @@ public class CarPropertyService extends ICarProperty.Stub
     private void unregisterListenerBinderLocked(int propId, IBinder listenerBinder) {
         Client client = mClientMap.get(listenerBinder);
         List<Client> propertyClients = mPropIdClientMap.get(propId);
-        if (mConfigs.get(propId) == null) {
-            // Do not attempt to register an invalid propId
-            Log.e(TAG, "unregisterListener: propId is not in config list:0x" + toHexString(propId));
-            return;
+        synchronized (mLock) {
+            if (mConfigs.get(propId) == null) {
+                // Do not attempt to register an invalid propId
+                Log.e(TAG, "unregisterListener: propId is not in config list:0x" + toHexString(
+                        propId));
+                return;
+            }
         }
         if ((client == null) || (propertyClients == null)) {
             Log.e(TAG, "unregisterListenerBinderLocked: Listener was not previously registered.");
         } else {
             if (propertyClients.remove(client)) {
                 client.removeProperty(propId);
+                clearSetOperationRecorderLocked(propId, client);
             } else {
                 Log.e(TAG, "unregisterListenerBinderLocked: Listener was not registered for "
                            + "propId=0x" + toHexString(propId));
@@ -270,6 +322,7 @@ public class CarPropertyService extends ICarProperty.Stub
                 // Last listener for this property unsubscribed.  Clean up
                 mHal.unsubscribeProperty(propId);
                 mPropIdClientMap.remove(propId);
+                mSetOperationClientMap.remove(propId);
                 if (mPropIdClientMap.isEmpty()) {
                     // No more properties are subscribed.  Turn off the listener.
                     mHal.setListener(null);
@@ -296,7 +349,11 @@ public class CarPropertyService extends ICarProperty.Stub
     @Override
     public List<CarPropertyConfig> getPropertyList() {
         List<CarPropertyConfig> returnList = new ArrayList<CarPropertyConfig>();
-        for (CarPropertyConfig c : mConfigs.values()) {
+        Set<CarPropertyConfig> allConfigs;
+        synchronized (mLock) {
+            allConfigs = new HashSet<>(mConfigs.values());
+        }
+        for (CarPropertyConfig c : allConfigs) {
             if (ICarImpl.hasPermission(mContext, mHal.getReadPermission(c.getPropertyId()))) {
                 // Only add properties the list if the process has permissions to read it
                 returnList.add(c);
@@ -310,10 +367,12 @@ public class CarPropertyService extends ICarProperty.Stub
 
     @Override
     public CarPropertyValue getProperty(int prop, int zone) {
-        if (mConfigs.get(prop) == null) {
-            // Do not attempt to register an invalid propId
-            Log.e(TAG, "getProperty: propId is not in config list:0x" + toHexString(prop));
-            return null;
+        synchronized (mLock) {
+            if (mConfigs.get(prop) == null) {
+                // Do not attempt to register an invalid propId
+                Log.e(TAG, "getProperty: propId is not in config list:0x" + toHexString(prop));
+                return null;
+            }
         }
         ICarImpl.assertPermission(mContext, mHal.getReadPermission(prop));
         return mHal.getProperty(prop, zone);
@@ -321,34 +380,100 @@ public class CarPropertyService extends ICarProperty.Stub
 
     @Override
     public String getReadPermission(int propId) {
-        if (mConfigs.get(propId) == null) {
-            // Property ID does not exist
-            Log.e(TAG, "getReadPermission: propId is not in config list:0x" + toHexString(propId));
-            return null;
+        synchronized (mLock) {
+            if (mConfigs.get(propId) == null) {
+                // Property ID does not exist
+                Log.e(TAG,
+                        "getReadPermission: propId is not in config list:0x" + toHexString(propId));
+                return null;
+            }
         }
         return mHal.getReadPermission(propId);
     }
 
     @Override
     public String getWritePermission(int propId) {
-        if (mConfigs.get(propId) == null) {
-            // Property ID does not exist
-            Log.e(TAG, "getWritePermission: propId is not in config list:0x" + toHexString(propId));
-            return null;
+        synchronized (mLock) {
+            if (mConfigs.get(propId) == null) {
+                // Property ID does not exist
+                Log.e(TAG, "getWritePermission: propId is not in config list:0x" + toHexString(
+                        propId));
+                return null;
+            }
         }
         return mHal.getWritePermission(propId);
     }
 
     @Override
-    public void setProperty(CarPropertyValue prop) {
+    public void setProperty(CarPropertyValue prop, ICarPropertyEventListener listener) {
         int propId = prop.getPropertyId();
-        if (mConfigs.get(propId) == null) {
-            // Do not attempt to register an invalid propId
-            Log.e(TAG, "setProperty:  propId is not in config list:0x" + toHexString(propId));
-            return;
+        checkPropertyAccessibility(propId);
+        // need an extra permission for writing display units properties.
+        if (mHal.isDisplayUnitsProperty(propId)) {
+            ICarImpl.assertPermission(mContext, Car.PERMISSION_VENDOR_EXTENSION);
         }
-        ICarImpl.assertPermission(mContext, mHal.getWritePermission(propId));
         mHal.setProperty(prop);
+        IBinder listenerBinder = listener.asBinder();
+        synchronized (mLock) {
+            Client client = mClientMap.get(listenerBinder);
+            if (client == null) {
+                client = new Client(listener);
+            }
+            updateSetOperationRecorder(propId, prop.getAreaId(), client);
+        }
+    }
+
+    // The helper method checks if the vehicle has implemented this property and the property
+    // is accessible or not for platform and client.
+    private void checkPropertyAccessibility(int propId) {
+        // Checks if the car implemented the property or not.
+        synchronized (mLock) {
+            if (mConfigs.get(propId) == null) {
+                throw new IllegalArgumentException("Property Id: 0x" + Integer.toHexString(propId)
+                        + " does not exist in the vehicle");
+            }
+        }
+
+        // Checks if android has permission to write property.
+        String propertyWritePermission = mHal.getWritePermission(propId);
+        if (propertyWritePermission == null) {
+            throw new SecurityException("Platform does not have permission to change value for "
+                    + "property Id: 0x" + Integer.toHexString(propId));
+        }
+        // Checks if the client has the permission.
+        ICarImpl.assertPermission(mContext, propertyWritePermission);
+    }
+
+    // Updates recorder for set operation.
+    private void updateSetOperationRecorder(int propId, int areaId, Client client) {
+        if (mSetOperationClientMap.get(propId) != null) {
+            mSetOperationClientMap.get(propId).put(areaId, client);
+        } else {
+            SparseArray<Client> areaIdToClient = new SparseArray<>();
+            areaIdToClient.put(areaId, client);
+            mSetOperationClientMap.put(propId, areaIdToClient);
+        }
+    }
+
+    // Clears map when client unregister for property.
+    private void clearSetOperationRecorderLocked(int propId, Client client) {
+        SparseArray<Client> areaIdToClient = mSetOperationClientMap.get(propId);
+        if (areaIdToClient != null) {
+            List<Integer> indexNeedToRemove = new ArrayList<>();
+            for (int index = 0; index < areaIdToClient.size(); index++) {
+                if (client.equals(areaIdToClient.valueAt(index))) {
+                    indexNeedToRemove.add(index);
+                }
+            }
+
+            for (int index : indexNeedToRemove) {
+                if (DBG) {
+                    Log.d("ErrorEvent", " Clear propId:0x" + toHexString(propId)
+                            + " areaId: 0x" + toHexString(areaIdToClient.keyAt(index)));
+                }
+                areaIdToClient.removeAt(index);
+            }
+        }
     }
 
     // Implement PropertyHalListener interface
@@ -391,23 +516,33 @@ public class CarPropertyService extends ICarProperty.Stub
     }
 
     @Override
-    public void onPropertySetError(int property, int area) {
-        List<Client> clients = mPropIdClientMap.get(property);
-        if (clients != null) {
-            List<CarPropertyEvent> eventList = new LinkedList<>();
-            eventList.add(CarPropertyEvent.createErrorEvent(property, area));
-            for (Client c : clients) {
-                try {
-                    c.getListener().onEvent(eventList);
-                } catch (RemoteException ex) {
-                    // If we cannot send a record, its likely the connection snapped. Let the binder
-                    // death handle the situation.
-                    Log.e(TAG, "onEvent calling failed: " + ex);
-                }
+    public void onPropertySetError(int property, int areaId, int errorCode) {
+        Client lastOperatedClient = null;
+        synchronized (mLock) {
+            if (mSetOperationClientMap.get(property) != null
+                    && mSetOperationClientMap.get(property).get(areaId) != null) {
+                lastOperatedClient = mSetOperationClientMap.get(property).get(areaId);
+            } else {
+                Log.e(TAG, "Can not find the client changed propertyId: 0x"
+                        + toHexString(property) + " in areaId: 0x" + toHexString(areaId));
             }
-        } else {
-            Log.e(TAG, "onPropertySetError called with no listener registered for propId=0x"
-                    + toHexString(property));
+
+        }
+        if (lastOperatedClient != null) {
+            dispatchToLastClient(property, areaId, errorCode, lastOperatedClient);
+        }
+    }
+
+    private void dispatchToLastClient(int property, int areaId, int errorCode,
+            Client lastOperatedClient) {
+        try {
+            List<CarPropertyEvent> eventList = new LinkedList<>();
+            eventList.add(
+                    CarPropertyEvent.createErrorEventWithErrorCode(property, areaId,
+                            errorCode));
+            lastOperatedClient.getListener().onEvent(eventList);
+        } catch (RemoteException ex) {
+            Log.e(TAG, "onEvent calling failed: " + ex);
         }
     }
 }

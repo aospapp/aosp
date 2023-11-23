@@ -1,3 +1,19 @@
+/*
+ * Copyright (C) 2017 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package android.car.vms;
 
 import android.annotation.SystemApi;
@@ -22,8 +38,10 @@ import org.json.JSONObject;
  *   VmsOperationRecorder.get().subscribe(layer);
  * }</pre>
  *
+ * @deprecated VmsOperationRecorder is no longer used by VMS and will produce no output
  * @hide
  */
+@Deprecated
 @SystemApi
 public final class VmsOperationRecorder {
     private static final String TAG = "VmsOperationRecorder";
@@ -43,68 +61,127 @@ public final class VmsOperationRecorder {
 
     // VMS Client operations.
 
+    /**
+     * Records {@code subscribe} operation with the {@link VmsLayer} layer passed as parameter.
+     */
     public void subscribe(VmsLayer layer) {
         recordOp("subscribe", layer);
     }
 
+    /**
+     * Records {@code unsubscribe} operation with the {@link VmsLayer} layer passed as parameter.
+     */
     public void unsubscribe(VmsLayer layer) {
         recordOp("unsubscribe", layer);
     }
 
+    /**
+     * Records {@code subscribe} operation with the {@link VmsLayer} layer and publisher id passed
+     * both as parameter.
+     */
     public void subscribe(VmsLayer layer, int publisherId) {
         recordOp("subscribe", "publisherId", publisherId, layer);
     }
 
+    /**
+     * Record {@code unsubscribe} operation with the {@link VmsLayer} layer and publisher id passed
+     * both as parameter.
+     */
     public void unsubscribe(VmsLayer layer, int publisherId) {
         recordOp("unsubscribe", "publisherId", publisherId, layer);
     }
 
+    /**
+     * Records {@code startMonitoring} operation.
+     */
     public void startMonitoring() {
         recordOp("startMonitoring");
     }
 
+    /**
+     * Records {@code stopMonitoring} operation.
+     */
     public void stopMonitoring() {
         recordOp("stopMonitoring");
     }
 
+    /**
+     * Records {@code setLayerOffering} operation with the {@link VmsLayerOffering} offering
+     * passed as parameter.
+     */
     public void setLayersOffering(VmsLayersOffering layersOffering) {
         recordOp("setLayersOffering", layersOffering);
     }
 
+    /**
+     * Records {@code getPublisherId} operation with the publisher id passed as parameter.
+     */
     public void getPublisherId(int publisherId) {
         recordOp("getPublisherId", "publisherId", publisherId);
     }
 
     // VMS Service operations.
 
+    /**
+     * Records {@code addSubscription} operation with the {@link VmsLayer} and the sequenceNumber
+     * passed as parameter.
+     */
     public void addSubscription(int sequenceNumber, VmsLayer layer) {
         recordOp("addSubscription", "sequenceNumber", sequenceNumber, layer);
     }
 
+    /**
+     * Records {@code addPromiscuousSubscription} operation with the {@link VmsLayer} and the
+     * sequenceNumber passed as parameter.
+     */
     public void removeSubscription(int sequenceNumber, VmsLayer layer) {
         recordOp("removeSubscription", "sequenceNumber", sequenceNumber, layer);
     }
 
+    /**
+     * Records {@code addPromiscuousSubscription} operation with the sequenceNumber passed as
+     * parameter.
+     */
     public void addPromiscuousSubscription(int sequenceNumber) {
         recordOp("addPromiscuousSubscription", "sequenceNumber", sequenceNumber);
     }
 
+    /**
+     * Records {@code removePromiscuousSubscription} operation with the sequenceNumber passed as
+     * parameter.
+     */
     public void removePromiscuousSubscription(int sequenceNumber) {
         recordOp("removePromiscuousSubscription", "sequenceNumber", sequenceNumber);
     }
 
+    /**
+     * Records {@code addHalSubscription} operation with the {@link VmsLayer} layer and
+     * sequenceNumber both passed as parameter.
+     */
     public void addHalSubscription(int sequenceNumber, VmsLayer layer) {
         recordOp("addHalSubscription", "sequenceNumber", sequenceNumber, layer);
     }
 
+    /**
+     * Records {@code removeHalSubscription} operation with the {@link VmsLayer} layer and
+     * sequenceNumber both passed as parameter.
+     */
     public void removeHalSubscription(int sequenceNumber, VmsLayer layer) {
         recordOp("removeHalSubscription", "sequenceNumber", sequenceNumber, layer);
     }
 
+    /**
+     * Records {@code setPublisherLayersOffering} operation with the {@link VmsLayersOffering}
+     * layersOffering passed as parameter.
+     */
     public void setPublisherLayersOffering(VmsLayersOffering layersOffering) {
         recordOp("setPublisherLayersOffering", layersOffering);
     }
 
+    /**
+     * Records {@code setHalPublisherLayersOffering} operation with the {@link VmsLayersOffering}
+     * layersOffering passed as parameter.
+     */
     public void setHalPublisherLayersOffering(VmsLayersOffering layersOffering) {
         recordOp("setHalPublisherLayersOffering", layersOffering);
     }
@@ -222,6 +299,7 @@ public final class VmsOperationRecorder {
             return Log.isLoggable(TAG, LEVEL);
         }
 
+        /** Logs the message passed as parameter. */
         public void write(String msg) {
             Log.println(LEVEL, TAG, msg);
         }

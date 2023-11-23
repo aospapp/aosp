@@ -22,6 +22,7 @@ android_app {
     privileged: true,
     required: ["privapp_whitelist_com.android.settings.intelligence"],
 
+    libs: ["android.car-stubs"],
     static_libs: [
         "androidx.legacy_legacy-support-v4",
         "androidx.legacy_legacy-support-v13",
@@ -30,6 +31,7 @@ android_app {
         "androidx.preference_preference",
         "androidx.recyclerview_recyclerview",
         "androidx.legacy_legacy-preference-v14",
+        "car-ui-lib",
     ],
     resource_dirs: ["res"],
     srcs: [

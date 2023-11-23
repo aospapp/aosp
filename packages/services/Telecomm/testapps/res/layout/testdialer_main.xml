@@ -59,4 +59,41 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@string/startCallWithRtt"/>
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal" >
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="15dp"
+            android:text="Priority:" />
+        <EditText
+            android:id="@+id/priority"
+            android:inputType="number"
+            android:text="100"
+            android:layout_width="50dp"
+            android:layout_height="wrap_content" />
+        <Button
+            android:id="@+id/enable_car_mode"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Enable Car mode" />
+        <Button
+            android:id="@+id/disable_car_mode"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Disable Car mode" />
+    </LinearLayout>
+    <Button
+        android:id="@+id/toggle_incallservice"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Toggle InCallService" />
+
+    <Button
+        android:id="@+id/send_contact_discovery_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/send_contact_discovery" />
 </LinearLayout>

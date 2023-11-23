@@ -11,7 +11,7 @@
       "FLAGS": "playable",
       "METADATA": {
         "MEDIA_ID": "simple_leaves normal 10s song",
-        "DISPLAY_TITLE": "A normal 10s song",
+        "DISPLAY_TITLE": "A normal 10s song with a long title. A normal 10s song with a long title. A normal 10s song with a long title. ",
         "DURATION": 10000
       }
     },
@@ -20,6 +20,8 @@
       "METADATA": {
         "MEDIA_ID": "simple_leaves normal 1H song",
         "DISPLAY_TITLE": "A normal 1H song",
+        "ARTIST": "Artist",
+        "ALBUM":"Album",
         "DURATION": 3600000
       }
     },
@@ -28,6 +30,9 @@
       "METADATA": {
         "MEDIA_ID": "simple_leaves slow connection",
         "DISPLAY_TITLE": "Connects and buffers for 4s each",
+        "DISPLAY_SUBTITLE": "A very long subtitle. A very long subtitle. A very long subtitle. A very long subtitle. A very long subtitle. A very long subtitle. ",
+        "ARTIST": "This is a very long artist name. This is a very long artist name. This is a very long artist name.",
+        "ALBUM":"Album",
         "DURATION": 30000
       },
       "EVENTS": [
@@ -41,6 +46,7 @@
       "METADATA": {
         "MEDIA_ID": "simple_leaves poor internet",
         "DISPLAY_TITLE": "Poor internet quality at 2s",
+        "ARTIST": "Artist",
         "DURATION": 30000
       },
       "EVENTS": [
@@ -58,6 +64,8 @@
       "METADATA": {
         "MEDIA_ID": "simple_leaves cache failure",
         "DISPLAY_TITLE": "Caching failure at 2s",
+        "DISPLAY_SUBTITLE": "Show a toast",
+        "ALBUM":"This is a very long album title. This is a very long album title. This is a very long album title.",
         "DURATION": 30000
       },
       "EVENTS": [
@@ -75,6 +83,7 @@
       "METADATA": {
         "MEDIA_ID": "simple_leaves error code",
         "DISPLAY_TITLE": "Parental Control error code at 1s",
+        "DISPLAY_SUBTITLE": "Show a toast",
         "DURATION": 10000
       },
       "EVENTS": [
@@ -91,6 +100,7 @@
       "METADATA": {
         "MEDIA_ID": "simple_leaves premium required",
         "DISPLAY_TITLE": "Paid account required at 1s",
+        "DISPLAY_SUBTITLE": "Show a dialog",
         "DURATION": 50000
       },
       "EVENTS": [
@@ -102,6 +112,30 @@
           "ACTION_LABEL": "Upgrade now",
           "INTENT": "PREFS",
           "POST_DELAY_MS": 1000
+        }
+      ]
+    },
+    {
+      "FLAGS": "playable",
+      "METADATA": {
+        "MEDIA_ID": "simple_leaves bluetooth disconnected and reconnected",
+        "DISPLAY_TITLE": "Bluetooth disconnected at 2s and reconnected at 8s",
+        "DURATION": 20000
+      },
+      "EVENTS": [
+        { "STATE": "PLAYING", "POST_DELAY_MS": 0 },
+        {
+          "STATE": "ERROR",
+          "ERROR_MESSAGE": "Bluetooth audio disconnected.",
+          "POST_DELAY_MS": 2000
+        },
+        {
+          "ACTION": "RESET_METADATA",
+          "POST_DELAY_MS": 6000
+        },
+        {
+          "STATE": "PLAYING",
+          "POST_DELAY_MS": 3000
         }
       ]
     }

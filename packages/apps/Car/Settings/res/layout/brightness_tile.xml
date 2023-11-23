@@ -21,6 +21,8 @@
     android:layout_width="match_parent"
     android:layout_height="@dimen/brightness_seekbar_height"
     android:layout_marginBottom="@dimen/brightness_seekbar_margin_bottom"
+    android:paddingEnd="@dimen/brightness_seekbar_padding_horizontal"
+    android:paddingStart="@dimen/brightness_seekbar_padding_horizontal"
     android:progressBackgroundTint="?attr/quickSettingsDisabledColor"
     android:progressDrawable="@drawable/brightness_seekbar_track"
     android:progressTint="?attr/quickSettingsEnabledColor"

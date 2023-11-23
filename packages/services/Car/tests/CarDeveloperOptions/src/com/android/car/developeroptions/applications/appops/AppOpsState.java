@@ -28,6 +28,7 @@ import android.os.Parcel;
 import android.os.Parcelable;
 import android.text.format.DateUtils;
 import android.util.Log;
+import android.util.Pair;
 import android.util.SparseArray;
 
 import com.android.car.developeroptions.R;
@@ -618,7 +619,8 @@ public class AppOpsState {
 
                         }
                         AppOpsManager.OpEntry opEntry = new AppOpsManager.OpEntry(
-                                permOps.get(k), AppOpsManager.MODE_ALLOWED);
+                                permOps.get(k), AppOpsManager.MODE_ALLOWED,
+                                Collections.emptyMap());
                         dummyOps.add(opEntry);
                         addOp(entries, pkgOps, appEntry, opEntry, packageName == null,
                                 packageName == null ? 0 : opToOrder[opEntry.getOp()]);

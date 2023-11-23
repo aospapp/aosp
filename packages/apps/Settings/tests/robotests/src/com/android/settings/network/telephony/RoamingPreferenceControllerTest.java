@@ -80,7 +80,7 @@ public class RoamingPreferenceControllerTest {
         doReturn(mFragmentTransaction).when(mFragmentManager).beginTransaction();
 
         mPreference = spy(new RestrictedSwitchPreference(mContext));
-        mController = new RoamingPreferenceController(mContext, "roaming");
+        mController = spy(new RoamingPreferenceController(mContext, "roaming"));
         mController.init(mFragmentManager, SUB_ID);
         mPreference.setKey(mController.getPreferenceKey());
     }
@@ -117,10 +117,10 @@ public class RoamingPreferenceControllerTest {
     }
 
     @Test
-    public void handlePreferenceTreeClick_needDialog_showDialog() {
-        mController.mNeedDialog = true;
+    public void setChecked_needDialog_showDialog() {
+        doReturn(true).when(mController).isDialogNeeded();
 
-        mController.handlePreferenceTreeClick(mPreference);
+        mController.setChecked(true);
 
         verify(mFragmentManager).beginTransaction();
     }

@@ -25,9 +25,15 @@ import android.content.pm.ResolveInfo;
 import android.content.res.Resources;
 import android.graphics.drawable.Drawable;
 import android.support.annotation.IntDef;
+import android.support.annotation.Nullable;
+import android.support.annotation.VisibleForTesting;
 import android.text.TextUtils;
 import android.util.Log;
+
 import com.android.tv.common.CommonConstants;
+
+import com.google.common.collect.Iterables;
+
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
@@ -97,8 +103,8 @@ public class CustomizationManager {
 
     /**
      * Returns {@code true} if there's a customization package installed and it specifies built-in
-     * tuner devices are available. The built-in tuner should support DVB API to be recognized by
-     * Live TV.
+     * tuner devices are available. The built-in tuner should support DVB API to be recognized by TV
+     * app.
      */
     public static boolean hasLinuxDvbBuiltInTuner(Context context) {
         if (sHasLinuxDvbBuiltInTuner == null) {
@@ -129,7 +135,7 @@ public class CustomizationManager {
                 sTrickplayMode = TRICKPLAY_MODE_ENABLED;
             } else {
                 try {
-                    String customization = null;
+                    String customization;
                     Resources res =
                             context.getPackageManager()
                                     .getResourcesForApplication(sCustomizationPackage);
@@ -159,9 +165,22 @@ public class CustomizationManager {
             List<PackageInfo> packageInfos =
                     context.getPackageManager()
                             .getPackagesHoldingPermissions(CUSTOMIZE_PERMISSIONS, 0);
-            sCustomizationPackage = packageInfos.size() == 0 ? "" : packageInfos.get(0).packageName;
+            sCustomizationPackage = getCustomizationPackageName(packageInfos);
         }
         return sCustomizationPackage;
+    }
+
+    @VisibleForTesting
+    static String getCustomizationPackageName(List<PackageInfo> packageInfos) {
+        Iterable<String> packageNames =
+                Iterables.transform(packageInfos, input -> input.packageName);
+
+        // Find the first vendor customizer
+        return Iterables.find(
+                packageNames,
+                input -> !input.startsWith("com.android"),
+                // else use the first one or blank
+                Iterables.getFirst(packageNames, ""));
     }
 
     /** Initialize TV customization options. Run this API only on the main thread. */
@@ -245,6 +264,7 @@ public class CustomizationManager {
      *
      * <p>Row ID is one of ID_OPTIONS_ROW or ID_PARTNER_ROW.
      */
+    @Nullable
     public List<CustomAction> getCustomActions(String rowId) {
         return mRowIdToCustomActionsMap.get(rowId);
     }

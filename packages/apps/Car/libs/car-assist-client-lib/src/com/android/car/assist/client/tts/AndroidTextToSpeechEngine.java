@@ -17,6 +17,7 @@
 package com.android.car.assist.client.tts;
 
 import android.content.Context;
+import android.media.AudioAttributes;
 import android.os.Bundle;
 import android.speech.tts.TextToSpeech;
 import android.speech.tts.UtteranceProgressListener;
@@ -48,6 +49,12 @@ class AndroidTextToSpeechEngine implements TextToSpeechEngine {
             throws IllegalStateException {
         assertInit();
         mTextToSpeech.setOnUtteranceProgressListener(progressListener);
+    }
+
+    @Override
+    public void setAudioAttributes(AudioAttributes audioAttributes) {
+        assertInit();
+        mTextToSpeech.setAudioAttributes(audioAttributes);
     }
 
     @Override

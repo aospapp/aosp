@@ -18,13 +18,16 @@
 <PreferenceScreen
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:settings="http://schemas.android.com/apk/res-auto"
-    android:title="@string/system_setting_title">
+    android:title="@string/system_setting_title"
+    android:key="@string/psk_system_settings">
     <Preference
-        android:fragment="com.android.car.settings.language.LanguagesAndInputFragment"
         android:key="@string/pk_languages_and_input_settings"
         android:icon="@drawable/ic_language"
         android:title="@string/languages_and_input_settings"
-        settings:controller="com.android.car.settings.common.DefaultRestrictionsPreferenceController"/>
+        settings:controller="com.android.car.settings.common.DefaultRestrictionsPreferenceController">
+        <intent android:targetPackage="com.android.car.settings"
+                android:targetClass="com.android.car.settings.common.CarSettingActivities$LanguagesAndInputActivity"/>
+    </Preference>
     <Preference
         android:icon="@drawable/ic_system_update"
         android:key="@string/pk_system_update_settings"
@@ -33,24 +36,30 @@
         <intent android:action="android.settings.SYSTEM_UPDATE_SETTINGS"/>
     </Preference>
     <Preference
-        android:fragment="com.android.car.settings.system.AboutSettingsFragment"
         android:icon="@drawable/ic_settings_about"
         android:key="@string/pk_about_settings_entry"
         android:title="@string/about_settings"
-        settings:controller="com.android.car.settings.system.AboutSettingsEntryPreferenceController"/>
+        settings:controller="com.android.car.settings.system.AboutSettingsEntryPreferenceController">
+        <intent android:targetPackage="com.android.car.settings"
+                android:targetClass="com.android.car.settings.common.CarSettingActivities$AboutSettingsActivity"/>
+    </Preference>
     <Preference
-        android:fragment="com.android.car.settings.system.LegalInformationFragment"
         android:icon="@drawable/ic_settings_about"
         android:key="@string/pk_legal_information_entry"
         android:title="@string/legal_information"
-        settings:controller="com.android.car.settings.common.DefaultRestrictionsPreferenceController"/>
+        settings:controller="com.android.car.settings.common.DefaultRestrictionsPreferenceController">
+        <intent android:targetPackage="com.android.car.settings"
+                android:targetClass="com.android.car.settings.common.CarSettingActivities$LegalInformationActivity"/>
+    </Preference>
     <Preference
-        android:fragment="com.android.car.settings.system.ResetOptionsFragment"
         android:icon="@drawable/ic_restore"
         android:key="@string/pk_reset_options_entry"
         android:summary="@string/reset_options_summary"
         android:title="@string/reset_options_title"
-        settings:controller="com.android.car.settings.common.DefaultRestrictionsPreferenceController"/>
+        settings:controller="com.android.car.settings.common.DefaultRestrictionsPreferenceController">
+        <intent android:targetPackage="com.android.car.settings"
+                android:targetClass="com.android.car.settings.common.CarSettingActivities$ResetOptionsActivity"/>
+    </Preference>
     <Preference
         android:icon="@drawable/ic_settings_development"
         android:key="@string/pk_developer_options_entry"

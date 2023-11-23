@@ -38,6 +38,7 @@
             android:elevation="3dp"
             android:theme="?actionBarTheme"
             android:popupTheme="?actionBarPopupTheme"
+            app:collapseContentDescription="@string/button_back"
             app:titleTextAppearance="@style/ToolbarTitle">
 
             <TextView
@@ -52,12 +53,6 @@
                 android:textAppearance="@style/SearchBarTitle"
                 android:drawableStart="@drawable/ic_menu_search"
                 android:drawablePadding="@dimen/search_bar_icon_padding"/>
-
-            <com.android.documentsui.HorizontalBreadcrumb
-                android:id="@+id/horizontal_breadcrumb"
-                android:layout_marginRight="20dp"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent" />
 
         </androidx.appcompat.widget.Toolbar>
 
@@ -82,11 +77,23 @@
                 <include layout="@layout/directory_header" />
 
                 <FrameLayout
-                    android:id="@+id/container_directory"
-                    android:clipToPadding="false"
                     android:layout_width="match_parent"
                     android:layout_height="0dp"
-                    android:layout_weight="1" />
+                    android:layout_weight="1">
+
+                    <FrameLayout
+                        android:id="@+id/container_directory"
+                        android:clipToPadding="false"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent" />
+
+                    <FrameLayout
+                        android:id="@+id/container_search_fragment"
+                        android:clipToPadding="false"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent" />
+
+                </FrameLayout>
 
                 <androidx.coordinatorlayout.widget.CoordinatorLayout
                     android:id="@+id/container_save"

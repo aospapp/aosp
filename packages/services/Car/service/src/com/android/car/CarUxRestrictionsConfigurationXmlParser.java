@@ -270,7 +270,7 @@ public final class CarUxRestrictionsConfigurationXmlParser {
         }
 
         int restrictions = UX_RESTRICTIONS_UNKNOWN;
-        int restrictionMode = UX_RESTRICTION_MODE_BASELINE;
+        String restrictionMode = UX_RESTRICTION_MODE_BASELINE;
         boolean requiresOpt = true;
         while (RESTRICTIONS.equals(parser.getName())
                 && parser.getEventType() == XmlResourceParser.START_TAG) {
@@ -281,11 +281,13 @@ public final class CarUxRestrictionsConfigurationXmlParser {
                     CarUxRestrictions.UX_RESTRICTIONS_FULLY_RESTRICTED);
             requiresOpt = a.getBoolean(
                     R.styleable.UxRestrictions_Restrictions_requiresDistractionOptimization, true);
-            restrictionMode = a.getInt(
-                    R.styleable.UxRestrictions_Restrictions_mode, UX_RESTRICTION_MODE_BASELINE);
+            restrictionMode = a.getString(R.styleable.UxRestrictions_Restrictions_mode);
 
             a.recycle();
             parser.next();
+        }
+        if (restrictionMode == null) {
+            restrictionMode = UX_RESTRICTION_MODE_BASELINE;
         }
         return new DrivingStateRestrictions()
                 .setDistractionOptimizationRequired(requiresOpt)

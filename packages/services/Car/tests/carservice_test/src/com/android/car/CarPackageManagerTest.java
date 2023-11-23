@@ -25,9 +25,10 @@ import android.car.content.pm.CarAppBlockingPolicy;
 import android.car.content.pm.CarPackageManager;
 import android.util.Log;
 
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.FlakyTest;
 import androidx.test.filters.SmallTest;
 import androidx.test.filters.Suppress;
-import androidx.test.runner.AndroidJUnit4;
 
 import com.android.car.pm.CarPackageManagerService;
 
@@ -81,6 +82,7 @@ public class CarPackageManagerTest extends MockedCarTestBase {
     // if the test is necessary.
     @Suppress
     @Test
+    @FlakyTest
     public void testSettingWhitelist() throws Exception {
         init(false);
         final String carServicePackageName = "com.android.car";

@@ -25,20 +25,24 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.support.v17.leanback.widget.ClassPresenterSelector;
 import android.transition.Fade;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+
+import androidx.leanback.widget.ClassPresenterSelector;
+
 import com.android.tv.R;
 import com.android.tv.TvSingletons;
 import com.android.tv.data.ChannelDataManager;
-import com.android.tv.data.Program;
+import com.android.tv.data.ProgramImpl;
+import com.android.tv.data.api.Program;
 import com.android.tv.dvr.DvrDataManager;
 import com.android.tv.dvr.DvrDataManager.SeriesRecordingListener;
 import com.android.tv.dvr.data.SeriesRecording;
 import com.android.tv.dvr.provider.EpisodicProgramLoadTask;
 import com.android.tv.dvr.ui.BigArguments;
+
 import java.util.Collections;
 import java.util.List;
 
@@ -53,7 +57,7 @@ public class DvrSeriesSchedulesFragment extends BaseDvrSchedulesFragment {
             "series_schedules_key_series_recording";
     /**
      * The key for programs which belong to the series recording whose scheduled recording list will
-     * be displayed. Type: List<{@link Program}>
+     * be displayed. Type: List<{@link ProgramImpl}>
      */
     public static final String SERIES_SCHEDULES_KEY_SERIES_PROGRAMS =
             "series_schedules_key_series_programs";

@@ -33,8 +33,8 @@ import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ListView;
-
 import android.widget.TextView;
+
 import androidx.fragment.app.Fragment;
 
 import com.google.android.car.kitchensink.KitchenSinkActivity;
@@ -66,11 +66,18 @@ public class VehicleHalFragment extends Fragment {
     public void onResume() {
         super.onResume();
 
+        final boolean retry = true;
         final IVehicle vehicle;
         try {
-            vehicle = Objects.requireNonNull(IVehicle.getService());
-        } catch (NullPointerException | RemoteException e) {
+            vehicle = Objects.requireNonNull(IVehicle.getService(retry));
+        } catch (RemoteException | RuntimeException e) {
             Log.e(TAG, "unable to retrieve Vehicle HAL service", e);
+            AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
+            builder.setTitle("Vehicle HAL not available")
+                   .setPositiveButton(android.R.string.ok, (x, y) -> { })
+                   .setMessage("In some cases (e.g. SELinux enforcing mode), this UI "
+                            + "is not available for use. Please use the car property UI")
+                   .show();
             return;
         }
 

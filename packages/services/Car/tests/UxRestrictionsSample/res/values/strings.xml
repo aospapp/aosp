@@ -38,4 +38,5 @@
     <string name="prod_config_title" translatable="false">Production Config</string>
     <string name="tab_baseline" translatable="false">Baseline</string>
     <string name="tab_passenger" translatable="false">Passenger</string>
+    <string name="current_driver_distraction" translatable="false">Driver Awareness Percentage: %1$s</string>
 </resources>

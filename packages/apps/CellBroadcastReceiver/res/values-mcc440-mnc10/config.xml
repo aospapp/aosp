@@ -19,4 +19,8 @@
         <item>0xA001-0xA002:type=other, emergency=true, scope=carrier</item>
         <item>0xA004-0xA3FF:type=other, emergency=true, scope=carrier</item>
     </string-array>
+    <string-array name="etws_test_alerts_range_strings" translatable="false">
+        <item>0x1103:rat=gsm, emergency=true</item>
+        <item>0xA400-0xA4FF:rat=gsm, emergency=true</item>
+    </string-array>
 </resources>

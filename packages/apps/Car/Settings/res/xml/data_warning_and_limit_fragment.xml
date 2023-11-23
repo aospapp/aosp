@@ -18,7 +18,8 @@
 <PreferenceScreen
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:settings="http://schemas.android.com/apk/res-auto"
-    android:title="@string/data_warning_limit_title">
+    android:title="@string/data_warning_limit_title"
+    android:key="@string/psk_data_warning_and_limit">
     <Preference
         android:key="@string/pk_data_usage_cycle"
         android:title="@string/app_usage_cycle"

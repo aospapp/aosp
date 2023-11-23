@@ -289,9 +289,12 @@ class BmessageParser {
          * non-text content. If the charset is not set to UTF-8, it is safe to set the message as
          * empty. We force the getMessage (see Client) to only call getMessage with
          * UTF-8 as the MCE is not obliged to support native charset.
+         *
+         * 2020-06-01: we could now expect MMS to be more than text, e.g., image-only, so charset
+         * not always UTF-8, downgrading log message from ERROR to DEBUG.
          */
         if (!"UTF-8".equals(mBmsg.mBbodyCharset)) {
-            Log.e(TAG, "The charset was not set to charset UTF-8: " + mBmsg.mBbodyCharset);
+            Log.d(TAG, "The charset was not set to charset UTF-8: " + mBmsg.mBbodyCharset);
         }
 
         /*
@@ -309,6 +312,12 @@ class BmessageParser {
         String remng = mParser.remaining();
         byte[] data = remng.getBytes();
 
+        if (offset < 0 || offset > data.length) {
+            /* Handle possible exception for incorrect LENGTH value
+             * from MSE while parsing end of props */
+            throw new ParseException("Invalid LENGTH value", mParser.pos());
+        }
+
         /* restart parsing from after 'message'<CRLF> */
         mParser = new BmsgTokenizer(new String(data, offset, data.length - offset), restartPos);
 
@@ -319,7 +328,7 @@ class BmessageParser {
                 if ("UTF-8".equals(mBmsg.mBbodyCharset)) {
                     mBmsg.mMessage = new String(data, 0, messageLen, StandardCharsets.UTF_8);
                 } else {
-                    mBmsg.mMessage = null;
+                    mBmsg.mMessage = new String(data, 0, messageLen);
                 }
             } else {
                 /* Handle possible exception for incorrect LENGTH value

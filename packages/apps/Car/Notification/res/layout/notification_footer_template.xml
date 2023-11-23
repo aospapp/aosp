@@ -22,4 +22,15 @@
     android:layout_height="wrap_content"
     android:gravity="start">
 
+    <Button
+        android:id="@+id/clear_all_button"
+        style="@style/ClearAllButtonHeader"
+        android:layout_width="wrap_content"
+        android:layout_height="@dimen/clear_all_button_height"
+        android:layout_alignParentStart="true"
+        android:layout_marginStart="@dimen/notification_card_margin_horizontal"
+        android:layout_marginTop="@dimen/clear_all_button_margin"
+        android:text="@string/clear_all"
+        android:visibility="gone"/>
+
 </RelativeLayout>

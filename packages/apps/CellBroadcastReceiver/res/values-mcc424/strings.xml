@@ -22,6 +22,14 @@
     <string name="cmas_extreme_immediate_observed_alert" translatable="false">@string/emergency_alert</string>
     <string name="cmas_extreme_immediate_likely_alert" translatable="false">@string/emergency_alert</string>
     <string name="cmas_severe_alert" translatable="false">@string/emergency_alert</string>
-    <string name="cmas_amber_alert">Warning alert</string>
+    <!-- Dialog titles for alerta -->
+    <string name="pws_other_message_identifiers">Warning alert</string>
+    <string name="public_safety_message">Public safety alert</string>
+    <string name="cmas_exercise_alert">Exercise</string>
     <string name="cmas_required_monthly_test">Test alert</string>
+    <string name="state_local_test_alert">Test alert</string>
+
+    <!-- Emergency alert settings menu -->
+    <string name="enable_emergency_alerts_message_title">Warning alerts</string>
+    <string name="enable_public_safety_messages_title">Public safety alerts</string>
 </resources>

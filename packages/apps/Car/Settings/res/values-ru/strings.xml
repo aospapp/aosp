@@ -23,7 +23,7 @@
     <string name="brightness" msgid="2919605130898772866">"Яркость"</string>
     <string name="auto_brightness_title" msgid="9124647862844666581">"Адаптивная яркость"</string>
     <string name="auto_brightness_summary" msgid="4741887033140384352">"Менять яркость с учетом уровня освещенности"</string>
-    <string name="condition_night_display_title" msgid="3777509730126972675">"Ночной режим включен"</string>
+    <string name="condition_night_display_title" msgid="3777509730126972675">"Ночная подсветка включена"</string>
     <string name="keywords_display" msgid="3978416985146943922">"экран, сенсорный экран"</string>
     <string name="keywords_display_brightness_level" msgid="3956411572536209195">"снижение яркости, сенсорный экран, батарея"</string>
     <string name="keywords_display_auto_brightness" msgid="2700310050333468752">"снижение яркости, сенсорный экран, батарея"</string>
@@ -52,7 +52,7 @@
     <string name="roaming_title" msgid="6218635014519017734">"Роуминг"</string>
     <string name="roaming_summary" msgid="7476127740259728901">"Подключаться к службам передачи данных в роуминге"</string>
     <string name="roaming_alert_title" msgid="4433901635766775763">"Разрешить интернет-роуминг?"</string>
-    <string name="roaming_warning" msgid="5313281900566657209">"Возможны значительные расходы."</string>
+    <string name="roaming_warning" msgid="4908184914868720704">"Может взиматься плата за роуминг."</string>
     <string name="data_usage_settings" msgid="7877132994777987848">"Передача данных"</string>
     <string name="data_usage_title" msgid="2923515974389203812">"Основные данные"</string>
     <string name="data_used_formatted" msgid="6684557577780068339">"Расход <xliff:g id="ID_1">^1</xliff:g> <xliff:g id="ID_2">^2</xliff:g>"</string>
@@ -157,7 +157,7 @@
     <string name="wifi_ap_band_select_one" msgid="615578175244067396">"Диапазон частот для точек доступа Wi-Fi."</string>
     <string name="tether_settings_title_all" msgid="4663704772599383169">"Точка доступа и режим модема"</string>
     <string name="wifi_hotspot_auto_off_title" msgid="7871858619924599922">"Автоматически выключать точку доступа"</string>
-    <string name="wifi_hotspot_auto_off_summary" msgid="4830341947541735136">"Выключать точку доступа Wi‑Fi автоматически, если к ней не подключено ни одного устройства."</string>
+    <string name="wifi_hotspot_auto_off_summary" msgid="4830341947541735136">"Выключать точку доступа Wi‑Fi, если к ней не подключено ни одного устройства"</string>
     <string name="wifi_ask_enable" msgid="4452418245680754578">"<xliff:g id="REQUESTER">%s</xliff:g> запрашивает включение Wi-Fi"</string>
     <string name="wifi_ask_disable" msgid="2949290055916181553">"<xliff:g id="REQUESTER">%s</xliff:g> запрашивает отключение Wi-Fi"</string>
     <string name="wifi_error" msgid="3105105447117289410">"Ошибка"</string>
@@ -169,7 +169,7 @@
     <string name="bluetooth_disconnect_title" msgid="7675271355910637528">"Отключить устройство?"</string>
     <string name="bluetooth_disconnect_all_profiles" msgid="2017519733701757244">"Автомобиль будет отключен от устройства \"<xliff:g id="DEVICE_NAME">%1$s</xliff:g>\"."</string>
     <string name="bluetooth_vehicle_mac_address" msgid="7069234636525805937">"Адрес Bluetooth для автомобиля: <xliff:g id="ADDRESS">%1$s</xliff:g>"</string>
-    <string name="bluetooth_device_mac_address" msgid="3949829271575045069">"Адрес Bluetooth для устройства: <xliff:g id="ADDRESS">%1$s</xliff:g>"</string>
+    <string name="bluetooth_device_mac_address" msgid="3949829271575045069">"Адрес Bluetooth: <xliff:g id="ADDRESS">%1$s</xliff:g>"</string>
     <string name="bluetooth_name" msgid="2609869978821094114">"Название автомобиля"</string>
     <string name="bluetooth_rename_vehicle" msgid="5769424875066563154">"Переименование автомобиля"</string>
     <string name="bluetooth_rename_device" msgid="8406868875363878712">"Переименование устройства"</string>
@@ -192,17 +192,19 @@
     <string name="bluetooth_pairing_key_msg" msgid="5066825929751599037">"Код подключения через Bluetooth"</string>
     <string name="bluetooth_enable_alphanumeric_pin" msgid="1636575922217263060">"PIN-код содержит буквы или символы"</string>
     <string name="bluetooth_enter_passkey_msg" msgid="5955236916732265593">"Введите код подключения и нажмите клавишу ввода"</string>
-    <string name="bluetooth_pairing_request" msgid="4769675459526556801">"Установить соединение с устройством <xliff:g id="DEVICE_NAME">%1$s</xliff:g>?"</string>
+    <string name="bluetooth_pairing_request" msgid="4769675459526556801">"Подключить устройство \"<xliff:g id="DEVICE_NAME">%1$s</xliff:g>\"?"</string>
     <string name="bluetooth_pairing_shares_phonebook" msgid="2015966932886300630">"Разрешить устройству <xliff:g id="DEVICE_NAME">%1$s</xliff:g> доступ к списку контактов и журналу звонков"</string>
     <string name="bluetooth_enter_pin_other_device" msgid="7825091249522704764">"Возможно, потребуется ввести PIN-код на другом устройстве."</string>
     <string name="bluetooth_enter_passkey_other_device" msgid="7147248221018865922">"Возможно, потребуется ввести ключ доступа на другом устройстве."</string>
     <string name="bluetooth_pin_values_hint_16_digits" msgid="418776900816984778">"Должно быть 16 цифр"</string>
     <string name="bluetooth_pin_values_hint" msgid="1561325817559141687">"Обычно 0000 или 1234"</string>
     <string name="bluetooth_notif_title" msgid="8374602799367803335">"Запрос на подключение"</string>
-    <string name="bluetooth_notif_message" msgid="1060821000510108726">"Нажмите, чтобы установить соединение с устройством \"<xliff:g id="DEVICE_NAME">%1$s</xliff:g>\"."</string>
+    <string name="bluetooth_notif_message" msgid="1060821000510108726">"Нажмите, чтобы подключить устройство \"<xliff:g id="DEVICE_NAME">%1$s</xliff:g>\"."</string>
     <string name="bluetooth_device_picker" msgid="673238198452345475">"Выбор устройства Bluetooth"</string>
     <string name="language_settings" msgid="2079258598337245546">"Языки"</string>
     <string name="languages_and_input_settings" msgid="3672322610529408248">"Язык и ввод"</string>
+    <string name="language_picker_list_suggested_header" msgid="7593893806003415948">"Рекомендуемые"</string>
+    <string name="language_picker_list_all_header" msgid="1577387973934368428">"Все языки"</string>
     <string name="keyboard_settings" msgid="1959697870618278081">"Клавиатура"</string>
     <string name="manage_keyboard" msgid="4045394766282200132">"Управление клавиатурами"</string>
     <string name="text_to_speech_settings" msgid="811985746199507343">"Озвучивание текста"</string>
@@ -287,9 +289,11 @@
     <string name="not_installed" msgid="4218816013370552746">"Не установлено для этого пользователя"</string>
     <string name="permissions_label" msgid="2701446753515612685">"Разрешения"</string>
     <string name="notifications_label" msgid="6586089149665170731">"Уведомления"</string>
+    <string name="storage_application_label" msgid="5911779903670978586">"Хранилище и кеш"</string>
     <string name="application_version_label" msgid="8556889839783311649">"Версия: %1$s"</string>
     <string name="runtime_permissions_summary_no_permissions_granted" msgid="6001439205270250021">"У приложения нет разрешений"</string>
     <string name="runtime_permissions_summary_no_permissions_requested" msgid="4074220596273432442">"Приложение не запрашивало разрешения"</string>
+    <string name="storage_type_internal" msgid="8918688427078709570">"%s: внутренняя память"</string>
     <string name="data_usage_summary_title" msgid="4368024763485916986">"Передача данных"</string>
     <string name="data_usage_app_summary_title" msgid="5012851696585421420">"Трафик приложения"</string>
     <string name="computing_size" msgid="5791407621793083965">"Вычисление…"</string>
@@ -329,7 +333,7 @@
     <string name="app_link_open_never" msgid="2173174327831792316">"Не открывать в этом приложении"</string>
     <string name="app_launch_supported_domain_urls_title" msgid="7345116365785981158">"Поддерживаемые ссылки"</string>
     <string name="special_access" msgid="5730278220917123811">"Специальный доступ для приложений"</string>
-    <string name="show_system" msgid="4401355756969485287">"Показать системные процессы"</string>
+    <string name="show_system" msgid="4401355756969485287">"Показать сист. процессы"</string>
     <string name="hide_system" msgid="8845453295584638040">"Скрыть системные процессы"</string>
     <string name="modify_system_settings_title" msgid="4596320571562433972">"Изменение системных настроек"</string>
     <string name="modify_system_settings_description" msgid="5295023124419592452">"Приложение сможет изменять системные настройки."</string>
@@ -350,17 +354,13 @@
     <string name="location_settings_recent_requests_title" msgid="6345634382240930628">"Последние запросы местоположения"</string>
     <string name="location_settings_recent_requests_empty_message" msgid="7789667070033674910">"Нет недавних запросов местоположения."</string>
     <string name="location_settings_app_permissions_title" msgid="6446735313354321564">"Разрешения для приложений"</string>
-    <string name="location_settings_scanning_title" msgid="4253945869911300740">"Поиск"</string>
     <string name="location_settings_services_title" msgid="1186133632690970468">"Геолокация"</string>
-    <string name="location_settings_wifi_scanning_title" msgid="8021558840074023719">"Поиск сетей Wi‑Fi"</string>
-    <string name="location_settings_wifi_scanning_summary" msgid="2116283960258671324">"Разрешите приложениям и сервисам искать беспроводные сети, даже когда Wi-Fi отключен. Таким образом можно улучшить работу функций и сервисов, использующих данные о местоположении."</string>
-    <string name="location_settings_bluetooth_scanning_title" msgid="2969682902241932059">"Поиск устройств Bluetooth"</string>
-    <string name="location_settings_bluetooth_scanning_summary" msgid="9158101751700727062">"Разрешите приложениям и сервисам искать сигналы устройств, расположенных поблизости, даже если Bluetooth отключен. Таким образом можно улучшить работу функций и сервисов, использующих данные о местоположении."</string>
     <string name="system_setting_title" msgid="6864599341809463440">"Система"</string>
     <string name="system_update_settings_title" msgid="8448588267784138855">"Обновления системы"</string>
     <string name="firmware_version" msgid="8491753744549309333">"Версия Android"</string>
     <string name="security_patch" msgid="4794276590178386903">"Обновление системы безопасности"</string>
-    <string name="model_info" msgid="4966408071657934452">"Модель"</string>
+    <string name="hardware_info" msgid="3973165746261507658">"Модель и аппаратное обеспечение"</string>
+    <string name="hardware_info_summary" msgid="8262576443254075921">"Модель: <xliff:g id="MODEL">%1$s</xliff:g>"</string>
     <string name="baseband_version" msgid="2370088062235041897">"Прошивка модуля связи"</string>
     <string name="kernel_version" msgid="7327212934187011508">"Версия ядра"</string>
     <string name="build_number" msgid="3997326631001009102">"Номер сборки"</string>
@@ -383,7 +383,10 @@
     <string name="terms_title" msgid="5201471373602628765">"Условия использования"</string>
     <string name="webview_license_title" msgid="6442372337052056463">"Системные лицензии WebView"</string>
     <string name="wallpaper_attributions" msgid="9201272150014500697">"Обои"</string>
-    <string name="wallpaper_attributions_values" msgid="4292446851583307603">"Спутниковые фотографии:\n© CNES 2014/Astrium, DigitalGlobe, Bluesky"</string>
+    <string name="wallpaper_attributions_values" msgid="4292446851583307603">"Спутниковые фотографии:\n© 2014 CNES/Astrium, DigitalGlobe, Bluesky"</string>
+    <string name="model_info" msgid="4966408071657934452">"Модель"</string>
+    <string name="status_serial_number" msgid="9158889113131907656">"Серийный номер"</string>
+    <string name="hardware_revision" msgid="5713759927934872874">"Версия аппаратного обеспечения"</string>
     <string name="regulatory_info_text" msgid="8890339124198005428"></string>
     <string name="settings_license_activity_title" msgid="8499293744313077709">"Лицензии третьих сторон"</string>
     <string name="settings_license_activity_unavailable" msgid="6104592821991010350">"Не удалось загрузить лицензии."</string>
@@ -416,7 +419,7 @@
     <string name="reset_app_pref_title" msgid="5855420038951743992">"Сбросить настройки приложений"</string>
     <string name="reset_app_pref_desc" msgid="579392665146962149">"Будут сброшены следующие настройки:\n\n"<li>"Отключенные приложения."</li>\n<li>"Отключенные уведомления приложений."</li>\n<li>"Приложения по умолчанию."</li>\n<li>"Ограничения на передачу данных в фоновом режиме."</li>\n<li>"Все ограничения разрешений."</li>\n\n"Данные приложений удалены не будут."</string>
     <string name="reset_app_pref_button_text" msgid="6270820447321231609">"Сбросить настройки"</string>
-    <string name="reset_app_pref_complete_toast" msgid="8709072932243594166">"Настройки приложений сброшены"</string>
+    <string name="reset_app_pref_complete_toast" msgid="8709072932243594166">"Настройки приложений сброшены."</string>
     <string name="master_clear_title" msgid="8515335233363214414">"Удалить все данные (сбросить настройки)"</string>
     <string name="master_clear_desc" msgid="9058719802779893535">"Будут удалены все данные из головного устройства автомобиля, в том числе:\n\n"<li>"ваш аккаунт Google;"</li>\n<li>"настройки/данные системы и приложений;"</li>\n<li>"установленные приложения."</li></string>
     <string name="master_clear_accounts" msgid="7797522012993567494">"Вы вошли в следующие аккаунты:"</string>
@@ -434,7 +437,7 @@
     <string name="zone_auto" msgid="3701878581920206160">"Автонастройка часового пояса"</string>
     <string name="zone_auto_summary" msgid="4345856882906981864">"Использовать часовой пояс сети"</string>
     <string name="date_time_24hour_title" msgid="3025576547136168692">"24-часовой формат"</string>
-    <string name="date_time_24hour" msgid="1137618702556486913">"Использовать 24-часовой формат"</string>
+    <string name="date_time_24hour" msgid="1137618702556486913">"24-часовой формат"</string>
     <string name="date_time_set_time_title" msgid="5884883050656937853">"Время"</string>
     <string name="date_time_set_time" msgid="6449555153906058248">"Установить время"</string>
     <string name="date_time_set_timezone_title" msgid="3001779256157093425">"Часовой пояс"</string>
@@ -457,7 +460,7 @@
     <string name="sms_messaging_permission_title" msgid="6099328509729071243">"SMS по мобильному Интернету в авто"</string>
     <string name="install_apps_permission_title" msgid="3099705360827925296">"Установка новых приложений"</string>
     <string name="uninstall_apps_permission_title" msgid="8448422340567430659">"Удаление приложений"</string>
-    <string name="user_add_user_menu" msgid="5319151436895941496">"Добавление пользователя"</string>
+    <string name="user_add_user_menu" msgid="5319151436895941496">"Добавить пользователя"</string>
     <string name="user_new_user_name" msgid="7115771396412339662">"Новый пользователь"</string>
     <string name="user_add_user_title" msgid="7458813670614932479">"Добавить пользователя?"</string>
     <string name="user_add_user_message_setup" msgid="6030901156040053106">"Когда вы добавите пользователя, ему потребуется настроить профиль."</string>
@@ -488,6 +491,8 @@
     <string name="user_name_label" msgid="3210832645046206845">"Имя"</string>
     <string name="user_summary_not_set_up" msgid="1473688119241224145">"Не настроен"</string>
     <string name="edit_user_name_title" msgid="6890782937520262478">"Изменение имени пользователя"</string>
+    <string name="name_input_blank_error" msgid="2088850865880984123">"Поле должно быть заполнено."</string>
+    <string name="name_input_invalid_error" msgid="3523545780580744273">"Указано недопустимое имя пользователя."</string>
     <string name="users_list_title" msgid="770764290290240909">"Пользователи"</string>
     <string name="user_details_admin_title" msgid="3530292857178371891">"%1$s: разрешения"</string>
     <string name="storage_settings_title" msgid="8957054192781341797">"Хранилище"</string>
@@ -507,6 +512,8 @@
     <string name="storage_clear_data_dlg_title" msgid="5863775997588969879">"Удалить данные приложения?"</string>
     <string name="storage_clear_data_dlg_text" msgid="795055288575727801">"Все данные этого приложения будут удалены без возможности восстановления, включая все файлы, базы данных, настройки, аккаунты и т. д."</string>
     <string name="storage_clear_failed_dlg_text" msgid="6710485971686866306">"Не удалось очистить хранилище."</string>
+    <string name="storage_unmount_success" msgid="1553591517580407021">"Устройство \"<xliff:g id="NAME">%1$s</xliff:g>\" безопасно извлечено."</string>
+    <string name="storage_unmount_failure" msgid="4591934911541762883">"Не удалось безопасно извлечь устройство \"<xliff:g id="NAME">%1$s</xliff:g>\"."</string>
     <string name="accounts_settings_title" msgid="436190037084293471">"Аккаунты"</string>
     <string name="user_add_account_menu" msgid="6625351983590713721">"Добавить аккаунт"</string>
     <string name="no_accounts_added" msgid="5148163140691096055">"Аккаунтов нет."</string>
@@ -538,6 +545,7 @@
     <string name="sync_button_sync_now" msgid="5767643057970371315">"Синхронизировать"</string>
     <string name="sync_button_sync_cancel" msgid="7739510554513641393">"Отменить синхронизацию"</string>
     <string name="sync_is_failing" msgid="5766255460901806206">"Проблемы с синхронизацией. Скоро все заработает."</string>
+    <string name="privacy_settings_title" msgid="3150145262029229572">"Конфиденциальность"</string>
     <string name="security_settings_title" msgid="6955331714774709746">"Безопасность"</string>
     <string name="security_settings_subtitle" msgid="2244635550239273229">"Блокировка экрана"</string>
     <string name="security_lock_none" msgid="1054645093754839638">"Нет"</string>
@@ -640,28 +648,11 @@
     <string name="lockpassword_pin_no_sequential_digits" msgid="38813552228809240">"Нельзя использовать последовательности из идущих подряд или повторяющихся цифр."</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"Варианты блокировки экрана"</string>
     <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g> (<xliff:g id="NUM_DAYS">%3$s</xliff:g> дн. назад)"</string>
-    <string name="add_device_title" msgid="8452168024017866232">"Добавить надежное устройство"</string>
-    <string name="add_device_summary" msgid="5368217520710573302">"Будет включена функция Bluetooth"</string>
-    <string name="trusted_device" msgid="5637378361866787603">"Надежные устройства"</string>
-    <plurals name="trusted_device_subtitle" formatted="false" msgid="462041049834264945">
-      <item quantity="one"><xliff:g id="COUNT_1">%d</xliff:g> устройство</item>
-      <item quantity="few"><xliff:g id="COUNT_1">%d</xliff:g> устройства</item>
-      <item quantity="many"><xliff:g id="COUNT_1">%d</xliff:g> устройств</item>
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> устройства</item>
-    </plurals>
-    <string name="remove_device_message" msgid="6447820559674148349">"Устройство <xliff:g id="CONNECTED_DEVICE_NAME_0">%1$s</xliff:g> будет разблокировать автомобиль при подключении. Если кто-то возьмет <xliff:g id="CONNECTED_DEVICE_NAME_1">%1$s</xliff:g>, то сможет получить доступ к этому устройству."</string>
-    <string name="trusted_device_confirm_button" msgid="102354635014627996">"ОК"</string>
-    <string name="trusted_device_remove_button" msgid="6140476996063415420">"Удалить надежное устройство"</string>
-    <string name="trusted_device_done_button" msgid="8481956533222625296">"Готово"</string>
-    <string name="add_trusted_device_instruction" msgid="2280382609884918033">"Для настройки надежного устройства используйте сопутствующее приложение. С помощью надежного устройства ваш профиль пользователя будет автоматически разблокироваться сразу после того, как автомобиль обнаружит ваш телефон."</string>
-    <string name="trusted_device_download_app" msgid="6971096140154499983">"1. Скачайте сопутствующее приложение на телефон."</string>
-    <string name="trusted_device_select_device" msgid="198902765179270739">"2. Чтобы подключить устройства, нажмите \"<xliff:g id="CAR_NAME">%1$s</xliff:g>\" на телефоне."</string>
-    <string name="trusted_device_safety_alert" msgid="3834898922112046769">"После запуска двигателя находящееся рядом с автомобилем надежное устройство сможет разблокировать профиль пользователя, даже если оно находится в руках другого человека."</string>
-    <string name="trusted_device_pairing_code_dialog_title" msgid="8173792468216796873">"Подтвердите совпадение кодов подключения"</string>
-    <string name="trusted_device_success_enrollment_toast" msgid="1238468775285575827">"Устройство зарегистрировано."</string>
-    <string name="trusted_device_fail_enrollment_toast" msgid="6801324174861209092">"Не удалось зарегистрировать устройство \"<xliff:g id="DEVICE_NAME">%1$s</xliff:g>\"."</string>
-    <string name="trusted_device_set_authentication_reminder" msgid="5947077589994822305">"Чтобы добавить надежное устройство, необходимо выбрать способ аутентификации. Если надежного устройства не будет под рукой, вы сможете получить доступ к своему профилю только после аутентификации."</string>
-    <string name="trusted_device_disconnected_toast" msgid="2541862946536880255">"Устройство отключено."</string>
+    <string name="credentials_reset" msgid="873900550885788639">"Очистить учетные данные"</string>
+    <string name="credentials_reset_summary" msgid="6067911547500459637">"Удалить все сертификаты"</string>
+    <string name="credentials_reset_hint" msgid="3459271621754137661">"Удалить все содержимое?"</string>
+    <string name="credentials_erased" msgid="2515915439705550379">"Хранилище учетных данных очищено."</string>
+    <string name="credentials_not_erased" msgid="6118567459076742720">"Не удалось очистить хранилище."</string>
     <string name="forget" msgid="3971143908183848527">"Удалить"</string>
     <string name="connect" msgid="5861699594602380150">"Подключить"</string>
     <string name="disconnect" msgid="6140789953324820336">"Отключить"</string>
@@ -677,6 +668,7 @@
     <string name="exit_retail_mode_dialog_body" msgid="8314316171782527301">"Произойдет сброс настроек. Тестовый аккаунт и все пользовательские данные будут удалены."</string>
     <string name="exit_retail_mode_dialog_confirmation_button_text" msgid="3147249675355968649">"Выйти из деморежима"</string>
     <string name="suggestion_dismiss_button" msgid="4539412646977050641">"ЗАКРЫТЬ"</string>
-    <string name="restricted_while_driving" msgid="6217369093121968299">"Эта функция недоступна во время вождения."</string>
-    <string name="add_user_restricted_while_driving" msgid="6384004350628271556">"Невозможно добавить пользователя во время вождения."</string>
+    <string name="restricted_while_driving" msgid="6587569249519274524">"Эта функция недоступна во время вождения."</string>
+    <string name="add_user_restricted_while_driving" msgid="4754946754222453656">"Невозможно добавить пользователя во время вождения."</string>
+    <string name="default_search_query" msgid="3137420627428857068">"Поиск"</string>
 </resources>

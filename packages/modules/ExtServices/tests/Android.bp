@@ -4,9 +4,6 @@ android_test {
     // Include all test java files.
     srcs: ["src/**/*.java"],
 
-    // We only want this apk build for tests.
-    certificate: "platform",
-
     libs: [
         "android.test.runner",
         "android.test.base",
@@ -16,12 +13,17 @@ android_test {
         "ExtServices-core",
         "androidx.test.rules",
         "compatibility-device-util-axt",
-        "mockito-target-minus-junit4",
+        "mockito-target-extended-minus-junit4",
         "androidx.test.espresso.core",
         "truth-prebuilt",
         "testables",
         "testng",
     ],
-
+    jni_libs: [
+        "libdexmakerjvmtiagent",
+        "libstaticjvmtiagent",
+    ],
+    test_suites: ["device-tests", "mts"],
     platform_apis: true,
+    compile_multilib: "both",
 }

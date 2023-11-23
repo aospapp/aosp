@@ -209,7 +209,7 @@
 
     <!-- The package to handle visual voicemail if the default dialer or the package
     CarrierConfigManager.KEY_CARRIER_VVM_PACKAGE_NAME_STRING does not handle it -->
-    <string name="system_visual_voicemail_client"></string>
+    <string name="system_visual_voicemail_client" translatable="false"/>
 
     <!-- Flag to enable VVM3 visual voicemail. VVM3 is used by Verizon Wireless. -->
     <bool name="vvm3_enabled">false</bool>
@@ -235,6 +235,12 @@
     <!-- Flag indicating whether the device supports RTT (real-time text) -->
     <bool name="config_support_rtt">false</bool>
 
+    <!-- String indicating the package name of the device ImsService implementation for MMTEL. -->
+    <string name="config_ims_mmtel_package" translatable="false"/>
+
+    <!-- String indicating the package name of the device ImsService implementation for RCS. -->
+    <string name="config_ims_rcs_package" translatable="false"/>
+
     <!-- The package name for the platform number verification supplier app. -->
     <string name="platform_number_verification_package" translatable="false"></string>
 
@@ -251,6 +257,24 @@
          audio stream which the remote party will be able to hear. -->
     <bool name="config_support_telephony_audio_device">false</bool>
 
+    <!-- Whether the device supports dialing emergency RTT calls when there's no SIM card installed
+    -->
+    <bool name="config_support_simless_emergency_rtt">false</bool>
+
+    <!-- Array of countries that support sim-less emergency RTT calls. Values should be
+         ISO3166 country codes in lowercase. -->
+    <string-array name="config_simless_emergency_rtt_supported_countries" translatable="false">
+        <item>us</item>
+    </string-array>
+
+    <string-array translatable="false" name="config_volte_provision_error_on_publish_response">
+        <item>403 not authorized for presence</item>
+    </string-array>
+
+    <string-array translatable="false" name="config_rcs_provision_error_on_publish_response">
+        <item>404 not found</item>
+    </string-array>
+
     <!-- The country list that shortcut view can be enabled. -->
     <string-array name="config_countries_to_enable_shortcut_view" translatable="false">
     </string-array>
@@ -261,4 +285,18 @@
          slot. If true, telephony will always try to place the emergency call on the subscription
          associated with default data first, instead of using the default voice configuration.-->
     <bool name="config_gnss_supl_requires_default_data_for_emergency">false</bool>
+
+    <!-- Whether a device can have 5G connection in DSDS mode. It should be true by default, but
+         in some devices per modem limitation 5G network can't be connected if two or more SIMs
+         are active simultaneously. In that case, this value should be false. -->
+    <bool name="config_5g_connection_in_dsds_mode">true</bool>
+
+    <!-- Vibrator pattern to be used as the default for notifications
+         that specify DEFAULT_VIBRATE. -->
+    <integer-array name="config_defaultNotificationVibePattern">
+        <item>0</item>
+        <item>350</item>
+        <item>250</item>
+        <item>350</item>
+    </integer-array>
 </resources>

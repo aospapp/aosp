@@ -40,19 +40,21 @@ import android.text.TextUtils;
 import android.util.Log;
 import android.util.SparseLongArray;
 import android.view.View;
+
 import com.android.tv.MainActivityWrapper.OnCurrentChannelChangeListener;
 import com.android.tv.R;
 import com.android.tv.Starter;
 import com.android.tv.TvSingletons;
 import com.android.tv.common.CommonConstants;
 import com.android.tv.common.WeakHandler;
-import com.android.tv.data.Program;
 import com.android.tv.data.api.Channel;
+import com.android.tv.data.api.Program;
 import com.android.tv.util.TvInputManagerHelper;
 import com.android.tv.util.Utils;
 import com.android.tv.util.images.BitmapUtils;
 import com.android.tv.util.images.BitmapUtils.ScaledBitmapInfo;
 import com.android.tv.util.images.ImageLoader;
+
 import java.util.ArrayList;
 import java.util.List;
 

@@ -16,10 +16,13 @@
 
 package com.android.networkstack.metrics;
 
-import android.annotation.NonNull;
-import android.annotation.Nullable;
 import android.net.util.NetworkStackUtils;
 import android.net.wifi.WifiInfo;
+
+import androidx.annotation.IntRange;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 
 import com.android.internal.util.HexDump;
 import com.android.server.connectivity.nano.CellularData;
@@ -40,18 +43,35 @@ import java.util.Objects;
  * @hide
  */
 public final class DataStallDetectionStats {
-    private static final int UNKNOWN_SIGNAL_STRENGTH = -1;
+    public static final int UNKNOWN_SIGNAL_STRENGTH = -1;
+    // Default value of TCP signals.
+    @VisibleForTesting
+    public static final int UNSPECIFIED_TCP_FAIL_RATE = -1;
+    @VisibleForTesting
+    public static final int UNSPECIFIED_TCP_PACKETS_COUNT = -1;
+    @VisibleForTesting
     @NonNull
-    final byte[] mCellularInfo;
+    public final byte[] mCellularInfo;
+    @VisibleForTesting
     @NonNull
-    final byte[] mWifiInfo;
+    public final byte[] mWifiInfo;
     @NonNull
-    final byte[] mDns;
-    final int mEvaluationType;
-    final int mNetworkType;
+    public final byte[] mDns;
+    @VisibleForTesting
+    public final int mEvaluationType;
+    @VisibleForTesting
+    public final int mNetworkType;
+    // The TCP packets fail rate percentage from the latest tcp polling. -1 means the TCP signal is
+    // not known or not supported on the SDK version of this device.
+    @VisibleForTesting @IntRange(from = -1, to = 100)
+    public final int mTcpFailRate;
+    // Number of packets sent since the last received packet.
+    @VisibleForTesting
+    public final int mTcpSentSinceLastRecv;
 
     public DataStallDetectionStats(@Nullable byte[] cell, @Nullable byte[] wifi,
-                @NonNull int[] returnCode, @NonNull long[] dnsTime, int evalType, int netType) {
+                @NonNull int[] returnCode, @NonNull long[] dnsTime, int evalType, int netType,
+                int failRate, int sentSinceLastRecv) {
         mCellularInfo = emptyCellDataIfNull(cell);
         mWifiInfo = emptyWifiInfoIfNull(wifi);
 
@@ -61,9 +81,20 @@ public final class DataStallDetectionStats {
         mDns = MessageNano.toByteArray(dns);
         mEvaluationType = evalType;
         mNetworkType = netType;
+        mTcpFailRate = failRate;
+        mTcpSentSinceLastRecv = sentSinceLastRecv;
     }
 
-    private byte[] emptyCellDataIfNull(@Nullable byte[] cell) {
+    /**
+     * Because metrics data must contain data for each field even if it's not supported or not
+     * available, generate a byte array representing an empty {@link CellularData} if the
+     * {@link CellularData} is unavailable.
+     *
+     * @param cell a byte array representing current {@link CellularData} of {@code this}
+     * @return a byte array of a {@link CellularData}.
+     */
+    @VisibleForTesting
+    public static byte[] emptyCellDataIfNull(@Nullable byte[] cell) {
         if (cell != null) return cell;
 
         CellularData data  = new CellularData();
@@ -74,7 +105,16 @@ public final class DataStallDetectionStats {
         return MessageNano.toByteArray(data);
     }
 
-    private byte[] emptyWifiInfoIfNull(@Nullable byte[] wifi) {
+    /**
+     * Because metrics data must contain data for each field even if it's not supported or not
+     * available, generate a byte array representing an empty {@link WifiData} if the
+     * {@link WiFiData} is unavailable.
+     *
+     * @param wifi a byte array representing current {@link WiFiData} of {@code this}.
+     * @return a byte array of a {@link WiFiData}.
+     */
+    @VisibleForTesting
+    public static byte[] emptyWifiInfoIfNull(@Nullable byte[] wifi) {
         if (wifi != null) return wifi;
 
         WifiData data = new WifiData();
@@ -94,7 +134,11 @@ public final class DataStallDetectionStats {
           .append(", cell info: ")
           .append(HexDump.toHexString(mCellularInfo))
           .append(", dns: ")
-          .append(HexDump.toHexString(mDns));
+          .append(HexDump.toHexString(mDns))
+          .append(", tcp fail rate: ")
+          .append(mTcpFailRate)
+          .append(", tcp received: ")
+          .append(mTcpSentSinceLastRecv);
         return sb.toString();
     }
 
@@ -106,12 +150,15 @@ public final class DataStallDetectionStats {
             && (mEvaluationType == other.mEvaluationType)
             && Arrays.equals(mWifiInfo, other.mWifiInfo)
             && Arrays.equals(mCellularInfo, other.mCellularInfo)
-            && Arrays.equals(mDns, other.mDns);
+            && Arrays.equals(mDns, other.mDns)
+            && (mTcpFailRate == other.mTcpFailRate)
+            && (mTcpSentSinceLastRecv == other.mTcpSentSinceLastRecv);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(mNetworkType, mEvaluationType, mWifiInfo, mCellularInfo, mDns);
+        return Objects.hash(mNetworkType, mEvaluationType, mWifiInfo, mCellularInfo, mDns,
+                mTcpFailRate, mTcpSentSinceLastRecv);
     }
 
     /**
@@ -130,6 +177,8 @@ public final class DataStallDetectionStats {
         private final List<Long> mDnsTimeStamp = new ArrayList<Long>();
         private int mEvaluationType;
         private int mNetworkType;
+        private int mTcpFailRate = UNSPECIFIED_TCP_FAIL_RATE;
+        private int mTcpSentSinceLastRecv = UNSPECIFIED_TCP_PACKETS_COUNT;
 
         /**
          * Add a dns event into Builder.
@@ -167,6 +216,34 @@ public final class DataStallDetectionStats {
         }
 
         /**
+         * Set the TCP packet fail rate into Builder. The data is included since android R.
+         *
+         * @param rate the TCP packet fail rate of the logged network. The default value is
+         *               {@code UNSPECIFIED_TCP_FAIL_RATE}, which means the TCP signal is not known
+         *               or not supported on the SDK version of this device.
+         * @return {@code this} {@link Builder} instance.
+         */
+        public Builder setTcpFailRate(@IntRange(from = -1, to = 100) int rate) {
+            mTcpFailRate = rate;
+            return this;
+        }
+
+        /**
+         * Set the number of TCP packets sent since the last received packet into Builder. The data
+         * starts to be included since android R.
+         *
+         * @param count the number of packets sent since the last received packet of the logged
+         *              network. Keep it unset as default value or set to
+         *              {@code UNSPECIFIED_TCP_PACKETS_COUNT} if the tcp signal is unsupported with
+         *              current device android sdk version or the packets count is unknown.
+         * @return {@code this} {@link Builder} instance.
+         */
+        public Builder setTcpSentSinceLastRecv(int count) {
+            mTcpSentSinceLastRecv = count;
+            return this;
+        }
+
+        /**
          * Set the wifi data into Builder.
          *
          * @param info a {@link WifiInfo} of the connected wifi network.
@@ -184,11 +261,13 @@ public final class DataStallDetectionStats {
             if (info == null) return DataStallEventProto.AP_BAND_UNKNOWN;
 
             int freq = info.getFrequency();
-            // Refer to ScanResult.is5GHz() and ScanResult.is24GHz().
-            if (freq > 4900 && freq < 5900) {
+            // Refer to ScanResult.is5GHz(), ScanResult.is24GHz() and ScanResult.is6GHz().
+            if (freq >= 5160 && freq <= 5865) {
                 return DataStallEventProto.AP_BAND_5GHZ;
-            } else if (freq > 2400 && freq < 2500) {
+            } else if (freq >= 2412 && freq <= 2484) {
                 return DataStallEventProto.AP_BAND_2GHZ;
+            } else if (freq >= 5945 && freq <= 7105) {
+                return DataStallEventProto.AP_BAND_6GHZ;
             } else {
                 return DataStallEventProto.AP_BAND_UNKNOWN;
             }
@@ -222,7 +301,7 @@ public final class DataStallDetectionStats {
             return new DataStallDetectionStats(mCellularInfo, mWifiInfo,
                     NetworkStackUtils.convertToIntArray(mDnsReturnCode),
                     NetworkStackUtils.convertToLongArray(mDnsTimeStamp),
-                    mEvaluationType, mNetworkType);
+                    mEvaluationType, mNetworkType, mTcpFailRate, mTcpSentSinceLastRecv);
         }
     }
 }

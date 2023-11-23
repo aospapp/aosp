@@ -18,7 +18,8 @@
 <PreferenceScreen
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:settings="http://schemas.android.com/apk/res-auto"
-    android:title="@string/notification_access_title">
+    android:title="@string/notification_access_title"
+    android:key="@string/psk_notification_access">
     <com.android.car.settings.common.LogicalPreferenceGroup
         android:key="@string/pk_notification_access"
         settings:controller="com.android.car.settings.applications.specialaccess.NotificationAccessPreferenceController"/>

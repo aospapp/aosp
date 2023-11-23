@@ -16,15 +16,24 @@
 package android.car;
 
 import android.annotation.IntDef;
+import android.car.hardware.CarPropertyConfig;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
 /**
- * Represents vehicle area such as window, door, seat, etc.
- * See also {@link VehicleAreaDoor}, {@link VehicleAreaSeat},
- * {@link VehicleAreaWindow},
+ * Object used to indicate area types for car properties.
+ * <p>
+ * The constants defined by {@link VehicleAreaType} indicate the area types for properties.  A
+ * property only has one area type. Developers can query the area type using
+ * {@link CarPropertyConfig#getPropertyType()}.
+ * </p><p>
+ * Refer to {@link VehicleAreaSeat} and {@link VehicleAreaWheel} for more information about areaId.
+ * </p>
  */
+
+// This class is only designed to provide constants for VehicleAreaType. The constants should
+// exactly be same as VehicleAreaType in /hardware/interfaces/automotive/vehicle/2.0/types.hal.
 public final class VehicleAreaType {
     /** Used for global properties */
     public static final int VEHICLE_AREA_TYPE_GLOBAL = 0;

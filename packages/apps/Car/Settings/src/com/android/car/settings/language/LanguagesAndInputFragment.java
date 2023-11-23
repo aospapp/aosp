@@ -19,9 +19,13 @@ package com.android.car.settings.language;
 import androidx.annotation.XmlRes;
 
 import com.android.car.settings.R;
+import com.android.car.settings.common.CarSettingActivities;
 import com.android.car.settings.common.SettingsFragment;
+import com.android.car.settings.search.CarBaseSearchIndexProvider;
+import com.android.settingslib.search.SearchIndexable;
 
 /** Groups together settings related to languages and input. */
+@SearchIndexable
 public class LanguagesAndInputFragment extends SettingsFragment {
 
     @Override
@@ -29,4 +33,8 @@ public class LanguagesAndInputFragment extends SettingsFragment {
     protected int getPreferenceScreenResId() {
         return R.xml.languages_and_input_fragment;
     }
+
+    public static final CarBaseSearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
+            new CarBaseSearchIndexProvider(R.xml.languages_and_input_fragment,
+                    CarSettingActivities.LanguagesAndInputActivity.class);
 }

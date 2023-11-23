@@ -18,7 +18,8 @@
 <PreferenceScreen
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:settings="http://schemas.android.com/apk/res-auto"
-    android:title="@string/bluetooth_settings_title">
+    android:title="@string/bluetooth_settings_title"
+    android:key="@string/psk_bluetooth_settings">
     <PreferenceCategory
         android:key="@string/pk_bluetooth_paired_devices"
         android:title="@string/bluetooth_paired_devices"

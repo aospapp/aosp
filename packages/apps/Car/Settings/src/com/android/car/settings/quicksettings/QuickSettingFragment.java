@@ -17,9 +17,10 @@
 package com.android.car.settings.quicksettings;
 
 import android.app.Activity;
+import android.app.ActivityManager;
 import android.car.drivingstate.CarUxRestrictions;
-import android.car.userlib.CarUserManagerHelper;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.UserInfo;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
@@ -27,28 +28,24 @@ import android.os.Bundle;
 import android.os.SystemProperties;
 import android.os.UserManager;
 import android.view.View;
-import android.view.View.OnClickListener;
-import android.widget.Button;
-import android.widget.FrameLayout;
 import android.widget.TextView;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.LayoutRes;
 import androidx.annotation.NonNull;
-import androidx.constraintlayout.widget.Guideline;
-import androidx.fragment.app.FragmentActivity;
-import androidx.fragment.app.FragmentManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.BaseFragment;
-import com.android.car.settings.common.CarUxRestrictionsHelper;
-import com.android.car.settings.home.HomepageFragment;
+import com.android.car.settings.common.CarSettingActivities;
 import com.android.car.settings.users.UserIconProvider;
-import com.android.car.settings.users.UserSwitcherFragment;
+import com.android.car.settings.users.UserSwitcherActivity;
+import com.android.car.ui.toolbar.MenuItem;
+import com.android.car.ui.toolbar.Toolbar;
 
 import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -57,34 +54,22 @@ import java.util.concurrent.TimeUnit;
 public class QuickSettingFragment extends BaseFragment {
     // Time to delay refreshing the build info, if the clock is not correct.
     private static final long BUILD_INFO_REFRESH_TIME_MS = TimeUnit.SECONDS.toMillis(5);
-    /**
-     * Indicates whether all Preferences are configured to ignore UX Restrictions Event.
-     */
-    private boolean mAllIgnoresUxRestrictions;
 
-    /**
-     * Set of the keys of Preferences that ignore UX Restrictions. When mAlwaysIgnoreUxRestrictions
-     * is configured to be false, then only the Preferences whose keys are contained in this Set
-     * ignore UX Restrictions.
-     */
-    private Set<String> mPreferencesIgnoringUxRestrictions;
-
-    private CarUserManagerHelper mCarUserManagerHelper;
+    private UserManager mUserManager;
     private UserIconProvider mUserIconProvider;
     private QuickSettingGridAdapter mGridAdapter;
     private RecyclerView mListView;
-    private View mFullSettingsBtn;
-    private View mUserSwitcherBtn;
-    private HomeFragmentLauncher mHomeFragmentLauncher;
-    private float mOpacityDisabled;
-    private float mOpacityEnabled;
+    private MenuItem mFullSettingsBtn;
+    private MenuItem mUserSwitcherBtn;
     private TextView mBuildInfo;
 
-    @Override
-    @LayoutRes
-    protected int getActionBarLayoutId() {
-        return R.layout.action_bar_quick_settings;
-    }
+    private ActivityResultLauncher<Intent> mStartForResult = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(),
+            result -> {
+                if (result.getResultCode() == Activity.FINISH_TASK_WITH_ACTIVITY) {
+                    getActivity().finish();
+                }
+            });
 
     @Override
     @LayoutRes
@@ -95,53 +80,68 @@ public class QuickSettingFragment extends BaseFragment {
     @Override
     public void onActivityCreated(Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
-        mHomeFragmentLauncher = new HomeFragmentLauncher();
+        mUserManager = UserManager.get(getContext());
         Activity activity = requireActivity();
 
-        FragmentManager fragmentManager = ((FragmentActivity) activity).getSupportFragmentManager();
-        if (fragmentManager.getBackStackEntryCount() == 1
-                && fragmentManager.findFragmentByTag("0") != null
-                && fragmentManager.findFragmentByTag("0").getClass().getName().equals(
-                getString(R.string.config_settings_hierarchy_root_fragment))
-                && !getContext().getResources()
-                .getBoolean(R.bool.config_show_settings_root_exit_icon)) {
-            hideExitIcon();
-        }
-
-        activity.findViewById(R.id.action_bar_icon_container).setOnClickListener(
-                v -> activity.finish());
-
-        mOpacityDisabled = activity.getResources().getFloat(R.dimen.opacity_disabled);
-        mOpacityEnabled = activity.getResources().getFloat(R.dimen.opacity_enabled);
-        mCarUserManagerHelper = new CarUserManagerHelper(activity);
-        mUserIconProvider = new UserIconProvider(mCarUserManagerHelper);
+        mUserIconProvider = new UserIconProvider();
         mListView = activity.findViewById(R.id.list);
         mGridAdapter = new QuickSettingGridAdapter(activity);
         mListView.setLayoutManager(mGridAdapter.getGridLayoutManager());
 
-        mFullSettingsBtn = activity.findViewById(R.id.full_settings_btn);
-        mFullSettingsBtn.setOnClickListener(mHomeFragmentLauncher);
-        mUserSwitcherBtn = activity.findViewById(R.id.user_switcher_btn);
-        mUserSwitcherBtn.setOnClickListener(v -> {
-            getFragmentController().launchFragment(new UserSwitcherFragment());
-        });
         setupUserButton(activity);
 
-        View exitBtn = activity.findViewById(R.id.action_bar_icon_container);
-        exitBtn.setOnClickListener(v -> getFragmentController().goBack());
-
         mGridAdapter
-                .addTile(new WifiTile(activity, mGridAdapter, getFragmentController()))
-                .addTile(new BluetoothTile(activity, mGridAdapter, getFragmentController()))
-                .addTile(new DayNightTile(activity, mGridAdapter, getFragmentController()))
-                .addTile(new CelluarTile(activity, mGridAdapter))
+                .addTile(new WifiTile(activity, mGridAdapter, getFragmentHost()))
+                .addTile(new BluetoothTile(activity, mGridAdapter, getFragmentHost()))
+                .addTile(new DayNightTile(activity, mGridAdapter, getFragmentHost()))
+                .addTile(new CelluarTile(activity, mGridAdapter, getFragmentHost()))
                 .addSeekbarTile(new BrightnessTile(activity));
         mListView.setAdapter(mGridAdapter);
+    }
 
-        mPreferencesIgnoringUxRestrictions = new HashSet<String>(Arrays.asList(
-                getContext().getResources().getStringArray(R.array.config_ignore_ux_restrictions)));
-        mAllIgnoresUxRestrictions =
-                getContext().getResources().getBoolean(R.bool.config_always_ignore_ux_restrictions);
+
+    @Override
+    protected Toolbar.NavButtonMode getToolbarNavButtonStyle() {
+        return Toolbar.NavButtonMode.CLOSE;
+    }
+
+    @Override
+    protected Toolbar.State getToolbarState() {
+        if (getContext().getResources().getBoolean(R.bool.config_is_quick_settings_root)
+                && !getContext().getResources()
+                .getBoolean(R.bool.config_show_settings_root_exit_icon)) {
+            return Toolbar.State.HOME;
+        } else {
+            return Toolbar.State.SUBPAGE;
+        }
+    }
+
+    @Override
+    public List<MenuItem> getToolbarMenuItems() {
+        return Arrays.asList(mUserSwitcherBtn, mFullSettingsBtn);
+    }
+
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        mUserSwitcherBtn = new MenuItem.Builder(getContext())
+                .setTitle(getString(R.string.user_switch))
+                .setOnClickListener(i ->
+                        mStartForResult.launch(
+                                new Intent(getContext(), UserSwitcherActivity.class)))
+                .setIcon(R.drawable.ic_user)
+                .setShowIconAndTitle(true)
+                .setVisible(showUserSwitcher())
+                .setTinted(false)
+                .build();
+        mFullSettingsBtn = new MenuItem.Builder(getContext())
+                .setTitle(getString(R.string.more_settings_label))
+                .setOnClickListener(i -> launchFullSettings())
+                .setIcon(R.drawable.ic_settings_gear)
+                .setShowIconAndTitle(true)
+                .setUxRestrictions(CarUxRestrictions.UX_RESTRICTIONS_NO_SETUP)
+                .build();
     }
 
     @Override
@@ -154,12 +154,18 @@ public class QuickSettingFragment extends BaseFragment {
     @Override
     public void onStart() {
         super.onStart();
-
         mGridAdapter.start();
-        mUserSwitcherBtn.setVisibility(showUserSwitcher() ? View.VISIBLE : View.INVISIBLE);
+
         // In non-user builds (that is, user-debug, eng, etc), display some version information.
         if (!Build.IS_USER) {
             refreshBuildInfo();
+        }
+    }
+
+    private void launchFullSettings() {
+        startActivity(new Intent(getContext(), CarSettingActivities.HomepageActivity.class));
+        if (!getContext().getResources().getBoolean(R.bool.config_is_quick_settings_root)) {
+            getActivity().finish();
         }
     }
 
@@ -194,12 +200,10 @@ public class QuickSettingFragment extends BaseFragment {
     }
 
     private void setupUserButton(Context context) {
-        Button userButton = requireActivity().findViewById(R.id.user_switcher_btn);
-        UserInfo currentUserInfo = mCarUserManagerHelper.getCurrentForegroundUserInfo();
-        Drawable userIcon = mUserIconProvider.getUserIcon(currentUserInfo, context);
-        userButton.setCompoundDrawablesRelativeWithIntrinsicBounds(userIcon, /* top= */
-                null, /* end= */ null, /* bottom= */ null);
-        userButton.setText(currentUserInfo.name);
+        UserInfo currentUserInfo = mUserManager.getUserInfo(ActivityManager.getCurrentUser());
+        Drawable userIcon = mUserIconProvider.getRoundedUserIcon(currentUserInfo, context);
+        mUserSwitcherBtn.setIcon(userIcon);
+        mUserSwitcherBtn.setTitle(currentUserInfo.name);
     }
 
     private boolean showUserSwitcher() {
@@ -210,54 +214,10 @@ public class QuickSettingFragment extends BaseFragment {
     }
 
     /**
-     * Quick setting fragment is distraction optimized, so is allowed at all times.
+     * Quick Settings should be viewable while driving
      */
     @Override
-    public boolean canBeShown(@NonNull CarUxRestrictions carUxRestrictions) {
+    protected boolean canBeShown(@NonNull CarUxRestrictions carUxRestrictions) {
         return true;
-    }
-
-    @Override
-    public void onUxRestrictionsChanged(CarUxRestrictions restrictionInfo) {
-        // TODO: update tiles
-        if (!hasPreferenceIgnoringUxRestrictions(mAllIgnoresUxRestrictions,
-                mPreferencesIgnoringUxRestrictions)) {
-            applyRestriction(CarUxRestrictionsHelper.isNoSetup(restrictionInfo));
-        }
-    }
-
-    private void applyRestriction(boolean restricted) {
-        mHomeFragmentLauncher.showBlockingMessage(restricted);
-        mFullSettingsBtn.setAlpha(restricted ? mOpacityDisabled : mOpacityEnabled);
-    }
-
-    private class HomeFragmentLauncher implements OnClickListener {
-        private boolean mShowBlockingMessage;
-
-        private void showBlockingMessage(boolean show) {
-            mShowBlockingMessage = show;
-        }
-
-        @Override
-        public void onClick(View v) {
-            if (mShowBlockingMessage) {
-                getFragmentController().showBlockingMessage();
-            } else {
-                getFragmentController().launchFragment(new HomepageFragment());
-            }
-        }
-    }
-
-    private boolean hasPreferenceIgnoringUxRestrictions(boolean allIgnores, Set prefsThatIgnore) {
-        return allIgnores || prefsThatIgnore.size() > 0;
-    }
-
-    private void hideExitIcon() {
-        requireActivity().findViewById(R.id.action_bar_icon_container)
-                .setVisibility(FrameLayout.GONE);
-
-        Guideline guideLine = (Guideline) requireActivity().findViewById(R.id.start_margin);
-        guideLine.setGuidelineBegin(getResources()
-                .getDimensionPixelOffset(R.dimen.action_bar_no_icon_start_margin));
     }
 }

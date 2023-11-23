@@ -30,7 +30,6 @@ public interface TelephonyConnectionServiceProxy {
     Collection<Connection> getAllConnections();
     void addConference(TelephonyConference mTelephonyConference);
     void addConference(ImsConference mImsConference);
-    void removeConnection(Connection connection);
     void addExistingConnection(PhoneAccountHandle phoneAccountHandle,
             Connection connection);
     void addExistingConnection(PhoneAccountHandle phoneAccountHandle,

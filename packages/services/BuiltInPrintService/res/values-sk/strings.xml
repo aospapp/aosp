@@ -49,7 +49,7 @@
     <string name="printer_not_supported" msgid="281955849350938408">"Nepodporovaná tlačiareň"</string>
     <string name="wifi_direct" msgid="4629404342852294985">"Wi-Fi Direct"</string>
     <string name="find_wifi_direct" msgid="5270504288829123954">"Vyhľadať tlačiarne s rozhraním Wi-Fi Direct"</string>
-    <string name="wifi_direct_printing" msgid="8423811041563144048">"Tlač pomocou rozhrania Wi‑Fi Direct"</string>
+    <string name="wifi_direct_printing" msgid="8423811041563144048">"Tlač cez Wi‑Fi Direct"</string>
     <string name="wifi_direct_printers" msgid="541168032444693191">"Tlačiarne s rozhraním Wi-Fi Direct"</string>
     <string name="searching" msgid="2114018057619514587">"Hľadá sa…"</string>
     <string name="connect_hint_text" msgid="587112503851044234">"Toto pripojenie možno budete musieť schváliť na prednom paneli tlačiarne"</string>
@@ -60,6 +60,11 @@
     <string name="forget" msgid="892068061425802502">"Odstrániť"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"Pripája sa prostredníctvom rozhrania Wi-Fi Direct"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"Pripája sa prostredníctvom aktuálnej siete na adrese IP – <xliff:g id="IP_ADDRESS">%1$s</xliff:g>"</string>
+    <string name="recommendation_summary" msgid="2979700524954307566">"Predvolená tlačová služba poskytuje základné možnosti. Ďalšie možnosti tejto tlačiarne môžu byť k dispozícii v inej tlačovej službe."</string>
+    <string name="recommendations_heading" msgid="5086762263560605249">"Odporúčané služby"</string>
+    <string name="recommendation_install_summary" msgid="374785283809791669">"Vyberte a nainštalujte"</string>
+    <string name="recommendation_enable_summary" msgid="3500907868251326224">"Vyberte a povoľte"</string>
+    <string name="recommendation_manage" msgid="4683640588502866284">"Spravovať služby"</string>
     <string name="security" msgid="2279008326210305401">"Zabezpečenie"</string>
     <string name="certificate_update_request" msgid="1314796413107139475">"Táto tlačiareň poskytla nový bezpečnostný certifikát alebo ju napodobňuje iné zariadenie. Chcete nový certifikát prijať?"</string>
     <string name="not_encrypted_request" msgid="4871472176807381642">"Tlačiareň už neprijíma šifrované úlohy. Chcete pokračovať v tlačení?"</string>
@@ -68,4 +73,5 @@
     <string name="connections" msgid="8895413761760117180">"Pripojenia"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Predvolená tlačová služba potrebuje povolenie na prístup k polohe, aby mohla vyhľadať zariadenia v okolí."</string>
     <string name="fix" msgid="7784394272611365393">"Kontrola povolení"</string>
+    <string name="print" msgid="7851318072404916362">"Tlačiť"</string>
 </resources>

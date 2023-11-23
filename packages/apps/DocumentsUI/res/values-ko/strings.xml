@@ -36,6 +36,7 @@
     <string name="menu_share" msgid="4307140947108068356">"공유"</string>
     <string name="menu_delete" msgid="1022254131543256626">"삭제"</string>
     <string name="menu_select_all" msgid="7600576812185570403">"모두 선택"</string>
+    <string name="menu_deselect_all" msgid="7729916068862742979">"모두 선택 해제"</string>
     <string name="menu_select" msgid="1366061076507142387">"선택"</string>
     <string name="menu_sort" msgid="3362419226163725275">"정렬 기준"</string>
     <string name="menu_copy" msgid="7404820171352314754">"다음으로 복사:"</string>
@@ -44,6 +45,8 @@
     <string name="menu_extract" msgid="8171946945982532262">"다음 위치에 추출..."</string>
     <string name="menu_rename" msgid="1883113442688817554">"이름 바꾸기"</string>
     <string name="menu_inspect" msgid="7279855349299446224">"정보 확인"</string>
+    <string name="menu_show_hidden_files" msgid="5140676344684492769">"숨겨진 파일 표시"</string>
+    <string name="menu_hide_hidden_files" msgid="5654495713350153702">"숨겨진 파일 표시 안함"</string>
     <string name="menu_view_in_owner" msgid="7228948660557554770">"<xliff:g id="SOURCE">%1$s</xliff:g>에서 보기"</string>
     <string name="menu_new_window" msgid="2947837751796109126">"새 창"</string>
     <string name="menu_cut_to_clipboard" msgid="2878752142015026229">"잘라내기"</string>
@@ -61,6 +64,7 @@
     <string name="button_retry" msgid="4011461781916631389">"다시 시도"</string>
     <string name="button_clear" msgid="5412304437764369441">"삭제"</string>
     <string name="button_show_provider" msgid="6905880493806292753">"제공업체 앱에서 보기"</string>
+    <string name="button_back" msgid="1888621708934742182">"뒤로"</string>
     <string name="not_sorted" msgid="7813496644889115530">"정렬되지 않음"</string>
     <string name="sort_dimension_name" msgid="6325591541414177579">"이름"</string>
     <string name="sort_dimension_summary" msgid="7724534446881397860">"요약"</string>
@@ -86,6 +90,18 @@
     <string name="save_error" msgid="8631128801982095782">"문서를 저장하지 못했습니다."</string>
     <string name="create_error" msgid="3092144450044861994">"폴더를 만들지 못했습니다."</string>
     <string name="query_error" msgid="6625421453613879336">"현재 콘텐츠를 로드할 수 없습니다."</string>
+    <string name="quiet_mode_error_title" msgid="9126656325282792843">"직장 프로필이 일시중지됨"</string>
+    <string name="quiet_mode_button" msgid="6977115032320235420">"사용 설정"</string>
+    <string name="cant_select_work_files_error_title" msgid="6688716319549644354">"직장 파일을 선택할 수 없음"</string>
+    <string name="cant_select_work_files_error_message" msgid="683480676150690641">"IT 관리자가 개인 앱에서 직장 파일에 액세스하도록 허용하지 않습니다."</string>
+    <string name="cant_select_personal_files_error_title" msgid="3200697170148617742">"개인 파일을 선택할 수 없음"</string>
+    <string name="cant_select_personal_files_error_message" msgid="4105905035459118209">"IT 관리자가 직장 앱에서 개인 파일에 액세스하도록 허용하지 않습니다."</string>
+    <string name="cant_save_to_work_error_title" msgid="1351323070040641358">"직장 프로필에 저장할 수 없음"</string>
+    <string name="cant_save_to_work_error_message" msgid="4975583233814059890">"IT 관리자가 직장 프로필에 개인 파일을 저장하도록 허용하지 않습니다."</string>
+    <string name="cant_save_to_personal_error_title" msgid="858327493694069780">"개인 프로필에 저장할 수 없음"</string>
+    <string name="cant_save_to_personal_error_message" msgid="6991758723736381751">"IT 관리자가 개인 프로필에 직장 파일을 저장하도록 허용하지 않습니다."</string>
+    <string name="cross_profile_action_not_allowed_title" msgid="6611281348716476478">"금지된 작업"</string>
+    <string name="cross_profile_action_not_allowed_message" msgid="7331275433061690947">"자세히 알아보려면 IT 관리자에게 문의하세요."</string>
     <string name="root_recent" msgid="1080156975424341623">"최근"</string>
     <string name="root_available_bytes" msgid="8269870862691408864">"<xliff:g id="SIZE">%1$s</xliff:g> 남음"</string>
     <string name="root_type_service" msgid="6521366147466512289">"저장용량 서비스"</string>
@@ -93,10 +109,12 @@
     <string name="root_type_device" msgid="1713604128005476585">"기기"</string>
     <string name="root_type_apps" msgid="8646073235029886342">"앱 더보기"</string>
     <string name="empty" msgid="5300254272613103004">"항목 없음"</string>
-    <string name="no_results" msgid="2371026325236359209">"%1$s에 일치하는 항목이 없습니다."</string>
+    <string name="no_results" msgid="2371026325236359209">"%1$s에 일치하는 항목 없음"</string>
     <string name="toast_no_application" msgid="7555319548595113121">"파일을 열 수 없습니다."</string>
     <string name="toast_view_in_archives_unsupported" msgid="1923221390170964845">"보관 파일 안에 있는 파일은 열 수 없습니다."</string>
     <string name="toast_failed_delete" msgid="3453846588205817591">"일부 문서를 삭제할 수 없습니다."</string>
+    <string name="toast_share_over_limit" msgid="5805442886537093015">"파일은 <xliff:g id="COUNT">%1$d</xliff:g>개까지만 공유할 수 있습니다."</string>
+    <string name="toast_action_not_allowed" msgid="1329382474450572415">"허용되지 않는 작업"</string>
     <string name="share_via" msgid="8725082736005677161">"공유에 사용할 앱"</string>
     <string name="copy_notification_title" msgid="52256435625098456">"파일 복사"</string>
     <string name="compress_notification_title" msgid="6830195148113751021">"파일 압축 중"</string>
@@ -222,29 +240,42 @@
       <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g>개 선택됨</item>
       <item quantity="one"><xliff:g id="COUNT_0">%1$d</xliff:g>개 선택됨</item>
     </plurals>
-    <string name="root_info_header_recent" msgid="8754386597210017725">"휴대전화의 최근 파일"</string>
-    <string name="root_info_header_global_search" msgid="9099308729787003373">"휴대전화의 파일"</string>
-    <string name="root_info_header_media" msgid="2774453755906260852">"휴대전화의 <xliff:g id="LABEL">%1$s</xliff:g>"</string>
+    <string name="root_info_header_recent" msgid="5654901877295332262">"최근 파일"</string>
+    <string name="root_info_header_global_search" msgid="4904078222280496152">"파일"</string>
+    <string name="root_info_header_downloads" msgid="8848161246921154115">"다운로드 폴더의 파일"</string>
     <string name="root_info_header_storage" msgid="2989014130584927442">"<xliff:g id="DEVICE">%1$s</xliff:g>의 파일"</string>
+    <string name="root_info_header_folder" msgid="5851172222368049864">"<xliff:g id="FOLDER">%1$s</xliff:g>의 파일"</string>
     <string name="root_info_header_app" msgid="2125422047558420885">"<xliff:g id="LABEL">%1$s</xliff:g>의 파일"</string>
     <string name="root_info_header_app_with_summary" msgid="3223302581236069702">"<xliff:g id="LABEL">%1$s</xliff:g>의 파일/<xliff:g id="SUMMARY">%2$s</xliff:g>"</string>
-    <string name="root_info_header_image_recent" msgid="6252335619444758201">"휴대전화에 있는 최근 이미지"</string>
-    <string name="root_info_header_image_global_search" msgid="7945533325610533016">"휴대전화에 있는 이미지"</string>
+    <string name="root_info_header_image_recent" msgid="7494373563753926014">"최근 이미지"</string>
+    <string name="root_info_header_image_global_search" msgid="7307009823489854697">"이미지"</string>
+    <string name="root_info_header_image_downloads" msgid="7072252612657612307">"다운로드 폴더의 이미지"</string>
     <string name="root_info_header_image_storage" msgid="5086740886360075930">"<xliff:g id="DEVICE">%1$s</xliff:g>에 있는 이미지"</string>
+    <string name="root_info_header_image_folder" msgid="5980430877636279667">"<xliff:g id="FOLDER">%1$s</xliff:g>에 있는 이미지"</string>
     <string name="root_info_header_image_app" msgid="4858114210851525359">"<xliff:g id="LABEL">%1$s</xliff:g>의 이미지"</string>
     <string name="root_info_header_image_app_with_summary" msgid="6404842960923224778">"<xliff:g id="LABEL">%1$s</xliff:g>의 이미지/<xliff:g id="SUMMARY">%2$s</xliff:g>"</string>
     <string name="chip_title_images" msgid="7838299046109841015">"이미지"</string>
     <string name="chip_title_audio" msgid="1032801828748235436">"오디오"</string>
     <string name="chip_title_videos" msgid="7011260091979776447">"동영상"</string>
     <string name="chip_title_documents" msgid="7432457563000753983">"문서"</string>
+    <string name="chip_title_large_files" msgid="7740269190493883980">"대용량 파일"</string>
+    <string name="chip_title_from_this_week" msgid="4961536405220379672">"이번 주"</string>
     <string name="input_hint_new_folder" msgid="479672411219725677">"폴더 이름"</string>
     <string name="input_hint_rename" msgid="8390711744270994452">"새 이름"</string>
     <string name="preview_file" msgid="4056622696305432343">"<xliff:g id="FILENAME">%1$s</xliff:g> 파일 미리보기"</string>
+    <string name="preview_work_file" msgid="4495643735563487273">"직장 파일 <xliff:g id="FILENAME">%1$s</xliff:g> 미리보기"</string>
     <string name="apps_row_title" msgid="3340490016663092925">"다른 앱의 파일 탐색"</string>
     <string name="anonymous_application" msgid="7633027057951625862">"익명"</string>
-    <string name="open_tree_button" msgid="19992834788135845">"\'<xliff:g id="DIRECTORY">%1$s</xliff:g>\'에 액세스하도록 허용"</string>
-    <string name="open_tree_dialog_title" msgid="8429465292253532274">"<xliff:g id="ROOT">%2$s</xliff:g>의 <xliff:g id="DIRECTORY">%1$s</xliff:g>에 액세스하도록 허용하시겠습니까?"</string>
-    <string name="open_tree_dialog_message" msgid="8545093618524340168">"\'<xliff:g id="APPNAME">%1$s</xliff:g>\'이(가) 현재 이 위치에 저장된 모든 파일과 향후 여기에 저장되는 모든 콘텐츠에 대해 완전한 액세스 권한을 갖게 됩니다."</string>
+    <string name="open_tree_button" msgid="6402871398424497776">"이 폴더 사용"</string>
+    <string name="open_tree_dialog_title" msgid="6339509533852318569">"<xliff:g id="APPNAME">%1$s</xliff:g>에서 <xliff:g id="DIRECTORY">%2$s</xliff:g>의 파일에 액세스하도록 허용하시겠습니까?"</string>
+    <string name="open_tree_dialog_message" msgid="4120695398430659628">"이를 통해 <xliff:g id="APPNAME">%1$s</xliff:g>에서 <xliff:g id="DIRECTORY">%2$s</xliff:g>에 저장된 현재 및 향후 콘텐츠에 액세스할 수 있습니다."</string>
+    <string name="directory_blocked_header_title" msgid="1164584889578740066">"이 폴더를 사용할 수 없음"</string>
+    <string name="directory_blocked_header_subtitle" msgid="2829150911849033408">"개인정보 보호를 위해 다른 폴더를 선택하세요."</string>
+    <string name="create_new_folder_button" msgid="8859613309559794890">"새 폴더 만들기"</string>
     <string name="search_bar_hint" msgid="4517366509897977321">"이 휴대전화 검색"</string>
     <string name="delete_search_history" msgid="2202015025607694515">"검색 기록 삭제 <xliff:g id="TEXT">%1$s</xliff:g>"</string>
+    <string name="personal_tab" msgid="3878576287868528503">"개인"</string>
+    <string name="work_tab" msgid="7265359366883747413">"직장"</string>
+    <string name="a11y_work" msgid="7504431382825242153">"직장"</string>
+    <string name="drag_from_another_app" msgid="8310249276199969905">"파일을 다른 앱에서 이동할 수 없습니다."</string>
 </resources>

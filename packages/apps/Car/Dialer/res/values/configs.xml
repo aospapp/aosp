@@ -19,4 +19,42 @@
     <bool name="config_enable_dial_motion">true</bool>
     <item name="config_dial_motion_scale_start" format="float" type="integer">1.5</item>
     <integer name="config_dial_motion_duration">200</integer>
+    <!-- 21 stands for Gravity.RIGHT | Gravity.CENTER_VERTICAL-->
+    <integer name="config_dialed_number_gravity">21</integer>
+    <item name="config_background_image_alpha" format="float" type="dimen">1.0</item>
+    <item name="config_background_image_error_alpha" format="float" type="dimen">1.0</item>
+
+    <!-- A config determines whether to show divider and callog_action_button for callog items
+    that are not stored as contacts. "true" will show divider and button as disable state and
+    "false" will make divider and button invisible for non contacts. -->
+    <bool name="config_show_calllog_action_button_for_non_contact">false</bool>
+
+    <!-- A config determines whether to show divider and the button on the right side for contacts
+    without any contact details. "true" will show divider and button as disable state and "false"
+    will make divider and button invisible for empty contacts. -->
+    <bool name="config_show_contact_detail_button_for_empty_contact">false</bool>
+
+    <!-- A config determines whether to show postal address in contact details page. -->
+    <bool name="config_show_postal_address">true</bool>
+    <!-- A config determines whether to show the action bar view in the contact details page.-->
+    <bool name="config_show_contact_details_action_bar_view">false</bool>
+    <!-- A config determines if to show the action bar avatar in the contact details page.-->
+    <bool name="config_show_contact_details_action_bar_avatar">true</bool>
+
+    <!-- Use app name as toolbar title. Supported value see @attr/toolbarTitleMode -->
+    <integer name="config_toolbar_title_mode">0</integer>
+
+    <!-- Config gate the full screen incall ui -->
+    <bool name="config_show_fullscreen_incall_ui">true</bool>
+
+    <!-- Config for enabling incoming call HUN fullscreen intent -->
+    <bool name="config_show_hun_fullscreen_incall_ui">true</bool>
+
+    <!-- A config determines whether to show type down list on Dialpad -->
+    <bool name="config_show_type_down_list_on_dialpad">true</bool>
+    <!-- A config determines whether to show user profile for input number only when type down is
+    not showing. This config works only when config_show_type_down_list_on_dialpad is false. -->
+    <bool name="config_show_detailed_user_profile_on_dialpad">false</bool>
+    <!-- A percent determines the size of the area for type down list on Dialpad in portrait mode. -->
+    <item name="config_type_down_guideline_percent" format="float" type="dimen">0.3</item>
 </resources>

@@ -215,14 +215,14 @@ public class MediaController {
      * Wrapper for MediaController.controlsSameSession(MediaController other)
      */
     public boolean controlsSameSession(MediaController other) {
-        return mDelegate.controlsSameSession(other.getWrappedInstance());
+        return mDelegate.getSessionToken().equals(other.getWrappedInstance().getSessionToken());
     }
 
     /**
      * Wrapper for MediaController.controlsSameSession(MediaController other)
      */
     public boolean controlsSameSession(android.media.session.MediaController other) {
-        return mDelegate.controlsSameSession(other);
+        return mDelegate.getSessionToken().equals(other.getSessionToken());
     }
 
     /**

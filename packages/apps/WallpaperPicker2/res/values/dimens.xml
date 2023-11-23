@@ -22,14 +22,18 @@
 
     <!-- Dimensions for "category" tiles. -->
     <dimen name="grid_item_category_label_padding">12dp</dimen>
+    <dimen name="grid_item_category_label_padding_top">12dp</dimen>
+    <dimen name="grid_item_category_label_padding_bottom">4dp</dimen>
+    <dimen name="grid_item_category_label_minimum_height">16dp</dimen>
     <dimen name="grid_item_category_overlay_icon_margin_bottom">24dp</dimen>
     <dimen name="grid_item_category_title_height">48dp</dimen>
     <dimen name="grid_tile_aspect_height">340dp</dimen>
     <dimen name="grid_tile_aspect_width">182dp</dimen>
+    <dimen name="grid_edge_space">8dp</dimen>
 
     <!-- Dimensions for individual wallpaper tiles. -->
     <dimen name="grid_item_individual_wallpaper_selected_inset">14dp</dimen>
-    <dimen name="grid_item_individual_wallpaper_check_circle_offset">6dp</dimen>
+    <dimen name="grid_item_individual_wallpaper_check_circle_offset">4dp</dimen>
     <dimen name="grid_item_individual_wallpaper_check_circle_size">24dp</dimen>
 
     <!-- Dimensions for "single metadata card" configuration. -->
@@ -126,6 +130,7 @@
     <dimen name="preview_attribution_pane_description_height">34dp</dimen>
     <dimen name="preview_attribution_pane_button_bottom_margin">8dp</dimen>
 
+    <dimen name="preview_gradient_background_height">256dp</dimen>
 
     <!-- Dimensions for the "start rotation" dialog. -->
     <dimen name="start_rotation_dialog_subhead_margin_top">19dp</dimen>
@@ -178,4 +183,37 @@
     <dimen name="disabled_by_admin_desktop_message_text_size">13sp</dimen>
     <dimen name="preview_bottom_sheet_corner_radius">?android:attr/dialogCornerRadius</dimen>
 
+    <!-- Dimensions for the minimum height of the scalable content container. -->
+    <dimen name="content_container_minimum_height">300dp</dimen>
+    <!-- Dimensions for the maximum height of the scalable content container. -->
+    <dimen name="content_container_maximum_height">400dp</dimen>
+
+    <!-- Dimensions for PreviewPager and PageIndicator. -->
+    <dimen name="preview_indicator_width">16dp</dimen>
+    <dimen name="preview_indicator_height">8dp</dimen>
+    <dimen name="indicator_container_height">48dp</dimen>
+    <dimen name="indicator_arrow_size">24dp</dimen>
+    <dimen name="indicator_arrow_touch_area_size">48dp</dimen>
+    <dimen name="indicator_arrow_container_margin_horizontal">4dp</dimen>
+    <dimen name="preview_page_gap">16dp</dimen>
+    <dimen name="preview_page_horizontal_margin">56dp</dimen>
+    <dimen name="preview_page_top_margin">16dp</dimen>
+    <dimen name="preview_page_bottom_margin">2dp</dimen>
+    <dimen name="preview_card_padding">20dp</dimen>
+    <dimen name="preview_pager_max_height">450dp</dimen>
+    <dimen name="preview_pager_min_height">350dp</dimen>
+    <dimen name="preview_pager_height">450dp</dimen>
+    <dimen name="system_rounded_corner">@*android:dimen/rounded_corner_radius_top</dimen>
+    <!-- The maximum height ratio of PreviewPager and its parent view. -->
+    <item name="preview_pager_maximum_height_ratio" format="float" type="dimen">0.7</item>
+
+    <!-- Dimensions for the bottom bar. -->
+    <dimen name="bottom_navbar_height">56dp</dimen>
+    <dimen name="bottom_action_bar_padding_horizontal">16dp</dimen>
+    <dimen name="bottom_action_bar_padding_vertical">20dp</dimen>
+    <dimen name="bottom_action_bar_elevation">10dp</dimen>
+
+    <dimen name="option_border_width">2dp</dimen>
+    <dimen name="option_selected_border_width">3dp</dimen>
+    <dimen name="option_title_font_text_size">12sp</dimen>
 </resources>

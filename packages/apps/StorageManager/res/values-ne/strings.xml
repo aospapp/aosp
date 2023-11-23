@@ -27,7 +27,7 @@
     <string name="deletion_helper_app_summary_unknown_used" msgid="8576377054665785558">"पछिल्लो पटक कहिले प्रयोग गरियो भन्ने बारे निश्चित छैन"</string>
     <string name="deletion_helper_free_button" msgid="1760529213407548661">"<xliff:g id="FREEABLE">%1$s</xliff:g> खाली गर्नुहोस्"</string>
     <string name="deletion_helper_photos_title" msgid="2602723121486729972">"ब्याक अप गरिएका तस्बिर तथा भिडियोहरू"</string>
-    <string name="deletion_helper_photos_age_summary" msgid="1820871709448371984">"३० दिनभन्दा बढी पुरानो"</string>
+    <string name="deletion_helper_photos_age_summary" msgid="1820871709448371984">"कम्तीमा ३० दिन पुरानो"</string>
     <!-- no translation found for deletion_helper_photos_summary (3194825464552700889) -->
     <skip />
     <string name="deletion_helper_downloads_title" msgid="8002058095019254694">"डाउनलोडहरू"</string>
@@ -42,7 +42,7 @@
     <string name="deletion_helper_upsell_summary" msgid="2301597713694474407">"अहिले <xliff:g id="USED">%1$s</xliff:g> खाली छ। भण्डारण प्रबन्धकलाई तपाईँको यन्त्रबाट ब्याक अप गरिएको सामग्री हटाएर स्वतः ठाउँ खाली गर्न दिने हो?"</string>
     <string name="deletion_helper_upsell_cancel" msgid="7084167642850053889">"पर्दैन, धन्यवाद"</string>
     <string name="deletion_helper_upsell_activate" msgid="7157360257760895976">"सक्रिय गर्नुहोस्"</string>
-    <string name="deletion_helper_apps_group_title" msgid="2578309121350341258">"कहिलेकाहीँ प्रयोग गरिने अनुप्रयोगहरू"</string>
+    <string name="deletion_helper_apps_group_title" msgid="2578309121350341258">"कहिलेकाहीँ प्रयोग गरिने एपहरू"</string>
     <!-- no translation found for deletion_helper_apps_group_summary (360315517252452356) -->
     <skip />
     <string name="deletion_helper_automatic_title" msgid="4610119358490679299">"स्वतः"</string>
@@ -62,6 +62,6 @@
     <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"तपाईंको भण्डारण अहिले भण्डारण प्रबन्धकद्वारा व्यवस्थापन भइरहेको छ"</string>
     <string name="empty_state_title" msgid="4033285438176545309">"हटाउनु पर्ने कुनै कुरा छैन"</string>
     <string name="empty_state_review_items_link" msgid="8411186441239304545">"हालैका वस्तुहरूको समीक्षा गर्नुहोस्"</string>
-    <string name="empty_state_summary" msgid="8439893007424243790">"हटाउनु पर्ने कुनै पुराना फाइलहरू छैनन्। ठाउँ खाली गर्नाका लागि हालैका तस्बिर, भिडियो तथा अनुप्रयोगहरू हटाउनुहोस्।"</string>
+    <string name="empty_state_summary" msgid="8439893007424243790">"हटाउनु पर्ने कुनै पुराना फाइलहरू छैनन्। ठाउँ खाली गर्नाका लागि हालैका तस्बिर, भिडियो तथा एपहरू हटाउनुहोस्।"</string>
     <string name="app_requesting_space" msgid="857425181289960167">"<xliff:g id="APP">%1$s</xliff:g> लाई <xliff:g id="CLEARABLE_BYTES">%2$s</xliff:g> खाली ठाउँ आवश्यक हुन्छ"</string>
 </resources>

@@ -16,10 +16,12 @@
 
 package com.android.networkstack.metrics;
 
-import android.annotation.NonNull;
-import android.annotation.Nullable;
 import android.net.captiveportal.CaptivePortalProbeResult;
 import android.util.Log;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 
 import com.android.internal.util.HexDump;
 import com.android.server.connectivity.nano.DataStallEventProto;
@@ -38,7 +40,11 @@ public class DataStallStatsUtils {
     private static final String TAG = DataStallStatsUtils.class.getSimpleName();
     private static final boolean DBG = false;
 
-    private static int probeResultToEnum(@Nullable final CaptivePortalProbeResult result) {
+    /**
+     * Map {@link CaptivePortalProbeResult} to {@link DataStallEventProto}.
+     */
+    @VisibleForTesting
+    public static int probeResultToEnum(@Nullable final CaptivePortalProbeResult result) {
         if (result == null) return DataStallEventProto.INVALID;
 
         if (result.isSuccessful()) {
@@ -68,6 +74,8 @@ public class DataStallStatsUtils {
                 stats.mNetworkType,
                 stats.mWifiInfo,
                 stats.mCellularInfo,
-                stats.mDns);
+                stats.mDns,
+                stats.mTcpFailRate,
+                stats.mTcpSentSinceLastRecv);
     }
 }

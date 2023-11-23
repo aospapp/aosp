@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-android_test {
-    name: "CellBroadcastReceiverUnitTests",
-    certificate: "platform",
+java_defaults {
+    name: "CellBroadcastTestCommon",
     libs: [
         "android.test.runner",
         "telephony-common",
         "android.test.base",
+        "android.test.mock",
     ],
     static_libs: [
         "androidx.test.rules",
@@ -28,8 +28,60 @@ android_test {
         "ub-uiautomator",
     ],
     // Include all test java files.
-    srcs: ["src/**/*.java"],
+    srcs: [":cellbroadcastreceiver-shared-srcs-test"],
     platform_apis: true,
-    instrumentation_for: "CellBroadcastReceiver",
+}
+
+// in order to have our tests run on OEM devices, the test apk here includes
+// module code within it and filters out tests which require UI.
+// For the full test apk which does not run on OEM devices, see CellBroadcastReceiverUnitTests
+android_test {
+    name: "CellBroadcastReceiverOemUnitTests",
+    defaults: ["CellBroadcastTestCommon"],
+    srcs: [":cellbroadcastreceiver-sources"],
+    test_suites: ["device-tests", "mts"],
+    manifest: "AndroidManifest_OemTesting.xml",
+    test_config: "AndroidTest_Oem.xml",
+    resource_dirs: [
+        "main-res",
+    ],
+    aaptflags: [
+        "--custom-package com.android.cellbroadcastreceiver"
+    ],
+    static_libs: [
+        "androidx.legacy_legacy-support-v4",
+        "androidx.legacy_legacy-support-v13",
+        "androidx.recyclerview_recyclerview",
+        "androidx.preference_preference",
+        "androidx.appcompat_appcompat",
+        "androidx.legacy_legacy-preference-v14",
+    ],
+}
+
+
+// used to run mts coverage test
+android_test {
+    name: "CellBroadcastReceiverUnitTests",
+    certificate: "networkstack",
+    defaults: ["CellBroadcastTestCommon"],
+    instrumentation_for: "CellBroadcastApp",
+    test_suites: ["device-tests", "mts"],
+    manifest: "AndroidManifest.xml",
+    test_config: "AndroidTest.xml",
+}
+
+android_test {
+    name: "CellBroadcastReceiverPlatformUnitTests",
+    certificate: "platform",
+    defaults: ["CellBroadcastTestCommon"],
+    instrumentation_for: "CellBroadcastAppPlatform",
     test_suites: ["device-tests"],
+}
+
+// used to share src with unit test app
+filegroup {
+    name: "cellbroadcastreceiver-shared-srcs-test",
+    srcs: [
+        "src/**/*.java",
+    ],
 }

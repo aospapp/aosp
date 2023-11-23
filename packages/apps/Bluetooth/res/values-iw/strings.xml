@@ -69,8 +69,7 @@
     <string name="upload_succ_ok" msgid="7705428476405478828">"אישור"</string>
     <string name="upload_fail_line1" msgid="7899394672421491701">"הקובץ לא נשלח אל <xliff:g id="RECIPIENT">%1$s</xliff:g>."</string>
     <string name="upload_fail_line1_2" msgid="2108129204050841798">"קובץ: <xliff:g id="FILE">%1$s</xliff:g>"</string>
-    <string name="upload_fail_ok" msgid="5807702461606714296">"נסה שוב"</string>
-    <string name="upload_fail_cancel" msgid="9118496285835687125">"סגור"</string>
+    <string name="upload_fail_cancel" msgid="9118496285835687125">"סגירה"</string>
     <string name="bt_error_btn_ok" msgid="5965151173011534240">"אישור"</string>
     <string name="unknown_file" msgid="6092727753965095366">"קובץ לא ידוע"</string>
     <string name="unknown_file_desc" msgid="480434281415453287">"אין אפליקציה המתאימה לטיפול בקבצים מסוג זה. \n"</string>
@@ -138,4 +137,5 @@
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"‏אודיו Bluetooth מנותק"</string>
     <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"‏אודיו Bluetooth"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="8894450394309084519">"‏לא ניתן להעביר קבצים שגדולים מ-GB‏ 4"</string>
+    <string name="bluetooth_connect_action" msgid="4009848433321657090">"‏התחברות באמצעות Bluetooth"</string>
 </resources>

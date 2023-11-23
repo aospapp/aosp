@@ -60,6 +60,11 @@
     <string name="forget" msgid="892068061425802502">"Zapomnij"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"Łączenie przez Wi-Fi Direct"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"Łączenie przez bieżącą sieć, adres: <xliff:g id="IP_ADDRESS">%1$s</xliff:g>"</string>
+    <string name="recommendation_summary" msgid="2979700524954307566">"Domyślna usługa drukowania udostępnia opcje podstawowe. Inne opcje tej drukarki mogą być dostępne w innej usłudze drukowania."</string>
+    <string name="recommendations_heading" msgid="5086762263560605249">"Polecane usługi"</string>
+    <string name="recommendation_install_summary" msgid="374785283809791669">"Wybierz, by zainstalować"</string>
+    <string name="recommendation_enable_summary" msgid="3500907868251326224">"Wybierz, by włączyć"</string>
+    <string name="recommendation_manage" msgid="4683640588502866284">"Zarządzaj usługami"</string>
     <string name="security" msgid="2279008326210305401">"Zabezpieczenia"</string>
     <string name="certificate_update_request" msgid="1314796413107139475">"Ta drukarka przekazała nowy certyfikat bezpieczeństwa lub inne urządzenie podszywa się pod nią. Zaakceptować nowy certyfikat?"</string>
     <string name="not_encrypted_request" msgid="4871472176807381642">"Ta drukarka nie przyjmuje już zaszyfrowanych zadań. Kontynuować drukowanie?"</string>
@@ -68,4 +73,5 @@
     <string name="connections" msgid="8895413761760117180">"Połączenia"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Domyślna usługa drukowania wymaga dostępu do lokalizacji, by znaleźć urządzenia w pobliżu."</string>
     <string name="fix" msgid="7784394272611365393">"Sprawdź uprawnienia"</string>
+    <string name="print" msgid="7851318072404916362">"Drukuj"</string>
 </resources>

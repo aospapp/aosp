@@ -22,6 +22,8 @@ import android.car.drivingstate.CarUxRestrictions;
 import android.car.hardware.CarPropertyValue;
 import android.car.hardware.property.CarPropertyManager;
 import android.content.Context;
+import android.text.BidiFormatter;
+import android.text.TextDirectionHeuristics;
 
 import androidx.annotation.CallSuper;
 import androidx.preference.ListPreference;
@@ -152,9 +154,11 @@ public abstract class UnitsBasePreferenceController extends PreferenceController
     }
 
     protected String generateEntryStringFromUnit(Unit unit) {
-        return getContext().getString(R.string.units_list_entry,
-                getContext().getString(unit.getAbbreviationResId()),
-                getContext().getString(unit.getNameResId()));
+        return BidiFormatter.getInstance().unicodeWrap(
+                getContext().getString(R.string.units_list_entry,
+                        getContext().getString(unit.getAbbreviationResId()),
+                        getContext().getString(unit.getNameResId())),
+                TextDirectionHeuristics.LOCALE);
     }
 
     protected String[] getIdsOfSupportedUnits() {

@@ -121,12 +121,13 @@ public class BluetoothPairListLiveDataTest {
     @Test
     public void testOnInactiveUnregister() {
         mBluetoothPairListLiveData.observe(mMockLifecycleOwner,
-                (value) -> mMockObserver.onChanged(value));
-        mLifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START);
+                value -> mMockObserver.onChanged(value));
         int preNumber = mReceiverVerifier.getReceiverNumber();
 
+        mLifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START);
         mLifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY);
-        mReceiverVerifier.verifyReceiverUnregistered(INTENT_ACTION, preNumber);
+
+        assertThat(mReceiverVerifier.getReceiverNumber()).isEqualTo(preNumber);
     }
 
     private void verifyBondedDevices(Set bondedDevices) {

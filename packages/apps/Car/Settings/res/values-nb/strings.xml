@@ -50,7 +50,7 @@
     <string name="roaming_title" msgid="6218635014519017734">"Roaming"</string>
     <string name="roaming_summary" msgid="7476127740259728901">"Koble til datatjenester ved roaming"</string>
     <string name="roaming_alert_title" msgid="4433901635766775763">"Vil du tillate data-roaming?"</string>
-    <string name="roaming_warning" msgid="5313281900566657209">"Det kan medføre betydelige kostnader."</string>
+    <string name="roaming_warning" msgid="4908184914868720704">"Roamingavgifter kan påløpe."</string>
     <string name="data_usage_settings" msgid="7877132994777987848">"Databruk"</string>
     <string name="data_usage_title" msgid="2923515974389203812">"Primære data"</string>
     <string name="data_used_formatted" msgid="6684557577780068339">"<xliff:g id="ID_1">^1</xliff:g> <xliff:g id="ID_2">^2</xliff:g> er brukt"</string>
@@ -199,6 +199,8 @@
     <string name="bluetooth_device_picker" msgid="673238198452345475">"Velg en Bluetooth-enhet"</string>
     <string name="language_settings" msgid="2079258598337245546">"Språk"</string>
     <string name="languages_and_input_settings" msgid="3672322610529408248">"Språk og inndata"</string>
+    <string name="language_picker_list_suggested_header" msgid="7593893806003415948">"Foreslått"</string>
+    <string name="language_picker_list_all_header" msgid="1577387973934368428">"Alle språk"</string>
     <string name="keyboard_settings" msgid="1959697870618278081">"Tastatur"</string>
     <string name="manage_keyboard" msgid="4045394766282200132">"Administrer tastaturer"</string>
     <string name="text_to_speech_settings" msgid="811985746199507343">"Tekst til tale-utdata"</string>
@@ -283,9 +285,11 @@
     <string name="not_installed" msgid="4218816013370552746">"Ikke installert for brukeren"</string>
     <string name="permissions_label" msgid="2701446753515612685">"Tillatelser"</string>
     <string name="notifications_label" msgid="6586089149665170731">"Varsler"</string>
+    <string name="storage_application_label" msgid="5911779903670978586">"Lagring og buffer"</string>
     <string name="application_version_label" msgid="8556889839783311649">"Versjon: %1$s"</string>
     <string name="runtime_permissions_summary_no_permissions_granted" msgid="6001439205270250021">"Ingen tillatelser er gitt"</string>
     <string name="runtime_permissions_summary_no_permissions_requested" msgid="4074220596273432442">"Ingen tillatelser er forespurt"</string>
+    <string name="storage_type_internal" msgid="8918688427078709570">"%s i internminne"</string>
     <string name="data_usage_summary_title" msgid="4368024763485916986">"Databruk"</string>
     <string name="data_usage_app_summary_title" msgid="5012851696585421420">"Appens databruk"</string>
     <string name="computing_size" msgid="5791407621793083965">"Beregner …"</string>
@@ -323,8 +327,8 @@
     <string name="app_link_open_never" msgid="2173174327831792316">"Ikke åpne med denne appen"</string>
     <string name="app_launch_supported_domain_urls_title" msgid="7345116365785981158">"Støttede linker"</string>
     <string name="special_access" msgid="5730278220917123811">"Spesiell apptilgang"</string>
-    <string name="show_system" msgid="4401355756969485287">"Vis systemapper"</string>
-    <string name="hide_system" msgid="8845453295584638040">"Skjul systemapper"</string>
+    <string name="show_system" msgid="4401355756969485287">"Vis systemet"</string>
+    <string name="hide_system" msgid="8845453295584638040">"Skjul systemet"</string>
     <string name="modify_system_settings_title" msgid="4596320571562433972">"Endre systeminnstillingene"</string>
     <string name="modify_system_settings_description" msgid="5295023124419592452">"Med denne tillatelsen kan apper endre systeminnstillingene."</string>
     <string name="notification_access_title" msgid="1467340098885813473">"Tilgang til varsler"</string>
@@ -344,17 +348,13 @@
     <string name="location_settings_recent_requests_title" msgid="6345634382240930628">"Nylige posisjonsforespørsler"</string>
     <string name="location_settings_recent_requests_empty_message" msgid="7789667070033674910">"Ingen nylige posisjonsforespørsler"</string>
     <string name="location_settings_app_permissions_title" msgid="6446735313354321564">"Tillatelser på appnivå"</string>
-    <string name="location_settings_scanning_title" msgid="4253945869911300740">"Søking"</string>
     <string name="location_settings_services_title" msgid="1186133632690970468">"Posisjonstjenester"</string>
-    <string name="location_settings_wifi_scanning_title" msgid="8021558840074023719">"Wi‑Fi-søking"</string>
-    <string name="location_settings_wifi_scanning_summary" msgid="2116283960258671324">"La apper og tjenester søke etter Wi-Fi-nettverk når som helst, selv når Wi-Fi er slått av. Dette kan for eksempel brukes til å forbedre posisjonsbaserte funksjoner og tjenester."</string>
-    <string name="location_settings_bluetooth_scanning_title" msgid="2969682902241932059">"Bluetooth-skanning"</string>
-    <string name="location_settings_bluetooth_scanning_summary" msgid="9158101751700727062">"La apper og tjenester søke etter enheter i nærheten når som helst, selv når Bluetooth er slått av. Dette kan for eksempel brukes til å forbedre posisjonsbaserte funksjoner og tjenester."</string>
     <string name="system_setting_title" msgid="6864599341809463440">"System"</string>
     <string name="system_update_settings_title" msgid="8448588267784138855">"Systemoppdateringer"</string>
     <string name="firmware_version" msgid="8491753744549309333">"Android-versjon"</string>
-    <string name="security_patch" msgid="4794276590178386903">"Android-sikkerhetsoppdatering"</string>
-    <string name="model_info" msgid="4966408071657934452">"Modell"</string>
+    <string name="security_patch" msgid="4794276590178386903">"Nivå av Android-sikkerhetsoppdatering"</string>
+    <string name="hardware_info" msgid="3973165746261507658">"Modell og maskinvare"</string>
+    <string name="hardware_info_summary" msgid="8262576443254075921">"Modell: <xliff:g id="MODEL">%1$s</xliff:g>"</string>
     <string name="baseband_version" msgid="2370088062235041897">"Basisbåndversjon"</string>
     <string name="kernel_version" msgid="7327212934187011508">"Kjerneversjon"</string>
     <string name="build_number" msgid="3997326631001009102">"Delversjonsnummer"</string>
@@ -378,6 +378,9 @@
     <string name="webview_license_title" msgid="6442372337052056463">"WebView-lisenser på systemet"</string>
     <string name="wallpaper_attributions" msgid="9201272150014500697">"Bakgrunner"</string>
     <string name="wallpaper_attributions_values" msgid="4292446851583307603">"Leverandører av satellittbilder:\n©2014 CNES / Astrium, DigitalGlobe, Bluesky"</string>
+    <string name="model_info" msgid="4966408071657934452">"Modell"</string>
+    <string name="status_serial_number" msgid="9158889113131907656">"Serienummer"</string>
+    <string name="hardware_revision" msgid="5713759927934872874">"Maskinvareversjon"</string>
     <string name="regulatory_info_text" msgid="8890339124198005428"></string>
     <string name="settings_license_activity_title" msgid="8499293744313077709">"Tredjepartslisenser"</string>
     <string name="settings_license_activity_unavailable" msgid="6104592821991010350">"Det oppsto et problem ved innlasting av lisensene."</string>
@@ -392,7 +395,7 @@
     <string name="reset_options_title" msgid="4388902952861833420">"Alternativer for tilbakestilling"</string>
     <string name="reset_options_summary" msgid="5508201367420359293">"Tilbakestilling av nettverk, apper eller enhet"</string>
     <string name="reset_network_title" msgid="1284233059990797263">"Tilbakestill nettverket"</string>
-    <string name="reset_network_desc" msgid="602381374544634925">"Dette tilbakestiller alle nettverksinnstillingene, blant annet"</string>
+    <string name="reset_network_desc" msgid="602381374544634925">"Dette tilbakestiller alle nettverksinnstillingene, inkludert"</string>
     <string name="reset_network_item_wifi" msgid="7569481589699982698"><li>"Wi‑Fi"</li></string>
     <string name="reset_network_item_mobile" msgid="5747282716664480997"><li>"Mobildata"</li></string>
     <string name="reset_network_item_bluetooth" msgid="6035019931106921284"><li>"Bluetooth"</li></string>
@@ -416,7 +419,7 @@
     <string name="master_clear_button_text" msgid="8010754220392741160">"Tilbakestill kjøretøyet"</string>
     <string name="master_clear_confirm_title" msgid="8646455623132887370">"Vil du tilbakestille?"</string>
     <string name="master_clear_confirm_desc" msgid="8920446291698038558">"Vil du slette den personlige informasjonen din og nedlastede apper? Du kan ikke angre denne handlingen."</string>
-    <string name="master_clear_confirm_button_text" msgid="7981254968588121786">"Tøm alt"</string>
+    <string name="master_clear_confirm_button_text" msgid="7981254968588121786">"Slett alt"</string>
     <string name="master_clear_progress_title" msgid="7087480656932674774">"Tømmer"</string>
     <string name="master_clear_progress_text" msgid="3440789441935303176">"Vent litt."</string>
     <string name="date_and_time_settings_title" msgid="4058492663544475485">"Dato og klokkeslett"</string>
@@ -428,7 +431,7 @@
     <string name="date_time_24hour_title" msgid="3025576547136168692">"24-timers format"</string>
     <string name="date_time_24hour" msgid="1137618702556486913">"Bruk 24-timers format"</string>
     <string name="date_time_set_time_title" msgid="5884883050656937853">"Klokkeslett"</string>
-    <string name="date_time_set_time" msgid="6449555153906058248">"Still klokken"</string>
+    <string name="date_time_set_time" msgid="6449555153906058248">"Angi klokkeslett"</string>
     <string name="date_time_set_timezone_title" msgid="3001779256157093425">"Tidssone"</string>
     <string name="date_time_set_timezone" msgid="4759353576185916944">"Velg tidssone"</string>
     <string name="date_time_set_date_title" msgid="6834785820357051138">"Dato"</string>
@@ -451,7 +454,7 @@
     <string name="uninstall_apps_permission_title" msgid="8448422340567430659">"Avinstaller apper"</string>
     <string name="user_add_user_menu" msgid="5319151436895941496">"Legg til bruker"</string>
     <string name="user_new_user_name" msgid="7115771396412339662">"Ny bruker"</string>
-    <string name="user_add_user_title" msgid="7458813670614932479">"Vil du legge til denne brukeren?"</string>
+    <string name="user_add_user_title" msgid="7458813670614932479">"Vil du legge til en ny bruker?"</string>
     <string name="user_add_user_message_setup" msgid="6030901156040053106">"Når du legger til en ny bruker, må vedkommende konfigurere sitt eget område."</string>
     <string name="user_add_user_message_update" msgid="1528170913388932459">"Alle brukere kan oppdatere apper for alle andre brukere."</string>
     <string name="user_limit_reached_title" msgid="8803355734556061238">"Grensen for antall brukere er nådd"</string>
@@ -478,6 +481,8 @@
     <string name="user_name_label" msgid="3210832645046206845">"Navn"</string>
     <string name="user_summary_not_set_up" msgid="1473688119241224145">"Ikke konfigurert"</string>
     <string name="edit_user_name_title" msgid="6890782937520262478">"Endre brukernavnet"</string>
+    <string name="name_input_blank_error" msgid="2088850865880984123">"Feltet må fylles ut."</string>
+    <string name="name_input_invalid_error" msgid="3523545780580744273">"Brukernavnet du skrev inn, er ugyldig."</string>
     <string name="users_list_title" msgid="770764290290240909">"Brukere"</string>
     <string name="user_details_admin_title" msgid="3530292857178371891">"Tillatelse er gitt til %1$s"</string>
     <string name="storage_settings_title" msgid="8957054192781341797">"Lagring"</string>
@@ -497,6 +502,8 @@
     <string name="storage_clear_data_dlg_title" msgid="5863775997588969879">"Vil du slette appdataene?"</string>
     <string name="storage_clear_data_dlg_text" msgid="795055288575727801">"Alle dataene i appen slettes permanent. Dette omfatter alle filer, innstillinger, kontoer, databaser osv."</string>
     <string name="storage_clear_failed_dlg_text" msgid="6710485971686866306">"Kunne ikke frigi lagringsplass for appen."</string>
+    <string name="storage_unmount_success" msgid="1553591517580407021">"<xliff:g id="NAME">%1$s</xliff:g> ble løst ut på en trygg måte"</string>
+    <string name="storage_unmount_failure" msgid="4591934911541762883">"Kunne ikke løse ut <xliff:g id="NAME">%1$s</xliff:g> på en trygg måte"</string>
     <string name="accounts_settings_title" msgid="436190037084293471">"Kontoer"</string>
     <string name="user_add_account_menu" msgid="6625351983590713721">"Legg til konto"</string>
     <string name="no_accounts_added" msgid="5148163140691096055">"Ingen kontoer er lagt til"</string>
@@ -528,6 +535,7 @@
     <string name="sync_button_sync_now" msgid="5767643057970371315">"Synkroniser nå"</string>
     <string name="sync_button_sync_cancel" msgid="7739510554513641393">"Avbryt synkroniseringen"</string>
     <string name="sync_is_failing" msgid="5766255460901806206">"Det er midlertidige problemer med synkroniseringen. Vent litt."</string>
+    <string name="privacy_settings_title" msgid="3150145262029229572">"Personvern"</string>
     <string name="security_settings_title" msgid="6955331714774709746">"Sikkerhet"</string>
     <string name="security_settings_subtitle" msgid="2244635550239273229">"Skjermlås"</string>
     <string name="security_lock_none" msgid="1054645093754839638">"Ingen"</string>
@@ -618,26 +626,11 @@
     <string name="lockpassword_pin_no_sequential_digits" msgid="38813552228809240">"En sekvens av stigende, synkende eller like sifre er ikke tillatt."</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"Alternativer for skjermlås"</string>
     <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g> : for <xliff:g id="NUM_DAYS">%3$s</xliff:g> dager siden"</string>
-    <string name="add_device_title" msgid="8452168024017866232">"Legg til en pålitelig enhet"</string>
-    <string name="add_device_summary" msgid="5368217520710573302">"Bluetooth slås på for å legge til pålitelig enhet"</string>
-    <string name="trusted_device" msgid="5637378361866787603">"Pålitelige enheter"</string>
-    <plurals name="trusted_device_subtitle" formatted="false" msgid="462041049834264945">
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> enheter</item>
-      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> enhet</item>
-    </plurals>
-    <string name="remove_device_message" msgid="6447820559674148349">"<xliff:g id="CONNECTED_DEVICE_NAME_0">%1$s</xliff:g> låser opp denne bilen når den er tilkoblet. Hvis noen tar <xliff:g id="CONNECTED_DEVICE_NAME_1">%1$s</xliff:g>, får vedkommende tilgang til denne enheten."</string>
-    <string name="trusted_device_confirm_button" msgid="102354635014627996">"Bekreft"</string>
-    <string name="trusted_device_remove_button" msgid="6140476996063415420">"Fjern pålitelig enhet"</string>
-    <string name="trusted_device_done_button" msgid="8481956533222625296">"Ferdig"</string>
-    <string name="add_trusted_device_instruction" msgid="2280382609884918033">"Bruk følgeappen for å konfigurere en pålitelig enhet. Når den er konfigurert, låser brukerprofilen din opp automatisk når telefonen oppdages i nærheten av kjøretøyet."</string>
-    <string name="trusted_device_download_app" msgid="6971096140154499983">"1. Last ned følgeappen på telefonen din"</string>
-    <string name="trusted_device_select_device" msgid="198902765179270739">"2. Velg <xliff:g id="CAR_NAME">%1$s</xliff:g> på telefonen for å koble til enhetene"</string>
-    <string name="trusted_device_safety_alert" msgid="3834898922112046769">"En pålitelig enhet i nærheten av bilen din låser opp brukerprofilen ved tenning – selv om noen andre holder enheten."</string>
-    <string name="trusted_device_pairing_code_dialog_title" msgid="8173792468216796873">"Bekreft at sammenkoblingskodene er like"</string>
-    <string name="trusted_device_success_enrollment_toast" msgid="1238468775285575827">"Telefonen er registrert"</string>
-    <string name="trusted_device_fail_enrollment_toast" msgid="6801324174861209092">"Kunne ikke registrere <xliff:g id="DEVICE_NAME">%1$s</xliff:g>"</string>
-    <string name="trusted_device_set_authentication_reminder" msgid="5947077589994822305">"Hvis du legger til en pålitelig enhet, må du angi en autentiseringsmetode. Hvis du ikke har den pålitelige enheten din med deg, kreves autentisering for å få tilgang til profilen din."</string>
-    <string name="trusted_device_disconnected_toast" msgid="2541862946536880255">"Enheten er frakoblet."</string>
+    <string name="credentials_reset" msgid="873900550885788639">"Tøm legitimasjonslageret"</string>
+    <string name="credentials_reset_summary" msgid="6067911547500459637">"Fjern alle sertifikater"</string>
+    <string name="credentials_reset_hint" msgid="3459271621754137661">"Vil du fjerne alt innholdet?"</string>
+    <string name="credentials_erased" msgid="2515915439705550379">"Legitimasjonslageret er tømt."</string>
+    <string name="credentials_not_erased" msgid="6118567459076742720">"Kunne ikke tømme legitimasjonslageret."</string>
     <string name="forget" msgid="3971143908183848527">"Glem"</string>
     <string name="connect" msgid="5861699594602380150">"Koble til"</string>
     <string name="disconnect" msgid="6140789953324820336">"Koble fra"</string>
@@ -653,6 +646,7 @@
     <string name="exit_retail_mode_dialog_body" msgid="8314316171782527301">"Dette sletter demokontoen og tilbakestiller systemet til fabrikkstandard. Alle brukerdataene går tapt."</string>
     <string name="exit_retail_mode_dialog_confirmation_button_text" msgid="3147249675355968649">"Avslutt demomodus"</string>
     <string name="suggestion_dismiss_button" msgid="4539412646977050641">"AVVIS"</string>
-    <string name="restricted_while_driving" msgid="6217369093121968299">"Funksjonen er ikke tilgjengelig når du kjører."</string>
-    <string name="add_user_restricted_while_driving" msgid="6384004350628271556">"Du kan ikke legge til en bruker mens du kjører."</string>
+    <string name="restricted_while_driving" msgid="6587569249519274524">"Funksjonen er ikke tilgjengelig når du kjører"</string>
+    <string name="add_user_restricted_while_driving" msgid="4754946754222453656">"Du kan ikke legge til en bruker mens du kjører"</string>
+    <string name="default_search_query" msgid="3137420627428857068">"Søk"</string>
 </resources>

@@ -16,9 +16,9 @@
 
 package com.android.car.settings.system;
 
+import android.app.ActivityManager;
 import android.app.AppOpsManager;
 import android.app.INotificationManager;
-import android.car.userlib.CarUserManagerHelper;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.IPackageManager;
@@ -28,17 +28,17 @@ import android.os.Bundle;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.os.ServiceManager;
-import android.widget.Button;
 import android.widget.Toast;
 
-import androidx.annotation.LayoutRes;
 import androidx.annotation.XmlRes;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.Logger;
 import com.android.car.settings.common.SettingsFragment;
+import com.android.car.ui.toolbar.MenuItem;
 
 import java.lang.ref.WeakReference;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -48,6 +48,8 @@ public class ResetAppPrefFragment extends SettingsFragment {
 
     private static final Logger LOG = new Logger(ResetAppPrefFragment.class);
 
+    private MenuItem mResetButton;
+
     @Override
     @XmlRes
     protected int getPreferenceScreenResId() {
@@ -55,17 +57,18 @@ public class ResetAppPrefFragment extends SettingsFragment {
     }
 
     @Override
-    @LayoutRes
-    protected int getActionBarLayoutId() {
-        return R.layout.action_bar_with_button;
+    public List<MenuItem> getToolbarMenuItems() {
+        return Collections.singletonList(mResetButton);
     }
 
     @Override
-    public void onActivityCreated(Bundle savedInstanceState) {
-        super.onActivityCreated(savedInstanceState);
-        Button resetAppsButton = requireActivity().findViewById(R.id.action_button1);
-        resetAppsButton.setText(requireContext().getString(R.string.reset_app_pref_button_text));
-        resetAppsButton.setOnClickListener(v -> resetAppPreferences());
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        mResetButton = new MenuItem.Builder(getContext())
+                .setTitle(R.string.reset_app_pref_button_text)
+                .setOnClickListener(i -> resetAppPreferences())
+                .build();
     }
 
     private void resetAppPreferences() {
@@ -130,7 +133,7 @@ public class ResetAppPrefFragment extends SettingsFragment {
                 }
                 IPackageManager.Stub.asInterface(
                         packageManagerServiceBinder).resetApplicationPreferences(
-                        new CarUserManagerHelper(context).getCurrentForegroundUserId());
+                        ActivityManager.getCurrentUser());
             } catch (RemoteException e) {
                 LOG.w("Unable to reset app preferences", e);
             }

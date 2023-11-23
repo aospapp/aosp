@@ -18,35 +18,45 @@ package android.car.apitest;
 import android.car.content.pm.AppBlockingPackageInfo;
 import android.content.Context;
 import android.content.pm.PackageManager;
-import android.content.pm.Signature;
 import android.content.pm.PackageManager.NameNotFoundException;
+import android.content.pm.Signature;
 import android.os.Parcel;
-import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
 import android.util.Log;
 
+import androidx.test.platform.app.InstrumentationRegistry;
+
+import static com.google.common.truth.Truth.assertThat;
+
+import org.junit.Test;
+
 @SmallTest
-public class AppBlockingPackageInfoTest extends AndroidTestCase {
+public class AppBlockingPackageInfoTest {
     private static final String TAG = AppBlockingPackageInfoTest.class.getSimpleName();
 
+    private final Context mContext = InstrumentationRegistry.getInstrumentation()
+            .getTargetContext();
+
+    @Test
     public void testParcellingSystemInfo() throws Exception {
-        AppBlockingPackageInfo carServiceInfo = createInfoCarService(getContext());
+        AppBlockingPackageInfo carServiceInfo = createInfoCarService(mContext);
         Parcel dest = Parcel.obtain();
         carServiceInfo.writeToParcel(dest, 0);
         dest.setDataPosition(0);
         AppBlockingPackageInfo carServiceInfoRead = new AppBlockingPackageInfo(dest);
         Log.i(TAG, "expected:" + carServiceInfo + ",read:" + carServiceInfoRead);
-        assertEquals(carServiceInfo, carServiceInfoRead);
+        assertThat(carServiceInfoRead).isEqualTo(carServiceInfo);
     }
 
+    @Test
     public void testParcellingNonSystemInfo() throws Exception {
-        AppBlockingPackageInfo selfInfo = createInfoSelf(getContext());
+        AppBlockingPackageInfo selfInfo = createInfoSelf(mContext);
         Parcel dest = Parcel.obtain();
         selfInfo.writeToParcel(dest, 0);
         dest.setDataPosition(0);
         AppBlockingPackageInfo selfInfoRead = new AppBlockingPackageInfo(dest);
         Log.i(TAG, "expected:" + selfInfo + ",read:" + selfInfoRead);
-        assertEquals(selfInfo, selfInfoRead);
+        assertThat(selfInfoRead).isEqualTo(selfInfo);
     }
 
     public static AppBlockingPackageInfo createInfoCarService(Context context) {
@@ -60,8 +70,7 @@ public class AppBlockingPackageInfoTest extends AndroidTestCase {
         PackageManager pm = context.getPackageManager();
         Signature[] signatures;
         try {
-            signatures = pm.getPackageInfo(packageName,
-                    PackageManager.GET_SIGNATURES).signatures;
+            signatures = pm.getPackageInfo(packageName, PackageManager.GET_SIGNATURES).signatures;
         } catch (NameNotFoundException e) {
             return null;
         }

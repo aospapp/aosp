@@ -32,6 +32,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.IBinder;
 import android.telecom.CallAudioState;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
@@ -39,6 +40,8 @@ import android.telecom.TelecomManager;
 import com.android.car.dialer.CarDialerRobolectricTestRunner;
 import com.android.car.dialer.R;
 import com.android.car.dialer.TestDialerApplication;
+import com.android.car.dialer.testutils.ShadowServiceManagerOverride;
+import com.android.internal.telephony.ITelephony;
 
 import org.junit.After;
 import org.junit.Before;
@@ -48,6 +51,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.robolectric.RuntimeEnvironment;
+import org.robolectric.annotation.Config;
 import org.robolectric.shadow.api.Shadow;
 import org.robolectric.shadows.ShadowContextImpl;
 import org.robolectric.shadows.ShadowToast;
@@ -55,6 +59,7 @@ import org.robolectric.shadows.ShadowToast;
 import java.util.List;
 
 @RunWith(CarDialerRobolectricTestRunner.class)
+@Config(shadows = ShadowServiceManagerOverride.class)
 public class UiCallManagerTest {
 
     private static final String TEL_SCHEME = "tel";
@@ -65,6 +70,10 @@ public class UiCallManagerTest {
     private TelecomManager mMockTelecomManager;
     @Mock
     private InCallServiceImpl mMockInCallService;
+    @Mock
+    private IBinder mMockBinder;
+    @Mock
+    private ITelephony mMockITelephony;
 
     @Before
     public void setup() {
@@ -74,6 +83,10 @@ public class UiCallManagerTest {
 
         ShadowContextImpl shadowContext = Shadow.extract(((Application) mContext).getBaseContext());
         shadowContext.setSystemService(Context.TELECOM_SERVICE, mMockTelecomManager);
+
+        when(mMockBinder.queryLocalInterface(
+                "com.android.internal.telephony.ITelephony")).thenReturn(mMockITelephony);
+        ShadowServiceManagerOverride.addService(Context.TELEPHONY_SERVICE, mMockBinder);
     }
 
     private void initUiCallManager() {

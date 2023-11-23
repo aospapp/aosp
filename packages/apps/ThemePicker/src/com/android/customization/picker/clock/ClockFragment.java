@@ -15,6 +15,8 @@
  */
 package com.android.customization.picker.clock;
 
+import static android.content.res.Configuration.ORIENTATION_LANDSCAPE;
+
 import android.content.Context;
 import android.content.res.Resources;
 import android.os.Bundle;
@@ -38,11 +40,11 @@ import com.android.customization.module.ThemesUserEventLogger;
 import com.android.customization.picker.BasePreviewAdapter;
 import com.android.customization.picker.BasePreviewAdapter.PreviewPage;
 import com.android.customization.widget.OptionSelectorController;
-import com.android.customization.widget.PreviewPager;
 import com.android.wallpaper.R;
 import com.android.wallpaper.asset.Asset;
 import com.android.wallpaper.module.InjectorProvider;
 import com.android.wallpaper.picker.ToolbarFragment;
+import com.android.wallpaper.widget.PreviewPager;
 
 import java.util.List;
 
@@ -88,8 +90,20 @@ public class ClockFragment extends ToolbarFragment {
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
             @Nullable Bundle savedInstanceState) {
-        View view = inflater.inflate(
-                R.layout.fragment_clock_picker, container, /* attachToRoot */ false);
+        View view;
+        if (ADD_SCALABLE_HEADER) {
+            // TODO(b/147780560): Once the temporary flag (ADD_SCALABLE_HEADER) is removed,
+            // we should have a layout with the same name for portrait and landscape.
+            int orientation = getResources().getConfiguration().orientation;
+            view = inflater.inflate(
+                    orientation == ORIENTATION_LANDSCAPE
+                            ? R.layout.fragment_clock_picker
+                            : R.layout.fragment_clock_scalable_picker,
+                    container, /* attachToRoot */ false);
+        } else {
+            view = inflater.inflate(
+                    R.layout.fragment_clock_picker, container, /* attachToRoot */ false);
+        }
         setUpToolbar(view);
         mContent = view.findViewById(R.id.content_section);
         mPreviewPager = view.findViewById(R.id.clock_preview_pager);

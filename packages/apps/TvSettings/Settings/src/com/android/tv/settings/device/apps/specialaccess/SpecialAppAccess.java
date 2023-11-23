@@ -17,6 +17,7 @@
 package com.android.tv.settings.device.apps.specialaccess;
 
 import android.app.ActivityManager;
+import android.app.tvsettings.TvSettingsEnums;
 import android.content.Context;
 import android.os.Bundle;
 
@@ -69,5 +70,10 @@ public class SpecialAppAccess extends SettingsPreferenceFragment {
         if (preference != null) {
             getPreferenceScreen().removePreference(preference);
         }
+    }
+
+    @Override
+    protected int getPageId() {
+        return TvSettingsEnums.APPS_SPECIAL_APP_ACCESS;
     }
 }

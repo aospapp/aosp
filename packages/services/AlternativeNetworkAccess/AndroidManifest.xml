@@ -26,15 +26,18 @@
         android:process="com.android.phone"
         android:persistent="true">
 
-        <receiver android:name="ONSAutoBoot">
+        <receiver android:name="ONSAutoBoot"
+            android:directBootAware="true">
             <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
 
         <service android:name=".OpportunisticNetworkService"
                  android:enabled="true"
-                 android:exported="true"/>
+                 android:exported="false"
+                 android:directBootAware="true"
+                 android:singleUser="true" />
 
     </application>
 </manifest>

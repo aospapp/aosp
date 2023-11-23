@@ -44,6 +44,10 @@
 #$(call add-clean-step, find $(OUT_DIR) -type f -name "IGTalkSession*" -print0 | xargs -0 rm -f)
 #$(call add-clean-step, rm -rf $(PRODUCT_OUT)/data/*)
 $(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/priv-app/StorageManager)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/product/priv-app/StorageManager)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/product/priv-app/StorageManager)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/etc/permissions/com.android.storagemanager.xml)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/product/etc/permissions/com.android.storagemanager.xml)
 
 # ************************************************
 # NEWER CLEAN STEPS MUST BE AT THE END OF THE LIST

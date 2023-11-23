@@ -22,14 +22,15 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
+import android.content.Intent;
 import android.content.res.Resources;
 import android.database.Cursor;
 import android.net.Uri;
@@ -46,6 +47,7 @@ import androidx.preference.SwitchPreference;
 
 import com.android.settings.R;
 import com.android.settings.network.ApnEditor.ApnData;
+import com.android.settings.testutils.shadow.ShadowFragment;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -55,9 +57,9 @@ import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
-import org.robolectric.Robolectric;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
+import org.robolectric.annotation.Config;
 
 @RunWith(RobolectricTestRunner.class)
 public class ApnEditorTest {
@@ -79,11 +81,11 @@ public class ApnEditorTest {
             "" /* MMS port */,
             0 /* Authentication type */,
             "default,supl,ia" /* APN type */,
-            "IPv6" /* APN protocol */,
+            "IP" /* APN protocol */,
             1 /* APN enable/disable */,
             0 /* Bearer */,
             0 /* Bearer BITMASK*/,
-            "IPv4" /* APN roaming protocol */,
+            "IPV6" /* APN roaming protocol */,
             "None" /* MVNO type */,
             "", /* MVNO value */
     };
@@ -96,27 +98,35 @@ public class ApnEditorTest {
     @Mock
     private Cursor mCursor;
 
+    @Mock
+    private FragmentActivity mActivity;
+    @Mock
+    private ProxySubscriptionManager mProxySubscriptionMgr;
+
     @Captor
     private ArgumentCaptor<Uri> mUriCaptor;
 
     private ApnEditor mApnEditorUT;
-    private FragmentActivity mActivity;
+    private Context mContext;
     private Resources mResources;
 
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
-        mActivity = spy(Robolectric.setupActivity(FragmentActivity.class));
-        mResources = mActivity.getResources();
+        mContext = spy(RuntimeEnvironment.application);
+
+        mResources = mContext.getResources();
         mApnEditorUT = spy(new ApnEditor());
 
         doReturn(mActivity).when(mApnEditorUT).getActivity();
         doReturn(mResources).when(mApnEditorUT).getResources();
         doNothing().when(mApnEditorUT).finish();
         doNothing().when(mApnEditorUT).showError();
-        when(mApnEditorUT.getContext()).thenReturn(RuntimeEnvironment.application);
+        doReturn(mContext).when(mApnEditorUT).getContext();
+        doReturn(mContext.getTheme()).when(mActivity).getTheme();
+        doReturn(mContext.getContentResolver()).when(mActivity).getContentResolver();
 
-        setMockPreference(mActivity);
+        setMockPreference(mContext);
         mApnEditorUT.mApnData = new FakeApnData(APN_DATA);
         mApnEditorUT.sNotSet = "Not Set";
     }
@@ -237,7 +247,6 @@ public class ApnEditorTest {
     @Test
     public void testValidateApnData_validData_shouldReturnNull() {
         // GIVEN a valid apn data
-        mApnEditorUT.mApnData = new FakeApnData(APN_DATA);
         mApnEditorUT.fillUI(true /* firstTime */);
 
         // WHEN validate the apn data
@@ -250,9 +259,7 @@ public class ApnEditorTest {
     @Test
     public void testValidateApn_apnNameNotSet_shouldReturnErrorMessage() {
         // GIVEN a apn data without the apn name
-        final FakeApnData apnData = new FakeApnData(APN_DATA);
-        apnData.mData[ApnEditor.NAME_INDEX] = "";
-        mApnEditorUT.mApnData = apnData;
+        mApnEditorUT.mApnData.mData[ApnEditor.NAME_INDEX] = "";
         mApnEditorUT.fillUI(true /* firstTime */);
 
         // THEN validate the apn data
@@ -265,9 +272,7 @@ public class ApnEditorTest {
     @Test
     public void testValidateApnData_apnNotSet_shouldReturnErrorMessage() {
         // GIVEN a apn data without the apn
-        final FakeApnData apnData = new FakeApnData(APN_DATA);
-        apnData.mData[ApnEditor.APN_INDEX] = "";
-        mApnEditorUT.mApnData = apnData;
+        mApnEditorUT.mApnData.mData[ApnEditor.APN_INDEX] = "";
         mApnEditorUT.fillUI(true /* firstTime */);
 
         // THEN validate the apn data
@@ -279,11 +284,8 @@ public class ApnEditorTest {
 
     @Test
     public void testValidateApnData_mccInvalid_shouldReturnErrorMessage() {
-        // GIVEN a apn data with invalid mcc
-        final FakeApnData apnData = new FakeApnData(APN_DATA);
         // The length of the mcc should be 3
-        apnData.mData[ApnEditor.MCC_INDEX] = "1324";
-        mApnEditorUT.mApnData = apnData;
+        mApnEditorUT.mApnData.mData[ApnEditor.MCC_INDEX] = "1324";
         mApnEditorUT.fillUI(true /* firstTime */);
 
         // WHEN validate the apn data
@@ -296,10 +298,8 @@ public class ApnEditorTest {
     @Test
     public void testValidateApnData_mncInvalid_shouldReturnErrorMessage() {
         // GIVEN an apn data with invalid mnc
-        final FakeApnData apnData = new FakeApnData(APN_DATA);
         // The length of the mnc should be 2 or 3
-        apnData.mData[ApnEditor.MNC_INDEX] = "1324";
-        mApnEditorUT.mApnData = apnData;
+        mApnEditorUT.mApnData.mData[ApnEditor.MNC_INDEX] = "1324";
         mApnEditorUT.fillUI(true /* firstTime */);
 
         // WHEN validate the apn data
@@ -312,12 +312,11 @@ public class ApnEditorTest {
     @Test
     public void testSaveApnData_pressBackButtonWithValidApnData_shouldSaveApnData() {
         // GIVEN a valid apn data
-        mApnEditorUT.mApnData = new FakeApnData(APN_DATA);
         mApnEditorUT.fillUI(true /* firstTime */);
 
         // WHEN press the back button
         final KeyEvent event = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_BACK);
-        mApnEditorUT.onKey(new View(mActivity), KeyEvent.KEYCODE_BACK, event);
+        mApnEditorUT.onKey(new View(mContext), KeyEvent.KEYCODE_BACK, event);
 
         // THEN the apn data is saved and the apn editor is closed
         verify(mApnEditorUT).validateAndSaveApnData();
@@ -327,7 +326,6 @@ public class ApnEditorTest {
     @Test
     public void testSaveApnData_pressSaveButtonWithValidApnData_shouldSaveApnData() {
         // GIVEN a valid apn data
-        mApnEditorUT.mApnData = new FakeApnData(APN_DATA);
         mApnEditorUT.fillUI(true /* firstTime */);
 
         // WHEN press the save button
@@ -344,10 +342,8 @@ public class ApnEditorTest {
     @Test
     public void testSaveApnData_apnDataInvalid_shouldNotSaveApnData() {
         // GIVEN an invalid apn data
-        final FakeApnData apnData = new FakeApnData(APN_DATA);
         // The valid apn data should contains a non-empty apn name
-        apnData.mData[ApnEditor.NAME_INDEX] = "";
-        mApnEditorUT.mApnData = apnData;
+        mApnEditorUT.mApnData.mData[ApnEditor.NAME_INDEX] = "";
         mApnEditorUT.fillUI(true /* firstTime */);
 
         // WHEN press the save button
@@ -455,12 +451,67 @@ public class ApnEditorTest {
     }
 
     @Test
+    @Config(shadows = ShadowFragment.class)
     public void onCreate_noAction_shouldFinishAndNoCrash() {
+        ProxySubscriptionManager proxySubscriptionMgr = mock(ProxySubscriptionManager.class);
+        mApnEditorUT.mProxySubscriptionMgr = proxySubscriptionMgr;
+        doReturn(new Intent()).when(mActivity).getIntent();
         doNothing().when(mApnEditorUT).addPreferencesFromResource(anyInt());
 
         mApnEditorUT.onCreate(null);
 
         verify(mApnEditorUT).finish();
+    }
+
+    @Test
+    public void testOnViewStateRestored_customizedValueWithoutDefault_shouldShowCustomized() {
+        mApnEditorUT.mDefaultApnProtocol = "IP";
+        mApnEditorUT.mApnData.mData[ApnEditor.PROTOCOL_INDEX] = null;
+        mApnEditorUT.mProtocol.setEntryValues(new CharSequence[]{"IP", "IPV6", "IPV4V6"});
+
+        mApnEditorUT.onViewStateRestored(null);
+
+        assertThat(mApnEditorUT.mProtocol.getSummary()).isEqualTo("IPv4");
+    }
+
+    @Test
+    public void testOnViewStateRestored_customizedValueWithDefault_shouldShowDefault() {
+        mApnEditorUT.mDefaultApnProtocol = "IP";
+        mApnEditorUT.mApnData.mData[ApnEditor.PROTOCOL_INDEX] = "IPV6";
+        mApnEditorUT.mProtocol.setEntryValues(new CharSequence[]{"IP", "IPV6", "IPV4V6"});
+
+        mApnEditorUT.onViewStateRestored(null);
+
+        assertThat(mApnEditorUT.mProtocol.getSummary()).isEqualTo("IPv6");
+    }
+
+    @Test
+    public void getUserEnteredApnType_emptyApnType_shouldReturnDefault() {
+        // case 1
+        // GIVEN read only APN types with DUN
+        mApnEditorUT.mReadOnlyApnTypes = new String [] {"dun"};
+        // GIVEN read specificApnTypeForEmptyInput with DEFAULT,DUN
+        mApnEditorUT.mDefaultApnTypes = new String [] {"default", "dun"};
+
+        // Input empty in TYPE
+        mApnEditorUT.mApnData.mData[ApnEditor.TYPE_INDEX] = "";
+        mApnEditorUT.onViewStateRestored(null);
+
+        // THEN APN type should be default
+        assertThat(mApnEditorUT.getUserEnteredApnType()).isEqualTo("default");
+
+        // case 2
+        // GIVEN read only APN types with DUN
+        mApnEditorUT.mReadOnlyApnTypes = new String [] {"dun"};
+        // GIVEN read specificApnTypeForEmptyInput with DEFAULT
+        mApnEditorUT.mDefaultApnTypes = new String [] {"default"};
+
+        // Input empty in TYPE
+        mApnEditorUT.mApnData.mData[ApnEditor.TYPE_INDEX] = "";
+        mApnEditorUT.onViewStateRestored(null);
+
+        // THEN APN type should be default
+        assertThat(mApnEditorUT.getUserEnteredApnType()).isEqualTo("default");
     }
 
     private void initCursor() {

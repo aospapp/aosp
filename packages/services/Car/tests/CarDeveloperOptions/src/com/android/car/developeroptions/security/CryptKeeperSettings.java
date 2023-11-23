@@ -28,7 +28,6 @@ import android.os.BatteryManager;
 import android.os.Bundle;
 import android.os.UserHandle;
 import android.os.storage.StorageManager;
-import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -43,6 +42,7 @@ import com.android.car.developeroptions.SettingsActivity;
 import com.android.car.developeroptions.core.InstrumentedPreferenceFragment;
 import com.android.car.developeroptions.password.ChooseLockSettingsHelper;
 import com.android.car.developeroptions.password.ConfirmLockPattern;
+import com.android.internal.widget.LockscreenCredential;
 
 public class CryptKeeperSettings extends InstrumentedPreferenceFragment {
     private static final String TAG = "CryptKeeper";
@@ -193,9 +193,10 @@ public class CryptKeeperSettings extends InstrumentedPreferenceFragment {
         // confirmation prompt; otherwise, go back to the initial state.
         if (resultCode == Activity.RESULT_OK && data != null) {
             int type = data.getIntExtra(ChooseLockSettingsHelper.EXTRA_KEY_TYPE, -1);
-            byte[] password = data.getByteArrayExtra(ChooseLockSettingsHelper.EXTRA_KEY_PASSWORD);
-            if (!(password == null || password.length == 0)) {
-                showFinalConfirmation(type, password);
+            LockscreenCredential password = data.getParcelableExtra(
+                    ChooseLockSettingsHelper.EXTRA_KEY_PASSWORD);
+            if (password != null && !password.isNone()) {
+                showFinalConfirmation(type, password.getCredential());
             }
         }
     }

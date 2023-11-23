@@ -57,25 +57,31 @@ public final class CarNavigationInstrumentCluster implements Parcelable {
 
     private final Bundle mExtra;
 
-    public static final Parcelable.Creator<CarNavigationInstrumentCluster> CREATOR
-            = new Parcelable.Creator<CarNavigationInstrumentCluster>() {
-        public CarNavigationInstrumentCluster createFromParcel(Parcel in) {
-            return new CarNavigationInstrumentCluster(in);
-        }
+    public static final Parcelable.Creator<CarNavigationInstrumentCluster> CREATOR =
+                new Parcelable.Creator<CarNavigationInstrumentCluster>() {
+            public CarNavigationInstrumentCluster createFromParcel(Parcel in) {
+                return new CarNavigationInstrumentCluster(in);
+            }
 
-        public CarNavigationInstrumentCluster[] newArray(int size) {
-            return new CarNavigationInstrumentCluster[size];
-        }
-    };
+            public CarNavigationInstrumentCluster[] newArray(int size) {
+                return new CarNavigationInstrumentCluster[size];
+            }
+        };
 
+    /**
+     * Creates a new {@link CarNavigationInstrumentCluster}.
+     */
     public static CarNavigationInstrumentCluster createCluster(int minIntervalMillis) {
         return new CarNavigationInstrumentCluster(minIntervalMillis, CLUSTER_TYPE_IMAGE_CODES_ONLY,
                 0, 0, 0);
     }
 
-    public static CarNavigationInstrumentCluster createCustomImageCluster(int minIntervalMs,
+    /**
+     * Creates a new {@link CarNavigationInstrumentCluster}.
+     */
+    public static CarNavigationInstrumentCluster createCustomImageCluster(int minIntervalMillis,
             int imageWidth, int imageHeight, int imageColorDepthBits) {
-        return new CarNavigationInstrumentCluster(minIntervalMs,
+        return new CarNavigationInstrumentCluster(minIntervalMillis,
                 CLUSTER_TYPE_CUSTOM_IMAGES_SUPPORTED,
                 imageWidth, imageHeight, imageColorDepthBits);
     }
@@ -108,7 +114,9 @@ public final class CarNavigationInstrumentCluster implements Parcelable {
      * Contains extra information about instrument cluster.
      * @hide
      */
-    public Bundle getExtra() { return mExtra; }
+    public Bundle getExtra() {
+        return mExtra;
+    }
 
     /**
      * If instrument cluster is image, number of bits of colour depth it supports (8, 16, or 32).
@@ -127,10 +135,9 @@ public final class CarNavigationInstrumentCluster implements Parcelable {
 
     /**
      * Whether cluster support custom image or not.
-     * @return
      */
     public boolean supportsCustomImages() {
-      return mType == CLUSTER_TYPE_CUSTOM_IMAGES_SUPPORTED;
+        return mType == CLUSTER_TYPE_CUSTOM_IMAGES_SUPPORTED;
     }
 
     private CarNavigationInstrumentCluster(
@@ -174,12 +181,12 @@ public final class CarNavigationInstrumentCluster implements Parcelable {
     /** Converts to string for debug purpose */
     @Override
     public String toString() {
-        return CarNavigationInstrumentCluster.class.getSimpleName() + "{ " +
-                "minIntervalMillis: " + mMinIntervalMillis + ", " +
-                "type: " + mType + ", " +
-                "imageWidth: " + mImageWidth + ", " +
-                "imageHeight: " + mImageHeight + ", " +
-                "imageColourDepthBits: " + mImageColorDepthBits +
-                "extra: " + mExtra + " }";
+        return CarNavigationInstrumentCluster.class.getSimpleName() + "{ "
+                + "minIntervalMillis: " + mMinIntervalMillis + ", "
+                + "type: " + mType + ", "
+                + "imageWidth: " + mImageWidth + ", "
+                + "imageHeight: " + mImageHeight + ", "
+                + "imageColourDepthBits: " + mImageColorDepthBits
+                + "extra: " + mExtra + " }";
     }
 }

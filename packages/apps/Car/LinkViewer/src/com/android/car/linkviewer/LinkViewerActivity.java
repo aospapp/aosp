@@ -17,19 +17,20 @@
 
 package com.android.car.linkviewer;
 
+import static com.android.car.ui.core.CarUi.requireToolbar;
+import static com.android.car.ui.toolbar.Toolbar.State.SUBPAGE;
+
 import android.app.Activity;
-import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.drawable.BitmapDrawable;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
 
-import androidx.car.widget.CarToolbar;
+import com.android.car.ui.toolbar.ToolbarController;
 
 import com.google.zxing.WriterException;
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel;
@@ -52,6 +53,10 @@ public class LinkViewerActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        ToolbarController toolbar = requireToolbar(this);
+        toolbar.setTitle(R.string.app_name);
+        toolbar.setState(SUBPAGE);
+
         String url = getUrlFromIntent(getIntent());
         if (url == null) {
             finish();
@@ -61,11 +66,6 @@ public class LinkViewerActivity extends Activity {
         setContentView(R.layout.link_viewer_activity);
         mUrlText = findViewById(R.id.url_text);
         mUrlImage = findViewById(R.id.url_image);
-
-        CarToolbar toolbar = findViewById(R.id.car_toolbar);
-        toolbar.setNavigationIconOnClickListener(v -> {
-            finish();
-        });
 
         showUrl(url);
     }

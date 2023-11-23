@@ -32,6 +32,7 @@ import com.android.documentsui.R;
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.DocumentStack;
 import com.android.documentsui.base.Features;
+import com.android.documentsui.base.UserId;
 import com.android.documentsui.clipping.UrisSupplier;
 
 import java.io.FileNotFoundException;
@@ -103,7 +104,7 @@ final class DeleteJob extends ResolvedResourcesJob {
         DocumentInfo parentDoc;
         try {
             parentDoc = mParentUri != null
-                ? DocumentInfo.fromUri(resolver, mParentUri)
+                ? DocumentInfo.fromUri(resolver, mParentUri, UserId.DEFAULT_USER)
                 : null;
         } catch (FileNotFoundException e) {
           Log.e(TAG, "Failed to resolve parent from Uri: " + mParentUri + ". Cannot continue.", e);

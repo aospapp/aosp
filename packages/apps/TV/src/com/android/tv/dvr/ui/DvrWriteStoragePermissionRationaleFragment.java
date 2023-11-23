@@ -19,8 +19,8 @@ package com.android.tv.dvr.ui;
 import android.app.Activity;
 import android.content.res.Resources;
 import android.os.Bundle;
-import android.support.v17.leanback.widget.GuidanceStylist;
-import android.support.v17.leanback.widget.GuidedAction;
+import androidx.leanback.widget.GuidanceStylist;
+import androidx.leanback.widget.GuidedAction;
 
 import com.android.tv.R;
 

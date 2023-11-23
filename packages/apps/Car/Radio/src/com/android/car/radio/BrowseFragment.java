@@ -16,6 +16,8 @@
 
 package com.android.car.radio;
 
+import static com.android.car.ui.core.CarUi.requireInsets;
+
 import android.content.Context;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -28,11 +30,13 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.car.broadcastradio.support.Program;
 import com.android.car.radio.storage.RadioStorage;
+import com.android.car.ui.baselayout.Insets;
+import com.android.car.ui.baselayout.InsetsChangedListener;
 
 /**
  * Fragment that shows all browseable radio stations from background scan
  */
-public class BrowseFragment extends Fragment {
+public class BrowseFragment extends Fragment implements InsetsChangedListener {
 
     private RadioController mRadioController;
     private BrowseAdapter mBrowseAdapter;
@@ -66,6 +70,32 @@ public class BrowseFragment extends Fragment {
                 .getDimensionPixelSize(R.dimen.browse_list_fading_edge_length));
 
         mRadioController.getProgramList().observe(this, mBrowseAdapter::setProgramList);
+    }
+
+    @Override
+    public void setUserVisibleHint(boolean isVisibleToUser) {
+        super.setUserVisibleHint(isVisibleToUser);
+        if (isVisibleToUser) {
+            mRadioController.setSkipMode(SkipMode.BROWSE);
+        }
+    }
+
+    @Override
+    public void onCarUiInsetsChanged(Insets insets) {
+        View view = requireView();
+        View recyclerView = view.findViewById(R.id.browse_list);
+        recyclerView.setPadding(insets.getLeft(),
+                insets.getTop(),
+                insets.getRight(),
+                insets.getBottom());
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+
+        // This is needed to apply the inset changes that happened before this fragment was visible
+        onCarUiInsetsChanged(requireInsets(getActivity()));
     }
 
     private void handlePresetItemFavoriteChanged(Program program, boolean saveAsFavorite) {

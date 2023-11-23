@@ -115,20 +115,24 @@ public class FallbackAssistant {
         }
 
         List<CharSequence> messages = new ArrayList<>();
-
         List<Message> messageList = Message.getMessagesFromBundleArray(messagesBundle);
         if (messageList == null || messageList.isEmpty()) {
             Log.w(TAG, "No messages could be extracted from the bundle");
             listener.onMessageRead(/* hasError= */ true);
             return;
         }
-        // The sender should be the same for all the messages.
-        Person sender = messageList.get(0).getSenderPerson();
-        if (sender != null) {
-            messages.add(sender.getName());
+
+        Person previousSender = messageList.get(0).getSenderPerson();
+        if (previousSender != null) {
+            messages.add(previousSender.getName());
             messages.add(mVerbForSays);
         }
         for (Message message : messageList) {
+            if (!message.getSenderPerson().equals(previousSender)) {
+                messages.add(message.getSenderPerson().getName());
+                messages.add(mVerbForSays);
+                previousSender = message.getSenderPerson();
+            }
             messages.add(message.getText());
         }
 

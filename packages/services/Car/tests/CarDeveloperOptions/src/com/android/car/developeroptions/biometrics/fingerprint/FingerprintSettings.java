@@ -132,6 +132,7 @@ public class FingerprintSettings extends SubSettings {
         private boolean mLaunchedConfirm;
         private Drawable mHighlightDrawable;
         private int mUserId;
+        private CharSequence mFooterTitle;
 
         private static final String TAG_AUTHENTICATE_SIDECAR = "authenticate_sidecar";
         private static final String TAG_REMOVAL_SIDECAR = "removal_sidecar";
@@ -320,7 +321,6 @@ public class FingerprintSettings extends SubSettings {
                 launchChooseOrConfirmLock();
             }
 
-            final FooterPreference pref = mFooterPreferenceMixin.createFooterPreference();
             final EnforcedAdmin admin = RestrictedLockUtilsInternal.checkIfKeyguardFeaturesDisabled(
                     activity, DevicePolicyManager.KEYGUARD_DISABLE_FINGERPRINT, mUserId);
             final AnnotationSpan.LinkInfo adminLinkInfo = new AnnotationSpan.LinkInfo(
@@ -331,11 +331,11 @@ public class FingerprintSettings extends SubSettings {
                     activity, getString(getHelpResource()), activity.getClass().getName());
             final AnnotationSpan.LinkInfo linkInfo = new AnnotationSpan.LinkInfo(
                     activity, ANNOTATION_URL, helpIntent);
-            pref.setTitle(AnnotationSpan.linkify(getText(admin != null
+            mFooterTitle = AnnotationSpan.linkify(getText(admin != null
                             ? R.string
                             .security_settings_fingerprint_enroll_disclaimer_lockscreen_disabled
                             : R.string.security_settings_fingerprint_enroll_disclaimer),
-                    linkInfo, adminLinkInfo));
+                    linkInfo, adminLinkInfo);
         }
 
         protected void removeFingerprintPreference(int fingerprintId) {
@@ -397,6 +397,7 @@ public class FingerprintSettings extends SubSettings {
             root.addPreference(addPreference);
             addPreference.setOnPreferenceChangeListener(this);
             updateAddPreference();
+            createFooterPreference(root);
         }
 
         private void updateAddPreference() {
@@ -414,6 +415,15 @@ public class FingerprintSettings extends SubSettings {
             Preference addPreference = findPreference(KEY_FINGERPRINT_ADD);
             addPreference.setSummary(maxSummary);
             addPreference.setEnabled(!tooMany && !removalInProgress);
+        }
+
+        private void createFooterPreference(PreferenceGroup root) {
+            final Context context = getActivity();
+            if (context == null) {
+                return;
+            }
+            root.addPreference(new FooterPreference.Builder(context).setTitle(
+                    mFooterTitle).build());
         }
 
         private static String genKey(int id) {

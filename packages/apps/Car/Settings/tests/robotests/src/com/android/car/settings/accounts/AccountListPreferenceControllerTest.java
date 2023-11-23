@@ -19,14 +19,13 @@ package com.android.car.settings.accounts;
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.robolectric.RuntimeEnvironment.application;
 
 import android.accounts.Account;
 import android.accounts.AccountManager;
 import android.accounts.AuthenticatorDescription;
-import android.car.userlib.CarUserManagerHelper;
 import android.content.pm.UserInfo;
 import android.os.UserHandle;
 
@@ -34,13 +33,13 @@ import androidx.lifecycle.Lifecycle;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceCategory;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.R;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
 import com.android.car.settings.testutils.ShadowAccountManager;
-import com.android.car.settings.testutils.ShadowCarUserManagerHelper;
 import com.android.car.settings.testutils.ShadowContentResolver;
+import com.android.car.settings.testutils.ShadowUserHelper;
+import com.android.car.settings.users.UserHelper;
 
 import org.junit.After;
 import org.junit.Before;
@@ -48,13 +47,13 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadow.api.Shadow;
 
 /** Unit tests for {@link AccountListPreferenceController}. */
-@RunWith(CarSettingsRobolectricTestRunner.class)
-@Config(shadows = {ShadowCarUserManagerHelper.class, ShadowContentResolver.class,
-        ShadowAccountManager.class})
+@RunWith(RobolectricTestRunner.class)
+@Config(shadows = {ShadowContentResolver.class, ShadowAccountManager.class, ShadowUserHelper.class})
 public class AccountListPreferenceControllerTest {
     private static final int USER_ID = 0;
     private static final String USER_NAME = "name";
@@ -66,18 +65,17 @@ public class AccountListPreferenceControllerTest {
     private FragmentController mFragmentController;
 
     @Mock
-    private CarUserManagerHelper mMockCarUserManagerHelper;
+    private UserHelper mMockUserHelper;
 
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
+        ShadowUserHelper.setInstance(mMockUserHelper);
 
         // Set up user info
-        ShadowCarUserManagerHelper.setMockInstance(mMockCarUserManagerHelper);
-        doReturn(new UserInfo(USER_ID, USER_NAME, 0)).when(
-                mMockCarUserManagerHelper).getCurrentProcessUserInfo();
-        doReturn(true).when(
-                mMockCarUserManagerHelper).canCurrentProcessModifyAccounts();
+        when(mMockUserHelper.getCurrentProcessUserInfo())
+                .thenReturn(new UserInfo(USER_ID, USER_NAME, 0));
+        when(mMockUserHelper.canCurrentProcessModifyAccounts()).thenReturn(true);
 
         // Add authenticated account types so that they are listed below
         addAuthenticator(/* type= */ "com.acct1", /* labelRes= */ R.string.account_type1_label);
@@ -95,6 +93,7 @@ public class AccountListPreferenceControllerTest {
     public void reset() {
         removeAllAccounts();
         ShadowContentResolver.reset();
+        ShadowUserHelper.reset();
     }
 
     @Test

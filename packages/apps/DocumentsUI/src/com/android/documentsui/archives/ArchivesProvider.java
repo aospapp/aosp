@@ -25,18 +25,18 @@ import android.graphics.Point;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.CancellationSignal;
+import android.os.FileUtils;
 import android.os.ParcelFileDescriptor;
 import android.provider.DocumentsContract;
 import android.provider.DocumentsContract.Document;
 import android.provider.DocumentsContract.Root;
 import android.provider.DocumentsProvider;
-import androidx.annotation.Nullable;
 import android.util.Log;
 
-import com.android.documentsui.R;
 import androidx.annotation.GuardedBy;
+import androidx.annotation.Nullable;
 
-import android.os.FileUtils;
+import com.android.documentsui.R;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -56,9 +56,9 @@ import java.util.Set;
 public class ArchivesProvider extends DocumentsProvider {
     public static final String AUTHORITY = "com.android.documentsui.archives";
 
-    private static final String[] DEFAULT_ROOTS_PROJECTION = new String[] {
+    private static final String[] DEFAULT_ROOTS_PROJECTION = new String[]{
             Root.COLUMN_ROOT_ID, Root.COLUMN_DOCUMENT_ID, Root.COLUMN_TITLE, Root.COLUMN_FLAGS,
-            Root.COLUMN_ICON };
+            Root.COLUMN_ICON};
     private static final String TAG = "ArchivesProvider";
     private static final String METHOD_ACQUIRE_ARCHIVE = "acquireArchive";
     private static final String METHOD_RELEASE_ARCHIVE = "releaseArchive";
@@ -129,6 +129,14 @@ public class ArchivesProvider extends DocumentsProvider {
         return cursor;
     }
 
+    /** Overrides a hidden API. */
+    public Cursor queryChildDocumentsForManage(String parentDocumentId,
+            @Nullable String[] projection, @Nullable String sortOrder)
+            throws FileNotFoundException {
+        // No special handling of Archives in managed mode.
+        return queryChildDocuments(parentDocumentId, projection, sortOrder);
+    }
+
     @Override
     public String getDocumentType(String documentId) throws FileNotFoundException {
         final ArchiveId archiveId = ArchiveId.fromDocumentId(documentId);
@@ -179,7 +187,7 @@ public class ArchivesProvider extends DocumentsProvider {
         if (archiveId.mPath.equals("/")) {
             try (final Cursor archiveCursor = getContext().getContentResolver().query(
                     archiveId.mArchiveUri,
-                    new String[] { Document.COLUMN_DISPLAY_NAME },
+                    new String[]{Document.COLUMN_DISPLAY_NAME},
                     null, null, null, null)) {
                 if (archiveCursor == null || !archiveCursor.moveToFirst()) {
                     throw new FileNotFoundException(
@@ -349,7 +357,7 @@ public class ArchivesProvider extends DocumentsProvider {
                 return false;
             }
             return archiveUri.equals(((Key) other).archiveUri) &&
-                accessMode == ((Key) other).accessMode;
+                    accessMode == ((Key) other).accessMode;
         }
 
         @Override

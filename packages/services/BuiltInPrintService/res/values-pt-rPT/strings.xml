@@ -60,6 +60,11 @@
     <string name="forget" msgid="892068061425802502">"Esquecer"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"A ligação é efetuada através de Wi-Fi Direct."</string>
     <string name="connects_via_network" msgid="5990041581556733898">"A ligação é efetuada através da rede atual em <xliff:g id="IP_ADDRESS">%1$s</xliff:g>."</string>
+    <string name="recommendation_summary" msgid="2979700524954307566">"O serviço de impressão padrão fornece opções básicas. Podem estar disponíveis outras opções para esta impressora a partir de outro serviço de impressão."</string>
+    <string name="recommendations_heading" msgid="5086762263560605249">"Serviços recomendados"</string>
+    <string name="recommendation_install_summary" msgid="374785283809791669">"Selecione para instalar."</string>
+    <string name="recommendation_enable_summary" msgid="3500907868251326224">"Selecione para ativar."</string>
+    <string name="recommendation_manage" msgid="4683640588502866284">"Gerir serviços"</string>
     <string name="security" msgid="2279008326210305401">"Segurança"</string>
     <string name="certificate_update_request" msgid="1314796413107139475">"Esta impressora forneceu um novo certificado de segurança ou outro dispositivo está a roubar a respetiva identidade. Pretende aceitar o novo certificado?"</string>
     <string name="not_encrypted_request" msgid="4871472176807381642">"Esta impressora já não aceita tarefas encriptadas. Pretende continuar com a impressão?"</string>
@@ -68,4 +73,5 @@
     <string name="connections" msgid="8895413761760117180">"Ligações"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"O serviço de impressão padrão necessita de autorização de acesso à localização para procurar dispositivos próximos."</string>
     <string name="fix" msgid="7784394272611365393">"Rever autorização"</string>
+    <string name="print" msgid="7851318072404916362">"Imprimir"</string>
 </resources>

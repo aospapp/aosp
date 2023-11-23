@@ -17,6 +17,7 @@
 package com.android.car.settings.bluetooth;
 
 import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.admin.DevicePolicyManager;
@@ -29,6 +30,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.os.Bundle;
 import android.os.UserManager;
 import android.text.TextUtils;
@@ -37,9 +39,12 @@ import androidx.annotation.VisibleForTesting;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.Logger;
+import com.android.car.ui.AlertDialogBuilder;
 import com.android.settingslib.bluetooth.BluetoothDiscoverableTimeoutReceiver;
 import com.android.settingslib.bluetooth.LocalBluetoothAdapter;
 import com.android.settingslib.bluetooth.LocalBluetoothManager;
+
+import java.util.List;
 
 /**
  * This {@link Activity} handles requests to toggle Bluetooth by collecting user
@@ -62,11 +67,15 @@ public class BluetoothRequestPermissionActivity extends Activity {
     private static final int DISCOVERABLE_TIMEOUT_ONE_HOUR = 3600;
 
     @VisibleForTesting
+    static final String EXTRA_BYPASS_CONFIRM_DIALOG = "bypassConfirmDialog";
+
+    @VisibleForTesting
     static final int DEFAULT_DISCOVERABLE_TIMEOUT = DISCOVERABLE_TIMEOUT_TWO_MINUTES;
     @VisibleForTesting
     static final int MAX_DISCOVERABLE_TIMEOUT = DISCOVERABLE_TIMEOUT_ONE_HOUR;
 
     private AlertDialog mDialog;
+    private boolean mBypassConfirmDialog = false;
     private int mRequest;
     private int mTimeout = DEFAULT_DISCOVERABLE_TIMEOUT;
 
@@ -148,8 +157,16 @@ public class BluetoothRequestPermissionActivity extends Activity {
                         mDialog.show();
                         break;
                     case BluetoothAdapter.STATE_ON:
-                        mDialog = createDiscoverableConfirmDialog(mTimeout);
-                        mDialog.show();
+                        // Allow SetupWizard specifically to skip the discoverability dialog.
+                        String callerName = getCallingPackage();
+                        if (mBypassConfirmDialog
+                                && callerName != null
+                                && callerName.equals(getSetupWizardPackageName())) {
+                            proceedAndFinish();
+                        } else {
+                            mDialog = createDiscoverableConfirmDialog(mTimeout);
+                            mDialog.show();
+                        }
                         break;
                     default:
                         LOG.e("Unknown adapter state: " + btState);
@@ -165,6 +182,24 @@ public class BluetoothRequestPermissionActivity extends Activity {
         super.onDestroy();
         if (mReceiver != null) {
             unregisterReceiver(mReceiver);
+        }
+    }
+
+    @Nullable
+    private String getSetupWizardPackageName() {
+        Intent intent = new Intent(Intent.ACTION_MAIN);
+        intent.addCategory(Intent.CATEGORY_SETUP_WIZARD);
+
+        List<ResolveInfo> matches = getPackageManager().queryIntentActivities(intent,
+                PackageManager.MATCH_SYSTEM_ONLY | PackageManager.MATCH_DIRECT_BOOT_AWARE
+                        | PackageManager.MATCH_DIRECT_BOOT_UNAWARE
+                        | PackageManager.MATCH_DISABLED_COMPONENTS);
+        if (matches.size() == 1) {
+            return matches.get(0).getComponentInfo().packageName;
+        } else {
+            LOG.e("There should probably be exactly one setup wizard; found " + matches.size()
+                    + ": matches=" + matches);
+            return null;
         }
     }
 
@@ -220,6 +255,7 @@ public class BluetoothRequestPermissionActivity extends Activity {
                 request = REQUEST_ENABLE_DISCOVERABLE;
                 mTimeout = intent.getIntExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION,
                         DEFAULT_DISCOVERABLE_TIMEOUT);
+                mBypassConfirmDialog = intent.getBooleanExtra(EXTRA_BYPASS_CONFIRM_DIALOG, false);
 
                 if (mTimeout < 1 || mTimeout > MAX_DISCOVERABLE_TIMEOUT) {
                     mTimeout = DEFAULT_DISCOVERABLE_TIMEOUT;
@@ -235,7 +271,7 @@ public class BluetoothRequestPermissionActivity extends Activity {
         if (TextUtils.isEmpty(packageName)) {
             packageName = intent.getStringExtra(Intent.EXTRA_PACKAGE_NAME);
         }
-        if (!TextUtils.isEmpty(packageName)) {
+        if (!mBypassConfirmDialog && !TextUtils.isEmpty(packageName)) {
             try {
                 ApplicationInfo applicationInfo = getPackageManager().getApplicationInfo(
                         packageName, 0);
@@ -253,7 +289,7 @@ public class BluetoothRequestPermissionActivity extends Activity {
         int message = mRequest == REQUEST_DISABLE ? R.string.bluetooth_turning_off
                 : R.string.bluetooth_turning_on;
 
-        return new AlertDialog.Builder(/* context= */ this)
+        return new AlertDialogBuilder(/* context= */ this)
                 .setMessage(message)
                 .setCancelable(false).setOnCancelListener(
                         dialog -> finishWithResult(RESULT_CANCELED))
@@ -266,7 +302,7 @@ public class BluetoothRequestPermissionActivity extends Activity {
                 ? getString(R.string.bluetooth_ask_discovery, mAppLabel, timeoutSeconds)
                 : getString(R.string.bluetooth_ask_discovery_no_name, timeoutSeconds);
 
-        return new AlertDialog.Builder(/* context= */ this)
+        return new AlertDialogBuilder(/* context= */ this)
                 .setMessage(message)
                 .setPositiveButton(R.string.allow, (dialog, which) -> proceedAndFinish())
                 .setNegativeButton(R.string.deny,
@@ -280,7 +316,7 @@ public class BluetoothRequestPermissionActivity extends Activity {
                 ? getString(R.string.bluetooth_ask_enablement, mAppLabel)
                 : getString(R.string.bluetooth_ask_enablement_no_name);
 
-        return new AlertDialog.Builder(/* context= */ this)
+        return new AlertDialogBuilder(/* context= */ this)
                 .setMessage(message)
                 .setPositiveButton(R.string.allow, this::onConfirmEnableBluetooth)
                 .setNegativeButton(R.string.deny,
@@ -297,7 +333,7 @@ public class BluetoothRequestPermissionActivity extends Activity {
                 : getString(R.string.bluetooth_ask_enablement_and_discovery_no_name,
                         timeoutSeconds);
 
-        return new AlertDialog.Builder(/* context= */ this)
+        return new AlertDialogBuilder(/* context= */ this)
                 .setMessage(message)
                 .setPositiveButton(R.string.allow, this::onConfirmEnableBluetooth)
                 .setNegativeButton(R.string.deny,
@@ -345,7 +381,7 @@ public class BluetoothRequestPermissionActivity extends Activity {
                 ? getString(R.string.bluetooth_ask_disablement, mAppLabel)
                 : getString(R.string.bluetooth_ask_disablement_no_name);
 
-        return new AlertDialog.Builder(/* context= */ this)
+        return new AlertDialogBuilder(/* context= */ this)
                 .setMessage(message)
                 .setPositiveButton(R.string.allow, this::onConfirmDisableBluetooth)
                 .setNegativeButton(R.string.deny,

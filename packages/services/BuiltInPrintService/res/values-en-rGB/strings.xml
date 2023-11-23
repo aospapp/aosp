@@ -60,6 +60,11 @@
     <string name="forget" msgid="892068061425802502">"Forget"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"Connects via Wi-Fi Direct"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"Connects via current network at <xliff:g id="IP_ADDRESS">%1$s</xliff:g>"</string>
+    <string name="recommendation_summary" msgid="2979700524954307566">"The default print service provides basic options. Other options for this printer may be available from another print service."</string>
+    <string name="recommendations_heading" msgid="5086762263560605249">"Recommended services"</string>
+    <string name="recommendation_install_summary" msgid="374785283809791669">"Select to install"</string>
+    <string name="recommendation_enable_summary" msgid="3500907868251326224">"Select to enable"</string>
+    <string name="recommendation_manage" msgid="4683640588502866284">"Manage services"</string>
     <string name="security" msgid="2279008326210305401">"Security"</string>
     <string name="certificate_update_request" msgid="1314796413107139475">"This printer provided a new security certificate, or another device is impersonating it. Accept the new certificate?"</string>
     <string name="not_encrypted_request" msgid="4871472176807381642">"This printer no longer accepts encrypted jobs. Continue printing?"</string>
@@ -68,4 +73,5 @@
     <string name="connections" msgid="8895413761760117180">"Connections"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Default Print Service needs location permission to find nearby devices."</string>
     <string name="fix" msgid="7784394272611365393">"Review permission"</string>
+    <string name="print" msgid="7851318072404916362">"Print"</string>
 </resources>

@@ -27,7 +27,6 @@ import android.content.pm.IPackageManager;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.managedprovisioning.common.IllegalProvisioningArgumentException;
-import com.android.managedprovisioning.common.ProvisionLogger;
 import com.android.managedprovisioning.common.Utils;
 import com.android.managedprovisioning.model.ProvisioningParams;
 
@@ -101,13 +100,6 @@ public class NonRequiredAppsLogic {
             return Collections.emptySet();
         }
 
-        // Start with all system apps
-        Set<String> newSystemApps = mUtils.getCurrentSystemApps(mIPackageManager, userId);
-
-        // Remove the ones that were already present in the last snapshot only when OTA
-        if (!mNewProfile) {
-            newSystemApps.removeAll(mSnapshot.getSnapshot(userId));
-        }
         ComponentName deviceAdminComponentName;
         try {
             deviceAdminComponentName = mParams.inferDeviceAdminComponentName(
@@ -119,11 +111,24 @@ public class NonRequiredAppsLogic {
         // Get the packages from the black/white lists
         Set<String> packagesToDelete = mDevicePolicyManager.getDisallowedSystemApps(
                 deviceAdminComponentName, userId, mParams.provisioningAction);
-
-        // Retain only new system apps
-        packagesToDelete.retainAll(newSystemApps);
-
+        if (mNewProfile) {
+            return packagesToDelete;
+        }
+        filterOutSystemAppsFromOta(packagesToDelete, userId);
         return packagesToDelete;
+    }
+
+    /**
+     * Modifies the given set of packages by removing system apps added explicitly from the OTA.
+     */
+    private void filterOutSystemAppsFromOta(Set<String> packagesToDelete, int userId) {
+        // Start with all system apps
+        Set<String> newSystemApps = mUtils.getCurrentSystemApps(mIPackageManager, userId);
+
+        // Remove the ones that were already present in the last snapshot
+        newSystemApps.removeAll(mSnapshot.getSnapshot(userId));
+
+        packagesToDelete.retainAll(newSystemApps);
     }
 
     public void maybeTakeSystemAppsSnapshot(int userId) {

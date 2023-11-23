@@ -26,6 +26,8 @@ import java.util.function.Consumer;
 
 /**
  * Handles call back into clients for Car managers.
+ *
+ * @param <EventType> type of event to be handled
  * @hide
  */
 public abstract class SingleMessageHandler<EventType> implements Callback {
@@ -58,6 +60,7 @@ public abstract class SingleMessageHandler<EventType> implements Callback {
         return true;
     }
 
+    /** Send the events passsed as parameter */
     public void sendEvents(List<EventType> events) {
         mHandler.sendMessage(mHandler.obtainMessage(mHandledMessageWhat, events));
     }

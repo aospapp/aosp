@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 
+  ~ Copyright (C) 2019 The Android Open Source Project
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~
+  ~      http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+   -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="default_device_name" msgid="405493967512651629">"संबंधित डिव्हाइस"</string>
+    <string name="add_device_title" msgid="6166003577845888151">"संबंधित डिव्हाइस जोडा"</string>
+    <string name="add_associated_device_title" msgid="3275596124326477381">"सहयोगी डिव्हाइस कनेक्ट करा"</string>
+    <string name="add_associated_device_instruction" msgid="1015406964657139291">"ड्रायव्हिंग अनुभव व्यवस्थापित करण्यात मदत करण्यासाठी तुमचा फोन सहयोगी डिव्हाइस म्हणून वापरू शकता"</string>
+    <string name="associated_device_install_app" msgid="981663561198924864">"तुमच्या फोनवर "<b>"सहयोगी अ‍ॅप"</b>" इंस्टॉल केले असल्याची खात्री करा"</string>
+    <string name="associated_device_pairing_code_title" msgid="5118861901337336309">"फोनवरील कोडची खात्री करा"</string>
+    <string name="associated_device_pairing_message" msgid="7319249426394299109">"तुमच्या फोनवर दिसणाऱ्या कोडशी हे जुळत असल्याची खात्री करा"</string>
+    <string name="associated_device_success" msgid="584760065696870256">"डिव्हाइस यशस्वीरीत्या संबद्ध केले गेले आहे"</string>
+    <string name="associated_device_select_device" msgid="1931869046289060602">"ॲप उघडा आणि &lt;b&gt;<xliff:g id="CAR_NAME">%1$s</xliff:g>&lt;b&gt; शी कनेक्ट करा"</string>
+    <string name="remove_associated_device_title" msgid="4060806982019423895">"&lt;b&gt;<xliff:g id="CAR_NAME">%1$s</xliff:g>&lt;/b&gt;विसरायचे आहे का?"</string>
+    <string name="remove_associated_device_message" msgid="3991333597951462900">"ही कार यापुढे या डिव्हाइससह पेअर होणार नाही. तुम्हाला या व्यतिरिक्त सहयोगी अ‍ॅपमधून ही कार काढून टाकणे आवश्यक असेल."</string>
+    <string name="device_removed_success_toast_text" msgid="3242832156490823936">"<xliff:g id="PHONE_NAME">%1$s</xliff:g> विसरण्यात आला आहे"</string>
+    <string name="device_removed_failure_toast_text" msgid="3756625943664982395">"<xliff:g id="PHONE_NAME">%1$s</xliff:g> विसरता आला नाही"</string>
+    <string name="continue_setup_toast_text" msgid="8487187853051037413">"तुमच्‍या फोनवर सेट करणे सुरू ठेवा"</string>
+    <string name="error_screen_title" msgid="3977744142045194903">"काहीतरी चूक झाली"</string>
+    <string name="error_screen_message" msgid="1217200461704367056">"दुर्दैवाने, ही स्क्रीन योग्यप्रकारे प्रदर्शित होऊ शकली नाही. कृपया पुन्हा प्रयत्न करा."</string>
+    <string name="turn_on_bluetooth_title" msgid="2877749869113938263">"ब्लूटूथ सुरू करा"</string>
+    <string name="turn_on_bluetooth_message" msgid="5087006108685547788">"तुमचा फोन सहयोगी डिव्हाइस म्हणून सेट करण्यासाठी तुमच्या कारला ब्लूटूथ आवश्यक आहे."</string>
+    <string name="turn_on_bluetooth_dialog_title" msgid="8693712073791430461">"ब्लूटूथ सुरू करायचे आहे का?"</string>
+    <string name="turn_on_bluetooth_dialog_message" msgid="5347157597209022072">"तुमच्या सहयोगी डिव्हाइससह कनेक्ट करण्यासाठी तुमच्या कारला ब्लूटूथ आवश्यक आहे."</string>
+    <string name="accept" msgid="1454710793329618813">"स्वीकारा"</string>
+    <string name="reject" msgid="4315432282758892890">"नकार द्या"</string>
+    <string name="confirm" msgid="3748997214719276945">"निश्चित करा"</string>
+    <string name="cancel" msgid="4306609731174629323">"रद्द करा"</string>
+    <string name="remove" msgid="5513398257088729188">"काढून टाका"</string>
+    <string name="ok" msgid="2825038997730899083">"ओके"</string>
+    <string name="connection" msgid="2798490936433656846">"कनेक्शन"</string>
+    <string name="forget_title" msgid="3027608547243824729">"हे डिव्हाइस विसरा"</string>
+    <string name="forget" msgid="2069897665699141222">"विसरा"</string>
+    <string name="disable" msgid="4619854429066283970">"बंद करा"</string>
+    <string name="enable" msgid="7656386199154111316">"सुरू करा"</string>
+    <string name="continue_button" msgid="2748318968566159950">"पुढे सुरू ठेवा"</string>
+    <string name="retry" msgid="3783419451480721367">"पुन्हा प्रयत्न करा"</string>
+    <string name="turn_on" msgid="4288754850470994812">"सुरू करा"</string>
+    <string name="not_now" msgid="8764692269093707622">"आता नको"</string>
+    <string name="connected" msgid="8051190714042020471">"कनेक्ट केले आहे"</string>
+    <string name="notDetected" msgid="4115229772085594506">"आढळले नाही"</string>
+    <string name="disconnected" msgid="8526513868622591894">"डिस्कनेक्ट केले आहे"</string>
+    <string name="unknown" msgid="555736316465118024">"अज्ञात"</string>
+    <string name="app_running_msg_channel_name" msgid="87011783084544733">"फोन एसएमएस सेवा रन होत आहे"</string>
+    <string name="app_running_msg_notification_title" msgid="388907180286994900">"फोन एसएमएस सेवा अ‍ॅक्टिव्ह आहे"</string>
+    <string name="app_running_msg_notification_content" msgid="4602261901969140233">"सहयोगी डिव्हाइसद्वारे एसएमएस मिळवत आहे"</string>
+    <string name="trusted_device_feature_title" msgid="2690568414493283969">"फोनसह प्रोफाइल अनलॉक करा"</string>
+    <string name="trusted_device_feature_instruction" msgid="2546439818978826962">"अनलॉक करण्याचे पर्याय सेट करण्यासाठी तुमचे सहयोगी अ‍ॅप तपासा"</string>
+    <string name="trusted_device_item_title" msgid="4390572381407233745">"&lt;b&gt;<xliff:g id="PHONE_NAME">%1$s</xliff:g>&lt;/b&gt;ला माझी प्रोफाइल अनलॉक करू द्या"</string>
+    <string name="device_not_connected_dialog_title" msgid="1157155922752758658">"तुमचा फोन सक्रियपणे कनेक्ट केलेला असणे आवश्यक आहे"</string>
+    <string name="device_not_connected_dialog_message" msgid="4987412656697205324">"हे वैशिष्ट्य सुरू करण्यासाठी तुमच्या कार आणि फोनमध्ये ब्लूटूथ सुरू असल्याची आणि एकमेकांच्या जवळ असल्याची खात्री करा"</string>
+    <string name="trusted_device_enrollment_success_message" msgid="2080578779942302923">"आता &lt;b&gt;<xliff:g id="PHONE_NAME">%1$s</xliff:g>&lt;/b&gt; तुमची प्रोफाइल अनलॉक करू शकते"</string>
+    <string name="create_profile_lock_dialog_title" msgid="7865225698595414341">"प्राथमिक प्रोफाइल लॉक तयार करा"</string>
+    <string name="create_profile_lock_dialog_message" msgid="5078929325894045416">"तुमची प्रोफाइल अनलॉक करण्यासाठी तुमचा फोन वापरण्याकरिता तुम्हाला बॅकअप म्हणून प्राथमिक प्रोफाइल लॉक आवश्यक आहे"</string>
+    <string name="unlock_profile_to_finish_title" msgid="6542028315996392302">"पूर्ण करण्यासाठी तुमची प्रोफाइल अनलॉक करा"</string>
+    <string name="unlock_profile_to_finish_message" msgid="8616094218201557262">"तुम्ही नवीन प्रोफाइल लॉक तयार केला आहे. पुढे, तुमचा फोन आपोआप तुमची प्रोफाइल अनलॉक करू शकतो याची खात्री करण्यासाठी ते पुन्हा एंटर करा"</string>
+    <string name="disable_device_connection_text" msgid="4361795552013963732">"हे डिव्हाइस डिस्कनेक्ट करा"</string>
+    <string name="enable_device_connection_text" msgid="7742550392552935783">"हे डिव्हाइस पुन्हा कनेक्ट करा"</string>
+    <string name="trusted_device_notification_channel_name" msgid="6717174570621750321">"फोनसह अनलॉक करा"</string>
+    <string name="trusted_device_notification_title" msgid="249913439061543209">"तुमच्या फोनला तुमची प्रोफाइल अनलॉक करू द्या"</string>
+    <string name="trusted_device_notification_content" msgid="7536321078698712456">"या वैशिष्ट्याला परवानगी देण्यासाठी येथे टॅप करा"</string>
+    <string name="trusted_device_enrollment_error_dialog_title" msgid="8120284275374458606">"काहीतरी चूक झाली"</string>
+    <string name="trusted_device_enrollment_error_dialog_message" msgid="7205036748277720461">"दुर्दैवाने, हे वैशिष्ट्य यावेळी सुरू करता आले नाही. कृपया पुन्हा प्रयत्न करा."</string>
+    <string name="create_phone_lock_dialog_title" msgid="9160142569534569820">"तुमच्या फोनवर स्क्रीन लॉक तयार करा"</string>
+    <string name="create_phone_lock_dialog_message" msgid="8209460622086922427">"तुमच्या फोनवर स्क्रीन लॉक सेट केलेला नाही. तुमच्या फोनसह तुमची कार प्रोफाइल अनलॉक करण्यासाठी आधी तुमच्या फोन सेटिंग्जमध्ये स्क्रीन लॉक (पासकोड म्हणूनदेखील ओळखले जाते) तयार करा."</string>
+</resources>

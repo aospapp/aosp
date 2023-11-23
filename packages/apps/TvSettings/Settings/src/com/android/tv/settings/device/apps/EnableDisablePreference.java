@@ -16,7 +16,10 @@
 
 package com.android.tv.settings.device.apps;
 
+import static com.android.tv.settings.util.InstrumentationUtils.logEntrySelected;
+
 import android.app.ActivityManager;
+import android.app.tvsettings.TvSettingsEnums;
 import android.content.Context;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
@@ -52,9 +55,19 @@ public class EnableDisablePreference extends AppActionPreference {
             setVisible(true);
             if (mEntry.info.enabled) {
                 setTitle(R.string.device_apps_app_management_disable);
+                this.setOnPreferenceClickListener(
+                        preference -> {
+                            logEntrySelected(TvSettingsEnums.APPS_ALL_APPS_APP_ENTRY_DISABLE);
+                            return false;
+                        });
                 ConfirmationFragment.prepareArgs(getExtras(), mEntry.info.packageName, false);
             } else {
                 setTitle(R.string.device_apps_app_management_enable);
+                this.setOnPreferenceClickListener(
+                        preference -> {
+                            logEntrySelected(TvSettingsEnums.APPS_ALL_APPS_APP_ENTRY_ENABLE);
+                            return false;
+                        });
                 ConfirmationFragment.prepareArgs(getExtras(), mEntry.info.packageName, true);
             }
         } else {

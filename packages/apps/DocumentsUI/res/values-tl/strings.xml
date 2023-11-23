@@ -36,6 +36,7 @@
     <string name="menu_share" msgid="4307140947108068356">"Ibahagi"</string>
     <string name="menu_delete" msgid="1022254131543256626">"I-delete"</string>
     <string name="menu_select_all" msgid="7600576812185570403">"Piliin lahat"</string>
+    <string name="menu_deselect_all" msgid="7729916068862742979">"I-deselect lahat"</string>
     <string name="menu_select" msgid="1366061076507142387">"Piliin"</string>
     <string name="menu_sort" msgid="3362419226163725275">"Pagbukud-bukurin ayon sa..."</string>
     <string name="menu_copy" msgid="7404820171352314754">"Kopyahin sa..."</string>
@@ -44,6 +45,8 @@
     <string name="menu_extract" msgid="8171946945982532262">"I-extract sa…"</string>
     <string name="menu_rename" msgid="1883113442688817554">"Palitan ang pangalan"</string>
     <string name="menu_inspect" msgid="7279855349299446224">"Kumuha ng impormasyon"</string>
+    <string name="menu_show_hidden_files" msgid="5140676344684492769">"Ipakita ang hidden files"</string>
+    <string name="menu_hide_hidden_files" msgid="5654495713350153702">"Huwag ipakita hidden files"</string>
     <string name="menu_view_in_owner" msgid="7228948660557554770">"Tingnan sa <xliff:g id="SOURCE">%1$s</xliff:g>"</string>
     <string name="menu_new_window" msgid="2947837751796109126">"Bagong window"</string>
     <string name="menu_cut_to_clipboard" msgid="2878752142015026229">"I-cut"</string>
@@ -61,6 +64,7 @@
     <string name="button_retry" msgid="4011461781916631389">"Subukang Muli"</string>
     <string name="button_clear" msgid="5412304437764369441">"I-clear"</string>
     <string name="button_show_provider" msgid="6905880493806292753">"Ipakita sa provider"</string>
+    <string name="button_back" msgid="1888621708934742182">"Bumalik"</string>
     <string name="not_sorted" msgid="7813496644889115530">"Hindi napagbukud-bukod"</string>
     <string name="sort_dimension_name" msgid="6325591541414177579">"Pangalan"</string>
     <string name="sort_dimension_summary" msgid="7724534446881397860">"Buod"</string>
@@ -86,6 +90,18 @@
     <string name="save_error" msgid="8631128801982095782">"Hindi na-save ang dokumento"</string>
     <string name="create_error" msgid="3092144450044861994">"Hindi nagawa ang folder"</string>
     <string name="query_error" msgid="6625421453613879336">"Hindi ma-load ang content sa ngayon"</string>
+    <string name="quiet_mode_error_title" msgid="9126656325282792843">"Naka-pause ang profile sa trabaho"</string>
+    <string name="quiet_mode_button" msgid="6977115032320235420">"I-on"</string>
+    <string name="cant_select_work_files_error_title" msgid="6688716319549644354">"Hindi makapili ng mga file sa trabaho"</string>
+    <string name="cant_select_work_files_error_message" msgid="683480676150690641">"Hindi ka pinapayagan ng iyong IT admin na mag-access ng mga file sa trabaho mula sa personal na app"</string>
+    <string name="cant_select_personal_files_error_title" msgid="3200697170148617742">"Hindi makapili ng mga personal na file"</string>
+    <string name="cant_select_personal_files_error_message" msgid="4105905035459118209">"Hindi ka pinapayagan ng iyong IT admin na mag-access ng mga personal na file mula sa app para sa trabaho"</string>
+    <string name="cant_save_to_work_error_title" msgid="1351323070040641358">"Hindi ma-save sa profile sa trabaho"</string>
+    <string name="cant_save_to_work_error_message" msgid="4975583233814059890">"Hindi ka pinapayagan ng iyong IT admin na mag-save ng mga personal na file sa profile mo sa trabaho"</string>
+    <string name="cant_save_to_personal_error_title" msgid="858327493694069780">"Hindi ma-save sa personal na profile"</string>
+    <string name="cant_save_to_personal_error_message" msgid="6991758723736381751">"Hindi ka pinapayagan ng iyong IT admin na mag-save ng mga file sa trabaho sa personal na profile mo"</string>
+    <string name="cross_profile_action_not_allowed_title" msgid="6611281348716476478">"Hindi pinapayagan ang pagkilos na ito"</string>
+    <string name="cross_profile_action_not_allowed_message" msgid="7331275433061690947">"Para matuto pa, makipag-ugnayan sa iyong IT admin"</string>
     <string name="root_recent" msgid="1080156975424341623">"Kamakailan"</string>
     <string name="root_available_bytes" msgid="8269870862691408864">"<xliff:g id="SIZE">%1$s</xliff:g> ang bakante"</string>
     <string name="root_type_service" msgid="6521366147466512289">"Mga serbisyo ng storage"</string>
@@ -97,6 +113,8 @@
     <string name="toast_no_application" msgid="7555319548595113121">"Hindi mabuksan ang file"</string>
     <string name="toast_view_in_archives_unsupported" msgid="1923221390170964845">"Hindi mabuksan ang mga file sa mga archive"</string>
     <string name="toast_failed_delete" msgid="3453846588205817591">"Hindi ma-delete ang ilang dokumento"</string>
+    <string name="toast_share_over_limit" msgid="5805442886537093015">"Hindi puwedeng magbahagi ng higit sa <xliff:g id="COUNT">%1$d</xliff:g> (na) file."</string>
+    <string name="toast_action_not_allowed" msgid="1329382474450572415">"Hindi pinayagan ang pagkilos"</string>
     <string name="share_via" msgid="8725082736005677161">"Ibahagi gamit ang"</string>
     <string name="copy_notification_title" msgid="52256435625098456">"Kinokopya ang mga file"</string>
     <string name="compress_notification_title" msgid="6830195148113751021">"Kino-compress ang files"</string>
@@ -222,29 +240,42 @@
       <item quantity="one"><xliff:g id="COUNT_1">%1$d</xliff:g> ang napili</item>
       <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> ang napili</item>
     </plurals>
-    <string name="root_info_header_recent" msgid="8754386597210017725">"Mga kamakailang file sa telepono"</string>
-    <string name="root_info_header_global_search" msgid="9099308729787003373">"Mga file sa telepono"</string>
-    <string name="root_info_header_media" msgid="2774453755906260852">"<xliff:g id="LABEL">%1$s</xliff:g> sa telepono"</string>
+    <string name="root_info_header_recent" msgid="5654901877295332262">"Mga kamakailang file"</string>
+    <string name="root_info_header_global_search" msgid="4904078222280496152">"Mga File"</string>
+    <string name="root_info_header_downloads" msgid="8848161246921154115">"Mga file sa Mga download"</string>
     <string name="root_info_header_storage" msgid="2989014130584927442">"Mga file sa <xliff:g id="DEVICE">%1$s</xliff:g>"</string>
+    <string name="root_info_header_folder" msgid="5851172222368049864">"Mga file sa <xliff:g id="FOLDER">%1$s</xliff:g>"</string>
     <string name="root_info_header_app" msgid="2125422047558420885">"Mga file mula sa <xliff:g id="LABEL">%1$s</xliff:g>"</string>
     <string name="root_info_header_app_with_summary" msgid="3223302581236069702">"Mga file mula sa <xliff:g id="LABEL">%1$s</xliff:g> / <xliff:g id="SUMMARY">%2$s</xliff:g>"</string>
-    <string name="root_info_header_image_recent" msgid="6252335619444758201">"Mga kamakailang larawan sa telepono"</string>
-    <string name="root_info_header_image_global_search" msgid="7945533325610533016">"Mga larawan sa telepono"</string>
+    <string name="root_info_header_image_recent" msgid="7494373563753926014">"Mga kamakailang larawan"</string>
+    <string name="root_info_header_image_global_search" msgid="7307009823489854697">"Mga Larawan"</string>
+    <string name="root_info_header_image_downloads" msgid="7072252612657612307">"Mga larawan sa Mga download"</string>
     <string name="root_info_header_image_storage" msgid="5086740886360075930">"Mga larawan sa <xliff:g id="DEVICE">%1$s</xliff:g>"</string>
+    <string name="root_info_header_image_folder" msgid="5980430877636279667">"Mga larawan sa <xliff:g id="FOLDER">%1$s</xliff:g>"</string>
     <string name="root_info_header_image_app" msgid="4858114210851525359">"Mga larawan mula sa <xliff:g id="LABEL">%1$s</xliff:g>"</string>
     <string name="root_info_header_image_app_with_summary" msgid="6404842960923224778">"Mga larawan mula sa <xliff:g id="LABEL">%1$s</xliff:g> / <xliff:g id="SUMMARY">%2$s</xliff:g>"</string>
     <string name="chip_title_images" msgid="7838299046109841015">"Mga Larawan"</string>
     <string name="chip_title_audio" msgid="1032801828748235436">"Audio"</string>
     <string name="chip_title_videos" msgid="7011260091979776447">"Mga Video"</string>
     <string name="chip_title_documents" msgid="7432457563000753983">"Mga Dokumento"</string>
+    <string name="chip_title_large_files" msgid="7740269190493883980">"Malalaking file"</string>
+    <string name="chip_title_from_this_week" msgid="4961536405220379672">"Ngayong linggo"</string>
     <string name="input_hint_new_folder" msgid="479672411219725677">"Pangalan ng folder"</string>
     <string name="input_hint_rename" msgid="8390711744270994452">"Bagong pangalan"</string>
     <string name="preview_file" msgid="4056622696305432343">"I-preview ang file na <xliff:g id="FILENAME">%1$s</xliff:g>"</string>
+    <string name="preview_work_file" msgid="4495643735563487273">"I-preview ang file sa trabaho na <xliff:g id="FILENAME">%1$s</xliff:g>"</string>
     <string name="apps_row_title" msgid="3340490016663092925">"I-browse ang mga file sa iba pang app"</string>
     <string name="anonymous_application" msgid="7633027057951625862">"Anonymous"</string>
-    <string name="open_tree_button" msgid="19992834788135845">"Payagan ang access sa \"<xliff:g id="DIRECTORY">%1$s</xliff:g>\""</string>
-    <string name="open_tree_dialog_title" msgid="8429465292253532274">"Payagan ang access sa \"<xliff:g id="DIRECTORY">%1$s</xliff:g>\" sa \"<xliff:g id="ROOT">%2$s</xliff:g>\"?"</string>
-    <string name="open_tree_dialog_message" msgid="8545093618524340168">"Mabibigyang-daan nito ang \"<xliff:g id="APPNAME">%1$s</xliff:g>\" na magkaroon ng ganap na access sa lahat ng file na kasalukuyang naka-store sa ilalim ng lokasyong ito, at anumang content sa hinaharap na naka-store dito."</string>
+    <string name="open_tree_button" msgid="6402871398424497776">"Gamitin ang folder na ito"</string>
+    <string name="open_tree_dialog_title" msgid="6339509533852318569">"Pahintulutan ang <xliff:g id="APPNAME">%1$s</xliff:g> na i-access ang mga file sa <xliff:g id="DIRECTORY">%2$s</xliff:g>?"</string>
+    <string name="open_tree_dialog_message" msgid="4120695398430659628">"Bibigyang-daan nito ang <xliff:g id="APPNAME">%1$s</xliff:g> na i-access ang content sa kasalukuyan at hinaharap na naka-store sa <xliff:g id="DIRECTORY">%2$s</xliff:g>."</string>
+    <string name="directory_blocked_header_title" msgid="1164584889578740066">"Hindi magagamit ang folder na ito"</string>
+    <string name="directory_blocked_header_subtitle" msgid="2829150911849033408">"Para maprotektahan ang iyong privacy, pumili ng ibang folder"</string>
+    <string name="create_new_folder_button" msgid="8859613309559794890">"Gumawa ng bagong folder"</string>
     <string name="search_bar_hint" msgid="4517366509897977321">"Maghanap sa teleponong ito"</string>
     <string name="delete_search_history" msgid="2202015025607694515">"I-delete ang history ng paghahanap <xliff:g id="TEXT">%1$s</xliff:g>"</string>
+    <string name="personal_tab" msgid="3878576287868528503">"Personal"</string>
+    <string name="work_tab" msgid="7265359366883747413">"Work"</string>
+    <string name="a11y_work" msgid="7504431382825242153">"Trabaho"</string>
+    <string name="drag_from_another_app" msgid="8310249276199969905">"Hindi ka makakapaglipat ng mga file mula sa ibang app."</string>
 </resources>

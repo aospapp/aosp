@@ -20,12 +20,10 @@ import android.database.Cursor;
 import android.support.annotation.NonNull;
 import android.util.Log;
 import com.android.tv.common.util.StringUtils;
-import com.android.tv.tuner.data.nano.Channel;
-import com.android.tv.tuner.data.nano.Channel.TunerChannelProto;
-import com.android.tv.tuner.data.nano.Track.AtscAudioTrack;
-import com.android.tv.tuner.data.nano.Track.AtscCaptionTrack;
-import com.android.tv.tuner.util.Ints;
-import com.google.protobuf.nano.MessageNano;
+import com.android.tv.tuner.data.Channel.DeliverySystemType;
+import com.android.tv.tuner.data.Channel.TunerChannelProto;
+import com.android.tv.tuner.data.Track.AtscAudioTrack;
+import com.android.tv.tuner.data.Track.AtscCaptionTrack;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -55,7 +53,7 @@ public class TunerChannel implements Comparable<TunerChannel>, PsipData.TvTracks
                 "Extended Parameterized Service"
             };
     private static final String ATSC_SERVICE_TYPE_NAME_RESERVED =
-            ATSC_SERVICE_TYPE_NAMES[Channel.AtscServiceType.SERVICE_TYPE_ATSC_RESERVED];
+            ATSC_SERVICE_TYPE_NAMES[Channel.AtscServiceType.SERVICE_TYPE_ATSC_RESERVED_VALUE];
 
     public static final int INVALID_FREQUENCY = -1;
 
@@ -66,93 +64,140 @@ public class TunerChannel implements Comparable<TunerChannel>, PsipData.TvTracks
     public static final int INVALID_STREAMTYPE = -1;
 
     // @GuardedBy(this) Writing operations and toByteArray will be guarded. b/34197766
-    private final TunerChannelProto mProto;
+    private TunerChannelProto mProto;
 
     private TunerChannel(
-            PsipData.VctItem channel, int programNumber, List<PsiData.PmtItem> pmtItems, int type) {
-        mProto = new TunerChannelProto();
-        if (channel == null) {
-            mProto.shortName = "";
-            mProto.tsid = 0;
-            mProto.programNumber = programNumber;
-            mProto.virtualMajor = 0;
-            mProto.virtualMinor = 0;
-        } else {
-            mProto.shortName = channel.getShortName();
-            if (channel.getLongName() != null) {
-                mProto.longName = channel.getLongName();
+            PsipData.VctItem channel,
+            int programNumber,
+            List<PsiData.PmtItem> pmtItems,
+            Channel.TunerType type) {
+        String shortName = "";
+        String longName = "";
+        String description = "";
+        int tsid = 0;
+        int virtualMajor = 0;
+        int virtualMinor = 0;
+        Channel.AtscServiceType serviceType =
+                Channel.AtscServiceType.SERVICE_TYPE_ATSC_DIGITAL_TELEVISION;
+        if (channel != null) {
+            shortName = channel.getShortName();
+            tsid = channel.getChannelTsid();
+            programNumber = channel.getProgramNumber();
+            virtualMajor = channel.getMajorChannelNumber();
+            virtualMinor = channel.getMinorChannelNumber();
+            Channel.AtscServiceType chanServiceType =
+                    Channel.AtscServiceType.forNumber(channel.getServiceType());
+            if (chanServiceType != null) {
+                serviceType = chanServiceType;
             }
-            mProto.tsid = channel.getChannelTsid();
-            mProto.programNumber = channel.getProgramNumber();
-            mProto.virtualMajor = channel.getMajorChannelNumber();
-            mProto.virtualMinor = channel.getMinorChannelNumber();
-            if (channel.getDescription() != null) {
-                mProto.description = channel.getDescription();
-            }
-            mProto.serviceType = channel.getServiceType();
+            longName = (channel.getLongName() != null ? channel.getLongName() : longName);
+            description =
+                    (channel.getDescription() != null ? channel.getDescription() : description);
         }
-        initProto(pmtItems, type);
+        TunerChannelProto tunerChannelProto =
+                TunerChannelProto.newBuilder()
+                        .setShortName(shortName)
+                        .setTsid(tsid)
+                        .setProgramNumber(programNumber)
+                        .setVirtualMajor(virtualMajor)
+                        .setVirtualMinor(virtualMinor)
+                        .setServiceType(serviceType)
+                        .setLongName(longName)
+                        .setDescription(description)
+                        .build();
+        initProto(pmtItems, type, tunerChannelProto);
     }
 
-    private void initProto(List<PsiData.PmtItem> pmtItems, int type) {
-        mProto.type = type;
-        mProto.channelId = -1L;
-        mProto.frequency = INVALID_FREQUENCY;
-        mProto.videoPid = INVALID_PID;
-        mProto.videoStreamType = INVALID_STREAMTYPE;
+    private void initProto(
+            List<PsiData.PmtItem> pmtItems,
+            Channel.TunerType type,
+            TunerChannelProto tunerChannelProto) {
+        int videoPid = INVALID_PID;
+        int pcrPid = 0;
+        Channel.VideoStreamType videoStreamType = Channel.VideoStreamType.UNSET;
         List<Integer> audioPids = new ArrayList<>();
-        List<Integer> audioStreamTypes = new ArrayList<>();
+        List<Channel.AudioStreamType> audioStreamTypes = new ArrayList<>();
         for (PsiData.PmtItem pmt : pmtItems) {
             switch (pmt.getStreamType()) {
                     // MPEG ES stream video types
-                case Channel.VideoStreamType.MPEG1:
-                case Channel.VideoStreamType.MPEG2:
-                case Channel.VideoStreamType.H263:
-                case Channel.VideoStreamType.H264:
-                case Channel.VideoStreamType.H265:
-                    mProto.videoPid = pmt.getEsPid();
-                    mProto.videoStreamType = pmt.getStreamType();
+                case Channel.VideoStreamType.MPEG1_VALUE:
+                case Channel.VideoStreamType.MPEG2_VALUE:
+                case Channel.VideoStreamType.H263_VALUE:
+                case Channel.VideoStreamType.H264_VALUE:
+                case Channel.VideoStreamType.H265_VALUE:
+                    videoPid = pmt.getEsPid();
+                    videoStreamType = Channel.VideoStreamType.forNumber(pmt.getStreamType());
                     break;
 
                     // MPEG ES stream audio types
-                case Channel.AudioStreamType.MPEG1AUDIO:
-                case Channel.AudioStreamType.MPEG2AUDIO:
-                case Channel.AudioStreamType.MPEG2AACAUDIO:
-                case Channel.AudioStreamType.MPEG4LATMAACAUDIO:
-                case Channel.AudioStreamType.A52AC3AUDIO:
-                case Channel.AudioStreamType.EAC3AUDIO:
+                case Channel.AudioStreamType.MPEG1AUDIO_VALUE:
+                case Channel.AudioStreamType.MPEG2AUDIO_VALUE:
+                case Channel.AudioStreamType.MPEG2AACAUDIO_VALUE:
+                case Channel.AudioStreamType.MPEG4LATMAACAUDIO_VALUE:
+                case Channel.AudioStreamType.A52AC3AUDIO_VALUE:
+                case Channel.AudioStreamType.EAC3AUDIO_VALUE:
                     audioPids.add(pmt.getEsPid());
-                    audioStreamTypes.add(pmt.getStreamType());
+                    audioStreamTypes.add(Channel.AudioStreamType.forNumber(pmt.getStreamType()));
                     break;
 
                     // Non MPEG ES stream types
                 case 0x100: // PmtItem.ES_PID_PCR:
-                    mProto.pcrPid = pmt.getEsPid();
+                    pcrPid = pmt.getEsPid();
                     break;
                 default:
                     // fall out
             }
         }
-        mProto.audioPids = Ints.toArray(audioPids);
-        mProto.audioStreamTypes = Ints.toArray(audioStreamTypes);
-        mProto.audioTrackIndex = (audioPids.size() > 0) ? 0 : -1;
+        mProto =
+                TunerChannelProto.newBuilder(tunerChannelProto)
+                        .setType(type)
+                        .setChannelId(-1L)
+                        .setFrequency(INVALID_FREQUENCY)
+                        .setVideoPid(videoPid)
+                        .setVideoStreamType(videoStreamType)
+                        .addAllAudioPids(audioPids)
+                        .setAudioTrackIndex(audioPids.isEmpty() ? -1 : 0)
+                        .addAllAudioStreamTypes(audioStreamTypes)
+                        .setPcrPid(pcrPid)
+                        .build();
+    }
+
+    // b/141952456 may cause hasAudioTrackIndex and hasVideo to return false
+    private void initChannelInfoIfNeeded() {
+        if (!mProto.hasAudioTrackIndex()) {
+            // Force select audio track 0
+            selectAudioTrack(0);
+        }
+        if (!mProto.hasVideoPid() && mProto.getVideoPid() != INVALID_PID) {
+            // Force set Video PID
+            setVideoPid(mProto.getVideoPid());
+        }
     }
 
     private TunerChannel(
-            int programNumber, int type, PsipData.SdtItem channel, List<PsiData.PmtItem> pmtItems) {
-        mProto = new TunerChannelProto();
-        mProto.tsid = 0;
-        mProto.virtualMajor = 0;
-        mProto.virtualMinor = 0;
-        if (channel == null) {
-            mProto.shortName = "";
-            mProto.programNumber = programNumber;
-        } else {
-            mProto.shortName = channel.getServiceName();
-            mProto.programNumber = channel.getServiceId();
-            mProto.serviceType = channel.getServiceType();
+            int programNumber,
+            Channel.TunerType type,
+            PsipData.SdtItem channel,
+            List<PsiData.PmtItem> pmtItems) {
+        String shortName = "";
+        Channel.AtscServiceType serviceType =
+                Channel.AtscServiceType.SERVICE_TYPE_ATSC_DIGITAL_TELEVISION;
+        if (channel != null) {
+            shortName = channel.getServiceName();
+            programNumber = channel.getServiceId();
+            Channel.AtscServiceType chanServiceType =
+                    Channel.AtscServiceType.forNumber(channel.getServiceType());
+            if (chanServiceType != null) {
+                serviceType = chanServiceType;
+            }
         }
-        initProto(pmtItems, type);
+        TunerChannelProto tunerChannelProto =
+                TunerChannelProto.newBuilder()
+                        .setShortName(shortName)
+                        .setProgramNumber(programNumber)
+                        .setServiceType(serviceType)
+                        .build();
+        initProto(pmtItems, type, tunerChannelProto);
     }
 
     /** Initialize tuner channel with VCT items and PMT items. */
@@ -172,6 +217,7 @@ public class TunerChannel implements Comparable<TunerChannel>, PsipData.TvTracks
 
     private TunerChannel(TunerChannelProto tunerChannelProto) {
         mProto = tunerChannelProto;
+        initChannelInfoIfNeeded();
     }
 
     public static TunerChannel forFile(PsipData.VctItem channel, List<PsiData.PmtItem> pmtItems) {
@@ -233,23 +279,23 @@ public class TunerChannel implements Comparable<TunerChannel>, PsipData.TvTracks
     }
 
     public String getName() {
-        return (!mProto.shortName.isEmpty()) ? mProto.shortName : mProto.longName;
+        return !mProto.getShortName().isEmpty() ? mProto.getShortName() : mProto.getLongName();
     }
 
     public String getShortName() {
-        return mProto.shortName;
+        return mProto.getShortName();
     }
 
     public int getProgramNumber() {
-        return mProto.programNumber;
+        return mProto.getProgramNumber();
     }
 
     public int getServiceType() {
-        return mProto.serviceType;
+        return mProto.getServiceType().getNumber();
     }
 
     public String getServiceTypeName() {
-        int serviceType = mProto.serviceType;
+        int serviceType = getServiceType();
         if (serviceType >= 0 && serviceType < ATSC_SERVICE_TYPE_NAMES.length) {
             return ATSC_SERVICE_TYPE_NAMES[serviceType];
         }
@@ -257,105 +303,129 @@ public class TunerChannel implements Comparable<TunerChannel>, PsipData.TvTracks
     }
 
     public int getVirtualMajor() {
-        return mProto.virtualMajor;
+        return mProto.getVirtualMajor();
     }
 
     public int getVirtualMinor() {
-        return mProto.virtualMinor;
+        return mProto.getVirtualMinor();
+    }
+
+    public DeliverySystemType getDeliverySystemType() {
+        return mProto.getDeliverySystemType();
     }
 
     public int getFrequency() {
-        return mProto.frequency;
+        return mProto.getFrequency();
     }
 
     public String getModulation() {
-        return mProto.modulation;
+        return mProto.getModulation();
     }
 
     public int getTsid() {
-        return mProto.tsid;
+        return mProto.getTsid();
     }
 
     public int getVideoPid() {
-        return mProto.videoPid;
+        return mProto.getVideoPid();
     }
 
     public synchronized void setVideoPid(int videoPid) {
-        mProto.videoPid = videoPid;
+        mProto = mProto.toBuilder().setVideoPid(videoPid).build();
     }
 
     public int getVideoStreamType() {
-        return mProto.videoStreamType;
+        return mProto.getVideoStreamType().getNumber();
     }
 
     public int getAudioPid() {
-        if (mProto.audioTrackIndex == -1) {
+        if (!mProto.hasAudioTrackIndex() || mProto.getAudioTrackIndex() == -1) {
             return INVALID_PID;
         }
-        return mProto.audioPids[mProto.audioTrackIndex];
+        return mProto.getAudioPids(mProto.getAudioTrackIndex());
     }
 
     public int getAudioStreamType() {
-        if (mProto.audioTrackIndex == -1) {
+        if (!mProto.hasAudioTrackIndex() || mProto.getAudioTrackIndex() == -1) {
             return INVALID_STREAMTYPE;
         }
-        return mProto.audioStreamTypes[mProto.audioTrackIndex];
+        return mProto.getAudioStreamTypes(mProto.getAudioTrackIndex()).getNumber();
     }
 
     public List<Integer> getAudioPids() {
-        return Ints.asList(mProto.audioPids);
+        return mProto.getAudioPidsList();
     }
 
     public synchronized void setAudioPids(List<Integer> audioPids) {
-        mProto.audioPids = Ints.toArray(audioPids);
+        mProto = mProto.toBuilder().clearAudioPids().addAllAudioPids(audioPids).build();
     }
 
     public List<Integer> getAudioStreamTypes() {
-        return Ints.asList(mProto.audioStreamTypes);
+        List<Channel.AudioStreamType> audioStreamTypes = mProto.getAudioStreamTypesList();
+        List<Integer> audioStreamTypesValues = new ArrayList<>(audioStreamTypes.size());
+
+        for (Channel.AudioStreamType audioStreamType : audioStreamTypes) {
+            audioStreamTypesValues.add(audioStreamType.getNumber());
+        }
+        return audioStreamTypesValues;
     }
 
-    public synchronized void setAudioStreamTypes(List<Integer> audioStreamTypes) {
-        mProto.audioStreamTypes = Ints.toArray(audioStreamTypes);
+    public synchronized void setAudioStreamTypes(List<Integer> audioStreamTypesValues) {
+        List<Channel.AudioStreamType> audioStreamTypes =
+                new ArrayList<>(audioStreamTypesValues.size());
+
+        for (Integer audioStreamTypesValue : audioStreamTypesValues) {
+            audioStreamTypes.add(Channel.AudioStreamType.forNumber(audioStreamTypesValue));
+        }
+        mProto =
+                mProto.toBuilder()
+                        .clearAudioStreamTypes()
+                        .addAllAudioStreamTypes(audioStreamTypes)
+                        .build();
     }
 
     public int getPcrPid() {
-        return mProto.pcrPid;
+        return mProto.getPcrPid();
     }
 
-    public int getType() {
-        return mProto.type;
+    public Channel.TunerType getType() {
+        return mProto.getType();
     }
 
     public synchronized void setFilepath(String filepath) {
-        mProto.filepath = filepath == null ? "" : filepath;
+        mProto = mProto.toBuilder().setFilepath(filepath == null ? "" : filepath).build();
     }
 
     public String getFilepath() {
-        return mProto.filepath;
+        return mProto.getFilepath();
     }
 
     public synchronized void setVirtualMajor(int virtualMajor) {
-        mProto.virtualMajor = virtualMajor;
+        mProto = mProto.toBuilder().setVirtualMajor(virtualMajor).build();
     }
 
     public synchronized void setVirtualMinor(int virtualMinor) {
-        mProto.virtualMinor = virtualMinor;
+        mProto = mProto.toBuilder().setVirtualMinor(virtualMinor).build();
     }
 
     public synchronized void setShortName(String shortName) {
-        mProto.shortName = shortName == null ? "" : shortName;
+        mProto = mProto.toBuilder().setShortName(shortName == null ? "" : shortName).build();
+    }
+
+    public synchronized void setDeliverySystemType(DeliverySystemType deliverySystemType) {
+        mProto = mProto.toBuilder().setDeliverySystemType(deliverySystemType).build();
     }
 
     public synchronized void setFrequency(int frequency) {
-        mProto.frequency = frequency;
+        mProto = mProto.toBuilder().setFrequency(frequency).build();
     }
 
     public synchronized void setModulation(String modulation) {
-        mProto.modulation = modulation == null ? "" : modulation;
+        mProto = mProto.toBuilder().setModulation(modulation == null ? "" : modulation).build();
     }
 
     public boolean hasVideo() {
-        return mProto.videoPid != INVALID_PID;
+        return mProto.hasVideoPid() && mProto.getVideoPid() != INVALID_PID;
     }
 
     public boolean hasAudio() {
@@ -363,11 +433,11 @@ public class TunerChannel implements Comparable<TunerChannel>, PsipData.TvTracks
     }
 
     public long getChannelId() {
-        return mProto.channelId;
+        return mProto.getChannelId();
     }
 
     public synchronized void setChannelId(long channelId) {
-        mProto.channelId = channelId;
+        mProto = mProto.toBuilder().setChannelId(channelId).build();
     }
 
     /**
@@ -379,11 +449,11 @@ public class TunerChannel implements Comparable<TunerChannel>, PsipData.TvTracks
      *     href="https://developer.android.com/reference/android/media/tv/TvContract.Channels.html#COLUMN_LOCKED">link</a>
      */
     public boolean isLocked() {
-        return mProto.locked;
+        return mProto.getLocked();
     }
 
     public synchronized void setLocked(boolean locked) {
-        mProto.locked = locked;
+        mProto = mProto.toBuilder().setLocked(locked).build();
     }
 
     public String getDisplayNumber() {
@@ -391,92 +461,91 @@ public class TunerChannel implements Comparable<TunerChannel>, PsipData.TvTracks
     }
 
     public String getDisplayNumber(boolean ignoreZeroMinorNumber) {
-        if (mProto.virtualMajor != 0 && (mProto.virtualMinor != 0 || !ignoreZeroMinorNumber)) {
+        if (getVirtualMajor() != 0 && (getVirtualMinor() != 0 || !ignoreZeroMinorNumber)) {
             return String.format(
-                    "%d%c%d", mProto.virtualMajor, CHANNEL_NUMBER_SEPARATOR, mProto.virtualMinor);
-        } else if (mProto.virtualMajor != 0) {
-            return Integer.toString(mProto.virtualMajor);
+                    "%d%c%d", getVirtualMajor(), CHANNEL_NUMBER_SEPARATOR, getVirtualMinor());
+        } else if (getVirtualMajor() != 0) {
+            return Integer.toString(getVirtualMajor());
         } else {
-            return Integer.toString(mProto.programNumber);
+            return Integer.toString(getProgramNumber());
         }
     }
 
     public String getDescription() {
-        return mProto.description;
+        return mProto.getDescription();
     }
 
     @Override
     public synchronized void setHasCaptionTrack() {
-        mProto.hasCaptionTrack = true;
+        mProto = mProto.toBuilder().setHasCaptionTrack(true).build();
     }
 
     @Override
     public boolean hasCaptionTrack() {
-        return mProto.hasCaptionTrack;
+        return mProto.getHasCaptionTrack();
     }
 
     @Override
     public List<AtscAudioTrack> getAudioTracks() {
-        return Collections.unmodifiableList(Arrays.asList(mProto.audioTracks));
+        return mProto.getAudioTracksList();
     }
 
     public synchronized void setAudioTracks(List<AtscAudioTrack> audioTracks) {
-        mProto.audioTracks = audioTracks.toArray(new AtscAudioTrack[audioTracks.size()]);
+        mProto = mProto.toBuilder().clearAudioTracks().addAllAudioTracks(audioTracks).build();
     }
 
     @Override
     public List<AtscCaptionTrack> getCaptionTracks() {
-        return Collections.unmodifiableList(Arrays.asList(mProto.captionTracks));
+        return mProto.getCaptionTracksList();
     }
 
     public synchronized void setCaptionTracks(List<AtscCaptionTrack> captionTracks) {
-        mProto.captionTracks = captionTracks.toArray(new AtscCaptionTrack[captionTracks.size()]);
+        mProto = mProto.toBuilder().clearCaptionTracks().addAllCaptionTracks(captionTracks).build();
     }
 
     public synchronized void selectAudioTrack(int index) {
-        if (0 <= index && index < mProto.audioPids.length) {
-            mProto.audioTrackIndex = index;
-        } else {
-            mProto.audioTrackIndex = -1;
+        if (index < 0 || index >= mProto.getAudioPidsCount()) {
+            index = -1;
         }
+        mProto = mProto.toBuilder().setAudioTrackIndex(index).build();
     }
 
     public synchronized void setRecordingProhibited(boolean recordingProhibited) {
-        mProto.recordingProhibited = recordingProhibited;
+        mProto = mProto.toBuilder().setRecordingProhibited(recordingProhibited).build();
     }
 
     public boolean isRecordingProhibited() {
-        return mProto.recordingProhibited;
+        return mProto.getRecordingProhibited();
     }
 
     public synchronized void setVideoFormat(String videoFormat) {
-        mProto.videoFormat = videoFormat == null ? "" : videoFormat;
+        mProto = mProto.toBuilder().setVideoFormat(videoFormat == null ? "" : videoFormat).build();
     }
 
     public String getVideoFormat() {
-        return mProto.videoFormat;
+        return mProto.getVideoFormat();
     }
 
     @Override
     public String toString() {
-        switch (mProto.type) {
-            case Channel.TunerType.TYPE_FILE:
+        switch (getType()) {
+            case TYPE_FILE:
                 return String.format(
                         "{%d-%d %s} Filepath: %s, ProgramNumber %d",
-                        mProto.virtualMajor,
-                        mProto.virtualMinor,
-                        mProto.shortName,
-                        mProto.filepath,
-                        mProto.programNumber);
+                        getVirtualMajor(),
+                        getVirtualMinor(),
+                        getShortName(),
+                        getFilepath(),
+                        getProgramNumber());
                 // case Channel.TunerType.TYPE_TUNER:
             default:
                 return String.format(
                         "{%d-%d %s} Frequency: %d, ProgramNumber %d",
-                        mProto.virtualMajor,
-                        mProto.virtualMinor,
-                        mProto.shortName,
-                        mProto.frequency,
-                        mProto.programNumber);
+                        getVirtualMajor(),
+                        getVirtualMinor(),
+                        getShortName(),
+                        getFrequency(),
+                        getProgramNumber());
         }
     }
 
@@ -495,6 +564,9 @@ public class TunerChannel implements Comparable<TunerChannel>, PsipData.TvTracks
         if (ret != 0) {
             return ret;
         }
+        if (getDeliverySystemType() != channel.getDeliverySystemType()) {
+            return 1;
+        }
         // For FileTsStreamer, file paths should be compared.
         return StringUtils.compare(getFilepath(), channel.getFilepath());
     }
@@ -509,20 +581,21 @@ public class TunerChannel implements Comparable<TunerChannel>, PsipData.TvTracks
 
     @Override
     public int hashCode() {
-        return Objects.hash(getFrequency(), getProgramNumber(), getName(), getFilepath());
+        return Objects.hash(getDeliverySystemType(), getFrequency(), getProgramNumber(), getName(),
+                getFilepath());
     }
 
     // Serialization
     public synchronized byte[] toByteArray() {
         try {
-            return MessageNano.toByteArray(mProto);
+            return mProto.toByteArray();
         } catch (Exception e) {
             // Retry toByteArray. b/34197766
             Log.w(
                     TAG,
                     "TunerChannel or its variables are modified in multiple thread without lock",
                     e);
-            return MessageNano.toByteArray(mProto);
+            return mProto.toByteArray();
         }
     }
 

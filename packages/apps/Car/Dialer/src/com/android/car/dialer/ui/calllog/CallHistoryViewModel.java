@@ -18,22 +18,24 @@ package com.android.car.dialer.ui.calllog;
 
 import android.app.Application;
 import android.text.format.DateUtils;
+
 import androidx.annotation.NonNull;
 import androidx.lifecycle.AndroidViewModel;
 import androidx.lifecycle.LiveData;
+
+import com.android.car.arch.common.FutureData;
+import com.android.car.arch.common.LiveDataFunctions;
 import com.android.car.dialer.livedata.CallHistoryLiveData;
 import com.android.car.dialer.livedata.HeartBeatLiveData;
 import com.android.car.dialer.ui.common.UiCallLogLiveData;
-import com.android.car.dialer.ui.common.entity.UiCallLog;
 import com.android.car.telephony.common.InMemoryPhoneBook;
 
 import java.util.List;
 
-/**
- * View model for CallHistoryFragment which provides call history live data.
- */
+/** View model for CallHistoryFragment which provides call history live data. */
 public class CallHistoryViewModel extends AndroidViewModel {
     private UiCallLogLiveData mUiCallLogLiveData;
+    private LiveData<FutureData<List<Object>>> mUiCallLogFutureData;
 
     public CallHistoryViewModel(@NonNull Application application) {
         super(application);
@@ -41,12 +43,13 @@ public class CallHistoryViewModel extends AndroidViewModel {
                 new HeartBeatLiveData(DateUtils.MINUTE_IN_MILLIS),
                 CallHistoryLiveData.newInstance(application.getApplicationContext()),
                 InMemoryPhoneBook.get().getContactsLiveData());
+
+        mUiCallLogFutureData = LiveDataFunctions.loadingSwitchMap(mUiCallLogLiveData,
+                input -> LiveDataFunctions.dataOf(input));
     }
 
-    /**
-     * Returns the live data for call history list.
-     */
-    public LiveData<List<UiCallLog>> getCallHistory() {
-        return mUiCallLogLiveData;
+    /** Returns the {@link LiveData} for call history list {@link FutureData}. */
+    public LiveData<FutureData<List<Object>>> getCallHistory() {
+        return mUiCallLogFutureData;
     }
 }

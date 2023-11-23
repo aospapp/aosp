@@ -34,7 +34,6 @@ import androidx.lifecycle.Lifecycle;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceGroup;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.common.LogicalPreferenceGroup;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
 import com.android.car.settings.testutils.ShadowDevicePolicyManager;
@@ -45,6 +44,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadow.api.Shadow;
@@ -53,7 +53,7 @@ import org.robolectric.shadows.ShadowApplication;
 import java.util.ArrayList;
 import java.util.List;
 
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 @Config(shadows = {ShadowInputMethodManager.class, ShadowDevicePolicyManager.class})
 public class EnabledKeyboardPreferenceControllerTest {
     private static final String DUMMY_LABEL = "dummy label";
@@ -117,6 +117,17 @@ public class EnabledKeyboardPreferenceControllerTest {
                 mPermittedList);
         List<InputMethodInfo> infos = createInputMethodInfoList(DISALLOWED_PACKAGE_NAME);
         getShadowInputMethodManager(mContext).setEnabledInputMethodList(infos);
+
+        mControllerHelper.getController().refreshUi();
+
+        assertThat(mPreferenceGroup.getPreferenceCount()).isEqualTo(0);
+    }
+
+    @Test
+    public void refreshUi_skipVoiceTyping() {
+        List<InputMethodInfo> infos =
+                createInputMethodInfoList(InputMethodUtil.GOOGLE_VOICE_TYPING);
+        getShadowInputMethodManager(mContext).setInputMethodList(infos);
 
         mControllerHelper.getController().refreshUi();
 

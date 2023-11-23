@@ -50,7 +50,7 @@
     <string name="roaming_title" msgid="6218635014519017734">"Роуминг"</string>
     <string name="roaming_summary" msgid="7476127740259728901">"Свързване с услуги за данни при роуминг"</string>
     <string name="roaming_alert_title" msgid="4433901635766775763">"Да се разреши ли роуминг на данни?"</string>
-    <string name="roaming_warning" msgid="5313281900566657209">"Това може да доведе до високи такси."</string>
+    <string name="roaming_warning" msgid="4908184914868720704">"Възможно е да ви бъдат начислени такси за роуминг."</string>
     <string name="data_usage_settings" msgid="7877132994777987848">"Пренос на данни"</string>
     <string name="data_usage_title" msgid="2923515974389203812">"Основни данни"</string>
     <string name="data_used_formatted" msgid="6684557577780068339">"Използвани данни: <xliff:g id="ID_1">^1</xliff:g> <xliff:g id="ID_2">^2</xliff:g>"</string>
@@ -188,7 +188,7 @@
     <string name="bluetooth_pairing_key_msg" msgid="5066825929751599037">"Код за сдвояване с Bluetooth"</string>
     <string name="bluetooth_enable_alphanumeric_pin" msgid="1636575922217263060">"ПИН кодът съдържа букви или символи"</string>
     <string name="bluetooth_enter_passkey_msg" msgid="5955236916732265593">"Въведете кода за сдвояване, след което натиснете „Return“ или „Enter“"</string>
-    <string name="bluetooth_pairing_request" msgid="4769675459526556801">"Искате ли да сдвоите с/ъс <xliff:g id="DEVICE_NAME">%1$s</xliff:g>?"</string>
+    <string name="bluetooth_pairing_request" msgid="4769675459526556801">"Искате ли да сдвоите с(ъс) <xliff:g id="DEVICE_NAME">%1$s</xliff:g>?"</string>
     <string name="bluetooth_pairing_shares_phonebook" msgid="2015966932886300630">"Разрешаване на <xliff:g id="DEVICE_NAME">%1$s</xliff:g> да осъществява достъп до вашите контакти и история на обажданията"</string>
     <string name="bluetooth_enter_pin_other_device" msgid="7825091249522704764">"Възможно е също така да се наложи да въведете този ПИН на другото устройство."</string>
     <string name="bluetooth_enter_passkey_other_device" msgid="7147248221018865922">"Възможно е също така да се наложи да въведете този код за достъп на другото устройство."</string>
@@ -199,6 +199,8 @@
     <string name="bluetooth_device_picker" msgid="673238198452345475">"Изберете устройство с Bluetooth"</string>
     <string name="language_settings" msgid="2079258598337245546">"Езици"</string>
     <string name="languages_and_input_settings" msgid="3672322610529408248">"Езици и въвеждане"</string>
+    <string name="language_picker_list_suggested_header" msgid="7593893806003415948">"Предложени"</string>
+    <string name="language_picker_list_all_header" msgid="1577387973934368428">"Всички езици"</string>
     <string name="keyboard_settings" msgid="1959697870618278081">"Клавиатура"</string>
     <string name="manage_keyboard" msgid="4045394766282200132">"Управление на клавиатурите"</string>
     <string name="text_to_speech_settings" msgid="811985746199507343">"Синтезиран говор"</string>
@@ -283,9 +285,11 @@
     <string name="not_installed" msgid="4218816013370552746">"Не е инсталирано за този потребител"</string>
     <string name="permissions_label" msgid="2701446753515612685">"Разрешения"</string>
     <string name="notifications_label" msgid="6586089149665170731">"Известия"</string>
+    <string name="storage_application_label" msgid="5911779903670978586">"Хранилище и кеш"</string>
     <string name="application_version_label" msgid="8556889839783311649">"Версия: %1$s"</string>
     <string name="runtime_permissions_summary_no_permissions_granted" msgid="6001439205270250021">"Няма предоставени разрешения"</string>
     <string name="runtime_permissions_summary_no_permissions_requested" msgid="4074220596273432442">"Няма заявени разрешения"</string>
+    <string name="storage_type_internal" msgid="8918688427078709570">"%s във вътрешното хранилище"</string>
     <string name="data_usage_summary_title" msgid="4368024763485916986">"Пренос на данни"</string>
     <string name="data_usage_app_summary_title" msgid="5012851696585421420">"Прилож.: Пренос на данни"</string>
     <string name="computing_size" msgid="5791407621793083965">"Изчислява се…"</string>
@@ -344,17 +348,13 @@
     <string name="location_settings_recent_requests_title" msgid="6345634382240930628">"Скорошни заявки за местоположението"</string>
     <string name="location_settings_recent_requests_empty_message" msgid="7789667070033674910">"Няма скорошни заявки за местоположението"</string>
     <string name="location_settings_app_permissions_title" msgid="6446735313354321564">"Разрешения на ниво приложение"</string>
-    <string name="location_settings_scanning_title" msgid="4253945869911300740">"Сканиране"</string>
     <string name="location_settings_services_title" msgid="1186133632690970468">"Услуги за местоположение"</string>
-    <string name="location_settings_wifi_scanning_title" msgid="8021558840074023719">"Сканиране за Wi‑Fi"</string>
-    <string name="location_settings_wifi_scanning_summary" msgid="2116283960258671324">"Разрешете на приложенията и услугите да сканират за Wi‑Fi мрежи по всяко време дори когато функцията за Wi‑Fi e изключена. Това може да послужи например за подобряване на базиращите се на местоположението функции и услуги."</string>
-    <string name="location_settings_bluetooth_scanning_title" msgid="2969682902241932059">"Сканиране за устройства с Bluetooth"</string>
-    <string name="location_settings_bluetooth_scanning_summary" msgid="9158101751700727062">"Разрешете на приложенията и услугите да сканират за устройства в близост по всяко време дори когато функцията за Bluetooth e изключена. Това може да послужи например за подобряване на базиращите се на местоположението функции и услуги."</string>
     <string name="system_setting_title" msgid="6864599341809463440">"Система"</string>
     <string name="system_update_settings_title" msgid="8448588267784138855">"Системни актуализации"</string>
     <string name="firmware_version" msgid="8491753744549309333">"Версия на Android"</string>
     <string name="security_patch" msgid="4794276590178386903">"Ниво на корекцията на сигурността под Android"</string>
-    <string name="model_info" msgid="4966408071657934452">"Модел"</string>
+    <string name="hardware_info" msgid="3973165746261507658">"Модел и хардуер"</string>
+    <string name="hardware_info_summary" msgid="8262576443254075921">"Модел: <xliff:g id="MODEL">%1$s</xliff:g>"</string>
     <string name="baseband_version" msgid="2370088062235041897">"Версия на базовия диапазон"</string>
     <string name="kernel_version" msgid="7327212934187011508">"Версия на ядрото"</string>
     <string name="build_number" msgid="3997326631001009102">"Номер на версията"</string>
@@ -378,6 +378,9 @@
     <string name="webview_license_title" msgid="6442372337052056463">"Системни лицензи за WebView"</string>
     <string name="wallpaper_attributions" msgid="9201272150014500697">"Тапети"</string>
     <string name="wallpaper_attributions_values" msgid="4292446851583307603">"Доставчици на сателитни изображения:\n©2014 CNES/Astrium, DigitalGlobe, Bluesky"</string>
+    <string name="model_info" msgid="4966408071657934452">"Модел"</string>
+    <string name="status_serial_number" msgid="9158889113131907656">"Сериен номер"</string>
+    <string name="hardware_revision" msgid="5713759927934872874">"Версия на хардуера"</string>
     <string name="regulatory_info_text" msgid="8890339124198005428"></string>
     <string name="settings_license_activity_title" msgid="8499293744313077709">"Лицензи на трети страни"</string>
     <string name="settings_license_activity_unavailable" msgid="6104592821991010350">"Възникна проблем при зареждането на лицензите."</string>
@@ -478,6 +481,8 @@
     <string name="user_name_label" msgid="3210832645046206845">"Име"</string>
     <string name="user_summary_not_set_up" msgid="1473688119241224145">"Не е настроен"</string>
     <string name="edit_user_name_title" msgid="6890782937520262478">"Редактиране на потребит. име"</string>
+    <string name="name_input_blank_error" msgid="2088850865880984123">"Полето трябва да се попълни."</string>
+    <string name="name_input_invalid_error" msgid="3523545780580744273">"Въведеното потребителско име е невалидно."</string>
     <string name="users_list_title" msgid="770764290290240909">"Потребители"</string>
     <string name="user_details_admin_title" msgid="3530292857178371891">"Разрешенията са дадени на %1$s"</string>
     <string name="storage_settings_title" msgid="8957054192781341797">"Хранилище"</string>
@@ -497,6 +502,8 @@
     <string name="storage_clear_data_dlg_title" msgid="5863775997588969879">"Да се изтрият ли данните от прил.?"</string>
     <string name="storage_clear_data_dlg_text" msgid="795055288575727801">"Всички данни на това приложение ще се изтрият за постоянно. Това включва всички файлове, настройки, профили, бази от данни и др."</string>
     <string name="storage_clear_failed_dlg_text" msgid="6710485971686866306">"Данните за приложението не можаха да се изтрият."</string>
+    <string name="storage_unmount_success" msgid="1553591517580407021">"Безопасното изваждане на <xliff:g id="NAME">%1$s</xliff:g> бе успешно"</string>
+    <string name="storage_unmount_failure" msgid="4591934911541762883">"<xliff:g id="NAME">%1$s</xliff:g> не можа да се извади безопасно"</string>
     <string name="accounts_settings_title" msgid="436190037084293471">"Профили"</string>
     <string name="user_add_account_menu" msgid="6625351983590713721">"Добавяне на профил"</string>
     <string name="no_accounts_added" msgid="5148163140691096055">"Няма добавени профили"</string>
@@ -528,6 +535,7 @@
     <string name="sync_button_sync_now" msgid="5767643057970371315">"Синхронизиране сега"</string>
     <string name="sync_button_sync_cancel" msgid="7739510554513641393">"Анулиране на синхронизирането"</string>
     <string name="sync_is_failing" msgid="5766255460901806206">"Понастоящем има проблеми със синхронизирането. Ще се решат скоро."</string>
+    <string name="privacy_settings_title" msgid="3150145262029229572">"Поверителност"</string>
     <string name="security_settings_title" msgid="6955331714774709746">"Сигурност"</string>
     <string name="security_settings_subtitle" msgid="2244635550239273229">"Заключване на екрана"</string>
     <string name="security_lock_none" msgid="1054645093754839638">"Без"</string>
@@ -618,26 +626,11 @@
     <string name="lockpassword_pin_no_sequential_digits" msgid="38813552228809240">"Възходящите, низходящите и повтарящите се поредици от цифри не са разрешени."</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"Опции за заключване на екрана"</string>
     <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g> : Преди <xliff:g id="NUM_DAYS">%3$s</xliff:g> дни"</string>
-    <string name="add_device_title" msgid="8452168024017866232">"Добав. на надеждно устройство"</string>
-    <string name="add_device_summary" msgid="5368217520710573302">"Bluetooth ще се вкл. за добавяне на надеждно у-во"</string>
-    <string name="trusted_device" msgid="5637378361866787603">"Надеждни устройства"</string>
-    <plurals name="trusted_device_subtitle" formatted="false" msgid="462041049834264945">
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> устройства</item>
-      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> устройство</item>
-    </plurals>
-    <string name="remove_device_message" msgid="6447820559674148349">"Устройството ви <xliff:g id="CONNECTED_DEVICE_NAME_0">%1$s</xliff:g> ще отключи този автомобил, когато е свързано. Ако някой вземе устройството ви <xliff:g id="CONNECTED_DEVICE_NAME_1">%1$s</xliff:g>, е възможно да осъществи достъп до него."</string>
-    <string name="trusted_device_confirm_button" msgid="102354635014627996">"Потвърждаване"</string>
-    <string name="trusted_device_remove_button" msgid="6140476996063415420">"Премахване на надеждното устройство"</string>
-    <string name="trusted_device_done_button" msgid="8481956533222625296">"Готово"</string>
-    <string name="add_trusted_device_instruction" msgid="2280382609884918033">"Използвайте придружаващото приложение, за да настроите надеждно устройство. След настройването потребителският ви профил ще се отключва автоматично, когато телефонът ви бъде открит в близост до превозното средство."</string>
-    <string name="trusted_device_download_app" msgid="6971096140154499983">"1. Изтеглете придружаващото приложение на телефона си."</string>
-    <string name="trusted_device_select_device" msgid="198902765179270739">"2. Изберете „<xliff:g id="CAR_NAME">%1$s</xliff:g>“ на телефона си, за да сдвоите устройствата."</string>
-    <string name="trusted_device_safety_alert" msgid="3834898922112046769">"Надеждно устройство в близост до автомобила ви ще отключва потребителския профил при запалване дори ако друг човек държи устройството."</string>
-    <string name="trusted_device_pairing_code_dialog_title" msgid="8173792468216796873">"Моля, потвърдете, че кодовете за сдвояване съвпадат"</string>
-    <string name="trusted_device_success_enrollment_toast" msgid="1238468775285575827">"Телефонът е регистриран успешно"</string>
-    <string name="trusted_device_fail_enrollment_toast" msgid="6801324174861209092">"Регистрацията на <xliff:g id="DEVICE_NAME">%1$s</xliff:g> не бе успешна"</string>
-    <string name="trusted_device_set_authentication_reminder" msgid="5947077589994822305">"За добавянето на надеждно устройство се изисква да зададете метод на удостоверяване на следващия екран. Ако надеждното ви устройство не е у вас, удостоверяването ще се изисква за достъп до потребителския ви профил."</string>
-    <string name="trusted_device_disconnected_toast" msgid="2541862946536880255">"Връзката с устройството е прекъсната."</string>
+    <string name="credentials_reset" msgid="873900550885788639">"Изчистване на идентификационните данни"</string>
+    <string name="credentials_reset_summary" msgid="6067911547500459637">"Премахване на всички сертификати"</string>
+    <string name="credentials_reset_hint" msgid="3459271621754137661">"Да се премахне ли цялото съдържание?"</string>
+    <string name="credentials_erased" msgid="2515915439705550379">"Идентификационните данни са изтрити."</string>
+    <string name="credentials_not_erased" msgid="6118567459076742720">"Хранилището за идент. данни не можа да бъде изтрито."</string>
     <string name="forget" msgid="3971143908183848527">"Забравяне"</string>
     <string name="connect" msgid="5861699594602380150">"Свързване"</string>
     <string name="disconnect" msgid="6140789953324820336">"Прекрат. на връзката"</string>
@@ -653,6 +646,7 @@
     <string name="exit_retail_mode_dialog_body" msgid="8314316171782527301">"Това действие ще изтрие демонстрационния профил и ще възстанови фабричните настройки на системата. Всички потребителски данни ще бъдат изгубени."</string>
     <string name="exit_retail_mode_dialog_confirmation_button_text" msgid="3147249675355968649">"Демонстр. режим: Изход"</string>
     <string name="suggestion_dismiss_button" msgid="4539412646977050641">"ОТХВЪРЛЯНЕ"</string>
-    <string name="restricted_while_driving" msgid="6217369093121968299">"Функцията не е налице по време на шофиране."</string>
-    <string name="add_user_restricted_while_driving" msgid="6384004350628271556">"Потребителят не може да се добави по време на шофиране."</string>
+    <string name="restricted_while_driving" msgid="6587569249519274524">"Функцията не е налице по време на шофиране"</string>
+    <string name="add_user_restricted_while_driving" msgid="4754946754222453656">"Потребителят не може да се добави по време на шофиране"</string>
+    <string name="default_search_query" msgid="3137420627428857068">"Търсете"</string>
 </resources>

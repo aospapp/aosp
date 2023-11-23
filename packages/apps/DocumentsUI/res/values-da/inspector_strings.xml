@@ -40,7 +40,7 @@
     <string name="metadata_focal_format" msgid="8542211707962355623">"<xliff:g id="LENGTH">%1$.2f </xliff:g> mm"</string>
     <string name="metadata_iso_speed_ratings" msgid="1699781252899759058">"Tilsvarende ISO-hastighed"</string>
     <string name="metadata_iso_format" msgid="4153285204012694861">"ISO <xliff:g id="ISO_SPEED">%1$d</xliff:g>"</string>
-    <string name="metadata_artist" msgid="8972421485694988540">"Musiker"</string>
+    <string name="metadata_artist" msgid="8972421485694988540">"Kunstner"</string>
     <string name="metadata_composer" msgid="4696926808308256056">"Komponist"</string>
     <string name="metadata_album" msgid="1661699531214720236">"Album"</string>
     <string name="metadata_address" msgid="1849921023707744640">"Placering"</string>

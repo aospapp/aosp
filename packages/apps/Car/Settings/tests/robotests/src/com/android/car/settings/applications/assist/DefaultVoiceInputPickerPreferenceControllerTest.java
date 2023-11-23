@@ -18,20 +18,16 @@ package com.android.car.settings.applications.assist;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import static org.mockito.Mockito.when;
-
-import android.car.userlib.CarUserManagerHelper;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.ResolveInfo;
 import android.content.pm.ServiceInfo;
+import android.os.UserHandle;
 import android.provider.Settings;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.common.LogicalPreferenceGroup;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
-import com.android.car.settings.testutils.ShadowCarUserManagerHelper;
 import com.android.car.settings.testutils.ShadowSecureSettings;
 import com.android.car.settings.testutils.ShadowVoiceInteractionServiceInfo;
 import com.android.settingslib.applications.DefaultAppInfo;
@@ -40,46 +36,38 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadow.api.Shadow;
 import org.robolectric.shadows.ShadowApplicationPackageManager;
 
-@RunWith(CarSettingsRobolectricTestRunner.class)
-@Config(shadows = {ShadowSecureSettings.class, ShadowVoiceInteractionServiceInfo.class,
-        ShadowCarUserManagerHelper.class})
+@RunWith(RobolectricTestRunner.class)
+@Config(shadows = {ShadowSecureSettings.class, ShadowVoiceInteractionServiceInfo.class})
 public class DefaultVoiceInputPickerPreferenceControllerTest {
 
     private static final String TEST_PACKAGE_NAME = "com.test.package";
     private static final String TEST_SERVICE = "TestService";
     private static final String TEST_OTHER_SERVICE = "TestOtherService";
     private static final String TEST_RECOGNIZER = "TestRecognizer";
-    private static final int TEST_USER_ID = 10;
+    private final int mUserId = UserHandle.myUserId();
 
     private Context mContext;
     private PreferenceControllerTestHelper<DefaultVoiceInputPickerPreferenceController>
             mControllerHelper;
     private DefaultVoiceInputPickerPreferenceController mController;
-    @Mock
-    private CarUserManagerHelper mCarUserManagerHelper;
 
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
-        ShadowCarUserManagerHelper.setMockInstance(mCarUserManagerHelper);
 
         mContext = RuntimeEnvironment.application;
-
-        // Set user.
-        when(mCarUserManagerHelper.getCurrentProcessUserId()).thenReturn(TEST_USER_ID);
     }
 
     @After
     public void tearDown() {
         ShadowSecureSettings.reset();
-        ShadowCarUserManagerHelper.reset();
         ShadowVoiceInteractionServiceInfo.reset();
     }
 
@@ -283,7 +271,7 @@ public class DefaultVoiceInputPickerPreferenceControllerTest {
 
     private void setCurrentAssistant(ComponentName assist) {
         Settings.Secure.putStringForUser(mContext.getContentResolver(), Settings.Secure.ASSISTANT,
-                assist.flattenToString(), TEST_USER_ID);
+                assist.flattenToString(), mUserId);
     }
 
     private ShadowApplicationPackageManager getShadowPackageManager() {

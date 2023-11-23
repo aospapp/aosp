@@ -47,15 +47,24 @@ public class REF_DO extends BerTlv {
 
     private AID_REF_DO mAidDo = null;
     private Hash_REF_DO mHashDo = null;
+    private PKG_REF_DO mPkgDo = null;
 
     public REF_DO(byte[] rawData, int valueIndex, int valueLength) {
         super(rawData, TAG, valueIndex, valueLength);
+    }
+
+    public REF_DO(AID_REF_DO aidRefDo, Hash_REF_DO hashRefDo, PKG_REF_DO pkgRefDo) {
+        super(null, TAG, 0, 0);
+        mAidDo = aidRefDo;
+        mHashDo = hashRefDo;
+        mPkgDo = pkgRefDo;
     }
 
     public REF_DO(AID_REF_DO aidRefDo, Hash_REF_DO hashRefDo) {
         super(null, TAG, 0, 0);
         mAidDo = aidRefDo;
         mHashDo = hashRefDo;
+        mPkgDo = null;
     }
 
     @Override
@@ -68,6 +77,10 @@ public class REF_DO extends BerTlv {
         }
         if (mHashDo != null) {
             b.append(mHashDo.toString());
+            b.append(' ');
+        }
+        if (mPkgDo != null) {
+            b.append(mPkgDo.toString());
         }
         return b.toString();
     }
@@ -80,12 +93,19 @@ public class REF_DO extends BerTlv {
         return mHashDo;
     }
 
+    public PKG_REF_DO getPkgDo() {
+        return mPkgDo;
+    }
+
     /**
      * Interpret data.
      *
      * <p>Tags: E1 -> Length: n
      *
-     * <p>Value: AID-REF-DO | Hash-REF-DO: A concatenation of an AID-REF-DO and a Hash-REF-DO.
+     * <p>Value:
+     *    1. AID-REF-DO | Hash-REF-DO: A concatenation of an AID-REF-DO and a Hash-REF-DO.
+     *    2. Hash-REF-DO or Hash-REF-DO | PKG-REF-DO A concatenation of a Hash-REF-DO and a
+     *       PKG-REF-DO.
      *
      * <p>Length: n bytes.
      */
@@ -94,6 +114,7 @@ public class REF_DO extends BerTlv {
 
         mAidDo = null;
         mHashDo = null;
+        mPkgDo = null;
 
         byte[] data = getRawData();
         int index = getValueIndex();
@@ -113,6 +134,9 @@ public class REF_DO extends BerTlv {
             } else if (temp.getTag() == Hash_REF_DO.TAG) { // Hash-REF-DO
                 mHashDo = new Hash_REF_DO(data, temp.getValueIndex(), temp.getValueLength());
                 mHashDo.interpret();
+            } else if (temp.getTag() == PKG_REF_DO.TAG) { // PKG-REF-DO
+                mPkgDo = new PKG_REF_DO(data, temp.getValueIndex(), temp.getValueLength());
+                mPkgDo.interpret();
             } else {
                 // uncomment following line if a more restrictive
                 // behaviour is necessary.
@@ -120,6 +144,10 @@ public class REF_DO extends BerTlv {
             }
             index = temp.getValueIndex() + temp.getValueLength();
         } while (getValueIndex() + getValueLength() > index);
+
+        if (mAidDo != null && !mAidDo.isCarrierPrivilege() && mHashDo != null && mPkgDo != null) {
+            throw new ParserException("Unexpected combination of SEAC DOs and DAC DO");
+        }
 
         // A rule without AID is a Carrier Privilege Rule.
         // Enforces the AID to be the Carrier Privilege AID to avoid a null AID.
@@ -138,19 +166,30 @@ public class REF_DO extends BerTlv {
     }
 
     /**
-     * Tag: E1 Length: n Value: AID-REF-DO | Hash-REF-DO: A concatenation of an AID-REF-DO and a
-     * Hash-REF-DO.
+     * Tag: E1 Length: n Value:
+     *     1. AID-REF-DO | Hash-REF-DO: A concatenation of an AID-REF-DO and a Hash-REF-DO.
+     *     2. Hash-REF-DO or Hash-REF-DO | PKG-REF-DO A concatenation of a Hash-REF-DO and a
+     *        PKG-REF-DO.
      */
     @Override
     public void build(ByteArrayOutputStream stream) throws DO_Exception {
         ByteArrayOutputStream temp = new ByteArrayOutputStream();
 
-        if (mAidDo == null || mHashDo == null) {
+        if (mHashDo == null) {
             throw new DO_Exception("REF-DO: Required DO missing!");
         }
 
-        mAidDo.build(temp);
-        mHashDo.build(temp);
+        if (mAidDo != null) {
+            mAidDo.build(temp);
+        }
+
+        if (mHashDo != null) {
+            mHashDo.build(temp);
+        }
+
+        if (mPkgDo != null) {
+            mPkgDo.build(temp);
+        }
 
         byte[] data = temp.toByteArray();
         BerTlv tlv = new BerTlv(data, getTag(), 0, data.length);
@@ -164,7 +203,9 @@ public class REF_DO extends BerTlv {
             if (getTag() == ref_do.getTag()) {
                 if (AID_REF_DO.equals(mAidDo, ref_do.mAidDo)) {
                     if (Hash_REF_DO.equals(mHashDo, ref_do.mHashDo)) {
-                        return true;
+                        if (PKG_REF_DO.equals(mPkgDo, ref_do.mPkgDo)) {
+                            return true;
+                        }
                     }
                 }
             }

@@ -30,7 +30,6 @@ import android.os.Bundle;
 
 import androidx.lifecycle.Lifecycle;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.common.ButtonPreference;
 import com.android.car.settings.common.ConfirmationDialogFragment;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
@@ -43,15 +42,16 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 @Config(shadows = {ShadowCarUserManagerHelper.class, ShadowUserIconProvider.class})
 public class MakeAdminPreferenceControllerTest {
 
     private static final UserInfo TEST_USER = new UserInfo(/* id= */ 10,
-            "Test Username", /* flags= */0);
+            "Test Username", /* flags= */ 0);
 
     private PreferenceControllerTestHelper<MakeAdminPreferenceController>
             mPreferenceControllerHelper;

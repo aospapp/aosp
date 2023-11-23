@@ -27,6 +27,7 @@ import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.DocumentStack;
 import com.android.documentsui.base.Features;
 import com.android.documentsui.base.RootInfo;
+import com.android.documentsui.base.UserId;
 import com.android.documentsui.clipping.UrisSupplier;
 import com.android.documentsui.services.FileOperationService.OpType;
 
@@ -132,7 +133,7 @@ public abstract class ResolvedResourcesJob extends Job {
 
             DocumentInfo doc;
             try {
-                doc = DocumentInfo.fromUri(resolver, uri);
+                doc = DocumentInfo.fromUri(resolver, uri, UserId.DEFAULT_USER);
             } catch (FileNotFoundException e) {
                 Log.e(TAG, "Failed to resolve content from Uri: " + uri
                         + ". Skipping to next resource.", e);

@@ -16,7 +16,6 @@
 
 package com.android.services.telephony;
 
-import android.telecom.Log;
 import android.telecom.PhoneAccountHandle;
 
 import java.util.ArrayList;

@@ -105,7 +105,7 @@
     <string name="clear_all_message" msgid="1548432000373861295">"Effacer toutes les données et tous les contacts?"</string>
     <string name="emergency_info_footer" msgid="8751758742506410146">"L\'ajout de données médicales et de contacts d\'urgence peut aider les premiers intervenants en cas d\'urgence.\n\nTout le monde peut voir cette information sur votre écran de verrouillage et appeler vos contacts en touchant leur nom sans devoir déverrouiller votre téléphone."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"Ajouter des données d\'urgence"</string>
-    <string name="settings_suggestion_body" msgid="5559349261345837716">"Laissez premiers intervenants voir vos données d\'urgence"</string>
+    <string name="settings_suggestion_body" msgid="5559349261345837716">"Laissez les premiers intervenants voir vos données d\'urgence"</string>
     <string name="user_image_take_photo" msgid="2779924488370750102">"Prendre une photo"</string>
     <string name="user_image_choose_photo" msgid="2442095378052415700">"Sélectionner une image"</string>
     <string name="user_image_photo_selector" msgid="8941966433899876760">"Sélectionner une photo"</string>

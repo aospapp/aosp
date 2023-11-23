@@ -17,9 +17,6 @@
 
 <!-- This file is intended for non translatable string resources. -->
 <resources>
-    <!-- The package name of the media application that will be selected as the default. -->
-    <string name="default_media_application" translatable="false">com.android.bluetooth</string>
-
     <string name="dash_separator" translatable="false">" - "</string>
     <string name="slash_separator" translatable="false">" / "</string>
 </resources>

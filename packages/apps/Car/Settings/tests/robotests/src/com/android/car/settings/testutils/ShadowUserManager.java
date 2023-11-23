@@ -18,6 +18,8 @@ package com.android.car.settings.testutils;
 
 import android.annotation.UserIdInt;
 import android.content.pm.UserInfo;
+import android.graphics.Bitmap;
+import android.os.UserHandle;
 import android.os.UserManager;
 import android.util.ArrayMap;
 
@@ -32,31 +34,25 @@ import java.util.Map;
 
 @Implements(UserManager.class)
 public class ShadowUserManager extends org.robolectric.shadows.ShadowUserManager {
-    private static UserManager sInstance;
 
-    private Map<Integer, List<UserInfo>> mProfiles = new ArrayMap<>();
-
-    public static void setInstance(UserManager manager) {
-        sInstance = manager;
-    }
-
-    @Implementation
-    protected UserInfo getUserInfo(@UserIdInt int userHandle) {
-        return sInstance.getUserInfo(userHandle);
-    }
+    private static boolean sIsHeadlessSystemUserMode = true;
+    private static boolean sCanAddMoreUsers = true;
+    private static Map<Integer, List<UserInfo>> sProfiles = new ArrayMap<>();
+    private static Map<Integer, Bitmap> sUserIcons = new ArrayMap<>();
+    private static int sMaxSupportedUsers = 10;
 
     @Implementation
     protected int[] getProfileIdsWithDisabled(int userId) {
-        if (mProfiles.containsKey(userId)) {
-            return mProfiles.get(userId).stream().mapToInt(userInfo -> userInfo.id).toArray();
+        if (sProfiles.containsKey(userId)) {
+            return sProfiles.get(userId).stream().mapToInt(userInfo -> userInfo.id).toArray();
         }
         return new int[]{};
     }
 
     @Implementation
     protected List<UserInfo> getProfiles(int userHandle) {
-        if (mProfiles.containsKey(userHandle)) {
-            return new ArrayList<>(mProfiles.get(userHandle));
+        if (sProfiles.containsKey(userHandle)) {
+            return new ArrayList<>(sProfiles.get(userHandle));
         }
         return Collections.emptyList();
     }
@@ -64,12 +60,62 @@ public class ShadowUserManager extends org.robolectric.shadows.ShadowUserManager
     /** Adds a profile to be returned by {@link #getProfiles(int)}. **/
     public void addProfile(
             int userHandle, int profileUserHandle, String profileName, int profileFlags) {
-        mProfiles.putIfAbsent(userHandle, new ArrayList<>());
-        mProfiles.get(userHandle).add(new UserInfo(profileUserHandle, profileName, profileFlags));
+        sProfiles.putIfAbsent(userHandle, new ArrayList<>());
+        sProfiles.get(userHandle).add(new UserInfo(profileUserHandle, profileName, profileFlags));
+    }
+
+    @Implementation
+    protected void setUserRestriction(String key, boolean value, UserHandle userHandle) {
+        setUserRestriction(userHandle, key, value);
+    }
+
+    @Implementation
+    protected List<UserInfo> getUsers(boolean excludeDying) {
+        return super.getUsers();
+    }
+
+    @Implementation
+    protected static boolean isHeadlessSystemUserMode() {
+        return sIsHeadlessSystemUserMode;
+    }
+
+    public static void setIsHeadlessSystemUserMode(boolean isEnabled) {
+        sIsHeadlessSystemUserMode = isEnabled;
+    }
+
+    @Implementation
+    protected static boolean canAddMoreUsers() {
+        return sCanAddMoreUsers;
+    }
+
+    public static void setCanAddMoreUsers(boolean isEnabled) {
+        sCanAddMoreUsers = isEnabled;
+    }
+
+    @Implementation
+    public Bitmap getUserIcon(@UserIdInt int userId) {
+        return sUserIcons.get(userId);
+    }
+
+    public static void setUserIcon(@UserIdInt int userId, Bitmap icon) {
+        sUserIcons.put(userId, icon);
+    }
+
+    @Implementation
+    public static int getMaxSupportedUsers() {
+        return sMaxSupportedUsers;
+    }
+
+    public static void setMaxSupportedUsers(int maxSupportedUsers) {
+        sMaxSupportedUsers = maxSupportedUsers;
     }
 
     @Resetter
     public static void reset() {
-        sInstance = null;
+        org.robolectric.shadows.ShadowUserManager.reset();
+        sIsHeadlessSystemUserMode = true;
+        sCanAddMoreUsers = true;
+        sProfiles.clear();
+        sUserIcons.clear();
     }
 }

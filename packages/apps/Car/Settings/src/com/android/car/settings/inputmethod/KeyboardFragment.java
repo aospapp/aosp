@@ -16,16 +16,25 @@
 
 package com.android.car.settings.inputmethod;
 
+import android.provider.Settings;
+
 import androidx.annotation.XmlRes;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.SettingsFragment;
+import com.android.car.settings.search.CarBaseSearchIndexProvider;
+import com.android.settingslib.search.SearchIndexable;
 
 /** Keyboard settings fragment which lists enabled keyboards and a manage keyboard button. */
+@SearchIndexable
 public class KeyboardFragment extends SettingsFragment {
     @Override
     @XmlRes
     protected int getPreferenceScreenResId() {
         return R.xml.keyboard_fragment;
     }
+
+    public static final CarBaseSearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
+            new CarBaseSearchIndexProvider(R.xml.keyboard_fragment,
+                    Settings.ACTION_INPUT_METHOD_SETTINGS);
 }

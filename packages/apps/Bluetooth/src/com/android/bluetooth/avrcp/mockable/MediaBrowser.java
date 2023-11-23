@@ -160,6 +160,6 @@ public class MediaBrowser {
     public void testInit(Context context, ComponentName serviceComponent,
             ConnectionCallback callback, Bundle rootHints) {
         // This is only used by Mockito to capture the constructor arguments on creation
-        Log.wtfStack("AvrcpMockMediaBrowser", "This function should never be called");
+        Log.wtf("AvrcpMockMediaBrowser", "This function should never be called");
     }
 }

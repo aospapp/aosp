@@ -22,7 +22,7 @@
     <style name="ActionModeStyle" parent="Widget.AppCompat.ActionMode">
         <!-- attr "height" was used by support lib should not in overlay scope -->
         <item name="height">@dimen/action_bar_space_height</item>
-        <item name="titleTextStyle">@style/ToolbarTitle</item>
+        <item name="titleTextStyle">@style/ActionModeTitle</item>
         <item name="android:layout_margin">@dimen/search_bar_margin</item>
     </style>
 
@@ -44,6 +44,7 @@
     </style>
 
     <style name="AutoCompleteTextViewStyle" parent="@style/Widget.AppCompat.AutoCompleteTextView">
+        <item name="android:textColorHint">?android:attr/textColorSecondary</item>
         <item name="android:textAppearance">@style/AutoCompleteText</item>
     </style>
 
@@ -86,13 +87,23 @@
         <item name="android:textAppearance">@style/MaterialButtonTextAppearance</item>
     </style>
 
+    <style name="EmptyStateButton" parent="@style/Widget.MaterialComponents.Button.TextButton">
+        <item name="android:textAppearance">@style/EmptyStateButtonTextAppearance</item>
+    </style>
+
     <style name="AlertDialogTheme" parent="@style/ThemeOverlay.AppCompat.Dialog.Alert">
         <item name="buttonBarPositiveButtonStyle">@style/DialogTextButton</item>
         <item name="buttonBarNegativeButtonStyle">@style/DialogTextButton</item>
     </style>
 
+    <style name="MaterialAlertDialogStyle" parent="@style/MaterialAlertDialog.MaterialComponents">
+        <item name="backgroundInsetTop">12dp</item>
+        <item name="backgroundInsetBottom">12dp</item>
+    </style>
+
     <style name="MaterialAlertDialogTheme" parent="@style/ThemeOverlay.MaterialComponents.MaterialAlertDialog.Centered">
         <item name="android:dialogCornerRadius">@dimen/grid_item_radius</item>
+        <item name="alertDialogStyle">@style/MaterialAlertDialogStyle</item>
         <item name="buttonBarPositiveButtonStyle">@style/DialogTextButton</item>
         <item name="buttonBarNegativeButtonStyle">@style/DialogTextButton</item>
         <item name="materialAlertDialogTitleTextStyle">@style/MaterialAlertDialogTitleStyle</item>

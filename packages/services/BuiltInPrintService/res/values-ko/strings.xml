@@ -60,14 +60,18 @@
     <string name="forget" msgid="892068061425802502">"삭제"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"Wi-Fi Direct를 통해 연결"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"<xliff:g id="IP_ADDRESS">%1$s</xliff:g>에서 현재 네트워크를 통해 연결"</string>
+    <string name="recommendation_summary" msgid="2979700524954307566">"기본인쇄 서비스에서는 기본적인 옵션만 제공됩니다. 다른 인쇄 서비스를 통해 이 프린터에 관한 다른 옵션을 이용할 수도 있습니다."</string>
+    <string name="recommendations_heading" msgid="5086762263560605249">"권장 서비스"</string>
+    <string name="recommendation_install_summary" msgid="374785283809791669">"설치하려면 선택하세요."</string>
+    <string name="recommendation_enable_summary" msgid="3500907868251326224">"사용 설정하려면 선택하세요."</string>
+    <string name="recommendation_manage" msgid="4683640588502866284">"서비스 관리"</string>
     <string name="security" msgid="2279008326210305401">"보안"</string>
     <string name="certificate_update_request" msgid="1314796413107139475">"이 프린터에서 새로운 보안 인증서를 제공했거나 다른 기기가 이 프린터로 위장하고 있습니다. 새 인증서를 수락할까요?"</string>
     <string name="not_encrypted_request" msgid="4871472176807381642">"프린터가 더 이상 암호화된 작업을 지원하지 않습니다. 인쇄를 계속하시겠습니까?"</string>
     <string name="accept" msgid="4426153292469698134">"수락"</string>
     <string name="reject" msgid="24751635160440693">"거부"</string>
     <string name="connections" msgid="8895413761760117180">"연결"</string>
-    <!-- no translation found for wifi_direct_permission_rationale (3599186620970379218) -->
-    <skip />
-    <!-- no translation found for fix (7784394272611365393) -->
-    <skip />
+    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"기본 인쇄 서비스를 사용하여 주변 기기를 찾으려면 위치 정보 액세스 권한이 필요합니다."</string>
+    <string name="fix" msgid="7784394272611365393">"액세스 권한 검토"</string>
+    <string name="print" msgid="7851318072404916362">"인쇄"</string>
 </resources>

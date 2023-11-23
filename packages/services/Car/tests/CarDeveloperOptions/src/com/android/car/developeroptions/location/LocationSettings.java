@@ -29,11 +29,11 @@ import com.android.car.developeroptions.R;
 import com.android.car.developeroptions.SettingsActivity;
 import com.android.car.developeroptions.dashboard.DashboardFragment;
 import com.android.car.developeroptions.search.BaseSearchIndexProvider;
-import com.android.car.developeroptions.search.Indexable;
 import com.android.car.developeroptions.widget.SwitchBar;
 import com.android.settingslib.core.AbstractPreferenceController;
 import com.android.settingslib.core.lifecycle.Lifecycle;
 import com.android.settingslib.location.RecentLocationAccesses;
+import com.android.settingslib.search.Indexable;
 import com.android.settingslib.search.SearchIndexable;
 
 import java.util.ArrayList;
@@ -121,7 +121,7 @@ public class LocationSettings extends DashboardFragment {
         controllers.add(new RecentLocationAccessPreferenceController(context));
         controllers.add(new LocationScanningPreferenceController(context));
         controllers.add(new LocationServicePreferenceController(context, fragment, lifecycle));
-        controllers.add(new LocationFooterPreferenceController(context, lifecycle));
+        controllers.add(new LocationFooterPreferenceController(context));
         return controllers;
     }
 

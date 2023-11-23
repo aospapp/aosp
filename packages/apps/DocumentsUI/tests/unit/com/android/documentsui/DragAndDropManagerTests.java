@@ -398,6 +398,44 @@ public class DragAndDropManagerTests {
     }
 
     @Test
+    public void testIsDragFromSameApp_afterStartDrag() {
+        mManager.startDrag(
+                mStartDragView,
+                Arrays.asList(TestEnv.FILE_APK, TestEnv.FILE_JPG),
+                TestProvidersAccess.DOWNLOADS,
+                Arrays.asList(TestEnv.FOLDER_0.derivedUri, TestEnv.FILE_APK.derivedUri,
+                        TestEnv.FILE_JPG.derivedUri),
+                mDetails,
+                mIconHelper,
+                TestEnv.FOLDER_0);
+
+        assertTrue(mManager.isDragFromSameApp());
+    }
+
+    @Test
+    public void testIsDragFromSameApp_beforeStartDrag() {
+        assertFalse(mManager.isDragFromSameApp());
+    }
+
+    @Test
+    public void testIsDragFromSameApp_afterStartDrag_afterDragEnded() {
+        mManager.startDrag(
+                mStartDragView,
+                Arrays.asList(TestEnv.FILE_APK, TestEnv.FILE_JPG),
+                TestProvidersAccess.DOWNLOADS,
+                Arrays.asList(TestEnv.FOLDER_0.derivedUri, TestEnv.FILE_APK.derivedUri,
+                        TestEnv.FILE_JPG.derivedUri),
+                mDetails,
+                mIconHelper,
+                TestEnv.FOLDER_0);
+        assertTrue(mManager.isDragFromSameApp());
+
+        mManager.dragEnded();
+        assertFalse(mManager.isDragFromSameApp());
+    }
+
+
+    @Test
     public void testUpdateState_UpdatesToCopy_SameRoot_RightCtrlPressed() {
         mManager.startDrag(
                 mStartDragView,

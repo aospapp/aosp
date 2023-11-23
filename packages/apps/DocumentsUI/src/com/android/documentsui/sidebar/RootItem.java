@@ -16,7 +16,6 @@
 
 package com.android.documentsui.sidebar;
 
-import androidx.annotation.Nullable;
 import android.content.Context;
 import android.graphics.drawable.Drawable;
 import android.provider.DocumentsProvider;
@@ -29,34 +28,43 @@ import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import androidx.annotation.Nullable;
+
 import com.android.documentsui.ActionHandler;
 import com.android.documentsui.IconUtils;
 import com.android.documentsui.MenuManager;
 import com.android.documentsui.R;
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.RootInfo;
+import com.android.documentsui.base.UserId;
+
+import java.util.Objects;
 
 /**
  * An {@link Item} for each root provided by {@link DocumentsProvider}s.
  */
 public class RootItem extends Item {
+    private static final String TAG = "RootItem";
     private static final String STRING_ID_FORMAT = "RootItem{%s/%s}";
 
     public final RootInfo root;
     public @Nullable DocumentInfo docInfo;
 
     protected final ActionHandler mActionHandler;
+    protected final boolean mMaybeShowBadge;
     private final String mPackageName;
 
-    public RootItem(RootInfo root, ActionHandler actionHandler) {
-        this(root, actionHandler, "" /* packageName */);
+    public RootItem(RootInfo root, ActionHandler actionHandler, boolean maybeShowBadge) {
+        this(root, actionHandler, "" /* packageName */, maybeShowBadge);
     }
 
-    public RootItem(RootInfo root, ActionHandler actionHandler, String packageName) {
-        super(R.layout.item_root, root.title, getStringId(root));
+    public RootItem(RootInfo root, ActionHandler actionHandler, String packageName,
+            boolean maybeShowBadge) {
+        super(R.layout.item_root, root.title, getStringId(root), root.userId);
         this.root = root;
         mActionHandler = actionHandler;
         mPackageName = packageName;
+        mMaybeShowBadge = maybeShowBadge;
     }
 
     private static String getStringId(RootInfo root) {
@@ -109,7 +117,7 @@ public class RootItem extends Item {
     }
 
     protected final void bindIconAndTitle(View view) {
-        bindIcon(view, root.loadDrawerIcon(view.getContext()));
+        bindIcon(view, root.loadDrawerIcon(view.getContext(), mMaybeShowBadge));
         bindTitle(view);
     }
 
@@ -140,8 +148,13 @@ public class RootItem extends Item {
     }
 
     @Override
-    String getPackageName() {
+    public String getPackageName() {
         return mPackageName;
+    }
+
+    @Override
+    public String getSummary() {
+        return root.summary;
     }
 
     @Override
@@ -164,8 +177,46 @@ public class RootItem extends Item {
     public String toString() {
         return "RootItem{"
                 + "id=" + stringId
+                + ", userId=" + userId
                 + ", root=" + root
                 + ", docInfo=" + docInfo
                 + "}";
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null) {
+            return false;
+        }
+
+        if (this == o) {
+            return true;
+        }
+
+        if (o instanceof RootItem) {
+            RootItem other = (RootItem) o;
+            return Objects.equals(root, other.root)
+                    && Objects.equals(docInfo, other.docInfo)
+                    && Objects.equals(mActionHandler, other.mActionHandler)
+                    && Objects.equals(mPackageName, other.mPackageName);
+        }
+
+        return false;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(root, docInfo, mActionHandler, mPackageName);
+    }
+
+    /**
+     * Creates a dummy root item for a user. A dummy root item is used as a place holder when
+     * there is no such root available. We can therefore show the item on the UI.
+     */
+    public static RootItem createDummyItem(RootItem item, UserId targetUser) {
+        RootInfo dummyRootInfo = RootInfo.copyRootInfo(item.root);
+        dummyRootInfo.userId = targetUser;
+        RootItem dummy = new RootItem(dummyRootInfo, item.mActionHandler, item.mMaybeShowBadge);
+        return dummy;
     }
 }

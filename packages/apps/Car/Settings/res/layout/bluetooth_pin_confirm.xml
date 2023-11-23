@@ -41,8 +41,7 @@
                     android:id="@+id/pairing_caption"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:ellipsize="end"
-                    android:maxLines="1"
+                    android:singleLine="true"
                     android:text="@string/bluetooth_pairing_key_msg"
                     android:textAppearance="?android:attr/textAppearanceMedium"
                     android:visibility="gone"/>
@@ -51,8 +50,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="@dimen/bluetooth_pin_dialog_subtext_margin_top"
-                    android:ellipsize="marquee"
-                    android:maxLines="1"
+                    android:singleLine="true"
                     android:textAppearance="?android:attr/textAppearanceLarge"
                     android:visibility="gone"/>
             </LinearLayout>
@@ -86,9 +84,8 @@
                 android:layout_centerVertical="true"
                 android:layout_marginEnd="@dimen/bluetooth_pin_dialog_text_margin_end"
                 android:layout_marginStart="@dimen/bluetooth_pin_dialog_text_margin_start"
-                android:ellipsize="end"
                 android:gravity="center_vertical"
-                android:maxLines="1"
+                android:singleLine="true"
                 android:textAppearance="?android:attr/textAppearanceMedium"/>
         </RelativeLayout>
 

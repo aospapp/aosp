@@ -33,6 +33,7 @@ import android.util.Log;
 
 import com.android.internal.telephony.OperatorInfo;
 
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -149,7 +150,8 @@ public final class CellInfoUtil {
                 mcc,
                 mnc,
                 operatorInfo.getOperatorAlphaLong(),
-                operatorInfo.getOperatorAlphaShort());
+                operatorInfo.getOperatorAlphaShort(),
+                Collections.emptyList());
 
         CellInfoGsm ci = new CellInfoGsm();
         ci.setCellIdentity(cig);

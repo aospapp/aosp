@@ -20,6 +20,7 @@ android_test {
 
     static_libs: [
         "androidx.legacy_legacy-support-v4",
+        "androidx.test.rules",
         "androidx.test.espresso.core",
         "mockito-target",
         "ub-janktesthelper",

@@ -83,8 +83,7 @@
     <string name="font_size_summary" msgid="9120023206321191067">"Ekrandaki metni daha küçük veya daha büyük yapın."</string>
     <string name="font_size_make_smaller_desc" msgid="5780829318985556969">"Küçült"</string>
     <string name="font_size_make_larger_desc" msgid="2907824418252785875">"Büyüt"</string>
-    <!-- no translation found for font_size_preview_text (360019784926073822) -->
-    <skip />
+    <string name="font_size_preview_text" msgid="360019784926073822">"Servez à ce monsieur une bière et des kiwis."</string>
     <string name="font_size_preview_text_headline" msgid="8038650525913995091">"Örnek metin"</string>
     <string name="font_size_preview_text_title" msgid="2593520249400910305">"Muhteşem Oz Büyücüsü"</string>
     <string name="font_size_preview_text_subtitle" msgid="6106782964143379331">"11. Bölüm: Oz\'un Muhteşem Zümrüt Kenti"</string>
@@ -422,7 +421,7 @@
     <string name="security_settings_face_settings_use_face_for_apps" msgid="5479369083370664351">"Uygulamada oturum açma ve ödemeler"</string>
     <string name="security_settings_face_settings_require_attention" msgid="2755140150841557225">"Kilidi açmak için gözler açık"</string>
     <string name="security_settings_face_settings_require_attention_details" msgid="2557060433599942587">"Yüzle kimlik doğrulamayı kullanırken gözleriniz açık olmalıdır"</string>
-    <string name="security_settings_face_settings_require_confirmation" msgid="7312024271060416438">"Her zaman onay gerektir"</string>
+    <string name="security_settings_face_settings_require_confirmation" msgid="7312024271060416438">"Her zaman onay gerekli"</string>
     <string name="security_settings_face_settings_require_confirmation_details" msgid="8740564864091803429">"Uygulamalarda kimlik doğrulaması yapılırken her zaman onay gerektir"</string>
     <string name="security_settings_face_settings_remove_face_data" msgid="2821359954483136239">"Yüz verisini kaldır"</string>
     <string name="security_settings_face_settings_footer" msgid="4627175759990550715">"Yüzünüzü kullanarak cihazınızın kilidini açabilir ve uygulamalara erişebilirsiniz. "<annotation id="url">"Daha fazla bilgi"</annotation></string>
@@ -481,8 +480,7 @@
     <string name="face_lock_screen_setup_skip_dialog_text" product="tablet" msgid="2998863111689476550">"Tabletiniz kaybolur veya çalınırsa kimsenin kullanamaması için ekran kilidi seçeneğiyle koruyun. Yüzle kimlik doğrulama için ayrıca bir ekran kilidi seçeneğine ihtiyacınız var. İptal\'e dokunun ve ardından bir PIN ayarlayın veya başka bir ekran kilidi seçeneği belirleyin."</string>
     <string name="face_lock_screen_setup_skip_dialog_text" product="device" msgid="6780557259734235952">"Cihazınız kaybolur veya çalınırsa kimsenin kullanamaması için ekran kilidi seçeneğiyle koruyun. Yüzle kimlik doğrulama için ayrıca bir ekran kilidi seçeneğine ihtiyacınız var. İptal\'e dokunun ve ardından bir PIN ayarlayın veya başka bir ekran kilidi seçeneği belirleyin."</string>
     <string name="face_lock_screen_setup_skip_dialog_text" product="default" msgid="8541640018478926775">"Telefonunuz kaybolur veya çalınırsa kimsenin kullanamaması için ekran kilidi seçeneğiyle koruyun. Yüzle kimlik doğrulama için ayrıca bir ekran kilidi seçeneğine ihtiyacınız var. İptal\'e dokunun ve ardından bir PIN ayarlayın veya başka bir ekran kilidi seçeneği belirleyin."</string>
-    <!-- no translation found for lock_screen_pin_skip_title (8217519439213393785) -->
-    <skip />
+    <string name="lock_screen_pin_skip_title" msgid="8217519439213393785">"PIN Kurulumu atlansın mı?"</string>
     <string name="lock_screen_password_skip_title" msgid="3725788215672959827">"Şifre Kurulumu atlansın mı?"</string>
     <string name="lock_screen_pattern_skip_title" msgid="4237030500353932005">"Desen Kurulumu atlansın mı?"</string>
     <string name="security_settings_fingerprint_enroll_setup_screen_lock" msgid="9036983528330627756">"Ekran kilidini ayarla"</string>
@@ -669,7 +667,6 @@
       <item quantity="other"><xliff:g id="NUMBER_1">%d</xliff:g> basamaktan az olmalıdır</item>
       <item quantity="one"><xliff:g id="NUMBER_0">%d</xliff:g> basamaktan az olmalıdır</item>
     </plurals>
-    <string name="lockpassword_pin_contains_non_digits" msgid="1501729742023195556">"Yalnızca 0-9 arasındaki rakamları içermelidir"</string>
     <string name="lockpassword_pin_recently_used" msgid="5556148774911741103">"Cihaz yöneticisi yakın zamanda kullanılan bir PIN\'e izin vermiyor"</string>
     <string name="lockpassword_pin_blacklisted_by_admin" msgid="2752037810571200697">"Yaygın olarak kullanılan PIN\'ler BT yöneticiniz tarafından engellendi. Farklı bir PIN deneyin."</string>
     <string name="lockpassword_illegal_character" msgid="3577712947676261351">"Burada geçersiz bir karakter kullanılamaz"</string>
@@ -699,6 +696,10 @@
     <plurals name="lockpassword_password_requires_nonletter" formatted="false" msgid="3692485784007607387">
       <item quantity="other">Harf olmayan en az <xliff:g id="COUNT">%d</xliff:g> karakter içermelidir</item>
       <item quantity="one">Harf olmayan en az 1 karakter içermelidir</item>
+    </plurals>
+    <plurals name="lockpassword_password_requires_nonnumerical" formatted="false" msgid="6943707011152180150">
+      <item quantity="other">Rakam olmayan en az <xliff:g id="COUNT">%d</xliff:g> karakter içermelidir</item>
+      <item quantity="one">Rakam olmayan en az 1 karakter içermelidir</item>
     </plurals>
     <string name="lockpassword_password_recently_used" msgid="6944729699375087431">"Cihaz yöneticisi yakın zamanda kullanılan bir şifreye izin vermiyor"</string>
     <string name="lockpassword_password_blacklisted_by_admin" msgid="4988166770148440755">"Yaygın olarak kullanılan şifreler BT yöneticiniz tarafından engellendi. Farklı bir şifre deneyin."</string>
@@ -847,7 +848,7 @@
     <string name="wifi_in_airplane_mode" msgid="4729571191578262246">"Uçak modunda"</string>
     <string name="wifi_notify_open_networks" msgid="4782239203624619655">"Açık ağ bildirimi"</string>
     <string name="wifi_notify_open_networks_summary" msgid="1383681260705466715">"Herkese açık yüksek kaliteli bir ağ kullanılabilir olduğunda bildir"</string>
-    <string name="wifi_wakeup" msgid="4963732992164721548">"Kablosuz özelliğini otomatik olarak aç"</string>
+    <string name="wifi_wakeup" msgid="4963732992164721548">"Kablosuz ağı otomatik olarak aç"</string>
     <string name="wifi_wakeup_summary" msgid="1152699417411690">"Ev ağınız gibi yüksek kaliteli kayıtlı ağların yakınında olduğunuzda kablosuz özelliği tekrar açılır"</string>
     <string name="wifi_wakeup_summary_no_location" msgid="3007457288587966962">"Konum kapalı olduğundan kullanılamıyor. "<annotation id="link">"Konum"</annotation>"\'u açın."</string>
     <string name="wifi_wakeup_summary_scanning_disabled" msgid="6820040651529910914">"Kablosuz ağ taraması kapalı olduğu için kullanılamıyor"</string>
@@ -876,7 +877,7 @@
     <string name="wifi_add_network" msgid="4094957940791876640">"Ağ ekle"</string>
     <string name="wifi_configure_settings_preference_title" msgid="2678534679408777268">"Kablosuz tercihleri"</string>
     <string name="wifi_configure_settings_preference_summary_wakeup_on" msgid="5714892572614655675">"Kablosuz özelliği otomatik olarak tekrar açılır"</string>
-    <string name="wifi_configure_settings_preference_summary_wakeup_off" msgid="286904094152909651">"Kablosuz özelliği otomatik olarak tekrar açılmaz"</string>
+    <string name="wifi_configure_settings_preference_summary_wakeup_off" msgid="286904094152909651">"Kablosuz ağ otomatik olarak tekrar açılmaz"</string>
     <string name="wifi_access_points" msgid="1647976498906871869">"Kablosuz ağlar"</string>
     <string name="wifi_menu_more_options" msgid="8318269834264035524">"Diğer seçenekler"</string>
     <string name="wifi_menu_p2p" msgid="4945665601551289791">"Kablosuz Doğrudan Bağlantı"</string>
@@ -1092,13 +1093,19 @@
     <item msgid="2552412793005571845">"@*android:string/wfc_mode_cellular_preferred_summary"</item>
     <item msgid="742811521969300868">"@*android:string/wfc_mode_wifi_only_summary"</item>
   </string-array>
-    <!-- no translation found for wifi_calling_mode_choices_v2:0 (9149346657812979257) -->
-    <!-- no translation found for wifi_calling_mode_choices_v2:2 (6007360612667098926) -->
+  <string-array name="wifi_calling_mode_choices_v2">
+    <item msgid="9149346657812979257">"Kablosuz"</item>
+    <item msgid="4421333712484542489">"Mobil"</item>
+    <item msgid="6007360612667098926">"Yalnızca kablosuz"</item>
+  </string-array>
   <string-array name="wifi_calling_mode_choices_without_wifi_only">
     <item msgid="3658897985297386665">"@*android:string/wfc_mode_wifi_preferred_summary"</item>
     <item msgid="4191802193352447215">"@*android:string/wfc_mode_cellular_preferred_summary"</item>
   </string-array>
-    <!-- no translation found for wifi_calling_mode_choices_v2_without_wifi_only:0 (6452246499629557266) -->
+  <string-array name="wifi_calling_mode_choices_v2_without_wifi_only">
+    <item msgid="6452246499629557266">"Kablosuz"</item>
+    <item msgid="2271962426654621656">"Mobil"</item>
+  </string-array>
     <string name="wifi_calling_mode_wifi_preferred_summary" msgid="8298294808362169798">"Kablosuz ağ bağlantısı kullanılamıyorsa mobil ağı kullanın"</string>
     <string name="wifi_calling_mode_cellular_preferred_summary" msgid="4906499810156794061">"Mobil ağ kullanılamıyorsa kablosuz ağı kullan"</string>
     <string name="wifi_calling_mode_wifi_only_summary" msgid="6928556021002500522">"Kablosuz ağ üzerinden çağrı. Kablosuz ağ bağlantısı kesilirse çağrı sonlandırılır."</string>
@@ -2291,8 +2298,8 @@
       <item quantity="one">%1$s yakın zamanda kısıtlandı</item>
     </plurals>
     <plurals name="battery_tip_restrict_summary" formatted="false" msgid="984148373944071669">
-      <item quantity="other">%2$d uygulama yüksek düzeyde arka plan pil kullanımına yol açıyor</item>
-      <item quantity="one">%1$s yüksek düzeyde arka plan pil kullanımına yol açıyor</item>
+      <item quantity="other">%2$d uygulama arka planda yüksek düzeyde pil kullanıyor</item>
+      <item quantity="one">%1$s arka planda yüksek düzeyde pil kullanıyor</item>
     </plurals>
     <plurals name="battery_tip_restrict_handled_summary" formatted="false" msgid="469696766640020557">
       <item quantity="other">Bu uygulamalar arka planda çalışamaz</item>
@@ -2445,7 +2452,7 @@
     <string name="battery_saver_auto_routine" msgid="886514412067906980">"Rutininize göre"</string>
     <string name="battery_saver_auto_percentage" msgid="5791982309331921556">"Yüzdeye göre"</string>
     <string name="battery_saver_auto_routine_summary" msgid="9182044424547482889">"Piliniz, genellikle şarj ettiğiniz saatten önce bitecek gibiyse Pil Tasarrufu etkinleştirilir"</string>
-    <string name="battery_saver_auto_percentage_summary" msgid="2036128588460338677">"<xliff:g id="PERCENT">%1$s</xliff:g> düzeyinde açılacak"</string>
+    <string name="battery_saver_auto_percentage_summary" msgid="2036128588460338677">"Pil <xliff:g id="PERCENT">%1$s</xliff:g> olduğunda açılacak"</string>
     <string name="battery_saver_schedule_settings_title" msgid="574233428557678128">"Bir plan belirleyin"</string>
     <string name="battery_saver_sticky_title_new" msgid="5328707297110866082">"Tam olarak şarj edildiğinde kapat"</string>
     <string name="battery_saver_sticky_description_new" product="default" msgid="3406582427270935879">"Pil Tasarrufu, telefonunuzun gücü <xliff:g id="PERCENT">%1$s</xliff:g> olduğunda kapanır"</string>
@@ -2863,7 +2870,7 @@
     <string name="user_add_user_item_title" msgid="6835385073795492410">"Kullanıcı"</string>
     <string name="user_add_profile_item_title" msgid="4932743891449790664">"Kısıtlı profil"</string>
     <string name="user_add_user_title" msgid="2320897397066676472">"Yeni kullanıcı eklensin mi?"</string>
-    <string name="user_add_user_message_long" msgid="686637203224195465">"Ek kullanıcılar oluşturarak bu cihazı başkalarıyla paylaşabilirsiniz. Her kullanıcının uygulamalarla, duvar kağıdıyla ve başka ayarlarla özelleştirebileceği kendi alanı olur. Kullanıcılar ayrıca kablosuz ağ gibi herkesi etkileyen cihaz ayarlarını değiştirebilirler.\n\nYeni bir kullanıcı eklediğinizde, ilgili kişinin kendi alanını ayarlaması gerekir.\n\nHer kullanıcı diğer tüm kullanıcılar için uygulamaları güncelleyebilir."</string>
+    <string name="user_add_user_message_long" msgid="686637203224195465">"Ek kullanıcılar oluşturarak bu cihazı başkalarıyla paylaşabilirsiniz. Her kullanıcının uygulamalarla, duvar kağıdıyla ve başka ayarlarla özelleştirebileceği kendi alanı olur. Kullanıcılar ayrıca kablosuz ağ gibi herkesi etkileyen cihaz ayarlarını değiştirebilirler.\n\nYeni bir kullanıcı eklediğinizde, ilgili kişinin kendi alanını ayarlaması gerekir.\n\nHer kullanıcı diğer tüm kullanıcılar için uygulamaları güncelleyebilir. Erişilebilirlik ayarları ve hizmetleri yeni kullanıcıya aktarılamayabilir."</string>
     <string name="user_add_user_message_short" msgid="1802594476285458254">"Yeni bir kullanıcı eklediğinizde, bu kişinin kendi alanını ayarlaması gerekir.\n\nHerhangi bir kullanıcı, diğer tüm kullanıcılar için uygulamaları güncelleyebilir."</string>
     <string name="user_setup_dialog_title" msgid="6748950002206392396">"Kullanıcı şimdi ayarlansın mı?"</string>
     <string name="user_setup_dialog_message" msgid="2988559933258353919">"İlgili kişinin cihazı almak ve kendi alanını ayarlamak için müsait olduğundan emin olun"</string>
@@ -3381,7 +3388,7 @@
     <string name="picture_in_picture_empty_text" msgid="8664071475324685241">"Yüklü uygulamalardan hiçbiri pencere içinde pencere özelliğini desteklemiyor"</string>
     <string name="picture_in_picture_keywords" msgid="7326958702002259262">"pip ekran içinde"</string>
     <string name="picture_in_picture_app_detail_title" msgid="3916189052657425936">"Pencere içinde pencere"</string>
-    <string name="picture_in_picture_app_detail_switch" msgid="747422998967185418">"Resim içinde resme izin ver"</string>
+    <string name="picture_in_picture_app_detail_switch" msgid="747422998967185418">"Pencere içinde pencereye izin ver"</string>
     <string name="picture_in_picture_app_detail_summary" msgid="918632751775525347">"Bu uygulamanın, uygulama açıkken veya uygulamadan çıktıktan sonra (örneğin, video izlemeye devam etmek için) pencere içinde pencere oluşturmasına izin verin. Bu pencere, kullandığınız diğer uygulamaların üzerinde gösterilir."</string>
     <string name="manage_zen_access_title" msgid="3058206309728524196">"Rahatsız Etmeyin erişimi"</string>
     <string name="zen_access_detail_switch" msgid="8706332327904974500">"Rahatsız Etmeyin\'e izin ver"</string>
@@ -3704,7 +3711,7 @@
     <string name="high_power_off" msgid="5906679734326490426">"Pil kullanımı optimize ediliyor"</string>
     <string name="high_power_system" msgid="739584574711292753">"Pil optimizasyonu kullanılamıyor"</string>
     <string name="high_power_desc" msgid="333756885680362741">"Pil optimizasyonu uygulanmasın. Bu seçenek, pilinizi daha hızlı tüketebilir."</string>
-    <string name="high_power_prompt_title" msgid="2805745781720454052">"Uygulamanın her zaman arka planda çalıştırılmasına izin verilsin mi?"</string>
+    <string name="high_power_prompt_title" msgid="2805745781720454052">"Uygulama arka planda çalışmaya devam etsin mi?"</string>
     <string name="high_power_prompt_body" msgid="8067395096053552289">"<xliff:g id="APP_NAME">%1$s</xliff:g> uygulamasının her zaman arka planda çalıştırılmasına izin vermeniz pil ömrünü kısaltabilir. \n\nBunu daha sonra Ayarlar &gt; Uygulamalar ve bildirimler seçeneğinden değiştirebilirsiniz."</string>
     <string name="battery_summary" msgid="4345690800899981339">"Son kez tamamen şarj olduktan sonra <xliff:g id="PERCENTAGE">%1$s</xliff:g> kullanıldı"</string>
     <string name="battery_power_management" msgid="2853925857548647969">"Güç yönetimi"</string>
@@ -4124,7 +4131,7 @@
     <string name="ambient_display_pickup_summary" product="default" msgid="8798915340594367449">"Saati, bildirimleri ve diğer bilgileri kontrol etmek için telefonunuzu elinize alın."</string>
     <string name="ambient_display_pickup_summary" product="tablet" msgid="1077745287100012928">"Saati, bildirimleri ve diğer bilgileri kontrol etmek için tabletinizi elinize alın."</string>
     <string name="ambient_display_pickup_summary" product="device" msgid="404199660076598026">"Saati, bildirimleri ve diğer bilgileri kontrol etmek için cihazınızı elinize alın."</string>
-    <string name="ambient_display_tap_screen_title" product="default" msgid="2784322628239960695">"Telefonu kontrol etmek için dokunun"</string>
+    <string name="ambient_display_tap_screen_title" product="default" msgid="2784322628239960695">"Telefonu kontrol etmek için dokun"</string>
     <string name="ambient_display_tap_screen_title" product="tablet" msgid="6434521782016864148">"Tableti kontrol etmek için dokunun"</string>
     <string name="ambient_display_tap_screen_title" product="device" msgid="4396793721852647356">"Cihazı kontrol etmek için dokunun"</string>
     <string name="ambient_display_tap_screen_summary" msgid="7869039870571925213">"Saati, bildirimleri ve diğer bilgileri kontrol etmek için ekranınıza dokunun."</string>
@@ -4272,6 +4279,8 @@
     <string name="disabled_feature_reason_slow_down_phone" msgid="1819157849156814583">"Söz konusu özellik bu telefonu yavaşlatır"</string>
     <string name="enable_gnss_raw_meas_full_tracking" msgid="3397182995626655581">"Tam GNSS ölçümlerini zorla"</string>
     <string name="enable_gnss_raw_meas_full_tracking_summary" msgid="2469305990718976105">"Tüm GNSS takımyıldızlarını ve görev döngüsü olmayan frekansları takip et"</string>
+    <string name="enable_user_switch_message" msgid="8613014373053051092">"Kullanıcı değiştirilirken hata ayıkla"</string>
+    <string name="enable_user_switch_message_summary" msgid="3354160264601132060">"Kullanıcı değiştirilirken ayrıntılı bilgi göster"</string>
     <string name="allow_background_activity_starts" msgid="6754016668813082728">"Arka planda başlayan işlemlere izin ver"</string>
     <string name="allow_background_activity_starts_summary" msgid="8170749270869606692">"Arka planda başlayan tüm işlemlere izin verir"</string>
     <string name="show_first_crash_dialog" msgid="3682063068903692710">"Kilitlenme iletişim kutusunu her zaman göster"</string>
@@ -4314,7 +4323,7 @@
     <string name="battery_suggestion_title" product="device" msgid="765005476863631528">"Cihazın pil ömrünü uzatın"</string>
     <string name="battery_suggestion_title" product="default" msgid="3295786171830183688">"Telefonun pil ömrünü uzatın"</string>
     <string name="battery_suggestion_summary" msgid="2669070349482656490"></string>
-    <string name="gesture_prevent_ringing_screen_title" msgid="4173494225145223638">"Zilin çalmasını önle"</string>
+    <string name="gesture_prevent_ringing_screen_title" msgid="4173494225145223638">"Zilin çalmasını engelle"</string>
     <string name="gesture_prevent_ringing_title" msgid="8827963588425673557">"Güç ve Sesi Artırma düğmelerine birlikte basın:"</string>
     <string name="gesture_prevent_ringing_sound_title" msgid="8642330448721033641">"Zilin çalmasını engelleme kısayolu"</string>
     <string name="prevent_ringing_option_vibrate" msgid="6456505293904544108">"Titret"</string>

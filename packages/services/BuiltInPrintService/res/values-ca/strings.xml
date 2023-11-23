@@ -36,8 +36,8 @@
     <string name="media_size_5x7in" msgid="1275128379533195285">"5 x 7 polzades"</string>
     <string name="media_size_89x119mm" msgid="6828167243395807385">"89 x 119 mm"</string>
     <string name="media_size_54x86mm" msgid="1301991206183343895">"54 x 86 mm"</string>
-    <string name="media_size_8x10in" msgid="1872576638522812402">"8 x 10 polzades"</string>
-    <string name="media_size_4x6in" msgid="3093276425529958253">"4 x 6 polzades"</string>
+    <string name="media_size_8x10in" msgid="1872576638522812402">"8 x 10 in"</string>
+    <string name="media_size_4x6in" msgid="3093276425529958253">"4 x 6 in"</string>
     <string name="printer_description" msgid="8580767673213837142">"%1$s: %2$s"</string>
     <string name="title_activity_add_printer" msgid="9119216095769228566">"Afegeix una impressora"</string>
     <string name="add_printer_by_ip" msgid="562864787592910327">"Afegeix impressora per adreça IP"</string>
@@ -60,6 +60,11 @@
     <string name="forget" msgid="892068061425802502">"Oblida"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"Es connecta per Wi-Fi Direct"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"Es connecta a través de la xarxa actual a l\'adreça IP <xliff:g id="IP_ADDRESS">%1$s</xliff:g>"</string>
+    <string name="recommendation_summary" msgid="2979700524954307566">"El servei d\'impressió predeterminat ofereix algunes opcions bàsiques. Pot ser que hi hagi més opcions disponibles per a aquesta impressora en un altre servei d\'impressió."</string>
+    <string name="recommendations_heading" msgid="5086762263560605249">"Serveis recomanats"</string>
+    <string name="recommendation_install_summary" msgid="374785283809791669">"Selecciona\'n un per instal·lar-lo"</string>
+    <string name="recommendation_enable_summary" msgid="3500907868251326224">"Selecciona\'n per activar-lo"</string>
+    <string name="recommendation_manage" msgid="4683640588502866284">"Gestiona els serveis"</string>
     <string name="security" msgid="2279008326210305401">"Seguretat"</string>
     <string name="certificate_update_request" msgid="1314796413107139475">"Aquesta impressora ha proporcionat un certificat de seguretat nou o bé hi ha un altre dispositiu suplantant-la. Vols acceptar el certificat nou?"</string>
     <string name="not_encrypted_request" msgid="4871472176807381642">"Aquesta impressora ja no accepta tasques encriptades. Vols continuar imprimint?"</string>
@@ -68,4 +73,5 @@
     <string name="connections" msgid="8895413761760117180">"Connexions"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"El servei d\'impressió predeterminat necessita permisos d\'ubicació per trobar dispositius propers."</string>
     <string name="fix" msgid="7784394272611365393">"Revisa els permisos"</string>
+    <string name="print" msgid="7851318072404916362">"Imprimeix"</string>
 </resources>

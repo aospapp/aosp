@@ -96,6 +96,11 @@ public final class RegularMaintenanceJobService extends JobService {
             }
 
             @Override
+            public String getInterfaceHash() {
+                return this.HASH;
+            }
+
+            @Override
             public IBinder asBinder() {
                 return null;
             }

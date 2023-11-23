@@ -157,21 +157,19 @@ public class EmergencyActionGroup extends FrameLayout implements View.OnClickLis
     public void onClick(View v) {
         Intent intent = (Intent) v.getTag(R.id.tag_intent);
 
-        switch (v.getId()) {
-            case R.id.action1:
-            case R.id.action2:
-            case R.id.action3:
-                if (AccessibilityManager.getInstance(mContext).isTouchExplorationEnabled()) {
-                    getContext().startActivity(intent);
-                } else {
-                    revealTheButton(v);
-                }
-                break;
-            case R.id.selected_container:
-                if (!mHiding) {
-                    getContext().startActivity(intent);
-                }
-                break;
+        if (v.getId() == R.id.action1 || v.getId() == R.id.action2 || v.getId() == R.id.action3) {
+            AccessibilityManager accessibilityMgr =
+                    (AccessibilityManager) getContext().getSystemService(
+                            Context.ACCESSIBILITY_SERVICE);
+            if (accessibilityMgr.isTouchExplorationEnabled()) {
+                getContext().startActivity(intent);
+            } else {
+                revealTheButton(v);
+            }
+        } else if (v.getId() == R.id.selected_container) {
+            if (!mHiding) {
+                getContext().startActivity(intent);
+            }
         }
     }
 

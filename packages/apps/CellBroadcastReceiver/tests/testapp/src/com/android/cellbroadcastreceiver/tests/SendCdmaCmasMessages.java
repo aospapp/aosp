@@ -26,14 +26,13 @@ import android.telephony.SmsCbCmasInfo;
 import android.telephony.SmsCbLocation;
 import android.telephony.SmsCbMessage;
 
+import com.android.internal.telephony.CellBroadcastUtils;
 import com.android.internal.telephony.cdma.sms.SmsEnvelope;
 
 /**
  * Send some test CDMA CMAS warning notifications.
  */
 public class SendCdmaCmasMessages {
-
-    private static final String CB_RECEIVER_PKG = "com.android.cellbroadcastreceiver";
 
     private static final String PRES_ALERT =
             "THE PRESIDENT HAS ISSUED AN EMERGENCY ALERT. CHECK LOCAL MEDIA FOR MORE DETAILS";
@@ -52,9 +51,10 @@ public class SendCdmaCmasMessages {
             + " This is only a test. Call (123)456-7890.";
 
     private static void sendBroadcast(Activity activity, SmsCbMessage cbMessage) {
-        Intent intent = new Intent(Telephony.Sms.Intents.SMS_EMERGENCY_CB_RECEIVED_ACTION);
+        Intent intent = new Intent(Telephony.Sms.Intents.ACTION_SMS_EMERGENCY_CB_RECEIVED);
         intent.putExtra("message", cbMessage);
-        intent.setPackage(CB_RECEIVER_PKG);
+        intent.setPackage(CellBroadcastUtils.getDefaultCellBroadcastReceiverPackageName(
+                activity.getApplicationContext()));
         activity.sendOrderedBroadcastAsUser(intent, UserHandle.ALL,
                 Manifest.permission.RECEIVE_EMERGENCY_BROADCAST,
                 AppOpsManager.OP_RECEIVE_EMERGECY_SMS, null, null, Activity.RESULT_OK, null, null);
@@ -132,7 +132,7 @@ public class SendCdmaCmasMessages {
         return new SmsCbMessage(SmsCbMessage.MESSAGE_FORMAT_3GPP2,
                 SmsCbMessage.GEOGRAPHICAL_SCOPE_PLMN_WIDE, serialNumber,
                 new SmsCbLocation("123456"), serviceCategory, language, body,
-                SmsCbMessage.MESSAGE_PRIORITY_EMERGENCY, null, cmasInfo);
+                SmsCbMessage.MESSAGE_PRIORITY_EMERGENCY, null, cmasInfo, 0, 1);
     }
 
     /**

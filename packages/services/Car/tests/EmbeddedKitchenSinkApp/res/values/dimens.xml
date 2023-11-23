@@ -45,6 +45,12 @@
     <dimen name="car_card_header_height">96dp</dimen>
     <dimen name="car_card_action_bar_height">96dp</dimen>
 
+    <!-- Package info -->
+    <dimen name="spinner_text_size">16sp</dimen>
+    <dimen name="checkbox_text_size">16sp</dimen>
+    <dimen name="header_margin">8dp</dimen>
+    <dimen name="header_padding">8dp</dimen>
+
     <!-- Paddings -->
     <dimen name="car_padding_1">4dp</dimen>
     <dimen name="car_padding_2">10dp</dimen>

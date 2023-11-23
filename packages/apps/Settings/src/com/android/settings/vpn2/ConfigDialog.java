@@ -16,8 +16,11 @@
 
 package com.android.settings.vpn2;
 
+import static com.android.internal.net.VpnProfile.isLegacyType;
+
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.pm.PackageManager;
 import android.net.Proxy;
 import android.net.ProxyInfo;
 import android.os.Bundle;
@@ -41,6 +44,9 @@ import com.android.internal.net.VpnProfile;
 import com.android.settings.R;
 
 import java.net.InetAddress;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * Dialog showing information about a VPN configuration. The dialog
@@ -127,6 +133,7 @@ class ConfigDialog extends AlertDialog implements TextWatcher,
 
         // Second, copy values from the profile.
         mName.setText(mProfile.name);
+        setTypesByFeature(mType);
         mType.setSelection(mProfile.type);
         mServer.setText(mProfile.server);
         if (mProfile.saveLogin) {
@@ -171,6 +178,7 @@ class ConfigDialog extends AlertDialog implements TextWatcher,
         mProxySettings.setOnItemSelectedListener(this);
         mProxyHost.addTextChangedListener(this);
         mProxyPort.addTextChangedListener(this);
+        mIpsecIdentifier.addTextChangedListener(this);
         mIpsecSecret.addTextChangedListener(this);
         mIpsecUserCert.setOnItemSelectedListener(this);
         mShowOptions.setOnClickListener(this);
@@ -191,12 +199,7 @@ class ConfigDialog extends AlertDialog implements TextWatcher,
             // Hide 'save login' when we are editing.
             mSaveLogin.setVisibility(View.GONE);
 
-            // Switch to advanced view immediately if any advanced options are on
-            if (!mProfile.searchDomains.isEmpty() || !mProfile.dnsServers.isEmpty() ||
-                    !mProfile.routes.isEmpty() || (mProfile.proxy != null &&
-                    (!mProfile.proxy.getHost().isEmpty() || mProfile.proxy.getPort() != 0))) {
-                showAdvancedOptions();
-            }
+            configureAdvancedOptionsVisibility();
 
             // Create a button to forget the profile if it has already been saved..
             if (mExists) {
@@ -209,6 +212,8 @@ class ConfigDialog extends AlertDialog implements TextWatcher,
                     context.getString(R.string.vpn_save), mListener);
         } else {
             setTitle(context.getString(R.string.vpn_connect_to, mProfile.name));
+
+            setUsernamePasswordVisibility(mProfile.type);
 
             // Create a button to connect the network.
             setButton(DialogInterface.BUTTON_POSITIVE,
@@ -236,9 +241,7 @@ class ConfigDialog extends AlertDialog implements TextWatcher,
 
         // Visibility isn't restored by super.onRestoreInstanceState, so re-show the advanced
         // options here if they were already revealed or set.
-        if (mShowOptions.isChecked()) {
-            showAdvancedOptions();
-        }
+        configureAdvancedOptionsVisibility();
     }
 
     @Override
@@ -257,7 +260,7 @@ class ConfigDialog extends AlertDialog implements TextWatcher,
     @Override
     public void onClick(View view) {
         if (view == mShowOptions) {
-            showAdvancedOptions();
+            configureAdvancedOptionsVisibility();
         }
     }
 
@@ -308,11 +311,11 @@ class ConfigDialog extends AlertDialog implements TextWatcher,
             mAlwaysOnVpn.setEnabled(false);
             if (!profile.isTypeValidForLockdown()) {
                 mAlwaysOnInvalidReason.setText(R.string.vpn_always_on_invalid_reason_type);
-            } else if (!profile.isServerAddressNumeric()) {
+            } else if (isLegacyType(profile.type) && !profile.isServerAddressNumeric()) {
                 mAlwaysOnInvalidReason.setText(R.string.vpn_always_on_invalid_reason_server);
-            } else if (!profile.hasDns()) {
+            } else if (isLegacyType(profile.type) && !profile.hasDns()) {
                 mAlwaysOnInvalidReason.setText(R.string.vpn_always_on_invalid_reason_no_dns);
-            } else if (!profile.areDnsAddressesNumeric()) {
+            } else if (isLegacyType(profile.type) && !profile.areDnsAddressesNumeric()) {
                 mAlwaysOnInvalidReason.setText(R.string.vpn_always_on_invalid_reason_dns);
             } else {
                 mAlwaysOnInvalidReason.setText(R.string.vpn_always_on_invalid_reason_other);
@@ -345,9 +348,26 @@ class ConfigDialog extends AlertDialog implements TextWatcher,
         mView.findViewById(R.id.vpn_proxy_fields).setVisibility(visible);
     }
 
-    private void showAdvancedOptions() {
-        mView.findViewById(R.id.options).setVisibility(View.VISIBLE);
-        mShowOptions.setVisibility(View.GONE);
+    private boolean hasAdvancedOptionsEnabled() {
+        return mSearchDomains.getText().length() > 0 || mDnsServers.getText().length() > 0 ||
+                    mRoutes.getText().length() > 0 || mProxyHost.getText().length() > 0
+                    || mProxyPort.getText().length() > 0;
+    }
+
+    private void configureAdvancedOptionsVisibility() {
+        if (mShowOptions.isChecked() || hasAdvancedOptionsEnabled()) {
+            mView.findViewById(R.id.options).setVisibility(View.VISIBLE);
+            mShowOptions.setVisibility(View.GONE);
+
+            // Configure networking option visibility
+            // TODO(b/149070123): Add ability for platform VPNs to support DNS & routes
+            final int visibility =
+                    isLegacyType(mType.getSelectedItemPosition()) ? View.VISIBLE : View.GONE;
+            mView.findViewById(R.id.network_options).setVisibility(visibility);
+        } else {
+            mView.findViewById(R.id.options).setVisibility(View.GONE);
+            mShowOptions.setVisibility(View.VISIBLE);
+        }
     }
 
     private void changeType(int type) {
@@ -357,6 +377,14 @@ class ConfigDialog extends AlertDialog implements TextWatcher,
         mView.findViewById(R.id.ipsec_psk).setVisibility(View.GONE);
         mView.findViewById(R.id.ipsec_user).setVisibility(View.GONE);
         mView.findViewById(R.id.ipsec_peer).setVisibility(View.GONE);
+        mView.findViewById(R.id.options_ipsec_identity).setVisibility(View.GONE);
+
+        setUsernamePasswordVisibility(type);
+
+        // Always enable identity for IKEv2/IPsec profiles.
+        if (!isLegacyType(type)) {
+            mView.findViewById(R.id.options_ipsec_identity).setVisibility(View.VISIBLE);
+        }
 
         // Then, unhide type-specific fields.
         switch (type) {
@@ -367,32 +395,50 @@ class ConfigDialog extends AlertDialog implements TextWatcher,
             case VpnProfile.TYPE_L2TP_IPSEC_PSK:
                 mView.findViewById(R.id.l2tp).setVisibility(View.VISIBLE);
                 // fall through
+            case VpnProfile.TYPE_IKEV2_IPSEC_PSK: // fall through
             case VpnProfile.TYPE_IPSEC_XAUTH_PSK:
                 mView.findViewById(R.id.ipsec_psk).setVisibility(View.VISIBLE);
+                mView.findViewById(R.id.options_ipsec_identity).setVisibility(View.VISIBLE);
                 break;
 
             case VpnProfile.TYPE_L2TP_IPSEC_RSA:
                 mView.findViewById(R.id.l2tp).setVisibility(View.VISIBLE);
                 // fall through
+            case VpnProfile.TYPE_IKEV2_IPSEC_RSA: // fall through
             case VpnProfile.TYPE_IPSEC_XAUTH_RSA:
                 mView.findViewById(R.id.ipsec_user).setVisibility(View.VISIBLE);
                 // fall through
+            case VpnProfile.TYPE_IKEV2_IPSEC_USER_PASS: // fall through
             case VpnProfile.TYPE_IPSEC_HYBRID_RSA:
                 mView.findViewById(R.id.ipsec_peer).setVisibility(View.VISIBLE);
                 break;
         }
+
+        configureAdvancedOptionsVisibility();
     }
 
     private boolean validate(boolean editing) {
         if (mAlwaysOnVpn.isChecked() && !getProfile().isValidLockdownProfile()) {
             return false;
         }
-        if (!editing) {
+
+        final int type = mType.getSelectedItemPosition();
+        if (!editing && requiresUsernamePassword(type)) {
             return mUsername.getText().length() != 0 && mPassword.getText().length() != 0;
         }
-        if (mName.getText().length() == 0 || mServer.getText().length() == 0 ||
-                !validateAddresses(mDnsServers.getText().toString(), false) ||
-                !validateAddresses(mRoutes.getText().toString(), true)) {
+        if (mName.getText().length() == 0 || mServer.getText().length() == 0) {
+            return false;
+        }
+
+        // TODO(b/149070123): Add ability for platform VPNs to support DNS & routes
+        if (isLegacyType(mProfile.type)
+                && (!validateAddresses(mDnsServers.getText().toString(), false)
+                        || !validateAddresses(mRoutes.getText().toString(), true))) {
+            return false;
+        }
+
+        // All IKEv2 methods require an identifier
+        if (!isLegacyType(mProfile.type) && mIpsecIdentifier.getText().length() == 0) {
             return false;
         }
 
@@ -400,16 +446,19 @@ class ConfigDialog extends AlertDialog implements TextWatcher,
             return false;
         }
 
-        switch (mType.getSelectedItemPosition()) {
-            case VpnProfile.TYPE_PPTP:
-            case VpnProfile.TYPE_IPSEC_HYBRID_RSA:
+        switch (type) {
+            case VpnProfile.TYPE_PPTP: // fall through
+            case VpnProfile.TYPE_IPSEC_HYBRID_RSA: // fall through
+            case VpnProfile.TYPE_IKEV2_IPSEC_USER_PASS:
                 return true;
 
-            case VpnProfile.TYPE_L2TP_IPSEC_PSK:
+            case VpnProfile.TYPE_IKEV2_IPSEC_PSK: // fall through
+            case VpnProfile.TYPE_L2TP_IPSEC_PSK: // fall through
             case VpnProfile.TYPE_IPSEC_XAUTH_PSK:
                 return mIpsecSecret.getText().length() != 0;
 
-            case VpnProfile.TYPE_L2TP_IPSEC_RSA:
+            case VpnProfile.TYPE_IKEV2_IPSEC_RSA: // fall through
+            case VpnProfile.TYPE_L2TP_IPSEC_RSA: // fall through
             case VpnProfile.TYPE_IPSEC_XAUTH_RSA:
                 return mIpsecUserCert.getSelectedItemPosition() != 0;
         }
@@ -443,6 +492,25 @@ class ConfigDialog extends AlertDialog implements TextWatcher,
         return true;
     }
 
+    private void setTypesByFeature(Spinner typeSpinner) {
+        String[] types = getContext().getResources().getStringArray(R.array.vpn_types);
+        if (!getContext().getPackageManager().hasSystemFeature(
+                PackageManager.FEATURE_IPSEC_TUNNELS)) {
+            final List<String> typesList = new ArrayList<>(Arrays.asList(types));
+
+            // This must be removed from back to front in order to ensure index consistency
+            typesList.remove(VpnProfile.TYPE_IKEV2_IPSEC_RSA);
+            typesList.remove(VpnProfile.TYPE_IKEV2_IPSEC_PSK);
+            typesList.remove(VpnProfile.TYPE_IKEV2_IPSEC_USER_PASS);
+
+            types = typesList.toArray(new String[0]);
+        }
+        final ArrayAdapter<String> adapter = new ArrayAdapter<String>(
+                getContext(), android.R.layout.simple_spinner_item, types);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        typeSpinner.setAdapter(adapter);
+    }
+
     private void loadCertificates(Spinner spinner, String prefix, int firstId, String selected) {
         Context context = getContext();
         String first = (firstId == 0) ? "" : context.getString(firstId);
@@ -470,6 +538,21 @@ class ConfigDialog extends AlertDialog implements TextWatcher,
         }
     }
 
+    private void setUsernamePasswordVisibility(int type) {
+        mView.findViewById(R.id.userpass).setVisibility(
+                requiresUsernamePassword(type) ? View.VISIBLE : View.GONE);
+    }
+
+    private boolean requiresUsernamePassword(int type) {
+        switch (type) {
+            case VpnProfile.TYPE_IKEV2_IPSEC_RSA: // fall through
+            case VpnProfile.TYPE_IKEV2_IPSEC_PSK:
+                return false;
+            default:
+                return true;
+        }
+    }
+
     boolean isEditing() {
         return mEditing;
     }
@@ -486,9 +569,17 @@ class ConfigDialog extends AlertDialog implements TextWatcher,
         profile.server = mServer.getText().toString().trim();
         profile.username = mUsername.getText().toString();
         profile.password = mPassword.getText().toString();
-        profile.searchDomains = mSearchDomains.getText().toString().trim();
-        profile.dnsServers = mDnsServers.getText().toString().trim();
-        profile.routes = mRoutes.getText().toString().trim();
+
+        // Save fields based on VPN type.
+        if (isLegacyType(profile.type)) {
+            // TODO(b/149070123): Add ability for platform VPNs to support DNS & routes
+            profile.searchDomains = mSearchDomains.getText().toString().trim();
+            profile.dnsServers = mDnsServers.getText().toString().trim();
+            profile.routes = mRoutes.getText().toString().trim();
+        } else {
+            profile.ipsecIdentifier = mIpsecIdentifier.getText().toString();
+        }
+
         if (hasProxy()) {
             String proxyHost = mProxyHost.getText().toString().trim();
             String proxyPort = mProxyPort.getText().toString().trim();
@@ -508,6 +599,7 @@ class ConfigDialog extends AlertDialog implements TextWatcher,
             case VpnProfile.TYPE_L2TP_IPSEC_PSK:
                 profile.l2tpSecret = mL2tpSecret.getText().toString();
                 // fall through
+            case VpnProfile.TYPE_IKEV2_IPSEC_PSK: // fall through
             case VpnProfile.TYPE_IPSEC_XAUTH_PSK:
                 profile.ipsecIdentifier = mIpsecIdentifier.getText().toString();
                 profile.ipsecSecret = mIpsecSecret.getText().toString();
@@ -516,11 +608,13 @@ class ConfigDialog extends AlertDialog implements TextWatcher,
             case VpnProfile.TYPE_L2TP_IPSEC_RSA:
                 profile.l2tpSecret = mL2tpSecret.getText().toString();
                 // fall through
+            case VpnProfile.TYPE_IKEV2_IPSEC_RSA: // fall through
             case VpnProfile.TYPE_IPSEC_XAUTH_RSA:
                 if (mIpsecUserCert.getSelectedItemPosition() != 0) {
                     profile.ipsecUserCert = (String) mIpsecUserCert.getSelectedItem();
                 }
                 // fall through
+            case VpnProfile.TYPE_IKEV2_IPSEC_USER_PASS: // fall through
             case VpnProfile.TYPE_IPSEC_HYBRID_RSA:
                 if (mIpsecCaCert.getSelectedItemPosition() != 0) {
                     profile.ipsecCaCert = (String) mIpsecCaCert.getSelectedItem();

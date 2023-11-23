@@ -21,14 +21,13 @@ import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.FileUtils;
 import android.util.Log;
 
 import com.android.documentsui.base.DocumentStack;
 import com.android.documentsui.base.Shared;
 import com.android.documentsui.base.State;
 import com.android.documentsui.roots.ProvidersAccess;
-
-import android.os.FileUtils;
 
 import java.io.IOException;
 
@@ -64,8 +63,8 @@ public interface LastAccessedStorage {
             final ContentResolver resolver = activity.getContentResolver();
             Cursor cursor = resolver.query(resumeUri, null, null, null, null);
             try {
-                return DocumentStack.fromLastAccessedCursor(
-                        cursor, providers.getMatchingRootsBlocking(state), resolver);
+                return DocumentStack.fromLastAccessedCursor(cursor,
+                        providers.getMatchingRootsBlocking(state), activity);
             } catch (IOException e) {
                 Log.w(TAG, "Failed to resume: ", e);
             } finally {

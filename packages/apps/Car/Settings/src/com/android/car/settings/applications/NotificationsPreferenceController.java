@@ -82,6 +82,7 @@ public class NotificationsPreferenceController extends PreferenceController<TwoS
                                 mPackageName,
                                 mUid,
                                 NotificationChannel.DEFAULT_CHANNEL_ID,
+                                /* conversationId= */ null,
                                 /* includeDeleted= */ true);
                 defaultChannel.setImportance(enabled ? IMPORTANCE_UNSPECIFIED : IMPORTANCE_NONE);
                 mNotificationManager

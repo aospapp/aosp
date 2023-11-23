@@ -18,15 +18,18 @@ package com.android.car.settings.security;
 
 import android.app.admin.DevicePolicyManager;
 import android.car.drivingstate.CarUxRestrictions;
-import android.car.userlib.CarUserManagerHelper;
 import android.content.Context;
+import android.os.UserHandle;
 
 import androidx.annotation.VisibleForTesting;
 import androidx.fragment.app.Fragment;
 import androidx.preference.Preference;
 
+import com.android.car.settings.R;
+import com.android.car.settings.common.ConfirmationDialogFragment;
 import com.android.car.settings.common.FragmentController;
 import com.android.internal.widget.LockPatternUtils;
+import com.android.internal.widget.LockscreenCredential;
 
 /** Business logic for the no lock preference. */
 public class NoLockPreferenceController extends LockTypeBasePreferenceController {
@@ -35,12 +38,12 @@ public class NoLockPreferenceController extends LockTypeBasePreferenceController
             new int[]{DevicePolicyManager.PASSWORD_QUALITY_UNSPECIFIED};
 
     @VisibleForTesting
-    final ConfirmRemoveScreenLockDialog.ConfirmRemoveScreenLockListener mRemoveLockListener =
-            () -> {
-                int userId = new CarUserManagerHelper(getContext()).getCurrentProcessUserId();
-                new LockPatternUtils(getContext()).clearLock(getCurrentPassword(), userId);
-                getFragmentController().goBack();
-            };
+    final ConfirmationDialogFragment.ConfirmListener mConfirmListener = arguments -> {
+        int userId = UserHandle.myUserId();
+        new LockPatternUtils(getContext()).setLockCredential(
+                LockscreenCredential.createNone(), getCurrentPassword(), userId);
+        getFragmentController().goBack();
+    };
 
     public NoLockPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
@@ -54,20 +57,28 @@ public class NoLockPreferenceController extends LockTypeBasePreferenceController
      */
     @Override
     protected void onCreateInternal() {
-        ConfirmRemoveScreenLockDialog dialog =
-                (ConfirmRemoveScreenLockDialog) getFragmentController().findDialogByTag(
-                        ConfirmRemoveScreenLockDialog.TAG);
-        if (dialog != null) {
-            dialog.setConfirmRemoveScreenLockListener(mRemoveLockListener);
-        }
+        super.onCreateInternal();
+        ConfirmationDialogFragment dialog =
+                (ConfirmationDialogFragment) getFragmentController().findDialogByTag(
+                        ConfirmationDialogFragment.TAG);
+        ConfirmationDialogFragment.resetListeners(
+                dialog,
+                mConfirmListener,
+                /* rejectListener= */ null,
+                /* neutralListener= */ null);
     }
 
     @Override
     protected boolean handlePreferenceClicked(Preference preference) {
-        ConfirmRemoveScreenLockDialog dialog = new ConfirmRemoveScreenLockDialog();
-        dialog.setConfirmRemoveScreenLockListener(mRemoveLockListener);
-        getFragmentController().showDialog(dialog,
-                ConfirmRemoveScreenLockDialog.TAG);
+        if (isCurrentLock()) {
+            // No need to show dialog to confirm remove screen lock if screen lock is already
+            // removed, which is true if this controller is the current lock.
+            getFragmentController().goBack();
+        } else {
+            getFragmentController().showDialog(
+                getConfirmRemoveScreenLockDialogFragment(),
+                ConfirmationDialogFragment.TAG);
+        }
         return true;
     }
 
@@ -81,5 +92,14 @@ public class NoLockPreferenceController extends LockTypeBasePreferenceController
     @Override
     protected int[] allowedPasswordQualities() {
         return ALLOWED_PASSWORD_QUALITIES;
+    }
+
+    private ConfirmationDialogFragment getConfirmRemoveScreenLockDialogFragment() {
+        return new ConfirmationDialogFragment.Builder(getContext())
+                .setTitle(R.string.remove_screen_lock_title)
+                .setMessage(R.string.remove_screen_lock_message)
+                .setPositiveButton(R.string.remove_button, mConfirmListener)
+                .setNegativeButton(android.R.string.cancel, /* rejectListener= */ null)
+                .build();
     }
 }

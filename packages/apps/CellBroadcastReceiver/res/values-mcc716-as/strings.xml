@@ -19,5 +19,6 @@
     <string name="public_safety_message" msgid="7237115648380675159">"তথ্যসমৃদ্ধ বাৰ্তা"</string>
     <string name="enable_public_safety_messages_title" msgid="4037404034274507696">"তথ্যসমৃদ্ধ বাৰ্তা"</string>
     <string name="cmas_required_monthly_test" msgid="9061179556831144678">"জৰুৰীকালীন সতৰ্কবাণী: পৰীক্ষামূলক বাৰ্তা"</string>
-    <string name="cmas_exercise_alert" msgid="996644454768618214">"জৰুৰীকালীন সতৰ্কবাণী: অনুশীলন/ছিমুলেশ্বন বাৰ্তা"</string>
+    <string name="cmas_exercise_alert" msgid="3061507852301643814">"জৰুৰীকালীন সতর্কবার্তা: অনুশীলন/ড্ৰিলৰ সতর্কবার্তা"</string>
+    <string name="pws_other_message_identifiers" msgid="4992476982074198144">"জৰুৰীকালীন সতৰ্কবার্তা: পৰীক্ষামূলক বাৰ্তা"</string>
 </resources>

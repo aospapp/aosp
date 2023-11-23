@@ -20,6 +20,7 @@ import static com.android.server.connectivity.ipmemorystore.RegularMaintenanceJo
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -33,6 +34,7 @@ import android.net.ipmemorystore.IOnBlobRetrievedListener;
 import android.net.ipmemorystore.IOnL2KeyResponseListener;
 import android.net.ipmemorystore.IOnNetworkAttributesRetrievedListener;
 import android.net.ipmemorystore.IOnSameL3NetworkResponseListener;
+import android.net.ipmemorystore.IOnStatusAndCountListener;
 import android.net.ipmemorystore.IOnStatusListener;
 import android.net.ipmemorystore.NetworkAttributes;
 import android.net.ipmemorystore.NetworkAttributesParcelable;
@@ -44,27 +46,39 @@ import android.os.ConditionVariable;
 import android.os.IBinder;
 import android.os.RemoteException;
 
+import androidx.annotation.NonNull;
 import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.server.networkstack.tests.R;
+
+import libcore.io.Streams;
+
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.lang.reflect.Modifier;
 import java.net.Inet4Address;
 import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 /** Unit tests for {@link IpMemoryStoreService}. */
@@ -73,12 +87,15 @@ import java.util.function.Consumer;
 public class IpMemoryStoreServiceTest {
     private static final String TEST_CLIENT_ID = "testClientId";
     private static final String TEST_DATA_NAME = "testData";
+    private static final String TEST_DATABASE_NAME = "test.db";
 
     private static final int TEST_DATABASE_SIZE_THRESHOLD = 100 * 1024; //100KB
     private static final int DEFAULT_TIMEOUT_MS = 5000;
     private static final int LONG_TIMEOUT_MS = 30000;
     private static final int FAKE_KEY_COUNT = 20;
     private static final long LEASE_EXPIRY_NULL = -1L;
+    private static final long UNIX_TIME_MS_2000_01_01 = 946652400000L;
+    private static final long UNIX_TIME_MS_2100_01_01 = 4102412400000L;
     private static final int MTU_NULL = -1;
     private static final String[] FAKE_KEYS;
     private static final byte[] TEST_BLOB_DATA = new byte[] { -3, 6, 8, -9, 12,
@@ -103,7 +120,7 @@ public class IpMemoryStoreServiceTest {
         MockitoAnnotations.initMocks(this);
         final Context context = InstrumentationRegistry.getContext();
         final File dir = context.getFilesDir();
-        mDbFile = new File(dir, "test.db");
+        mDbFile = new File(dir, TEST_DATABASE_NAME);
         doReturn(mDbFile).when(mMockContext).getDatabasePath(anyString());
         doReturn(mMockJobScheduler).when(mMockContext)
                 .getSystemService(Context.JOB_SCHEDULER_SERVICE);
@@ -129,9 +146,19 @@ public class IpMemoryStoreServiceTest {
         mDbFile.delete();
     }
 
+    private void copyTestData(final File file) throws Exception {
+        try (
+                InputStream in = InstrumentationRegistry.getContext()
+                        .getResources().openRawResource(R.raw.test);
+                OutputStream out = new FileOutputStream(file)
+        ) {
+            Streams.copy(in, out);
+        }
+    }
+
     /** Helper method to build test network attributes */
     private static NetworkAttributes.Builder buildTestNetworkAttributes(
-            final Inet4Address ipAddress, final long expiry, final String hint,
+            final Inet4Address ipAddress, final long expiry, final String cluster,
             final List<InetAddress> dnsServers, final int mtu) {
         final NetworkAttributes.Builder na = new NetworkAttributes.Builder();
         if (null != ipAddress) {
@@ -140,8 +167,8 @@ public class IpMemoryStoreServiceTest {
         if (LEASE_EXPIRY_NULL != expiry) {
             na.setAssignedV4AddressExpiry(expiry);
         }
-        if (null != hint) {
-            na.setGroupHint(hint);
+        if (null != cluster) {
+            na.setCluster(cluster);
         }
         if (null != dnsServers) {
             na.setDnsAddresses(dnsServers);
@@ -169,6 +196,37 @@ public class IpMemoryStoreServiceTest {
             public int getInterfaceVersion() {
                 return this.VERSION;
             }
+
+            @Override
+            public String getInterfaceHash() {
+                return this.HASH;
+            }
+        };
+    }
+
+    /** Helper method to make a vanilla IOnStatusAndCountListener */
+    private IOnStatusAndCountListener onDeleteStatus(BiConsumer<Status, Integer> functor) {
+        return new IOnStatusAndCountListener() {
+            @Override
+            public void onComplete(final StatusParcelable statusParcelable, final int deletedCount)
+                    throws RemoteException {
+                functor.accept(new Status(statusParcelable), deletedCount);
+            }
+
+            @Override
+            public IBinder asBinder() {
+                return null;
+            }
+
+            @Override
+            public int getInterfaceVersion() {
+                return this.VERSION;
+            }
+
+            @Override
+            public String getInterfaceHash() {
+                return this.HASH;
+            }
         };
     }
 
@@ -193,6 +251,11 @@ public class IpMemoryStoreServiceTest {
             @Override
             public int getInterfaceVersion() {
                 return this.VERSION;
+            }
+
+            @Override
+            public String getInterfaceHash() {
+                return this.HASH;
             }
         };
     }
@@ -221,10 +284,15 @@ public class IpMemoryStoreServiceTest {
             public int getInterfaceVersion() {
                 return this.VERSION;
             }
+
+            @Override
+            public String getInterfaceHash() {
+                return this.HASH;
+            }
         };
     }
 
-    /** Helper method to make an IOnSameNetworkResponseListener */
+    /** Helper method to make an IOnSameL3NetworkResponseListener */
     private interface OnSameL3NetworkResponseListener {
         void onSameL3NetworkResponse(Status status, SameL3NetworkResponse answer);
     }
@@ -247,6 +315,11 @@ public class IpMemoryStoreServiceTest {
             @Override
             public int getInterfaceVersion() {
                 return this.VERSION;
+            }
+
+            @Override
+            public String getInterfaceHash() {
+                return this.HASH;
             }
         };
     }
@@ -272,6 +345,11 @@ public class IpMemoryStoreServiceTest {
             public int getInterfaceVersion() {
                 return this.VERSION;
             }
+
+            @Override
+            public String getInterfaceHash() {
+                return this.HASH;
+            }
         };
     }
 
@@ -293,17 +371,18 @@ public class IpMemoryStoreServiceTest {
         }
     }
 
-    // Helper method to store network attributes to database
-    private void storeAttributes(final String l2Key, final NetworkAttributes na) {
-        storeAttributes("Did not complete storing attributes", l2Key, na);
+    // Helper method to store network attributes to database. Returns the stored attributes.
+    private NetworkAttributes storeAttributes(final String l2Key, final NetworkAttributes na) {
+        return storeAttributes("Did not complete storing attributes", l2Key, na);
     }
-    private void storeAttributes(final String timeoutMessage, final String l2Key,
+    private NetworkAttributes storeAttributes(final String timeoutMessage, final String l2Key,
             final NetworkAttributes na) {
         doLatched(timeoutMessage, latch -> mService.storeNetworkAttributes(l2Key, na.toParcelable(),
                 onStatus(status -> {
                     assertTrue("Store not successful : " + status.resultCode, status.isSuccess());
                     latch.countDown();
                 })));
+        return na;
     }
 
     // Helper method to store blob data to database
@@ -321,20 +400,32 @@ public class IpMemoryStoreServiceTest {
                 })));
     }
 
-    /** Insert large data that db size will be over threshold for maintenance test usage. */
-    private void insertFakeDataAndOverThreshold() {
+    /**
+     * This method is used to generate test.db file.
+     *
+     * Here are the steps to update the test.db file if you need to change value in DB.
+     * 1. Create a new test like "testGenerateDB" and have only one line code "generateFakeData()".
+     * 2. Comment out "mDbFile.delete()" in tearDown() method.
+     * 3. Run "atest IpMemoryStoreServiceTest#testGenerateDB".
+     * 4. Run "adb root; adb pull /data/data/com.android.server.networkstack.tests/files/test.db
+     *    $YOUR_CODE_BASE/package/module/NetworkStack/tests/unit/res/raw/test.db".
+     *
+     */
+    private void generateFakeData() {
+        final int fakeDataCount = 1000;
+        final int expiredRecordsCount = 100;
         try {
             final NetworkAttributes.Builder na = buildTestNetworkAttributes(
                     (Inet4Address) Inet4Address.getByName("1.2.3.4"), LEASE_EXPIRY_NULL,
-                    "hint1", Arrays.asList(Inet6Address.getByName("0A1C:2E40:480A::1CA6")),
+                    "cluster1", Arrays.asList(Inet6Address.getByName("0A1C:2E40:480A::1CA6")),
                     219);
             final long time = System.currentTimeMillis() - 1;
-            for (int i = 0; i < 1000; i++) {
+            for (int i = 0; i < fakeDataCount; i++) {
                 int errorCode = IpMemoryStoreDatabase.storeNetworkAttributes(
                         mService.mDb,
                         "fakeKey" + i,
-                        // Let first 100 records get expiry.
-                        i < 100 ? time : time + TimeUnit.HOURS.toMillis(i),
+                        i < expiredRecordsCount
+                                ? UNIX_TIME_MS_2000_01_01 : UNIX_TIME_MS_2100_01_01 + i,
                         na.build());
                 assertEquals(errorCode, Status.SUCCESS);
 
@@ -344,7 +435,7 @@ public class IpMemoryStoreServiceTest {
                 assertEquals(errorCode, Status.SUCCESS);
             }
 
-            // After added 5000 records, db size is larger than fake threshold(100KB).
+            // After inserted fake data, db size should be larger than threshold.
             assertTrue(mService.isDbSizeOverThreshold());
         } catch (final UnknownHostException e) {
             fail("Insert fake data fail");
@@ -365,7 +456,7 @@ public class IpMemoryStoreServiceTest {
         final String l2Key = FAKE_KEYS[0];
         final NetworkAttributes.Builder na = buildTestNetworkAttributes(
                 (Inet4Address) Inet4Address.getByName("1.2.3.4"),
-                System.currentTimeMillis() + 7_200_000, "hint1", null, 219);
+                System.currentTimeMillis() + 7_200_000, "cluster1", null, 219);
         NetworkAttributes attributes = na.build();
         storeAttributes(l2Key, attributes);
 
@@ -394,7 +485,7 @@ public class IpMemoryStoreServiceTest {
                             assertEquals(attributes.assignedV4Address, attr.assignedV4Address);
                             assertEquals(attributes.assignedV4AddressExpiry,
                                     attr.assignedV4AddressExpiry);
-                            assertEquals(attributes.groupHint, attr.groupHint);
+                            assertEquals(attributes.cluster, attr.cluster);
                             assertEquals(attributes.mtu, attr.mtu);
                             assertEquals(attributes2.dnsAddresses, attr.dnsAddresses);
                             latch.countDown();
@@ -488,28 +579,37 @@ public class IpMemoryStoreServiceTest {
                         })));
     }
 
-    @Test
-    public void testFindL2Key() throws UnknownHostException {
+    private List<NetworkAttributes> storeFixture() throws Exception {
+        final ArrayList<NetworkAttributes> stored = new ArrayList<>();
         final NetworkAttributes.Builder na = new NetworkAttributes.Builder();
-        na.setGroupHint("hint0");
-        storeAttributes(FAKE_KEYS[0], na.build());
+        na.setCluster("cluster0");
+        stored.add(storeAttributes(FAKE_KEYS[0], na.build()));
 
         na.setDnsAddresses(Arrays.asList(
                 new InetAddress[] {Inet6Address.getByName("8D56:9AF1::08EE:20F1")}));
-        na.setMtu(219);
-        storeAttributes(FAKE_KEYS[1], na.build());
+        na.setMtu(208);
+        stored.add(storeAttributes(FAKE_KEYS[1], na.build()));
         na.setMtu(null);
         na.setAssignedV4Address((Inet4Address) Inet4Address.getByName("1.2.3.4"));
         na.setDnsAddresses(Arrays.asList(
                 new InetAddress[] {Inet6Address.getByName("0A1C:2E40:480A::1CA6")}));
-        na.setGroupHint("hint1");
-        storeAttributes(FAKE_KEYS[2], na.build());
+        na.setCluster("cluster1");
+        stored.add(storeAttributes(FAKE_KEYS[2], na.build()));
         na.setMtu(219);
-        storeAttributes(FAKE_KEYS[3], na.build());
+        stored.add(storeAttributes(FAKE_KEYS[3], na.build()));
+        na.setCluster(null);
         na.setMtu(240);
-        storeAttributes(FAKE_KEYS[4], na.build());
+        stored.add(storeAttributes(FAKE_KEYS[4], na.build()));
         na.setAssignedV4Address((Inet4Address) Inet4Address.getByName("5.6.7.8"));
-        storeAttributes(FAKE_KEYS[5], na.build());
+        stored.add(storeAttributes(FAKE_KEYS[5], na.build()));
+        return stored;
+    }
+
+    @Test
+    public void testFindL2Key() throws Exception {
+        final List<NetworkAttributes> stored = storeFixture();
+        final NetworkAttributes.Builder na = new NetworkAttributes.Builder(
+                stored.get(stored.size() - 1));
 
         // Matches key 5 exactly
         doLatched("Did not finish finding L2Key", latch ->
@@ -531,6 +631,7 @@ public class IpMemoryStoreServiceTest {
                 })));
 
         // Closest to key 3 (indeed, identical)
+        na.setCluster("cluster1");
         na.setAssignedV4Address((Inet4Address) Inet4Address.getByName("1.2.3.4"));
         na.setMtu(219);
         doLatched("Did not finish finding L2Key", latch ->
@@ -541,8 +642,8 @@ public class IpMemoryStoreServiceTest {
                     latch.countDown();
                 })));
 
-        // Group hint alone must not be strong enough to override the rest
-        na.setGroupHint("hint0");
+        // Cluster alone must not be strong enough to override the rest
+        na.setCluster("cluster0");
         doLatched("Did not finish finding L2Key", latch ->
                 mService.findL2Key(na.build().toParcelable(), onL2KeyResponse((status, key) -> {
                     assertTrue("Retrieve network sameness not successful : " + status.resultCode,
@@ -552,7 +653,7 @@ public class IpMemoryStoreServiceTest {
                 })));
 
         // Still closest to key 3, though confidence is lower
-        na.setGroupHint("hint1");
+        na.setCluster("cluster1");
         na.setDnsAddresses(null);
         doLatched("Did not finish finding L2Key", latch ->
                 mService.findL2Key(na.build().toParcelable(), onL2KeyResponse((status, key) -> {
@@ -562,18 +663,18 @@ public class IpMemoryStoreServiceTest {
                     latch.countDown();
                 })));
 
-        // But changing the MTU makes this closer to key 4
-        na.setMtu(240);
+        // But changing the MTU makes this closer to key 2
+        na.setMtu(208);
         doLatched("Did not finish finding L2Key", latch ->
                 mService.findL2Key(na.build().toParcelable(), onL2KeyResponse((status, key) -> {
                     assertTrue("Retrieve network sameness not successful : " + status.resultCode,
                             status.isSuccess());
-                    assertEquals(FAKE_KEYS[4], key);
+                    assertEquals(FAKE_KEYS[2], key);
                     latch.countDown();
                 })));
 
         // MTU alone not strong enough to make this group-close
-        na.setGroupHint(null);
+        na.setCluster(null);
         na.setDnsAddresses(null);
         na.setAssignedV4Address(null);
         doLatched("Did not finish finding L2Key", latch ->
@@ -599,7 +700,7 @@ public class IpMemoryStoreServiceTest {
     public void testIsSameNetwork() throws UnknownHostException {
         final NetworkAttributes.Builder na = buildTestNetworkAttributes(
                 (Inet4Address) Inet4Address.getByName("1.2.3.4"), LEASE_EXPIRY_NULL,
-                "hint1", Arrays.asList(Inet6Address.getByName("0A1C:2E40:480A::1CA6")),
+                "cluster1", Arrays.asList(Inet6Address.getByName("0A1C:2E40:480A::1CA6")),
                 219);
 
         storeAttributes(FAKE_KEYS[0], na.build());
@@ -610,10 +711,10 @@ public class IpMemoryStoreServiceTest {
         na.setMtu(200);
         storeAttributes(FAKE_KEYS[2], na.build());
 
-        // Hopefully different MTU, assigned V4 address and grouphint make a different network,
+        // Hopefully different MTU, assigned V4 address and cluster make a different network,
         // even with identical DNS addresses
         na.setAssignedV4Address(null);
-        na.setGroupHint("hint2");
+        na.setCluster("cluster2");
         storeAttributes(FAKE_KEYS[3], na.build());
 
         assertNetworksSameness(FAKE_KEYS[0], FAKE_KEYS[1], SameL3NetworkResponse.NETWORK_SAME);
@@ -633,9 +734,68 @@ public class IpMemoryStoreServiceTest {
                 })));
     }
 
+    private NetworkAttributes fetchAttributes(@NonNull final String l2Key) throws Exception {
+        final CompletableFuture<NetworkAttributes> f = new CompletableFuture<>();
+        mService.retrieveNetworkAttributes(l2Key, onNetworkAttributesRetrieved(
+                (status, key, attr) -> {
+                    assertTrue("Retrieve network attributes not successful : "
+                            + status.resultCode, status.isSuccess());
+                    f.complete(attr);
+                }));
+        return f.get(DEFAULT_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+    }
+
+    private void delete(@NonNull final String l2Key) {
+        doLatched("Did not finish deleting", latch ->
+                mService.delete(l2Key, false /* needWipe */, onDeleteStatus((status, deleted) -> {
+                    assertTrue("Deleting failed :" + status.resultCode, status.isSuccess());
+                    assertEquals("Deleting count != 1 :" + deleted, 1, deleted.intValue());
+                    latch.countDown();
+                })), LONG_TIMEOUT_MS);
+    }
+
     @Test
-    public void testFullMaintenance() {
-        insertFakeDataAndOverThreshold();
+    public void testDelete() throws Exception {
+        storeFixture();
+
+        delete(FAKE_KEYS[0]);
+        delete(FAKE_KEYS[3]);
+
+        assertNull(fetchAttributes(FAKE_KEYS[0]));
+        assertNotNull(fetchAttributes(FAKE_KEYS[1]));
+        assertNotNull(fetchAttributes(FAKE_KEYS[2]));
+        assertNull(fetchAttributes(FAKE_KEYS[3]));
+        assertNotNull(fetchAttributes(FAKE_KEYS[4]));
+        assertNotNull(fetchAttributes(FAKE_KEYS[5]));
+    }
+
+    @Test
+    public void testDeleteCluster() throws Exception {
+        storeFixture();
+
+        doLatched("Did not finish deleting", latch ->
+                mService.deleteCluster("cluster1", false /* needWipe */,
+                        onDeleteStatus((status, deletedCount) -> {
+                            assertTrue("Delete failed : " + status.resultCode, status.isSuccess());
+                            // The fixture stores 2 keys under "cluster1"
+                            assertEquals("Unexpected deleted count : " + deletedCount,
+                                    2, deletedCount.intValue());
+                            latch.countDown();
+                        })), LONG_TIMEOUT_MS);
+
+        assertNotNull(fetchAttributes(FAKE_KEYS[0]));
+        assertNotNull(fetchAttributes(FAKE_KEYS[1]));
+        assertNull(fetchAttributes(FAKE_KEYS[2]));
+        assertNull(fetchAttributes(FAKE_KEYS[3]));
+        assertNotNull(fetchAttributes(FAKE_KEYS[4]));
+        assertNotNull(fetchAttributes(FAKE_KEYS[5]));
+    }
+
+    @Test
+    public void testFullMaintenance() throws Exception {
+        copyTestData(mDbFile);
+        // After inserted test data, db size should be larger than threshold.
+        assertTrue(mService.isDbSizeOverThreshold());
 
         final InterruptMaintenance im = new InterruptMaintenance(0/* Fake JobId */);
         // Do full maintenance and then db size should go down and meet the threshold.
@@ -651,8 +811,10 @@ public class IpMemoryStoreServiceTest {
     }
 
     @Test
-    public void testInterruptMaintenance() {
-        insertFakeDataAndOverThreshold();
+    public void testInterruptMaintenance() throws Exception {
+        copyTestData(mDbFile);
+        // After inserted test data, db size should be larger than threshold.
+        assertTrue(mService.isDbSizeOverThreshold());
 
         final InterruptMaintenance im = new InterruptMaintenance(0/* Fake JobId */);
 
@@ -699,7 +861,7 @@ public class IpMemoryStoreServiceTest {
         // store network attributes
         final NetworkAttributes.Builder na = buildTestNetworkAttributes(
                 (Inet4Address) Inet4Address.getByName("1.2.3.4"),
-                System.currentTimeMillis() + 7_200_000, "hint1", null, 219);
+                System.currentTimeMillis() + 7_200_000, "cluster1", null, 219);
         storeAttributes(l2Key, na.build());
 
         // store private data blob
@@ -733,6 +895,8 @@ public class IpMemoryStoreServiceTest {
                         })));
     }
 
+    @Test
+    @Ignore
     public void testTasksAreSerial() {
         final long sleepTimeMs = 1000;
         final long startTime = System.currentTimeMillis();

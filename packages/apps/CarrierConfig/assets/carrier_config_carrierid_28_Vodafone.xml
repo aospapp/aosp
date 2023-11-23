@@ -9,7 +9,5 @@
         <item value="132"/>
         <item value="45"/>
     </string-array>
-    <string-array name="read_only_apn_types_string_array" num="1">
-        <item value="*"/>
-    </string-array>
+    <string-array name="read_only_apn_types_string_array" num="0"/>
 </carrier_config>

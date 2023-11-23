@@ -16,10 +16,13 @@
 
 package com.android.documentsui;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import static junit.framework.Assert.assertTrue;
 import static junit.framework.Assert.fail;
 
 import static org.junit.Assert.assertEquals;
+import static org.mockito.Mockito.when;
 
 import android.content.Intent;
 import android.net.Uri;
@@ -32,8 +35,10 @@ import androidx.test.filters.MediumTest;
 import androidx.test.runner.AndroidJUnit4;
 
 import com.android.documentsui.base.DocumentStack;
+import com.android.documentsui.base.EventListener;
 import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.base.Shared;
+import com.android.documentsui.base.State;
 import com.android.documentsui.files.LauncherActivity;
 import com.android.documentsui.sorting.SortDimension;
 import com.android.documentsui.sorting.SortModel;
@@ -42,6 +47,7 @@ import com.android.documentsui.testing.Roots;
 import com.android.documentsui.testing.TestEnv;
 import com.android.documentsui.testing.TestEventHandler;
 import com.android.documentsui.testing.TestProvidersAccess;
+import com.android.documentsui.testing.UserManagers;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -66,6 +72,7 @@ public class AbstractActionHandlerTest {
     public void setUp() {
         mEnv = TestEnv.create();
         mActivity = TestActivity.create(mEnv);
+        mActivity.userManager = UserManagers.create();
         mHandler = new AbstractActionHandler<TestActivity>(
                 mActivity,
                 mEnv.state,
@@ -272,6 +279,145 @@ public class AbstractActionHandlerTest {
     }
 
     @Test
+    public void testCrossProfileDocuments_success() throws Exception {
+        mEnv.state.action = State.ACTION_GET_CONTENT;
+        mEnv.state.canShareAcrossProfile = true;
+        mEnv.state.stack.changeRoot(TestProvidersAccess.OtherUser.HOME);
+        mEnv.state.stack.push(TestEnv.OtherUser.FOLDER_0);
+
+        mEnv.state.sortModel.sortByUser(
+                SortModel.SORT_DIMENSION_ID_TITLE, SortDimension.SORT_DIRECTION_ASCENDING);
+
+        // Currently mock provider does not have cross profile concept, this will always return
+        // the supplied docs without checking for the user. But this should not be a problem for
+        // this test case.
+        mEnv.mockProviders.get(TestProvidersAccess.OtherUser.HOME.authority)
+                .setNextChildDocumentsReturns(TestEnv.OtherUser.FILE_PNG);
+
+        mHandler.loadDocumentsForCurrentStack();
+        CountDownLatch latch = new CountDownLatch(1);
+        mEnv.model.addUpdateListener(event -> latch.countDown());
+        mActivity.supportLoaderManager.runAsyncTaskLoader(AbstractActionHandler.LOADER_ID);
+
+        latch.await(1, TimeUnit.SECONDS);
+        assertEquals(1, mEnv.model.getItemCount());
+        String[] modelIds = mEnv.model.getModelIds();
+        assertEquals(TestEnv.OtherUser.FILE_PNG, mEnv.model.getDocument(modelIds[0]));
+    }
+
+    @Test
+    public void testLoadCrossProfileDoc_failsWithQuietModeException() throws Exception {
+        mEnv.state.action = State.ACTION_GET_CONTENT;
+        mEnv.state.canShareAcrossProfile = true;
+        mEnv.state.stack.changeRoot(TestProvidersAccess.OtherUser.HOME);
+        mEnv.state.stack.push(TestEnv.OtherUser.FOLDER_0);
+        // Turn off the other user.
+        when(mActivity.userManager.isQuietModeEnabled(TestProvidersAccess.OtherUser.USER_HANDLE))
+                .thenReturn(true);
+
+        TestEventHandler<Model.Update> listener = new TestEventHandler<>();
+        mEnv.model.addUpdateListener(listener::accept);
+
+        mHandler.loadDocumentsForCurrentStack();
+        CountDownLatch latch = new CountDownLatch(1);
+        mEnv.model.addUpdateListener(event -> latch.countDown());
+        mActivity.supportLoaderManager.runAsyncTaskLoader(AbstractActionHandler.LOADER_ID);
+
+        latch.await(1, TimeUnit.SECONDS);
+        assertThat(listener.getLastValue().getException())
+                .isInstanceOf(CrossProfileQuietModeException.class);
+    }
+
+    @Test
+    public void testLoadCrossProfileDoc_failsWithNoPermissionException() throws Exception {
+        mEnv.state.action = State.ACTION_GET_CONTENT;
+        mEnv.state.stack.changeRoot(TestProvidersAccess.OtherUser.HOME);
+        mEnv.state.stack.push(TestEnv.OtherUser.FOLDER_0);
+        // Disallow sharing across profile
+        mEnv.state.canShareAcrossProfile = false;
+
+        TestEventHandler<Model.Update> listener = new TestEventHandler<>();
+        mEnv.model.addUpdateListener(listener::accept);
+
+        mHandler.loadDocumentsForCurrentStack();
+        CountDownLatch latch = new CountDownLatch(1);
+        mEnv.model.addUpdateListener(event -> latch.countDown());
+        mActivity.supportLoaderManager.runAsyncTaskLoader(AbstractActionHandler.LOADER_ID);
+
+        latch.await(1, TimeUnit.SECONDS);
+        assertThat(listener.getLastValue().getException())
+                .isInstanceOf(CrossProfileNoPermissionException.class);
+    }
+
+    @Test
+    public void testLoadCrossProfileDoc_bothError_showNoPermissionException() throws Exception {
+        mEnv.state.action = State.ACTION_GET_CONTENT;
+        mEnv.state.stack.changeRoot(TestProvidersAccess.OtherUser.HOME);
+        mEnv.state.stack.push(TestEnv.OtherUser.FOLDER_0);
+        // Disallow sharing
+        mEnv.state.canShareAcrossProfile = false;
+        // Turn off the other user.
+        when(mActivity.userManager.isQuietModeEnabled(TestProvidersAccess.OtherUser.USER_HANDLE))
+                .thenReturn(true);
+
+        TestEventHandler<Model.Update> listener = new TestEventHandler<>();
+        mEnv.model.addUpdateListener(listener::accept);
+
+        mHandler.loadDocumentsForCurrentStack();
+        CountDownLatch latch = new CountDownLatch(1);
+        mEnv.model.addUpdateListener(event -> latch.countDown());
+        mActivity.supportLoaderManager.runAsyncTaskLoader(AbstractActionHandler.LOADER_ID);
+
+        latch.await(1, TimeUnit.SECONDS);
+        assertThat(listener.getLastValue().getException())
+                .isInstanceOf(CrossProfileNoPermissionException.class);
+    }
+
+    @Test
+    public void testCrossProfileDocuments_reloadSuccessAfterCrossProfileError() throws Exception {
+        mEnv.state.action = State.ACTION_GET_CONTENT;
+        mEnv.state.stack.changeRoot(TestProvidersAccess.OtherUser.HOME);
+        mEnv.state.stack.push(TestEnv.OtherUser.FOLDER_0);
+
+        mEnv.state.sortModel.sortByUser(
+                SortModel.SORT_DIMENSION_ID_TITLE, SortDimension.SORT_DIRECTION_ASCENDING);
+
+        // Currently mock provider does not have cross profile concept, this will always return
+        // the supplied docs without checking for the user. But this should not be a problem for
+        // this test case.
+        mEnv.mockProviders.get(TestProvidersAccess.OtherUser.HOME.authority)
+                .setNextChildDocumentsReturns(TestEnv.OtherUser.FILE_PNG);
+
+        // Disallow sharing across profile
+        mEnv.state.canShareAcrossProfile = false;
+
+        TestEventHandler<Model.Update> listener = new TestEventHandler<>();
+        mEnv.model.addUpdateListener(listener::accept);
+
+        mHandler.loadDocumentsForCurrentStack();
+        CountDownLatch latch1 = new CountDownLatch(1);
+        EventListener<Model.Update> updateEventListener1 = update -> latch1.countDown();
+        mEnv.model.addUpdateListener(updateEventListener1);
+        mActivity.supportLoaderManager.runAsyncTaskLoader(AbstractActionHandler.LOADER_ID);
+        latch1.await(1, TimeUnit.SECONDS);
+        assertThat(listener.getLastValue().getException())
+                .isInstanceOf(CrossProfileNoPermissionException.class);
+
+        // Allow sharing across profile.
+        mEnv.state.canShareAcrossProfile = true;
+
+        CountDownLatch latch2 = new CountDownLatch(1);
+        mEnv.model.addUpdateListener(update -> latch2.countDown());
+        mHandler.loadDocumentsForCurrentStack();
+        mActivity.supportLoaderManager.runAsyncTaskLoader(AbstractActionHandler.LOADER_ID);
+
+        latch2.await(1, TimeUnit.SECONDS);
+        assertEquals(1, mEnv.model.getItemCount());
+        String[] modelIds = mEnv.model.getModelIds();
+        assertEquals(TestEnv.OtherUser.FILE_PNG, mEnv.model.getDocument(modelIds[0]));
+    }
+
+    @Test
     public void testLoadChildrenDocuments_failsWithNonRecentsAndEmptyStack() throws Exception {
         mEnv.state.stack.changeRoot(TestProvidersAccess.HOME);
 
@@ -282,7 +428,11 @@ public class AbstractActionHandlerTest {
         mEnv.model.addUpdateListener(listener::accept);
 
         mHandler.loadDocumentsForCurrentStack();
+        CountDownLatch latch = new CountDownLatch(1);
+        mEnv.model.addUpdateListener(event -> latch.countDown());
+        mActivity.supportLoaderManager.runAsyncTaskLoader(AbstractActionHandler.LOADER_ID);
 
+        latch.await(1, TimeUnit.SECONDS);
         assertTrue(listener.getLastValue().hasException());
     }
 

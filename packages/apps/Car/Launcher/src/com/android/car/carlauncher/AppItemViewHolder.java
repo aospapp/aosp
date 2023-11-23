@@ -65,23 +65,17 @@ public class AppItemViewHolder extends RecyclerView.ViewHolder {
                 isLaunchable ? R.dimen.app_icon_opacity : R.dimen.app_icon_opacity_unavailable));
 
         if (isLaunchable) {
-            mAppItem.setOnClickListener(v -> AppLauncherUtils.launchApp(mContext, app));
-            mAppItem.setLongClickable(app.getAlternateLaunchIntent() != null);
-            mAppItem.setOnLongClickListener(v-> openAlternateLaunchIntent(app));
+            mAppItem.setOnClickListener(v -> app.getLaunchCallback().accept(mContext));
+            mAppItem.setLongClickable(app.getAlternateLaunchCallback() != null);
+            mAppItem.setOnLongClickListener(v-> {
+                app.getAlternateLaunchCallback().accept(mContext);
+                return true;
+            });
         } else {
             String warningText = mContext.getResources()
                     .getString(R.string.driving_toast_text, app.getDisplayName());
             mAppItem.setOnClickListener(
                     v -> Toast.makeText(mContext, warningText, Toast.LENGTH_LONG).show());
         }
-    }
-
-    private boolean openAlternateLaunchIntent(AppMetaData app) {
-        Intent intent = app.getAlternateLaunchIntent();
-        if (intent != null) {
-            mContext.startActivity(intent);
-            return true;
-        }
-        return false;
     }
 }

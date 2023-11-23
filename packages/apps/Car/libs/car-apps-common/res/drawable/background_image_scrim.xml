@@ -28,6 +28,7 @@
     <item>
         <shape>
             <gradient
+                android:angle="0"
                 android:centerX="0.48"
                 android:startColor="@android:color/transparent"
                 android:centerColor="@android:color/black"
@@ -37,6 +38,7 @@
     <item>
         <shape>
             <gradient
+                android:angle="0"
                 android:centerX="0.38"
                 android:startColor="@android:color/transparent"
                 android:centerColor="#B3000000"

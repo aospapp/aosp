@@ -26,7 +26,7 @@ import com.android.settings.biometrics.BiometricStatusPreferenceController;
 
 public class FaceStatusPreferenceController extends BiometricStatusPreferenceController {
 
-    private static final String KEY_FACE_SETTINGS = "face_settings";
+    public static final String KEY_FACE_SETTINGS = "face_settings";
 
     protected final FaceManager mFaceManager;
 
@@ -41,7 +41,7 @@ public class FaceStatusPreferenceController extends BiometricStatusPreferenceCon
 
     @Override
     protected boolean isDeviceSupported() {
-        return mFaceManager != null && mFaceManager.isHardwareDetected();
+        return FaceSettings.isFaceHardwareDetected(mContext);
     }
 
     @Override

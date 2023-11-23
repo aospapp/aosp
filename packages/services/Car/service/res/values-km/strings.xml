@@ -22,6 +22,8 @@
     <string name="car_permission_desc_camera" msgid="917024932164501426">"ចូលប្រើ​កាមេរ៉ារបស់​រថយន្តអ្នក។"</string>
     <string name="car_permission_label_energy" msgid="7409144323527821558">"ចូលប្រើ​ព័ត៌មាន​អំពីថាមពលរបស់​រថយន្ត"</string>
     <string name="car_permission_desc_energy" msgid="3392963810053235407">"ចូលប្រើ​ព័ត៌មាន​ថាមពលរបស់​រថយន្តអ្នក។"</string>
+    <string name="car_permission_label_adjust_range_remaining" msgid="839033553999920138">"កែតម្រូវ​រយៈចម្ងាយ​ដែលរថយន្តអាចបន្ត​ដំណើរការបាន"</string>
+    <string name="car_permission_desc_adjust_range_remaining" msgid="2369321650437370673">"កែតម្រូវ​តម្លៃ​នៃរយៈចម្ងាយ​ដែលរថយន្តអាចបន្ត​ដំណើរការបាន។"</string>
     <string name="car_permission_label_hvac" msgid="1499454192558727843">"ចូលប្រើ​ប្រព័ន្ធកម្តៅ ខ្យល់ និងម៉ាស៊ីនត្រជាក់​របស់​រថយន្ត"</string>
     <string name="car_permission_desc_hvac" msgid="3754229695589774195">"ចូលប្រើ​ប្រព័ន្ធកម្តៅ ខ្យល់ និងម៉ាស៊ីនត្រជាក់​របស់រថយន្តអ្នក។"</string>
     <string name="car_permission_label_mileage" msgid="4661317074631150551">"ចូលប្រើព័ត៌មាន​អំពីរយៈចម្ងាយរត់​របស់រថយន្ត"</string>
@@ -62,13 +64,19 @@
     <string name="car_permission_desc_car_ux_restrictions_configuration" msgid="5711926927484813777">"កំណត់រចនាសម្ព័ន្ធ​ការរឹតបន្តឹង UX"</string>
     <string name="car_permission_label_car_handle_usb_aoap_device" msgid="72783989504378036">"ទាក់ទងជាមួយ​ឧបករណ៍ USB តាមរយៈមុខងារ AOAP"</string>
     <string name="car_permission_desc_car_handle_usb_aoap_device" msgid="273505990971317034">"អនុញ្ញាតឱ្យ​កម្មវិធី​ទាក់ទង​ជាមួយឧបករណ៍តាមរយៈមុខងារ AOAP"</string>
+    <string name="car_permission_label_read_car_occupant_awareness_state" msgid="125517953575032758">"សិទ្ធិ​ចូលអាន​ប្រព័ន្ធ​នៃ​ការយល់ដឹង​អំពី​អ្នកជិះ​ក្នុងរថយន្ត"</string>
+    <string name="car_permission_desc_read_car_occupant_awareness_state" msgid="188865882598414986">"អនុញ្ញាត​ការអាន​ស្ថានភាព និង​ទិន្នន័យ​អំពី​ការចាប់​ប្រព័ន្ធ​នៃ​ការយល់ដឹង​អំពី​អ្នកជិះ​ក្នុងរថយន្ត"</string>
+    <string name="car_permission_label_control_car_occupant_awareness_system" msgid="7163330266691094542">"គ្រប់គ្រង​ក្រាហ្វ​អំពី​ប្រព័ន្ធ​នៃ​ការយល់ដឹង​អំពី​អ្នកជិះ​ក្នុងរថយន្ត"</string>
+    <string name="car_permission_desc_control_car_occupant_awareness_system" msgid="7123482622084531911">"អនុញ្ញាត​ការគ្រប់គ្រង​ការចាប់ផ្ដើម និង​ការបញ្ឈប់​ក្រាហ្វ​អំពីការចាប់​ប្រព័ន្ធ​នៃ​ការយល់ដឹង​អំពី​អ្នកជិះ​ក្នុងរថយន្ត"</string>
     <string name="car_permission_label_bind_input_service" msgid="6698489034024273750">"សេវាកម្ម​បញ្ចូលរបស់​រថយន្ត"</string>
     <string name="car_permission_desc_bind_input_service" msgid="1670323419931890170">"គ្រប់គ្រង​ព្រឹត្តិការណ៍​បញ្ចូល"</string>
     <string name="car_can_bus_failure" msgid="2334035748788283914">"មិនអាច​ដំណើរការ CAN bus បានទេ"</string>
     <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"CAN bus មិនឆ្លើយតបទេ។ សូមផ្ដាច់ រួចភ្ជាប់​ប្រអប់​ឧបករណ៍ចាក់តន្ត្រី​ម្តងទៀត បន្ទាប់មក​បញ្ឆេះ​រថយន្ត​ឡើងវិញ"</string>
-    <string name="activity_blocked_text" msgid="5342114426610711378">"ដើម្បី​សុវត្ថិភាព​របស់អ្នក សកម្មភាពនេះ​មិនអាចប្រើបានទេ ពេល​កំពុងបើកបរ។\nដើម្បីបន្ត សូមរង់ចាំ​រហូតទាល់តែ​អ្នកចត​រថយន្តរួច។"</string>
+    <string name="activity_blocked_text" msgid="8088902789540147995">"អ្នកមិនអាចប្រើ​មុខងារនេះ​បានទេ ខណៈពេលកំពុង​បើកបរ"</string>
     <string name="exit_button_message" msgid="8554690915924055685">"ដើម្បី​ចាប់ផ្តើមឡើងវិញ​ដោយប្រើ​មុខងារកម្មវិធី​ដែលមានសុវត្ថិភាព សូមជ្រើសរើស <xliff:g id="EXIT_BUTTON">%s</xliff:g> ។"</string>
     <string name="exit_button" msgid="5829638404777671253">"ថយក្រោយ"</string>
+    <string name="exit_button_close_application" msgid="8824289547809332460">"បិទកម្មវិធី"</string>
+    <string name="exit_button_go_back" msgid="3469083862100560326">"ថយក្រោយ"</string>
     <string name="car_permission_label_diag_read" msgid="7248894224877702604">"អានទិន្នន័យ​វិភាគ"</string>
     <string name="car_permission_desc_diag_read" msgid="1121426363040966178">"អាន​អំពីទិន្នន័យ​វិភាគពី​រថយន្ត។"</string>
     <string name="car_permission_label_diag_clear" msgid="4783070510879698157">"សម្អាត​ទិន្នន័យ​វិភាគ"</string>
@@ -87,6 +95,8 @@
     <string name="car_permission_desc_car_engine_detailed" msgid="1746863362811347700">"ចូលប្រើ​ព័ត៌មាន​លម្អិត​អំពីម៉ាស៊ីនរថយន្តរបស់អ្នក។"</string>
     <string name="car_permission_label_car_energy_ports" msgid="8548990315169219454">"ចូលប្រើ​គម្របសាំង និងរន្ធសាក​អាគុយរថយន្ត។"</string>
     <string name="car_permission_desc_car_energy_ports" msgid="7771185999828794949">"ចូលប្រើ​គម្របសាំង និងរន្ធសាក​អាគុយរថយន្ត។"</string>
+    <string name="car_permission_label_control_car_energy_ports" msgid="4375137311026313475">"គ្រប់គ្រង​គម្រប​សាំង និង​រន្ធ​សាក​អាគុយ​រថយន្ត"</string>
+    <string name="car_permission_desc_control_car_energy_ports" msgid="7364633710492525387">"គ្រប់គ្រង​គម្របសាំង និង​រន្ធ​សាក​អាគុយ​រថយន្ត​។"</string>
     <string name="car_permission_label_car_identification" msgid="5896712510164020478">"អាន​អត្តសញ្ញាណរថយន្ត"</string>
     <string name="car_permission_desc_car_identification" msgid="4132040867171275059">"ចូលប្រើ​អត្តសញ្ញាណរថយន្ត។"</string>
     <string name="car_permission_label_control_car_doors" msgid="3032058819250195700">"គ្រប់គ្រង​ទ្វាររថយន្ត"</string>
@@ -99,6 +109,8 @@
     <string name="car_permission_desc_control_car_seats" msgid="2407536601226470563">"គ្រប់គ្រង​កៅអី​រថយន្ត។"</string>
     <string name="car_permission_label_car_info" msgid="4707513570676492315">"ចូលប្រើ​ព័ត៌មាន​មូលដ្ឋាន​របស់រថយន្ត"</string>
     <string name="car_permission_desc_car_info" msgid="2118081474543537653">"ចូលប្រើ​ព័ត៌មាន​មូលដ្ឋាន​របស់រថយន្ត។"</string>
+    <string name="car_permission_label_vendor_permission_info" msgid="4471260460536888654">"ចូលប្រើ​ព័ត៌មាន​អំពី​ការអនុញ្ញាត​ពី​អ្នកលក់​របស់​រថយន្ត"</string>
+    <string name="car_permission_desc_vendor_permission_info" msgid="8152113853528488398">"ចូលប្រើ​ព័ត៌មាន​អំពី​ការអនុញ្ញាត​ពី​អ្នកលក់​របស់​រថយន្ត​។"</string>
     <string name="car_permission_label_car_exterior_lights" msgid="541304469604902110">"អានស្ថានភាពភ្លើងផ្នែក​ខាងក្រៅ​រថយន្ត"</string>
     <string name="car_permission_desc_car_exterior_lights" msgid="4038037584100849318">"ចូលប្រើ​ស្ថានភាពភ្លើង​ផ្នែកខាងក្រៅ​រថយន្ត។"</string>
     <string name="car_permission_label_control_car_exterior_lights" msgid="101357531386232141">"អានភ្លើងផ្នែកខាងក្រៅ​រថយន្ត"</string>
@@ -123,5 +135,12 @@
     <string name="car_permission_desc_car_power" msgid="9202079903668652864">"ចូលប្រើស្ថានភាព​ថាមពល​របស់រថយន្ត។"</string>
     <string name="car_permission_label_enroll_trust" msgid="3512907900486690218">"ចុះ​ឈ្មោះ​ឧបករណ៍​ដែល​ទុក​ចិត្ត"</string>
     <string name="car_permission_desc_enroll_trust" msgid="4148649994602185130">"អនុញ្ញាតឱ្យចុះ​ឈ្មោះឧបករណ៍​ដែល​ទុក​ចិត្ត"</string>
+    <string name="car_permission_label_car_test_service" msgid="9159328930558208708">"គ្រប់គ្រង​មុខងារ​ធ្វើតេស្តរបស់​រថយន្ត"</string>
+    <string name="car_permission_desc_car_test_service" msgid="7426844534110145843">"គ្រប់គ្រង​មុខងារ​ធ្វើតេស្តរបស់​រថយន្ត"</string>
+    <string name="car_permission_label_control_car_features" msgid="3905791560378888286">"បើក ឬ​បិទ​មុខងារ​របស់​រថយន្ត"</string>
+    <string name="car_permission_desc_control_car_features" msgid="7646711104530599901">"បើក ឬ​បិទ​មុខងារ​របស់​រថយន្ត​។"</string>
+    <string name="car_permission_label_use_car_watchdog" msgid="6973938293170413475">"ប្រើប្រាស់សេវា​មើល​ការ​ខុស​ត្រូវ​ស្ថានភាព​កម្មវិធី​របស់​ឡាន"</string>
+    <string name="car_permission_desc_use_car_watchdog" msgid="8244592601805516086">"ប្រើប្រាស់​សេវា​មើល​ការ​ខុស​ត្រូវ​ស្ថានភាព​កម្មវិធី​របស់​ឡាន។"</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"ឧបករណ៍របស់ខ្ញុំ"</string>
+    <string name="default_guest_name" msgid="2912812799433131476">"ភ្ញៀវ"</string>
 </resources>

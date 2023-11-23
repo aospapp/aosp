@@ -16,6 +16,8 @@
 package android.car.cluster;
 
 import static android.car.cluster.ClusterRenderingService.LOCAL_BINDING_ACTION;
+import static android.content.Intent.ACTION_SCREEN_OFF;
+import static android.content.Intent.ACTION_USER_PRESENT;
 import static android.content.Intent.ACTION_USER_SWITCHED;
 import static android.content.Intent.ACTION_USER_UNLOCKED;
 import static android.content.PermissionChecker.PERMISSION_GRANTED;
@@ -54,6 +56,7 @@ import androidx.fragment.app.FragmentActivity;
 import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentPagerAdapter;
 import androidx.lifecycle.LiveData;
+import androidx.lifecycle.ViewModelProvider;
 import androidx.lifecycle.ViewModelProviders;
 import androidx.viewpager.widget.ViewPager;
 
@@ -110,7 +113,7 @@ public class MainClusterActivity extends FragmentActivity implements
     private static final int NAVIGATION_ACTIVITY_RETRY_INTERVAL_MS = 1000;
     private static final int NAVIGATION_ACTIVITY_RELAUNCH_DELAY_MS = 5000;
 
-    private UserReceiver mUserReceiver;
+    private final UserReceiver mUserReceiver = new UserReceiver();
     private ActivityMonitor mActivityMonitor = new ActivityMonitor();
     private final Handler mHandler = new Handler();
     private final Runnable mRetryLaunchNavigationActivity = this::tryLaunchNavigationActivity;
@@ -173,30 +176,25 @@ public class MainClusterActivity extends FragmentActivity implements
         mClusterViewModel.setCurrentNavigationActivity(activity);
     };
 
-    private static class UserReceiver extends BroadcastReceiver {
-        private WeakReference<MainClusterActivity> mActivity;
-
-        UserReceiver(MainClusterActivity activity) {
-            mActivity = new WeakReference<>(activity);
-        }
-
-        public void register(Context context) {
+    /**
+     * On user switch the navigation application must be re-launched on the new user. Otherwise
+     * the navigation fragment will keep showing the application on the previous user.
+     * {@link MainClusterActivity} is shared between all users (it is not restarted on user switch)
+     */
+    private class UserReceiver extends BroadcastReceiver {
+        void register(Context context) {
             IntentFilter intentFilter = new IntentFilter(ACTION_USER_UNLOCKED);
-            intentFilter.addAction(ACTION_USER_SWITCHED);
-            context.registerReceiver(this, intentFilter);
+            context.registerReceiverForAllUsers(this, intentFilter, null, null);
         }
-
-        public void unregister(Context context) {
+        void unregister(Context context) {
             context.unregisterReceiver(this);
         }
-
         @Override
         public void onReceive(Context context, Intent intent) {
-            MainClusterActivity activity = mActivity.get();
             if (Log.isLoggable(TAG, Log.DEBUG)) {
                 Log.d(TAG, "Broadcast received: " + intent);
             }
-            activity.tryLaunchNavigationActivity();
+            tryLaunchNavigationActivity();
         }
     }
 
@@ -230,7 +228,24 @@ public class MainClusterActivity extends FragmentActivity implements
         mOrderToFacet.get(NAV_FACET_ID).mButton.requestFocus();
         mNavStateController = new NavStateController(findViewById(R.id.navigation_state));
 
-        mClusterViewModel = ViewModelProviders.of(this).get(ClusterViewModel.class);
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(ACTION_USER_PRESENT);
+        filter.addAction(ACTION_SCREEN_OFF);
+        registerReceiver(new BroadcastReceiver(){
+            @Override
+            public void onReceive(final Context context, final Intent intent) {
+                if (intent.getAction().equals(Intent.ACTION_SCREEN_OFF)){
+                    Log.d(TAG, "ACTION_SCREEN_OFF");
+                    mNavStateController.hideNavigationStateInfo();
+                }
+                else if (intent.getAction().equals(Intent.ACTION_USER_PRESENT)) {
+                    Log.d(TAG, "ACTION_USER_PRESENT");
+                    mNavStateController.showNavigationStateInfo();
+                }
+            }
+        }, filter);
+
+        mClusterViewModel = new ViewModelProvider(this).get(ClusterViewModel.class);
         mClusterViewModel.getNavigationFocus().observe(this, focus -> {
             // If focus is lost, we launch the default navigation activity again.
             if (!focus) {
@@ -258,12 +273,11 @@ public class MainClusterActivity extends FragmentActivity implements
 
         mActivityMonitor.start();
 
-        mUserReceiver = new UserReceiver(this);
         mUserReceiver.register(this);
 
         InMemoryPhoneBook.init(this);
 
-        PhoneFragmentViewModel phoneViewModel = ViewModelProviders.of(this).get(
+        PhoneFragmentViewModel phoneViewModel = new ViewModelProvider(this).get(
                 PhoneFragmentViewModel.class);
 
         phoneViewModel.setPhoneStateCallback(new PhoneFragmentViewModel.PhoneStateCallback() {
@@ -277,7 +291,9 @@ public class MainClusterActivity extends FragmentActivity implements
 
             @Override
             public void onDisconnect() {
-                mOrderToFacet.get(mPreviousFacet).mButton.requestFocus();
+                if (mPreviousFacet != COMMS_FACET_ID) {
+                    mOrderToFacet.get(mPreviousFacet).mButton.requestFocus();
+                }
             }
         });
     }
@@ -412,7 +428,7 @@ public class MainClusterActivity extends FragmentActivity implements
         }
         mHandler.removeCallbacks(mRetryLaunchNavigationActivity);
 
-        ComponentName navigationActivity = getNavigationActivity();
+        ComponentName navigationActivity = getNavigationActivity(this);
         mClusterViewModel.setFreeNavigationActivity(navigationActivity);
 
         try {
@@ -424,7 +440,7 @@ public class MainClusterActivity extends FragmentActivity implements
             Intent intent = new Intent(Intent.ACTION_MAIN)
                     .setComponent(navigationActivity)
                     .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    .putExtra(CarInstrumentClusterManager.KEY_EXTRA_ACTIVITY_STATE,
+                    .putExtra(Car.CAR_EXTRA_CLUSTER_ACTIVITY_STATE,
                             activityState.toBundle());
 
             Log.d(TAG, "Launching: " + intent + " on display: " + mNavigationDisplay.mDisplayId);
@@ -450,14 +466,14 @@ public class MainClusterActivity extends FragmentActivity implements
      * <ul>
      * <li>Dynamically detect what's the default navigation activity the user has selected on the
      * head unit, and obtain the activity marked with
-     * {@link CarInstrumentClusterManager#CATEGORY_NAVIGATION} from the same package.
+     * {@link Car#CAR_CATEGORY_NAVIGATION} from the same package.
      * <li>Let the user select one from settings.
      * </ul>
      */
-    private ComponentName getNavigationActivity() {
-        PackageManager pm = getPackageManager();
+    static ComponentName getNavigationActivity(Context context) {
+        PackageManager pm = context.getPackageManager();
         int userId = ActivityManager.getCurrentUser();
-        String intentString = getString(R.string.freeNavigationIntent);
+        String intentString = context.getString(R.string.freeNavigationIntent);
 
         if (intentString == null) {
             Log.w(TAG, "No free navigation activity defined");
@@ -472,16 +488,6 @@ public class MainClusterActivity extends FragmentActivity implements
             if (navigationApp == null) {
                 return null;
             }
-
-            // Check that it has the right permissions
-            if (pm.checkPermission(Car.PERMISSION_CAR_DISPLAY_IN_CLUSTER, navigationApp.activityInfo
-                    .packageName) != PERMISSION_GRANTED) {
-                Log.i(TAG, String.format("Package '%s' doesn't have permission %s",
-                        navigationApp.activityInfo.packageName,
-                        Car.PERMISSION_CAR_DISPLAY_IN_CLUSTER));
-                return null;
-            }
-
             return new ComponentName(navigationApp.activityInfo.packageName,
                     navigationApp.activityInfo.name);
         } catch (URISyntaxException ex) {

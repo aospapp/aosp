@@ -32,8 +32,10 @@ import android.util.Log;
 
 import com.android.bluetooth.BluetoothObexTransport;
 import com.android.bluetooth.R;
+import com.android.vcard.VCardEntry;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 
 import javax.obex.ClientSession;
@@ -46,6 +48,15 @@ import javax.obex.ResponseCodes;
  * controlling state machine.
  */
 class PbapClientConnectionHandler extends Handler {
+    // Tradeoff: larger BATCH_SIZE leads to faster download rates, while smaller
+    // BATCH_SIZE is less prone to IO Exceptions if there is a download in
+    // progress when Bluetooth stack is torn down.
+    private static final int DEFAULT_BATCH_SIZE = 250;
+
+    // Upper limit on the indices of the vcf cards/entries, inclusive,
+    // i.e., valid indices are [0, 1, ... , UPPER_LIMIT]
+    private static final int UPPER_LIMIT = 65535;
+
     static final String TAG = "PbapClientConnHandler";
     static final boolean DBG = Utils.DBG;
     static final boolean VDBG = Utils.VDBG;
@@ -88,16 +99,26 @@ class PbapClientConnectionHandler extends Handler {
     private static final long PBAP_FILTER_NICKNAME = 1 << 23;
 
     private static final int PBAP_SUPPORTED_FEATURE =
-            PBAP_FEATURE_DEFAULT_IMAGE_FORMAT | PBAP_FEATURE_BROWSING | PBAP_FEATURE_DOWNLOADING;
+            PBAP_FEATURE_DEFAULT_IMAGE_FORMAT | PBAP_FEATURE_DOWNLOADING;
     private static final long PBAP_REQUESTED_FIELDS =
             PBAP_FILTER_VERSION | PBAP_FILTER_FN | PBAP_FILTER_N | PBAP_FILTER_PHOTO
                     | PBAP_FILTER_ADR | PBAP_FILTER_EMAIL | PBAP_FILTER_TEL | PBAP_FILTER_NICKNAME;
     private static final int L2CAP_INVALID_PSM = -1;
 
     public static final String PB_PATH = "telecom/pb.vcf";
+    public static final String FAV_PATH = "telecom/fav.vcf";
     public static final String MCH_PATH = "telecom/mch.vcf";
     public static final String ICH_PATH = "telecom/ich.vcf";
     public static final String OCH_PATH = "telecom/och.vcf";
+    public static final String SIM_PB_PATH = "SIM1/telecom/pb.vcf";
+    public static final String SIM_MCH_PATH = "SIM1/telecom/mch.vcf";
+    public static final String SIM_ICH_PATH = "SIM1/telecom/ich.vcf";
+    public static final String SIM_OCH_PATH = "SIM1/telecom/och.vcf";
+
+    // PBAP v1.2.3 Sec. 7.1.2
+    private static final int SUPPORTED_REPOSITORIES_LOCALPHONEBOOK = 1 << 0;
+    private static final int SUPPORTED_REPOSITORIES_SIMCARD = 1 << 1;
+    private static final int SUPPORTED_REPOSITORIES_FAVORITES = 1 << 3;
 
     public static final int PBAP_V1_2 = 0x0102;
     public static final byte VCARD_TYPE_21 = 0;
@@ -239,29 +260,25 @@ class PbapClientConnectionHandler extends Handler {
                 break;
 
             case MSG_DOWNLOAD:
-                try {
-                    mAccountCreated = addAccount(mAccount);
-                    if (!mAccountCreated) {
-                        Log.e(TAG, "Account creation failed.");
-                        return;
-                    }
-                    // Start at contact 1 to exclued Owner Card PBAP 1.1 sec 3.1.5.2
-                    BluetoothPbapRequestPullPhoneBook request =
-                            new BluetoothPbapRequestPullPhoneBook(PB_PATH, mAccount,
-                                    PBAP_REQUESTED_FIELDS, VCARD_TYPE_30, 0, 1);
-                    request.execute(mObexSession);
-                    PhonebookPullRequest processor =
-                            new PhonebookPullRequest(mPbapClientStateMachine.getContext(),
-                                    mAccount);
-                    processor.setResults(request.getList());
-                    processor.onPullComplete();
-                    HashMap<String, Integer> callCounter = new HashMap<>();
-                    downloadCallLog(MCH_PATH, callCounter);
-                    downloadCallLog(ICH_PATH, callCounter);
-                    downloadCallLog(OCH_PATH, callCounter);
-                } catch (IOException e) {
-                    Log.w(TAG, "DOWNLOAD_CONTACTS Failure" + e.toString());
+                mAccountCreated = addAccount(mAccount);
+                if (!mAccountCreated) {
+                    Log.e(TAG, "Account creation failed.");
+                    return;
                 }
+                if (isRepositorySupported(SUPPORTED_REPOSITORIES_FAVORITES)) {
+                    downloadContacts(FAV_PATH);
+                }
+                if (isRepositorySupported(SUPPORTED_REPOSITORIES_LOCALPHONEBOOK)) {
+                    downloadContacts(PB_PATH);
+                }
+                if (isRepositorySupported(SUPPORTED_REPOSITORIES_SIMCARD)) {
+                    downloadContacts(SIM_PB_PATH);
+                }
+
+                HashMap<String, Integer> callCounter = new HashMap<>();
+                downloadCallLog(MCH_PATH, callCounter);
+                downloadCallLog(ICH_PATH, callCounter);
+                downloadCallLog(OCH_PATH, callCounter);
                 break;
 
             default:
@@ -337,7 +354,10 @@ class PbapClientConnectionHandler extends Handler {
             if (DBG) {
                 Log.d(TAG, "Success = " + Boolean.toString(connectionSuccessful));
             }
-        } catch (IOException e) {
+        } catch (IOException | NullPointerException e) {
+            // Will get NPE if a null mSocket is passed to BluetoothObexTransport.
+            // mSocket can be set to null if an abort() --> closeSocket() was called between
+            // the calls to connectSocket() and connectObexSession().
             Log.w(TAG, "CONNECT Failure " + e.toString());
             closeSocket();
         }
@@ -363,6 +383,59 @@ class PbapClientConnectionHandler extends Handler {
         } catch (IOException e) {
             Log.e(TAG, "Error when closing socket", e);
             mSocket = null;
+        }
+    }
+
+    void downloadContacts(String path) {
+        try {
+            PhonebookPullRequest processor =
+                    new PhonebookPullRequest(mPbapClientStateMachine.getContext(),
+                            mAccount);
+
+            // Download contacts in batches of size DEFAULT_BATCH_SIZE
+            BluetoothPbapRequestPullPhoneBookSize requestPbSize =
+                    new BluetoothPbapRequestPullPhoneBookSize(path,
+                            PBAP_REQUESTED_FIELDS);
+            requestPbSize.execute(mObexSession);
+
+            int numberOfContactsRemaining = requestPbSize.getSize();
+            int startOffset = 0;
+            if (PB_PATH.equals(path)) {
+                // PBAP v1.2.3, Sec 3.1.5. The first contact in pb is owner card 0.vcf, which we
+                // do not want to download. The other phonebook objects (e.g., fav) don't have an
+                // owner card, so they don't need an offset.
+                startOffset = 1;
+                // "-1" because Owner Card 0.vcf is also included in /pb, but not in /fav.
+                numberOfContactsRemaining -= 1;
+            }
+
+            while ((numberOfContactsRemaining > 0) && (startOffset <= UPPER_LIMIT)) {
+                int numberOfContactsToDownload =
+                        Math.min(Math.min(DEFAULT_BATCH_SIZE, numberOfContactsRemaining),
+                        UPPER_LIMIT - startOffset + 1);
+                BluetoothPbapRequestPullPhoneBook request =
+                        new BluetoothPbapRequestPullPhoneBook(path, mAccount,
+                                PBAP_REQUESTED_FIELDS, VCARD_TYPE_30,
+                                numberOfContactsToDownload, startOffset);
+                request.execute(mObexSession);
+                ArrayList<VCardEntry> vcards = request.getList();
+                if (path == FAV_PATH) {
+                    // mark each vcard as a favorite
+                    for (VCardEntry v : vcards) {
+                        v.setStarred(true);
+                    }
+                }
+                processor.setResults(vcards);
+                processor.onPullComplete();
+
+                startOffset += numberOfContactsToDownload;
+                numberOfContactsRemaining -= numberOfContactsToDownload;
+            }
+            if ((startOffset > UPPER_LIMIT) && (numberOfContactsRemaining > 0)) {
+                Log.w(TAG, "Download contacts incomplete, index exceeded upper limit.");
+            }
+        } catch (IOException e) {
+            Log.w(TAG, "Download contacts failure" + e.toString());
         }
     }
 
@@ -415,5 +488,13 @@ class PbapClientConnectionHandler extends Handler {
         } catch (IllegalArgumentException e) {
             Log.d(TAG, "Call Logs could not be deleted, they may not exist yet.");
         }
+    }
+
+    private boolean isRepositorySupported(int mask) {
+        if (mPseRec == null) {
+            if (VDBG) Log.v(TAG, "No PBAP Server SDP Record");
+            return false;
+        }
+        return (mask & mPseRec.getSupportedRepositories()) != 0;
     }
 }

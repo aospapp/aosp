@@ -16,6 +16,8 @@
 
 package com.android.providers.contacts;
 
+import static org.mockito.Mockito.when;
+
 import android.accounts.Account;
 import android.accounts.AccountManager;
 import android.accounts.AccountManagerCallback;
@@ -57,6 +59,7 @@ import android.provider.ContactsContract.Contacts;
 import android.provider.ContactsContract.Data;
 import android.provider.ContactsContract.RawContacts;
 import android.provider.ContactsContract.StatusUpdates;
+import android.telecom.TelecomManager;
 import android.telephony.TelephonyManager;
 import android.test.IsolatedContext;
 import android.test.mock.MockContentResolver;
@@ -67,6 +70,8 @@ import com.android.providers.contacts.util.ContactsPermissions;
 import com.android.providers.contacts.util.MockSharedPreferences;
 
 import com.google.android.collect.Sets;
+
+import org.mockito.Mockito;
 
 import java.io.File;
 import java.io.IOException;
@@ -90,6 +95,8 @@ public class ContactsActor {
     public static final String PACKAGE_RED = "net.example.red";
     public static final String PACKAGE_GREEN = "com.example.green";
     public static final String PACKAGE_BLUE = "org.example.blue";
+
+    private static final int DEFAULT_USER_ID = 0;
 
     public Context context;
     public String packageName;
@@ -153,11 +160,8 @@ public class ContactsActor {
 
     public static class MockUserManager extends UserManager {
         public static UserInfo createUserInfo(String name, int id, int groupId, int flags) {
-            final UserInfo ui = new UserInfo();
-            ui.name = name;
-            ui.id = id;
+            final UserInfo ui = new UserInfo(id, name, flags | UserInfo.FLAG_INITIALIZED);
             ui.profileGroupId = groupId;
-            ui.flags = flags | UserInfo.FLAG_INITIALIZED;
             return ui;
         }
 
@@ -168,7 +172,7 @@ public class ContactsActor {
         public static final UserInfo SECONDARY_USER = createUserInfo("2nd", 11, 11, 0);
 
         /** "My" user.  Set it to change the current user. */
-        public int myUser = 0;
+        public int myUser = DEFAULT_USER_ID;
 
         private ArrayList<UserInfo> mUsers = new ArrayList<>();
 
@@ -271,6 +275,8 @@ public class ContactsActor {
         }
     }
 
+    private TelecomManager mMockTelecomManager;
+
     /**
      * A context wrapper that reports a different user id.
      *
@@ -322,6 +328,9 @@ public class ContactsActor {
                 if (Context.TELEPHONY_SERVICE.equals(name)) {
                     return mMockTelephonyManager;
                 }
+                if (Context.TELECOM_SERVICE.equals(name)) {
+                    return mMockTelecomManager;
+                }
                 // Use overallContext here; super.getSystemService() somehow won't return
                 // DevicePolicyManager.
                 return overallContext.getSystemService(name);
@@ -369,6 +378,9 @@ public class ContactsActor {
                 if (Context.TELEPHONY_SERVICE.equals(name)) {
                     return mMockTelephonyManager;
                 }
+                if (Context.TELECOM_SERVICE.equals(name)) {
+                    return mMockTelecomManager;
+                }
                 // Use overallContext here; super.getSystemService() somehow won't return
                 // DevicePolicyManager.
                 return overallContext.getSystemService(name);
@@ -386,7 +398,11 @@ public class ContactsActor {
 
             @Override
             public int getUserId() {
-                return mockUserManager.getUserHandle();
+                if (mockUserManager != null) {
+                    return mockUserManager.getUserHandle();
+                } else {
+                    return DEFAULT_USER_ID;
+                }
             }
 
             @Override
@@ -403,6 +419,9 @@ public class ContactsActor {
         mMockAccountManager = new MockAccountManager(mProviderContext);
         mockUserManager = new MockUserManager(mProviderContext);
         mMockTelephonyManager = new MockTelephonyManager(mProviderContext);
+        mMockTelecomManager = Mockito.mock(TelecomManager.class);
+        when(mMockTelecomManager.getDefaultDialerPackage()).thenReturn("");
+        when(mMockTelecomManager.getSystemDialerPackage()).thenReturn("");
         provider = addProvider(providerClass, authority);
     }
 

@@ -25,7 +25,6 @@ import androidx.recyclerview.R;
 import androidx.test.filters.LargeTest;
 
 import com.android.documentsui.base.RootInfo;
-import com.android.documentsui.base.Shared;
 import com.android.documentsui.files.FilesActivity;
 import com.android.documentsui.filters.HugeLongTest;
 
@@ -44,30 +43,6 @@ public class FilesActivityDefaultsUiTest extends ActivityTest<FilesActivity> {
     @Override
     protected RootInfo getInitialRoot() {
         return null;  // test the default, unaffected state of the app.
-    }
-
-    public void testDefaultDirectory() throws Exception {
-        device.waitForIdle();
-
-        boolean defaultRootBrowse
-                = context.getResources().getBoolean(R.bool.feature_default_root_in_browse);
-
-        if (defaultRootBrowse) {
-            // Separate logic for "Documents" root, which presence depends on the config setting
-            if (docsRootEnabled()) {
-                bots.main.assertWindowTitle("Documents");
-            } else {
-                bots.main.assertWindowTitle("Downloads");
-            }
-        } else {
-            boolean showSearchBar =
-                    context.getResources().getBoolean(R.bool.show_search_bar);
-            if (showSearchBar) {
-                bots.main.assertSearchBarShow();
-            } else {
-                bots.main.assertWindowTitle("Recent");
-            }
-        }
     }
 
     @HugeLongTest
@@ -96,16 +71,5 @@ public class FilesActivityDefaultsUiTest extends ActivityTest<FilesActivity> {
                 "Downloads",
                 ROOT_0_ID,
                 ROOT_1_ID);
-
-        // Separate logic for "Documents" root, which presence depends on the config setting
-        if (docsRootEnabled()) {
-            bots.roots.assertRootsPresent("Documents");
-        } else {
-            bots.roots.assertRootsAbsent("Documents");
-        }
-    }
-
-    private boolean docsRootEnabled() {
-        return Shared.shouldShowDocumentsRoot(context);
     }
 }

@@ -38,10 +38,10 @@
         android:key="keyboard"
         android:title="@string/system_keyboard"/>
     <Preference
-        android:fragment="com.android.tv.settings.device.sound.SoundFragment"
-        android:icon="@drawable/ic_volume_up"
+        android:fragment="com.android.tv.settings.device.displaysound.DisplaySoundFragment"
+        android:icon="@drawable/ic_display_sound"
         android:key="sound_effects"
-        android:title="@string/device_sound"/>
+        android:title="@string/device_display_sound"/>
     <Preference
         android:fragment="com.android.tv.settings.device.StorageSummaryFragment"
         android:icon="@drawable/ic_storage"
@@ -71,6 +71,11 @@
         android:key="daydream"
         android:title="@string/device_daydream"/>
     <Preference
+        android:fragment="com.android.tv.settings.device.display.daydream.EnergySaverFragment"
+        android:icon="@drawable/ic_settings_energy_saver"
+        android:key="energysaver"
+        android:title="@string/device_energy_saver"/>
+    <Preference
         android:fragment="com.android.tv.settings.system.development.DevelopmentFragment"
         android:icon="@drawable/ic_settings_developeroptions"
         android:key="developer"
@@ -88,21 +93,13 @@
             android:action="com.google.android.settings.USAGE_AND_DIAGNOSTICS_SETTING"/>
     </Preference>
     <Preference
-        android:fragment="com.android.tv.settings.system.SecurityFragment"
-        android:icon="@drawable/ic_lock"
-        android:key="security"
-        android:title="@string/system_security"/>
-    <Preference
         android:fragment="com.android.tv.settings.accessibility.AccessibilityFragment"
         android:icon="@drawable/ic_accessibility_new"
         android:key="accessibility"
         android:title="@string/system_accessibility"/>
-    <Preference
-        android:icon="@drawable/ic_reset"
-        android:key="reset"
-        android:title="@string/device_reset">
-        <intent
-            android:targetClass="com.android.tv.settings.device.storage.ResetActivity"
-            android:targetPackage="com.android.tv.settings"/>
-    </Preference>
+    <com.android.tv.settings.LongClickPreference
+        android:icon="@drawable/ic_restart_alt"
+        android:key="reboot"
+        android:title="@string/restart_button_label"
+        android:fragment="com.android.tv.settings.about.RebootConfirmFragment" />
 </PreferenceScreen>

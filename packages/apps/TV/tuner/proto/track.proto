@@ -18,15 +18,11 @@ syntax = "proto2";
 
 package com.android.tv.tuner.data;
 
-// AOSP_Comment_Out import "third_party/android/nanoproto/nano_descriptor.proto";
-
 option java_package = "com.android.tv.tuner.data";
 option java_outer_classname = "Track";
 
 // Represents a AC3 audio track.
 message AtscAudioTrack {
-// AOSP_Comment_Out   option (proto2.nano.message_as_lite) = false; 
-
   optional string language = 1;
   optional AudioType audio_type = 2;
   optional int32 index = 3;
@@ -36,8 +32,6 @@ message AtscAudioTrack {
   // Enum describing the types of a audio track.
   // See ISO/IEC 138181-1:2000(e) Table 2-53.
   enum AudioType {
-// AOSP_Comment_Out     option (proto2.nano.enum_as_lite) = false;
-
     AUDIOTYPE_UNDEFINED = 0;
     AUDIOTYPE_CLEAN_EFFECTS = 1;
     AUDIOTYPE_HEARING_IMPAIRED = 2;
@@ -47,11 +41,8 @@ message AtscAudioTrack {
 
 // Represents a CEA-708 caption track.
 message AtscCaptionTrack {
-// AOSP_Comment_Out   option (proto2.nano.message_as_lite) = false;
-
   optional string language = 1;
   optional int32 service_number = 2;
   optional bool easy_reader = 3;
   optional bool wide_aspect_ratio = 4;
 }
-

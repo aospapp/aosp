@@ -83,8 +83,10 @@
     <string name="reset" msgid="6467204151306265796">"Скінуць"</string>
     <string name="cant_set_up_profile" msgid="4341825293970158436">"Немагчыма наладзіць профіль"</string>
     <string name="cant_set_up_device" msgid="4120090138983350714">"Немагчыма наладзіць прыладу"</string>
+    <string name="something_went_wrong" msgid="3593223774041784329">"Нешта пайшло не так"</string>
     <string name="couldnt_set_up_device" msgid="5137950404283642302">"Не ўдалося наладзіць прыладу. Звярніцеся па дапамогу да IT-адміністратара."</string>
     <string name="contact_your_admin_for_help" msgid="2009904021552323731">"Звярніцеся па дапамогу да IT-адміністратара"</string>
+    <string name="reset_device" msgid="5483853913241939262">"Скіньце налады на гэтай прыладзе і паўтарыце спробу"</string>
     <string name="device_already_set_up" msgid="507881934487140294">"Прылада ўжо наладжана"</string>
     <string name="error_wifi" msgid="1850288843966836571">"Не ўдалося падключыцца да Wi-Fi"</string>
     <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"На вашай прыладзе ўключана абарона ад скіду. Звярніцеся па дапамогу да IT-адміністратара."</string>
@@ -161,25 +163,34 @@
     <string name="setup_provisioning_header" msgid="4282483198266806271">"Ідзе падрыхтоўка да наладжвання працоўнай прылады…"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"Ідзе наладжванне праграмы адміністратара"</string>
     <string name="set_up_everything_else" msgid="4407706086957916501">"Наладжванне ўсяго астатняга"</string>
-    <string name="now_lets_set_up_everything_else" msgid="2905102208584231894">"Цяпер давайце наладзім усё астатняе"</string>
+    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"Дадайце асабісты ўліковы запіс, каб атрымаць доступ да ўсіх пераваг прылады"</string>
+    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"Цяпер, калі гатовы ваш працоўны профіль, вы можаце дадаць асабісты Уліковы запіс Google для атрымання доступу да вашых праграм і змесціва."</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"Гэта прылада належыць вашай арганізацыі"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"Наступная праграма будзе выкарыстоўвацца для кіравання гэтым тэлефонам і яго кантролю"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"Ідзе падрыхтоўка для працоўных налад…"</string>
-    <string name="work_profile_provisioning_accept_header" msgid="462916780311392444">"Па-першае, давайце наладзім працоўны профіль"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Давайце наладзім працоўны профіль"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"Працоўныя праграмы захоўваюцца ў вашым працоўным профілі"</string>
     <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"Прыпыненне працоўных праграм на перыяд, калі вы не будзеце імі карыстацца"</string>
-    <string name="work_profile_provisioning_step_3_header" msgid="7495564624887776704">"Ваш IT-адміністратар можа бачыць даныя толькі ў працоўным профілі."</string>
+    <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"Ваш IT-адміністратар можа бачыць даныя ў вашым працоўным профілі"</string>
     <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"Наладжваецца працоўны профіль…"</string>
-    <string name="work_profile_provisioning_summary" msgid="3917907344897144246">"Працоўныя праграмы захоўваюцца ў вашым працоўным профілі. На перыяд, калі вы не будзеце карыстацца працоўнымі праграмамі, вы можаце прыпыніць іх. Ваш IT-адміністратар можа бачыць даныя толькі ў працоўным профілі."</string>
+    <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"Працоўныя праграмы захоўваюцца ў вашым працоўным профілі. На перыяд, калі вы не будзеце карыстацца працоўнымі праграмамі, вы можаце прыпыніць іх. Ваш ІT-адміністратар можа бачыць даныя ў працоўным профілі."</string>
     <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"Давайце наладзім вашу працоўную прыладу"</string>
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"Заўсёды трымайце свае працоўныя праграмы пад рукой"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"Гэта прылада не прыватная"</string>
     <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"Ваш IT-адміністратар можа праглядаць вашы даныя і дзеянні на гэтай прыладзе."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"Ваша прылада наладжваецца…"</string>
     <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"Карыстайцеся гэтай прыладай, каб мець хуткі доступ да працоўных праграм. Гэта прылада не прыватная, таму ваш IT-адміністратар можа праглядаць на ёй даныя і дзеянні Каб даведацца больш, звярніцеся да IT-адміністратара."</string>
+    <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"Працоўныя праграмы захаваны ў працоўным профілі і кіруюцца адміністратарам"</string>
+    <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"Асабістыя праграмы схаваны і адасоблены ад працоўных"</string>
+    <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"Ваш ІТ-адміністратар можа кіраваць прыладай і праграмамі"</string>
+    <string name="cope_provisioning_summary" msgid="993014104601034878">"Працоўныя праграмы захоўваюцца ў працоўным профілі і знаходзяцца пад кіраваннем ІТ-адміністратара. Асабістыя праграмы схаваны і паказваюцца адасоблена ад працоўных праграм. Ваш ІТ-адміністратар можа кіраваць гэтай прыладай і блакіраваць пэўныя праграмы."</string>
+    <string name="just_a_sec" msgid="6244676028626237220">"Секунду…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"Напамін аб прыватнасці"</string>
     <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"Ваш IT-адміністратар можа праглядаць вашы даныя і дзеянні на гэтай прыладзе"</string>
     <string name="device_provisioning_finished" msgid="3981783240592092906">"Прылада гатовая да працы!"</string>
     <string name="done" msgid="7755227776955952318">"Гатова"</string>
+    <string name="financed_device_screen_header" msgid="7890706080917322376">"Гэта прылада куплена ў крэдыт у крэдытора \"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g>\""</string>
+    <string name="creditor_capabilities_header" msgid="6217362648469323253">"Крэдытор \"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g>\" можа:"</string>
+    <string name="install_creditor_app_description" msgid="6159751782301108878">"Усталяваць праграму \"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g>\", каб вы маглі ажыццяўляць плацяжы"</string>
+    <string name="lock_device_description" msgid="2940362560732989166">"Калі вы не робіце плацяжоў, абмяжоўваць доступ да гэтай прылады"</string>
 </resources>

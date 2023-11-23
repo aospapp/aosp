@@ -25,6 +25,7 @@
     <string name="trace_is_being_recorded" msgid="5947378146009337469">"Հետագծումը գրանցվում է"</string>
     <string name="tap_to_stop_tracing" msgid="6533282719573871806">"Հպեք՝ հետագծումը դադարեցնելու համար"</string>
     <string name="clear_saved_traces" msgid="4809195654452260944">"Հեռացնել պահված հետագծումները"</string>
+    <string name="clear_saved_traces_summary" msgid="6035923138201219577">"Հետագծումները մեկ ամիս անց մաքրվում են"</string>
     <string name="clear_saved_traces_question" msgid="2184026613055303818">"Հեռացնե՞լ պահված հետագծումները"</string>
     <string name="all_traces_will_be_deleted" msgid="6646545462206955920">"Բոլոր հետագծումները կջնջվեն /data/local/traces պանակից"</string>
     <string name="clear" msgid="5484761795406948056">"Ջնջել"</string>

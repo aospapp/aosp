@@ -129,6 +129,18 @@ public class CallRedirectionProcessorHelper {
         return removePostDialDigits(formatNumberToE164(handle));
     }
 
+    /**
+     * Extras the post dial digits from a given handle.
+     * @param handle The handle
+     * @return The post dial digits.
+     */
+    public String getPostDialDigits(Uri handle) {
+        if (handle == null) {
+            return "";
+        }
+        return PhoneNumberUtils.extractPostDialPortion(handle.getSchemeSpecificPart());
+    }
+
     protected Uri formatNumberToE164(Uri handle) {
         String number = handle.getSchemeSpecificPart();
 
@@ -151,7 +163,7 @@ public class CallRedirectionProcessorHelper {
         String number = handle.getSchemeSpecificPart();
 
         // Extract the post dial portion
-        number = PhoneNumberUtils.extractNetworkPortionAlt(number);
+        number = PhoneNumberUtils.extractNetworkPortion(number);
         Log.i(this, "removePostDialDigits, number after being extracted post dial digits: "
                 + Log.pii(number));
         // if there is a problem with parsing the phone number, removePostDialDigits will return
@@ -163,10 +175,17 @@ public class CallRedirectionProcessorHelper {
         }
     }
 
-    protected GatewayInfo getGatewayInfoFromGatewayUri(
-            String gatewayPackageName, Uri gatewayUri, Uri destinationUri) {
+    public static GatewayInfo getGatewayInfoFromGatewayUri(
+            String gatewayPackageName, Uri gatewayUri, Uri destinationUri, String postdialDigits) {
         if (!TextUtils.isEmpty(gatewayPackageName) && gatewayUri != null) {
-            return new GatewayInfo(gatewayPackageName, gatewayUri, destinationUri);
+            Uri gatewayWithPostdial = gatewayUri;
+            if (gatewayUri != null && !TextUtils.isEmpty(postdialDigits)) {
+                gatewayWithPostdial = new Uri.Builder()
+                        .scheme(gatewayUri.getScheme())
+                        .encodedOpaquePart(gatewayUri.getSchemeSpecificPart() + postdialDigits)
+                        .build();
+            }
+            return new GatewayInfo(gatewayPackageName, gatewayWithPostdial, destinationUri);
         }
         return null;
     }

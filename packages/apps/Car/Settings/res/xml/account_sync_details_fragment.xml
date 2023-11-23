@@ -16,7 +16,8 @@
 
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
                   xmlns:settings="http://schemas.android.com/apk/res-auto"
-                  android:title="@string/account_sync_title">
+                  android:title="@string/account_sync_title"
+                  android:key="@string/psk_account_sync_details">
     <Preference
         android:key="@string/pk_account_details_with_sync"
         android:selectable="false"

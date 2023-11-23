@@ -60,6 +60,11 @@
     <string name="forget" msgid="892068061425802502">"Չհիշել"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"Միանում է Wi-Fi Direct-ի միջոցով"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"Միանում է ընթացիկ ցանցի միջոցով (IP հասցե՝ <xliff:g id="IP_ADDRESS">%1$s</xliff:g>)"</string>
+    <string name="recommendation_summary" msgid="2979700524954307566">"Կանխադրված տպման ծառայությունը տրամադրում է հիմնական պարամետրերը։ Այս տպիչի մյուս պարամետրերը կարող են հասանելի լինել այլ տպման ծառայություններում։"</string>
+    <string name="recommendations_heading" msgid="5086762263560605249">"Խորհուրդ տրվող ծառայություններ"</string>
+    <string name="recommendation_install_summary" msgid="374785283809791669">"Ընտրեք՝ տեղադրելու համար"</string>
+    <string name="recommendation_enable_summary" msgid="3500907868251326224">"Ընտրեք՝ միացնելու համար"</string>
+    <string name="recommendation_manage" msgid="4683640588502866284">"Կառավարել ծառայությունները"</string>
     <string name="security" msgid="2279008326210305401">"Անվտանգություն"</string>
     <string name="certificate_update_request" msgid="1314796413107139475">"Այս տպիչը տրամադրել է անվտանգության նոր հավաստագիր, կամ մեկ այլ սարք նմանակում է դրան։ Ընդունե՞լ նոր հավաստագիրը:"</string>
     <string name="not_encrypted_request" msgid="4871472176807381642">"Տպիչն այլևս չի ընդունում գաղտնագրված առաջադրանքներ: Շարունակե՞լ տպումը:"</string>
@@ -68,4 +73,5 @@
     <string name="connections" msgid="8895413761760117180">"Միացումներ"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Մոտակա սարքերը գտնելու համար կանխադրված տպման ծառայությանն անհրաժեշտ է տեղորոշման տվյալների օգտագործման թույլտվություն:"</string>
     <string name="fix" msgid="7784394272611365393">"Թույլտվություններ"</string>
+    <string name="print" msgid="7851318072404916362">"Տպել"</string>
 </resources>

@@ -26,6 +26,7 @@ import android.os.Parcelable;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 
 /**
  * Stores values broken down by area for a vehicle property.
@@ -35,7 +36,7 @@ import java.nio.charset.Charset;
  *
  */
 public final class CarPropertyValue<T> implements Parcelable {
-    private final static Charset DEFAULT_CHARSET = Charset.forName("UTF-8");
+    private static final Charset DEFAULT_CHARSET = StandardCharsets.UTF_8;
 
     private final int mPropertyId;
     private final int mAreaId;
@@ -152,7 +153,7 @@ public final class CarPropertyValue<T> implements Parcelable {
 
         // Special handling for String and byte[] to mitigate transaction buffer limitations.
         if (String.class.equals(valueClass)) {
-            dest.writeBlob(((String)mValue).getBytes(DEFAULT_CHARSET));
+            dest.writeBlob(((String) mValue).getBytes(DEFAULT_CHARSET));
         } else if (byte[].class.equals(valueClass)) {
             dest.writeBlob((byte[]) mValue);
         } else {
@@ -199,12 +200,12 @@ public final class CarPropertyValue<T> implements Parcelable {
     /** @hide */
     @Override
     public String toString() {
-        return "CarPropertyValue{" +
-                "mPropertyId=0x" + toHexString(mPropertyId) +
-                ", mAreaId=0x" + toHexString(mAreaId) +
-                ", mStatus=" + mStatus +
-                ", mTimestamp=" + mTimestamp +
-                ", mValue=" + mValue +
-                '}';
+        return "CarPropertyValue{"
+                + "mPropertyId=0x" + toHexString(mPropertyId)
+                + ", mAreaId=0x" + toHexString(mAreaId)
+                + ", mStatus=" + mStatus
+                + ", mTimestamp=" + mTimestamp
+                + ", mValue=" + mValue
+                + '}';
     }
 }

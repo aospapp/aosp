@@ -16,7 +16,12 @@
 
 package com.android.tv.settings.accessibility;
 
+import static android.content.Context.ACCESSIBILITY_SERVICE;
+
+import static com.android.tv.settings.util.InstrumentationUtils.logToggleInteracted;
+
 import android.accessibilityservice.AccessibilityServiceInfo;
+import android.app.tvsettings.TvSettingsEnums;
 import android.content.ComponentName;
 import android.content.pm.ServiceInfo;
 import android.os.Bundle;
@@ -47,6 +52,8 @@ public class AccessibilityFragment extends SettingsPreferenceFragment {
     private static final String ACCESSIBILITY_SERVICES_KEY = "system_accessibility_services";
 
     private PreferenceGroup mServicesPref;
+    private AccessibilityManager.AccessibilityStateChangeListener
+            mAccessibilityStateChangeListener = enabled -> refreshServices(mServicesPref);
 
     /**
      * Create a new instance of the fragment
@@ -65,6 +72,16 @@ public class AccessibilityFragment extends SettingsPreferenceFragment {
     }
 
     @Override
+    public void onStop() {
+        super.onStop();
+        AccessibilityManager am = (AccessibilityManager)
+                getContext().getSystemService(ACCESSIBILITY_SERVICE);
+        if (am != null && mServicesPref != null) {
+            am.removeAccessibilityStateChangeListener(mAccessibilityStateChangeListener);
+        }
+    }
+
+    @Override
     public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
         setPreferencesFromResource(R.xml.accessibility, null);
 
@@ -74,12 +91,22 @@ public class AccessibilityFragment extends SettingsPreferenceFragment {
                 Settings.Secure.ACCESSIBILITY_HIGH_TEXT_CONTRAST_ENABLED, 0) == 1);
 
         mServicesPref = (PreferenceGroup) findPreference(ACCESSIBILITY_SERVICES_KEY);
-        refreshServices(mServicesPref);
+        if (mServicesPref != null) {
+            refreshServices(mServicesPref);
+            AccessibilityManager am = (AccessibilityManager)
+                    getContext().getSystemService(ACCESSIBILITY_SERVICE);
+            if (am != null) {
+                am.addAccessibilityStateChangeListener(mAccessibilityStateChangeListener);
+            }
+        }
     }
 
     @Override
     public boolean onPreferenceTreeClick(Preference preference) {
         if (TextUtils.equals(preference.getKey(), TOGGLE_HIGH_TEXT_CONTRAST_KEY)) {
+            logToggleInteracted(
+                    TvSettingsEnums.SYSTEM_A11Y_HIGH_CONTRAST_TEXT,
+                    ((SwitchPreference) preference).isChecked());
             Settings.Secure.putInt(getActivity().getContentResolver(),
                     Settings.Secure.ACCESSIBILITY_HIGH_TEXT_CONTRAST_ENABLED,
                     (((SwitchPreference) preference).isChecked() ? 1 : 0));
@@ -131,5 +158,10 @@ public class AccessibilityFragment extends SettingsPreferenceFragment {
     @Override
     public int getMetricsCategory() {
         return MetricsProto.MetricsEvent.ACCESSIBILITY;
+    }
+
+    @Override
+    protected int getPageId() {
+        return TvSettingsEnums.SYSTEM_A11Y;
     }
 }

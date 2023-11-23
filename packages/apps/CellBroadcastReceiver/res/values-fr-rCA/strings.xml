@@ -16,9 +16,9 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_label" msgid="6006277287245076524">"Alertes d\'urgence"</string>
-    <string name="sms_cb_settings" msgid="3795852619005211509">"Alertes d\'urgence"</string>
-    <string name="cell_broadcast_settings_not_available" msgid="2612364350745967915">"Les paramètres de diffusion cellulaire ne sont pas disponibles pour cet utilisateur"</string>
+    <string name="app_label" msgid="2008319089248760277">"Alertes d\'urgence sans fil"</string>
+    <string name="sms_cb_settings" msgid="9021266457863671070">"Alertes d\'urgence sans fil"</string>
+    <string name="cell_broadcast_settings_not_available" msgid="3908142962162375221">"Les paramètres des alertes d\'urgence sans fil ne sont pas accessibles pour cet utilisateur"</string>
     <string name="button_dismiss" msgid="1234221657930516287">"OK"</string>
     <string name="no_cell_broadcasts" msgid="7554779730107421769">"Aucune alerte précédente"</string>
     <string name="menu_delete_all" msgid="3940997343921149800">"Supprimer les diffusions"</string>
@@ -26,6 +26,7 @@
     <string name="menu_view_details" msgid="1040989019045280975">"Afficher les détails"</string>
     <string name="menu_delete" msgid="128380070910799366">"Supprimer la diffusion"</string>
     <string name="view_details_title" msgid="1780427629491781473">"Détails de l\'alerte"</string>
+    <string name="view_details_debugging_title" msgid="5699927030805114173">"Renseignements sur l\'alerte à des fins de débogage"</string>
     <string name="confirm_delete_broadcast" msgid="2540199303730232322">"Supprimer cette diffusion?"</string>
     <string name="confirm_delete_all_broadcasts" msgid="2924444089047280871">"Supprimer tous les messages de diffusion reçus?"</string>
     <string name="button_delete" msgid="4672451757925194350">"Supprimer"</string>
@@ -51,11 +52,11 @@
     <string name="emergency_alerts_title" msgid="6605036374197485429">"Alertes"</string>
     <string name="notification_channel_broadcast_messages" msgid="880704362482824524">"Messages de diffusion"</string>
     <string name="notification_channel_emergency_alerts" msgid="5008287980979183617">"Alertes d\'urgence"</string>
+    <string name="notification_channel_broadcast_messages_in_voicecall" msgid="3291001780110813190">"Alertes d’urgence dans les appels vocaux"</string>
     <string name="enable_alerts_master_toggle_title" msgid="1457904343636699446">"Autoriser les alertes"</string>
-    <string name="enable_alerts_master_toggle_summary" msgid="699552922381916044">"Recevoir les notifications d\'urgence"</string>
-    <string name="alert_reminder_interval_title" msgid="7466642011937564868">"Son de rappel d\'alerte"</string>
-    <string name="enable_alert_speech_title" msgid="8052104771053526941">"Énoncer le message d\'alerte"</string>
-    <string name="enable_alert_speech_summary" msgid="356086178962268831">"Utiliser la synthèse vocale pour énoncer les messages d\'alerte d\'urgence"</string>
+    <string name="enable_alerts_master_toggle_summary" msgid="5583168548073938617">"Recevoir les notifications d\'alerte d\'urgence sans fil"</string>
+    <string name="alert_reminder_interval_title" msgid="3283595202268218149">"Rappel d\'alerte"</string>
+    <string name="alert_reminder_dialog_title" msgid="2299010977651377315">"Un son de rappel jouera à un volume régulier"</string>
     <string name="emergency_alert_history_title" msgid="8310173569237268431">"Historique des alertes d\'urgence"</string>
     <string name="alert_preferences_title" msgid="6001469026393248468">"Préférences d\'alertes"</string>
     <string name="enable_etws_test_alerts_title" msgid="3593533226735441539">"Diffusions tests ETWS"</string>
@@ -74,14 +75,13 @@
     <string name="enable_state_local_test_alerts_summary" msgid="780298327377950187">"Recevoir des messages de test des autorités nationales et locales"</string>
     <string name="enable_emergency_alerts_message_title" msgid="661894007489847468">"Alertes d\'urgence"</string>
     <string name="enable_emergency_alerts_message_summary" msgid="7574617515441602546">"Avertir des événements potentiellement mortels"</string>
-    <string name="enable_cmas_test_alerts_title" msgid="1319231576046146463">"Test mensuel requis"</string>
-    <string name="enable_cmas_test_alerts_summary" msgid="588517403520088484">"Recevoir des messages de test pour le système d\'alerte de sécurité"</string>
+    <string name="enable_cmas_test_alerts_title" msgid="7194966927004755266">"Alertes tests"</string>
+    <string name="enable_cmas_test_alerts_summary" msgid="2083089933271720217">"Recevoir des tests du fournisseur de services et des tests mensuels du système d\'alertes de sécurité"</string>
     <string name="enable_alert_vibrate_title" msgid="5421032189422312508">"Vibrations"</string>
-    <string name="use_full_volume_title" msgid="8581439612945182255">"Utiliser le volume maximal"</string>
-    <string name="use_full_volume_summary" msgid="3560764277281704697">"Ignorer autres préférences de volume et de Ne pas déranger"</string>
+    <string name="override_dnd_title" msgid="5120805993144214421">"Toujours émettre les alertes au plein volume"</string>
+    <string name="override_dnd_summary" msgid="9026675822792800258">"Ignorer le mode Ne pas déranger et d\'autres paramètres de volume"</string>
     <string name="enable_area_update_info_alerts_title" msgid="3442042268424617226">"Diffusion de mises à jour régionales"</string>
     <string name="enable_area_update_info_alerts_summary" msgid="6437816607144264910">"Afficher les données de mise à jour dans l\'état de la carte SIM"</string>
-    <string name="category_dev_settings_title" msgid="6194393458398329994">"Options pour les concepteurs"</string>
     <string name="cmas_category_heading" msgid="3923503130776640717">"Catégorie d\'alerte :"</string>
     <string name="cmas_category_geo" msgid="4979494217069688527">"Géophysique"</string>
     <string name="cmas_category_met" msgid="7563732573851773537">"Météorologie"</string>
@@ -118,7 +118,7 @@
     <string name="notification_multiple_title" msgid="1523638925739947855">"Nouvelles alertes"</string>
     <string name="show_cmas_opt_out_summary" msgid="6926059266585295440">"Afficher la boîte de dialogue de désactivation après la première alerte (sauf alerte présidentielle)"</string>
     <string name="show_cmas_opt_out_title" msgid="9182104842820171132">"Afficher boîte dialogue de désactivation"</string>
-    <string name="cmas_opt_out_dialog_text" msgid="7529010670998259128">"Vous recevez actuellement les alertes d\'urgence. Voulez-vous continuer à les recevoir?"</string>
+    <string name="cmas_opt_out_dialog_text" msgid="4820577535626084938">"Vous recevez présentement les alertes d\'urgence sans fil. Voulez-vous continuer de recevoir les alertes d\'urgence sans fil?"</string>
     <string name="cmas_opt_out_button_yes" msgid="7248930667195432936">"Oui"</string>
     <string name="cmas_opt_out_button_no" msgid="3110484064328538553">"Non"</string>
     <string name="cb_list_activity_title" msgid="1433502151877791724">"Historique des alertes d\'urgence"</string>
@@ -127,7 +127,26 @@
     <item msgid="9097229303902157183">"Toutes les 2 minutes"</item>
     <item msgid="5718214950343391480">"Toutes les 5 minutes"</item>
     <item msgid="3863339891188103437">"Toutes les 15 minutes"</item>
-    <item msgid="6868848414437854609">"Désactivé"</item>
+    <item msgid="7388573183644474611">"Jamais"</item>
   </string-array>
     <string name="emergency_alert_settings_title_watches" msgid="4477073412799894883">"Alertes d\'urgence sans fil"</string>
+    <string name="enable_cmas_presidential_alerts_title" msgid="7293800023375154256">"Alertes du président"</string>
+    <string name="enable_cmas_presidential_alerts_summary" msgid="7900094335808247024">"Messages d\'avertissement nationaux, envoyés par le président. Ils ne peuvent pas être désactivés."</string>
+    <string name="receive_cmas_in_second_language_title" msgid="1223260365527361964"></string>
+    <string name="receive_cmas_in_second_language_summary" msgid="7704105502782770718"></string>
+    <string name="alerts_header_summary" msgid="4700985191868591788"></string>
+    <string name="testing_mode_enabled" msgid="8296556666392297467">"Le mode de test de diffusion cellulaire est activé."</string>
+    <string name="testing_mode_disabled" msgid="8381408377958182661">"Le mode de test de diffusion cellulaire est désactivé."</string>
+    <string name="show_all_messages" msgid="3780970968167139836">"Afficher tous les messages"</string>
+    <string name="show_regular_messages" msgid="7376885150513522515">"Afficher les messages normaux"</string>
+    <string name="message_identifier" msgid="5558338496219327850">"Identifiant :"</string>
+    <string name="message_serial_number" msgid="3386553658712978964">"Numéro de série :"</string>
+    <string name="data_coding_scheme" msgid="4628901196730870577">"Schéma de codage des données :"</string>
+    <string name="message_content" msgid="6204502929879474632">"Contenu du message :"</string>
+    <string name="location_check_time" msgid="4105326161240531207">"Heure de vérification du lieu :"</string>
+    <string name="message_displayed" msgid="5091678195925617971">"Message affiché :"</string>
+    <string name="message_coordinates" msgid="356333576818059052">"Coordonnées :"</string>
+    <string name="maximum_waiting_time" msgid="3504809124079381356">"Durée d\'attente maximale :"</string>
+    <string name="seconds" msgid="141450721520515025">"secondes"</string>
+    <string name="message_copied" msgid="6922953753733166675">"Message copié"</string>
 </resources>

@@ -18,6 +18,7 @@ package com.android.car.settings.storage;
 
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
+import android.os.UserHandle;
 import android.util.SparseArray;
 
 import com.android.car.settings.common.FragmentController;
@@ -37,8 +38,7 @@ public class StorageOtherCategoryPreferenceController extends StorageUsageBasePr
     @Override
     protected long calculateCategoryUsage(SparseArray<StorageAsyncLoader.AppsStorageResult> result,
             long usedSizeBytes) {
-        StorageAsyncLoader.AppsStorageResult data = result.get(
-                getCarUserManagerHelper().getCurrentProcessUserId());
+        StorageAsyncLoader.AppsStorageResult data = result.get(UserHandle.myUserId());
         return data.getOtherAppsSize();
     }
 }

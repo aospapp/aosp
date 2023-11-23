@@ -17,6 +17,7 @@ package android.car.content.pm;
 
 import android.annotation.SystemApi;
 import android.app.Service;
+import android.car.Car;
 import android.content.Intent;
 import android.os.Handler;
 import android.os.IBinder;
@@ -76,7 +77,7 @@ public abstract class CarAppBlockingPolicyService extends Service {
             try {
                 setter.setAppBlockingPolicy(policy);
             } catch (RemoteException e) {
-                throw e.rethrowFromSystemServer();
+                Car.handleRemoteExceptionFromCarService(CarAppBlockingPolicyService.this, e);
             }
         }
     }

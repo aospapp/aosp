@@ -49,7 +49,6 @@ public class AddPageBasedOnNetworkState implements State {
         mFragment = null;
         if (mUserChoiceInfo.choiceChosen(
                 getString(R.string.other_network), UserChoiceInfo.SELECT_WIFI)) {
-            mUserChoiceInfo.getWifiConfiguration().hiddenSSID = true;
             mStateMachine.getListener().onComplete(StateMachine.OTHER_NETWORK);
         } else {
             ScanResult scanResult = mUserChoiceInfo.getChosenNetwork();

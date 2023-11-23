@@ -1,10 +1,13 @@
 package com.android.bluetooth.hfpclient;
 
 import static com.android.bluetooth.hfpclient.HeadsetClientStateMachine.AT_OK;
+import static com.android.bluetooth.hfpclient.HeadsetClientStateMachine.VOICE_RECOGNITION_START;
+import static com.android.bluetooth.hfpclient.HeadsetClientStateMachine.VOICE_RECOGNITION_STOP;
 
 import static org.mockito.Mockito.*;
 
 import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothAssignedNumbers;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothHeadsetClient;
 import android.bluetooth.BluetoothHeadsetClientCall;
@@ -14,15 +17,19 @@ import android.content.Intent;
 import android.content.res.Resources;
 import android.media.AudioManager;
 import android.os.HandlerThread;
+import android.os.Message;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.espresso.intent.matcher.IntentMatchers;
+import androidx.test.filters.FlakyTest;
 import androidx.test.filters.LargeTest;
 import androidx.test.filters.MediumTest;
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
 
 import com.android.bluetooth.R;
+import com.android.bluetooth.TestUtils;
+import com.android.bluetooth.Utils;
 
 import org.hamcrest.core.AllOf;
 import org.hamcrest.core.IsInstanceOf;
@@ -53,6 +60,8 @@ public class HeadsetClientStateMachineTest {
     @Mock
     private AudioManager mAudioManager;
 
+    private NativeInterface mNativeInterface;
+
     private static final int STANDARD_WAIT_MILLIS = 1000;
     private static final int QUERY_CURRENT_CALLS_WAIT_MILLIS = 2000;
     private static final int QUERY_CURRENT_CALLS_TEST_WAIT_MILLIS = QUERY_CURRENT_CALLS_WAIT_MILLIS
@@ -73,6 +82,7 @@ public class HeadsetClientStateMachineTest {
                 mAudioManager);
         when(mHeadsetClientService.getResources()).thenReturn(mMockHfpResources);
         when(mMockHfpResources.getBoolean(R.bool.hfp_clcc_poll_during_call)).thenReturn(true);
+        mNativeInterface = spy(NativeInterface.getInstance());
 
         // This line must be called to make sure relevant objects are initialized properly
         mAdapter = BluetoothAdapter.getDefaultAdapter();
@@ -84,8 +94,10 @@ public class HeadsetClientStateMachineTest {
         mHandlerThread.start();
         // Manage looper execution in main test thread explicitly to guarantee timing consistency
         mHeadsetClientStateMachine =
-                new HeadsetClientStateMachine(mHeadsetClientService, mHandlerThread.getLooper());
+                new HeadsetClientStateMachine(mHeadsetClientService, mHandlerThread.getLooper(),
+                                              mNativeInterface);
         mHeadsetClientStateMachine.start();
+        TestUtils.waitForLooperToFinishScheduledTask(mHandlerThread.getLooper());
     }
 
     @After
@@ -93,6 +105,7 @@ public class HeadsetClientStateMachineTest {
         if (!mTargetContext.getResources().getBoolean(R.bool.profile_supported_hfpclient)) {
             return;
         }
+        TestUtils.waitForLooperToFinishScheduledTask(mHandlerThread.getLooper());
         mHeadsetClientStateMachine.doQuit();
         mHandlerThread.quit();
     }
@@ -114,8 +127,8 @@ public class HeadsetClientStateMachineTest {
     @Test
     public void testIncomingPriorityReject() {
         // Return false for priority.
-        when(mHeadsetClientService.getPriority(any(BluetoothDevice.class))).thenReturn(
-                BluetoothProfile.PRIORITY_OFF);
+        when(mHeadsetClientService.getConnectionPolicy(any(BluetoothDevice.class))).thenReturn(
+                BluetoothProfile.CONNECTION_POLICY_FORBIDDEN);
 
         // Inject an event for when incoming connection is requested
         StackEvent connStCh = new StackEvent(StackEvent.EVENT_TYPE_CONNECTION_STATE_CHANGED);
@@ -144,8 +157,8 @@ public class HeadsetClientStateMachineTest {
     @Test
     public void testIncomingPriorityAccept() {
         // Return true for priority.
-        when(mHeadsetClientService.getPriority(any(BluetoothDevice.class))).thenReturn(
-                BluetoothProfile.PRIORITY_ON);
+        when(mHeadsetClientService.getConnectionPolicy(any(BluetoothDevice.class))).thenReturn(
+                BluetoothProfile.CONNECTION_POLICY_ALLOWED);
 
         // Inject an event for when incoming connection is requested
         StackEvent connStCh = new StackEvent(StackEvent.EVENT_TYPE_CONNECTION_STATE_CHANGED);
@@ -190,8 +203,8 @@ public class HeadsetClientStateMachineTest {
     @Test
     public void testIncomingTimeout() {
         // Return true for priority.
-        when(mHeadsetClientService.getPriority(any(BluetoothDevice.class))).thenReturn(
-                BluetoothProfile.PRIORITY_ON);
+        when(mHeadsetClientService.getConnectionPolicy(any(BluetoothDevice.class))).thenReturn(
+                BluetoothProfile.CONNECTION_POLICY_ALLOWED);
 
         // Inject an event for when incoming connection is requested
         StackEvent connStCh = new StackEvent(StackEvent.EVENT_TYPE_CONNECTION_STATE_CHANGED);
@@ -229,10 +242,11 @@ public class HeadsetClientStateMachineTest {
      */
     @LargeTest
     @Test
+    @FlakyTest
     public void testInBandRingtone() {
         // Return true for priority.
-        when(mHeadsetClientService.getPriority(any(BluetoothDevice.class))).thenReturn(
-                BluetoothProfile.PRIORITY_ON);
+        when(mHeadsetClientService.getConnectionPolicy(any(BluetoothDevice.class))).thenReturn(
+                BluetoothProfile.CONNECTION_POLICY_ALLOWED);
 
         Assert.assertEquals(false, mHeadsetClientStateMachine.getInBandRing());
 
@@ -281,10 +295,11 @@ public class HeadsetClientStateMachineTest {
                         -1));
         Assert.assertEquals(true, mHeadsetClientStateMachine.getInBandRing());
 
-
         // Simulate a new incoming phone call
         StackEvent eventCallStatusUpdated = new StackEvent(StackEvent.EVENT_TYPE_CLIP);
+        TestUtils.waitForLooperToFinishScheduledTask(mHandlerThread.getLooper());
         mHeadsetClientStateMachine.sendMessage(StackEvent.STACK_EVENT, eventCallStatusUpdated);
+        TestUtils.waitForLooperToFinishScheduledTask(mHandlerThread.getLooper());
         verify(mHeadsetClientService, timeout(STANDARD_WAIT_MILLIS).times(3)).sendBroadcast(
                 intentArgument.capture(),
                 anyString());
@@ -308,11 +323,11 @@ public class HeadsetClientStateMachineTest {
         StackEvent eventCommandStatus = new StackEvent(StackEvent.EVENT_TYPE_CMD_RESULT);
         eventCommandStatus.valueInt = AT_OK;
         mHeadsetClientStateMachine.sendMessage(StackEvent.STACK_EVENT, eventCommandStatus);
+        TestUtils.waitForLooperToFinishScheduledTask(mHandlerThread.getLooper());
         verify(mHeadsetClientService, timeout(QUERY_CURRENT_CALLS_TEST_WAIT_MILLIS).times(4))
                 .sendBroadcast(
                 intentArgument.capture(),
                 anyString());
-
         // Verify that the new call is being registered with the inBandRing flag set.
         Assert.assertEquals(true,
                 ((BluetoothHeadsetClientCall) intentArgument.getValue().getParcelableExtra(
@@ -329,5 +344,282 @@ public class HeadsetClientStateMachineTest {
                         -1));
         Assert.assertEquals(false, mHeadsetClientStateMachine.getInBandRing());
 
+    }
+
+    /* Utility function to simulate HfpClient is connected. */
+    private int setUpHfpClientConnection(int startBroadcastIndex) {
+        // Trigger an incoming connection is requested
+        StackEvent connStCh = new StackEvent(StackEvent.EVENT_TYPE_CONNECTION_STATE_CHANGED);
+        connStCh.valueInt = HeadsetClientHalConstants.CONNECTION_STATE_CONNECTED;
+        connStCh.device = mTestDevice;
+        mHeadsetClientStateMachine.sendMessage(StackEvent.STACK_EVENT, connStCh);
+        ArgumentCaptor<Intent> intentArgument = ArgumentCaptor.forClass(Intent.class);
+        verify(mHeadsetClientService, timeout(STANDARD_WAIT_MILLIS).times(startBroadcastIndex))
+                .sendBroadcast(intentArgument.capture(), anyString());
+        Assert.assertEquals(BluetoothProfile.STATE_CONNECTING,
+                intentArgument.getValue().getIntExtra(BluetoothProfile.EXTRA_STATE, -1));
+        startBroadcastIndex++;
+        return startBroadcastIndex;
+    }
+
+    /* Utility function to simulate SLC connection. */
+    private int setUpServiceLevelConnection(int startBroadcastIndex) {
+        // Trigger SLC connection
+        StackEvent slcEvent = new StackEvent(StackEvent.EVENT_TYPE_CONNECTION_STATE_CHANGED);
+        slcEvent.valueInt = HeadsetClientHalConstants.CONNECTION_STATE_SLC_CONNECTED;
+        slcEvent.valueInt2 = HeadsetClientHalConstants.PEER_FEAT_ECS;
+        slcEvent.device = mTestDevice;
+        mHeadsetClientStateMachine.sendMessage(StackEvent.STACK_EVENT, slcEvent);
+        ArgumentCaptor<Intent> intentArgument = ArgumentCaptor.forClass(Intent.class);
+        verify(mHeadsetClientService, timeout(STANDARD_WAIT_MILLIS).times(startBroadcastIndex))
+                .sendBroadcast(intentArgument.capture(), anyString());
+        Assert.assertEquals(BluetoothProfile.STATE_CONNECTED,
+                intentArgument.getValue().getIntExtra(BluetoothProfile.EXTRA_STATE, -1));
+        startBroadcastIndex++;
+        return startBroadcastIndex;
+    }
+
+    /* Utility function: supported AT command should lead to native call */
+    private void runSupportedVendorAtCommand(String atCommand, int vendorId) {
+        // Return true for priority.
+        when(mHeadsetClientService.getConnectionPolicy(any(BluetoothDevice.class))).thenReturn(
+                BluetoothProfile.CONNECTION_POLICY_ALLOWED);
+
+        int expectedBroadcastIndex = 1;
+
+        expectedBroadcastIndex = setUpHfpClientConnection(expectedBroadcastIndex);
+        expectedBroadcastIndex = setUpServiceLevelConnection(expectedBroadcastIndex);
+
+        Message msg = mHeadsetClientStateMachine.obtainMessage(
+                HeadsetClientStateMachine.SEND_VENDOR_AT_COMMAND, vendorId, 0, atCommand);
+        mHeadsetClientStateMachine.sendMessage(msg);
+
+        verify(mNativeInterface, timeout(STANDARD_WAIT_MILLIS).times(1)).sendATCmd(
+                Utils.getBytesFromAddress(mTestDevice.getAddress()),
+                HeadsetClientHalConstants.HANDSFREECLIENT_AT_CMD_VENDOR_SPECIFIC_CMD,
+                0, 0, atCommand);
+    }
+
+    /**
+     *  Test: supported vendor specific command: set operation
+     */
+    @LargeTest
+    @Test
+    public void testSupportedVendorAtCommandSet() {
+        int vendorId = BluetoothAssignedNumbers.APPLE;
+        String atCommand = "+XAPL=ABCD-1234-0100,100";
+        runSupportedVendorAtCommand(atCommand, vendorId);
+    }
+
+    /**
+     *  Test: supported vendor specific command: read operation
+     */
+    @LargeTest
+    @Test
+    public void testSupportedVendorAtCommandRead() {
+        int vendorId = BluetoothAssignedNumbers.APPLE;
+        String atCommand = "+APLSIRI?";
+        runSupportedVendorAtCommand(atCommand, vendorId);
+    }
+
+    /* utility function: unsupported vendor specific command shall be filtered. */
+    public void runUnsupportedVendorAtCommand(String atCommand, int vendorId) {
+        // Return true for priority.
+        when(mHeadsetClientService.getConnectionPolicy(any(BluetoothDevice.class))).thenReturn(
+                BluetoothProfile.CONNECTION_POLICY_ALLOWED);
+
+        int expectedBroadcastIndex = 1;
+
+        expectedBroadcastIndex = setUpHfpClientConnection(expectedBroadcastIndex);
+        expectedBroadcastIndex = setUpServiceLevelConnection(expectedBroadcastIndex);
+
+        Message msg = mHeadsetClientStateMachine.obtainMessage(
+                HeadsetClientStateMachine.SEND_VENDOR_AT_COMMAND, vendorId, 0, atCommand);
+        mHeadsetClientStateMachine.sendMessage(msg);
+
+        verify(mNativeInterface, timeout(STANDARD_WAIT_MILLIS).times(0))
+                .sendATCmd(any(), anyInt(), anyInt(), anyInt(), any());
+    }
+
+    /**
+     *  Test: unsupported vendor specific command shall be filtered: bad command code
+     */
+    @LargeTest
+    @Test
+    public void testUnsupportedVendorAtCommandBadCode() {
+        String atCommand = "+XAAPL=ABCD-1234-0100,100";
+        int vendorId = BluetoothAssignedNumbers.APPLE;
+        runUnsupportedVendorAtCommand(atCommand, vendorId);
+    }
+
+    /**
+     *  Test: unsupported vendor specific command shall be filtered:
+     *  no back to back command
+     */
+    @LargeTest
+    @Test
+    public void testUnsupportedVendorAtCommandBackToBack() {
+        String atCommand = "+XAPL=ABCD-1234-0100,100; +XAPL=ab";
+        int vendorId = BluetoothAssignedNumbers.APPLE;
+        runUnsupportedVendorAtCommand(atCommand, vendorId);
+    }
+
+    /* Utility test function: supported vendor specific event
+     * shall lead to broadcast intent
+     */
+    private void runSupportedVendorEvent(int vendorId, String vendorEventCode,
+            String vendorEventArgument) {
+        // Setup connection state machine to be in connected state
+        when(mHeadsetClientService.getConnectionPolicy(any(BluetoothDevice.class))).thenReturn(
+                BluetoothProfile.CONNECTION_POLICY_ALLOWED);
+        int expectedBroadcastIndex = 1;
+        expectedBroadcastIndex = setUpHfpClientConnection(expectedBroadcastIndex);
+        expectedBroadcastIndex = setUpServiceLevelConnection(expectedBroadcastIndex);
+
+        // Simulate a known event arrive
+        String vendorEvent = vendorEventCode + vendorEventArgument;
+        StackEvent event = new StackEvent(StackEvent.EVENT_TYPE_UNKNOWN_EVENT);
+        event.device = mTestDevice;
+        event.valueString = vendorEvent;
+        mHeadsetClientStateMachine.sendMessage(StackEvent.STACK_EVENT, event);
+
+        // Validate broadcast intent
+        ArgumentCaptor<Intent> intentArgument = ArgumentCaptor.forClass(Intent.class);
+        verify(mHeadsetClientService, timeout(STANDARD_WAIT_MILLIS).times(expectedBroadcastIndex))
+                .sendBroadcast(intentArgument.capture(), anyString());
+        Assert.assertEquals(BluetoothHeadsetClient.ACTION_VENDOR_SPECIFIC_HEADSETCLIENT_EVENT,
+                intentArgument.getValue().getAction());
+        Assert.assertEquals(vendorId,
+                intentArgument.getValue().getIntExtra(BluetoothHeadsetClient.EXTRA_VENDOR_ID, -1));
+        Assert.assertEquals(vendorEventCode,
+                intentArgument.getValue().getStringExtra(
+                    BluetoothHeadsetClient.EXTRA_VENDOR_EVENT_CODE));
+        Assert.assertEquals(vendorEvent,
+                intentArgument.getValue().getStringExtra(
+                    BluetoothHeadsetClient.EXTRA_VENDOR_EVENT_FULL_ARGS));
+    }
+
+    /**
+     *  Test: supported vendor specific response: response to read command
+     */
+    @LargeTest
+    @Test
+    public void testSupportedVendorEventReadResponse() {
+        final int vendorId = BluetoothAssignedNumbers.APPLE;
+        final String vendorResponseCode = "+XAPL=";
+        final String vendorResponseArgument = "iPhone,2";
+        runSupportedVendorEvent(vendorId, vendorResponseCode, vendorResponseArgument);
+    }
+
+    /**
+     *  Test: supported vendor specific response: response to test command
+     */
+    @LargeTest
+    @Test
+    public void testSupportedVendorEventTestResponse() {
+        final int vendorId = BluetoothAssignedNumbers.APPLE;
+        final String vendorResponseCode = "+APLSIRI:";
+        final String vendorResponseArgumentWithSpace = "  2";
+        runSupportedVendorEvent(vendorId, vendorResponseCode, vendorResponseArgumentWithSpace);
+    }
+
+    /* Utility test function: unsupported vendor specific response shall be filtered out*/
+    public void runUnsupportedVendorEvent(int vendorId, String vendorEventCode,
+            String vendorEventArgument) {
+        // Setup connection state machine to be in connected state
+        when(mHeadsetClientService.getConnectionPolicy(any(BluetoothDevice.class))).thenReturn(
+                BluetoothProfile.CONNECTION_POLICY_ALLOWED);
+        int expectedBroadcastIndex = 1;
+        expectedBroadcastIndex = setUpHfpClientConnection(expectedBroadcastIndex);
+        expectedBroadcastIndex = setUpServiceLevelConnection(expectedBroadcastIndex);
+
+        // Simulate an unknown event arrive
+        String vendorEvent = vendorEventCode + vendorEventArgument;
+        StackEvent event = new StackEvent(StackEvent.EVENT_TYPE_UNKNOWN_EVENT);
+        event.device = mTestDevice;
+        event.valueString = vendorEvent;
+        mHeadsetClientStateMachine.sendMessage(StackEvent.STACK_EVENT, event);
+
+        // Validate no broadcast intent
+        verify(mHeadsetClientService, atMost(expectedBroadcastIndex - 1))
+                .sendBroadcast(any(), anyString());
+    }
+
+    /**
+     * Test unsupported vendor response: bad read response
+     */
+    @LargeTest
+    @Test
+    public void testUnsupportedVendorEventBadReadResponse() {
+        final int vendorId = BluetoothAssignedNumbers.APPLE;
+        final String vendorResponseCode = "+XAAPL=";
+        final String vendorResponseArgument = "iPhone,2";
+        runUnsupportedVendorEvent(vendorId, vendorResponseCode, vendorResponseArgument);
+    }
+
+    /**
+     * Test unsupported vendor response: bad test response
+     */
+    @LargeTest
+    @Test
+    public void testUnsupportedVendorEventBadTestResponse() {
+        final int vendorId = BluetoothAssignedNumbers.APPLE;
+        final String vendorResponseCode = "+AAPLSIRI:";
+        final String vendorResponseArgument = "2";
+        runUnsupportedVendorEvent(vendorId, vendorResponseCode, vendorResponseArgument);
+    }
+
+    /**
+     * Test voice recognition state change broadcast.
+     */
+    @MediumTest
+    @Test
+    public void testVoiceRecognitionStateChange() {
+        // Setup connection state machine to be in connected state
+        when(mHeadsetClientService.getConnectionPolicy(any(BluetoothDevice.class))).thenReturn(
+                BluetoothProfile.CONNECTION_POLICY_ALLOWED);
+        when(mNativeInterface.startVoiceRecognition(any(byte[].class))).thenReturn(true);
+        when(mNativeInterface.stopVoiceRecognition(any(byte[].class))).thenReturn(true);
+
+        int expectedBroadcastIndex = 1;
+        expectedBroadcastIndex = setUpHfpClientConnection(expectedBroadcastIndex);
+        expectedBroadcastIndex = setUpServiceLevelConnection(expectedBroadcastIndex);
+
+        // Simulate a voice recognition start
+        mHeadsetClientStateMachine.sendMessage(VOICE_RECOGNITION_START);
+
+        // Signal that the complete list of actions was received.
+        StackEvent event = new StackEvent(StackEvent.EVENT_TYPE_CMD_RESULT);
+        event.device = mTestDevice;
+        event.valueInt = AT_OK;
+        mHeadsetClientStateMachine.sendMessage(StackEvent.STACK_EVENT, event);
+
+        expectedBroadcastIndex = verifyVoiceRecognitionBroadcast(expectedBroadcastIndex,
+                HeadsetClientHalConstants.VR_STATE_STARTED);
+
+        // Simulate a voice recognition stop
+        mHeadsetClientStateMachine.sendMessage(VOICE_RECOGNITION_STOP);
+
+        // Signal that the complete list of actions was received.
+        event = new StackEvent(StackEvent.EVENT_TYPE_CMD_RESULT);
+        event.device = mTestDevice;
+        event.valueInt = AT_OK;
+        mHeadsetClientStateMachine.sendMessage(StackEvent.STACK_EVENT, event);
+
+        verifyVoiceRecognitionBroadcast(expectedBroadcastIndex,
+                HeadsetClientHalConstants.VR_STATE_STOPPED);
+    }
+
+    private int verifyVoiceRecognitionBroadcast(int expectedBroadcastIndex, int expectedState) {
+        // Validate broadcast intent
+        ArgumentCaptor<Intent> intentArgument = ArgumentCaptor.forClass(Intent.class);
+        verify(mHeadsetClientService, timeout(STANDARD_WAIT_MILLIS).times(expectedBroadcastIndex))
+                .sendBroadcast(intentArgument.capture(), anyString());
+        Assert.assertEquals(BluetoothHeadsetClient.ACTION_AG_EVENT,
+                intentArgument.getValue().getAction());
+        int state = intentArgument.getValue().getIntExtra(
+                BluetoothHeadsetClient.EXTRA_VOICE_RECOGNITION, -1);
+        Assert.assertEquals(expectedState, state);
+        return expectedBroadcastIndex + 1;
     }
 }

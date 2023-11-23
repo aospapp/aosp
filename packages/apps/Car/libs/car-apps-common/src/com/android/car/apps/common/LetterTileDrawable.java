@@ -15,7 +15,6 @@
  */
 package com.android.car.apps.common;
 
-import android.annotation.Nullable;
 import android.content.res.Resources;
 import android.content.res.TypedArray;
 import android.graphics.Bitmap;
@@ -28,6 +27,8 @@ import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.text.TextUtils;
+
+import androidx.annotation.Nullable;
 
 /**
  * A drawable that encapsulates all the functionality needed to display a letter tile to
@@ -46,7 +47,6 @@ public class LetterTileDrawable extends Drawable {
     /** Reusable components to avoid new allocations */
     private static final Paint sPaint = new Paint();
     private static final Rect sRect = new Rect();
-    private static final char[] sFirstChar = new char[1];
 
     /** Contact type constants */
     public static final int TYPE_PERSON = 1;
@@ -56,30 +56,43 @@ public class LetterTileDrawable extends Drawable {
 
     private final Paint mPaint;
 
-    @Nullable private String mDisplayName;
+    private String mLetters;
     private int mColor;
     private int mContactType = TYPE_DEFAULT;
     private float mScale = 1.0f;
     private float mOffset = 0.0f;
     private boolean mIsCircle = false;
 
-    // TODO(rogerxue): the use pattern for this class is always:
-    // create LTD, setContactDetails(), setIsCircular(true). merge them into ctor.
+    /**
+     * A custom Drawable that draws letters on a colored background.
+     */
+    // The use pattern for this constructor is:
+    // create LTD, setContactDetails(), and setIsCircular(true) if needed.
     public LetterTileDrawable(final Resources res) {
+        this(res, null, null);
+    }
+
+    /**
+     * A custom Drawable that draws letters on a colored background.
+     */
+    // This constructor allows passing the letters and identifier directly. There is no need to
+    // call setContactDetails() again. setIsCircular(true) needs to be called separately if needed.
+    public LetterTileDrawable(final Resources res, @Nullable String letters,
+            @Nullable String identifier) {
         mPaint = new Paint();
         mPaint.setFilterBitmap(true);
         mPaint.setDither(true);
         setScale(0.7f);
 
         if (sColors == null) {
-            sDefaultColor = res.getColor(R.color.letter_tile_default_color);
+            sDefaultColor = res.getColor(R.color.letter_tile_default_color, null /* theme */);
             TypedArray ta = res.obtainTypedArray(R.array.letter_tile_colors);
             if (ta.length() == 0) {
                 // TODO(dnotario). Looks like robolectric shadow doesn't currently support
                 // obtainTypedArray and always returns length 0 array, which will make some code
                 // below that does a division by length of sColors choke. Workaround by creating
                 // an array of length 1. A more proper fix tracked by b/26518438.
-                sColors = new int[] { sDefaultColor };
+                sColors = new int[]{sDefaultColor};
 
             } else {
                 sColors = new int[ta.length()];
@@ -89,16 +102,20 @@ public class LetterTileDrawable extends Drawable {
                 ta.recycle();
             }
 
-            sTileFontColor = res.getColor(R.color.letter_tile_font_color);
+            sTileFontColor = res.getColor(R.color.letter_tile_font_color, null /* theme */);
             sLetterToTileRatio = res.getFraction(R.fraction.letter_to_tile_ratio, 1, 1);
             // TODO: get images for business and voicemail
             sDefaultPersonAvatar = res.getDrawable(R.drawable.ic_person, null /* theme */);
             sDefaultBusinessAvatar = res.getDrawable(R.drawable.ic_person, null /* theme */);
             sDefaultVoicemailAvatar = res.getDrawable(R.drawable.ic_person, null /* theme */);
-            sPaint.setTypeface(Typeface.create("sans-serif-light", Typeface.NORMAL));
+            sPaint.setTypeface(
+                    Typeface.create(res.getString(R.string.config_letter_tile_font_family),
+                            res.getInteger(R.integer.config_letter_tile_text_style)));
             sPaint.setTextAlign(Align.CENTER);
             sPaint.setAntiAlias(true);
         }
+
+        setContactDetails(letters, identifier);
     }
 
     @Override
@@ -148,20 +165,16 @@ public class LetterTileDrawable extends Drawable {
             canvas.drawRect(bounds, sPaint);
         }
 
-        // Draw letter/digit only if the first character is an english letter
-        if (!TextUtils.isEmpty(mDisplayName) && isEnglishLetter(mDisplayName.charAt(0))) {
-            // Draw letter or digit.
-            sFirstChar[0] = Character.toUpperCase(mDisplayName.charAt(0));
-
+        if (!TextUtils.isEmpty(mLetters)) {
             // Scale text by canvas bounds and user selected scaling factor
             sPaint.setTextSize(mScale * sLetterToTileRatio * minDimension);
             //sPaint.setTextSize(sTileLetterFontSize);
-            sPaint.getTextBounds(sFirstChar, 0, 1, sRect);
+            sPaint.getTextBounds(mLetters, 0, mLetters.length(), sRect);
             sPaint.setColor(sTileFontColor);
 
             // Draw the letter in the canvas, vertically shifted up or down by the user-defined
             // offset
-            canvas.drawText(sFirstChar, 0, 1, bounds.centerX(),
+            canvas.drawText(mLetters, 0, mLetters.length(), bounds.centerX(),
                     bounds.centerY() + mOffset * bounds.height() + sRect.height() / 2,
                     sPaint);
         } else {
@@ -202,10 +215,6 @@ public class LetterTileDrawable extends Drawable {
         }
     }
 
-    private static boolean isEnglishLetter(final char c) {
-        return ('A' <= c && c <= 'Z') || ('a' <= c && c <= 'z');
-    }
-
     @Override
     public void setAlpha(final int alpha) {
         mPaint.setAlpha(alpha);
@@ -225,7 +234,7 @@ public class LetterTileDrawable extends Drawable {
      * Scale the drawn letter tile to a ratio of its default size
      *
      * @param scale The ratio the letter tile should be scaled to as a percentage of its default
-     * size, from a scale of 0 to 2.0f. The default is 1.0f.
+     *              size, from a scale of 0 to 2.0f. The default is 1.0f.
      */
     public void setScale(float scale) {
         mScale = scale;
@@ -235,20 +244,26 @@ public class LetterTileDrawable extends Drawable {
      * Assigns the vertical offset of the position of the letter tile to the ContactDrawable
      *
      * @param offset The provided offset must be within the range of -0.5f to 0.5f.
-     * If set to -0.5f, the letter will be shifted upwards by 0.5 times the height of the canvas
-     * it is being drawn on, which means it will be drawn with the center of the letter starting
-     * at the top edge of the canvas.
-     * If set to 0.5f, the letter will be shifted downwards by 0.5 times the height of the canvas
-     * it is being drawn on, which means it will be drawn with the center of the letter starting
-     * at the bottom edge of the canvas.
-     * The default is 0.0f.
+     *               If set to -0.5f, the letter will be shifted upwards by 0.5 times the height of
+     *               the canvas it is being drawn on, which means it will be drawn with the center
+     *               of the letter starting at the top edge of the canvas.
+     *               If set to 0.5f, the letter will be shifted downwards by 0.5 times the height of
+     *               the canvas it is being drawn on, which means it will be drawn with the center
+     *               of the letter starting at the bottom edge of the canvas.
+     *               The default is 0.0f.
      */
     public void setOffset(float offset) {
         mOffset = offset;
     }
 
-    public void setContactDetails(@Nullable String displayName, String identifier) {
-        mDisplayName = displayName;
+    /**
+     * Sets the details.
+     *
+     * @param letters    The letters need to be drawn
+     * @param identifier decides the color for the drawable.
+     */
+    public void setContactDetails(@Nullable String letters, @Nullable String identifier) {
+        mLetters = letters;
         mColor = pickColor(identifier);
     }
 
@@ -262,6 +277,7 @@ public class LetterTileDrawable extends Drawable {
 
     /**
      * Convert the drawable to a bitmap.
+     *
      * @param size The target size of the bitmap.
      * @return A bitmap representation of the drawable.
      */

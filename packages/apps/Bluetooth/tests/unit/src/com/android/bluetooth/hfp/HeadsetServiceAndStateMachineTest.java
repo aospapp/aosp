@@ -85,7 +85,7 @@ public class HeadsetServiceAndStateMachineTest {
     private static final int START_VR_TIMEOUT_MILLIS = 1000;
     private static final int START_VR_TIMEOUT_WAIT_MILLIS = START_VR_TIMEOUT_MILLIS * 3 / 2;
     private static final int MAX_HEADSET_CONNECTIONS = 5;
-    private static final ParcelUuid[] FAKE_HEADSET_UUID = {BluetoothUuid.Handsfree};
+    private static final ParcelUuid[] FAKE_HEADSET_UUID = {BluetoothUuid.HFP};
     private static final String TEST_PHONE_NUMBER = "1234567890";
     private static final String TEST_CALLER_ID = "Test Name";
 
@@ -164,9 +164,8 @@ public class HeadsetServiceAndStateMachineTest {
         mVoiceRecognitionWakeLock =
                 powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "VoiceRecognitionTest");
         TestUtils.setAdapterService(mAdapterService);
-        doReturn(true).when(mAdapterService).isEnabled();
         doReturn(MAX_HEADSET_CONNECTIONS).when(mAdapterService).getMaxConnectedAudioDevices();
-        doReturn(new ParcelUuid[]{BluetoothUuid.Handsfree}).when(mAdapterService)
+        doReturn(new ParcelUuid[]{BluetoothUuid.HFP}).when(mAdapterService)
                 .getRemoteUuids(any(BluetoothDevice.class));
         // We cannot mock HeadsetObjectsFactory.getInstance() with Mockito.
         // Hence we need to use reflection to call a private method to
@@ -280,8 +279,8 @@ public class HeadsetServiceAndStateMachineTest {
     public void testConnectFromApi() {
         BluetoothDevice device = TestUtils.getTestDevice(mAdapter, 0);
         when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
-        when(mDatabaseManager.getProfilePriority(device, BluetoothProfile.HEADSET))
-                .thenReturn(BluetoothProfile.PRIORITY_UNDEFINED);
+        when(mDatabaseManager.getProfileConnectionPolicy(device, BluetoothProfile.HEADSET))
+                .thenReturn(BluetoothProfile.CONNECTION_POLICY_UNKNOWN);
         mBondedDevices.add(device);
         Assert.assertTrue(mHeadsetService.connect(device));
         verify(mObjectsFactory).makeStateMachine(device,
@@ -324,8 +323,8 @@ public class HeadsetServiceAndStateMachineTest {
     public void testUnbondDevice_disconnectBeforeUnbond() {
         BluetoothDevice device = TestUtils.getTestDevice(mAdapter, 0);
         when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
-        when(mDatabaseManager.getProfilePriority(device, BluetoothProfile.HEADSET))
-                .thenReturn(BluetoothProfile.PRIORITY_UNDEFINED);
+        when(mDatabaseManager.getProfileConnectionPolicy(device, BluetoothProfile.HEADSET))
+                .thenReturn(BluetoothProfile.CONNECTION_POLICY_UNKNOWN);
         mBondedDevices.add(device);
         Assert.assertTrue(mHeadsetService.connect(device));
         verify(mObjectsFactory).makeStateMachine(device,
@@ -368,8 +367,8 @@ public class HeadsetServiceAndStateMachineTest {
     public void testUnbondDevice_disconnectAfterUnbond() {
         BluetoothDevice device = TestUtils.getTestDevice(mAdapter, 0);
         when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
-        when(mDatabaseManager.getProfilePriority(device, BluetoothProfile.HEADSET))
-                .thenReturn(BluetoothProfile.PRIORITY_UNDEFINED);
+        when(mDatabaseManager.getProfileConnectionPolicy(device, BluetoothProfile.HEADSET))
+                .thenReturn(BluetoothProfile.CONNECTION_POLICY_UNKNOWN);
         mBondedDevices.add(device);
         Assert.assertTrue(mHeadsetService.connect(device));
         verify(mObjectsFactory).makeStateMachine(device,
@@ -1154,8 +1153,8 @@ public class HeadsetServiceAndStateMachineTest {
 
     private void connectTestDevice(BluetoothDevice device) {
         when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
-        when(mDatabaseManager.getProfilePriority(device, BluetoothProfile.HEADSET))
-                .thenReturn(BluetoothProfile.PRIORITY_UNDEFINED);
+        when(mDatabaseManager.getProfileConnectionPolicy(device, BluetoothProfile.HEADSET))
+                .thenReturn(BluetoothProfile.CONNECTION_POLICY_UNKNOWN);
         // Make device bonded
         mBondedDevices.add(device);
         // Use connecting event to indicate that device is connecting

@@ -96,7 +96,12 @@ public abstract class SearchViewHolder extends RecyclerView.ViewHolder {
             breadcrumb = context.getString(R.string.search_breadcrumb_connector,
                     breadcrumb, result.breadcrumbs.get(i));
         }
-        breadcrumbView.setText(breadcrumb);
-        breadcrumbView.setVisibility(View.VISIBLE);
+
+        if (TextUtils.isEmpty(breadcrumb) || TextUtils.isEmpty(breadcrumb.trim())) {
+            breadcrumbView.setVisibility(View.GONE);
+        } else {
+            breadcrumbView.setText(breadcrumb);
+            breadcrumbView.setVisibility(View.VISIBLE);
+        }
     }
 }

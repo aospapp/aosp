@@ -16,6 +16,9 @@
 
 package com.android.tv.settings.about;
 
+import static com.android.tv.settings.util.InstrumentationUtils.logEntrySelected;
+
+import android.app.tvsettings.TvSettingsEnums;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -28,6 +31,7 @@ import android.os.SELinux;
 import android.os.SystemClock;
 import android.os.SystemProperties;
 import android.os.UserManager;
+import android.sysprop.TelephonyProperties;
 import android.telephony.CarrierConfigManager;
 import android.text.TextUtils;
 import android.util.Log;
@@ -36,29 +40,27 @@ import android.widget.Toast;
 
 import androidx.annotation.Keep;
 import androidx.annotation.Nullable;
-import androidx.leanback.preference.LeanbackSettingsFragment;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceScreen;
 
 import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
-import com.android.internal.telephony.TelephonyProperties;
 import com.android.settingslib.DeviceInfoUtils;
 import com.android.settingslib.Utils;
 import com.android.settingslib.development.DevelopmentSettingsEnabler;
-import com.android.tv.settings.LongClickPreference;
 import com.android.tv.settings.MainFragment;
 import com.android.tv.settings.PreferenceUtils;
 import com.android.tv.settings.R;
 import com.android.tv.settings.SettingsPreferenceFragment;
 import com.android.tv.settings.name.DeviceManager;
 
+import java.util.stream.Collectors;
+
 /**
  * The "About" screen in TV settings.
  */
 @Keep
-public class AboutFragment extends SettingsPreferenceFragment implements
-        LongClickPreference.OnLongClickListener {
+public class AboutFragment extends SettingsPreferenceFragment {
     private static final String TAG = "AboutFragment";
 
     private static final String KEY_MANUAL = "manual";
@@ -79,8 +81,8 @@ public class AboutFragment extends SettingsPreferenceFragment implements
     private static final String KEY_DEVICE_FEEDBACK = "device_feedback";
     private static final String KEY_SAFETY_LEGAL = "safetylegal";
     private static final String KEY_DEVICE_NAME = "device_name";
-    private static final String KEY_RESTART = "restart";
     private static final String KEY_TUTORIALS = "tutorials";
+    private static final String KEY_RESET = "reset";
 
     static final int TAPS_TO_BE_A_DEVELOPER = 7;
 
@@ -118,7 +120,7 @@ public class AboutFragment extends SettingsPreferenceFragment implements
         PreferenceUtils.resolveSystemActivityOrRemove(getActivity(), screen, deviceNamePref, 0);
 
         final Preference firmwareVersionPref = findPreference(KEY_FIRMWARE_VERSION);
-        firmwareVersionPref.setSummary(Build.VERSION.RELEASE);
+        firmwareVersionPref.setSummary(Build.VERSION.RELEASE_OR_CODENAME);
         firmwareVersionPref.setEnabled(true);
 
         final Preference securityPatchPref = findPreference(KEY_SECURITY_PATCH);
@@ -129,11 +131,15 @@ public class AboutFragment extends SettingsPreferenceFragment implements
             removePreference(securityPatchPref);
         }
 
-        final LongClickPreference restartPref = (LongClickPreference) findPreference(KEY_RESTART);
-        restartPref.setLongClickListener(this);
+        String basebandVersion = TelephonyProperties.baseband_version().stream()
+                .map(x -> x == null ? "" : x)
+                .collect(Collectors.joining(","));
 
-        findPreference(KEY_BASEBAND_VERSION).setSummary(
-                getSystemPropertySummary(TelephonyProperties.PROPERTY_BASEBAND_VERSION));
+        if (basebandVersion.isEmpty()) {
+            basebandVersion = getResources().getString(R.string.device_info_default);
+        }
+
+        findPreference(KEY_BASEBAND_VERSION).setSummary(basebandVersion);
         findPreference(KEY_DEVICE_MODEL).setSummary(Build.MODEL + DeviceInfoUtils.getMsvSuffix());
         findPreference(KEY_EQUIPMENT_ID)
                 .setSummary(getSystemPropertySummary(PROPERTY_EQUIPMENT_ID));
@@ -238,20 +244,6 @@ public class AboutFragment extends SettingsPreferenceFragment implements
     }
 
     @Override
-    public boolean onPreferenceLongClick(Preference preference) {
-        if (TextUtils.equals(preference.getKey(), KEY_RESTART)) {
-            if (getCallbackFragment() instanceof LeanbackSettingsFragment) {
-                LeanbackSettingsFragment callback =
-                        (LeanbackSettingsFragment) getCallbackFragment();
-                callback.startImmersiveFragment(
-                        RebootConfirmFragment.newInstance(true /* safeMode */));
-                return true;
-            }
-        }
-        return false;
-    }
-
-    @Override
     public boolean onPreferenceTreeClick(Preference preference) {
         switch (preference.getKey()) {
             case KEY_FIRMWARE_VERSION:
@@ -274,6 +266,7 @@ public class AboutFragment extends SettingsPreferenceFragment implements
                 }
                 break;
             case KEY_BUILD_NUMBER:
+                logEntrySelected(TvSettingsEnums.SYSTEM_ABOUT_BUILD);
                 // Don't enable developer options for secondary users.
                 if (!mUm.isAdminUser()) {
                     mMetricsFeatureProvider.action(getContext(),
@@ -342,6 +335,7 @@ public class AboutFragment extends SettingsPreferenceFragment implements
                 sendFeedback();
                 break;
             case KEY_SYSTEM_UPDATE_SETTINGS:
+                logEntrySelected(TvSettingsEnums.SYSTEM_ABOUT_SYSTEM_UPDATE);
                 CarrierConfigManager configManager = (CarrierConfigManager)
                         getActivity().getSystemService(Context.CARRIER_CONFIG_SERVICE);
                 PersistableBundle b = configManager.getConfig();
@@ -349,6 +343,12 @@ public class AboutFragment extends SettingsPreferenceFragment implements
                         b.getBoolean(CarrierConfigManager.KEY_CI_ACTION_ON_SYS_UPDATE_BOOL)) {
                     ciActionOnSysUpdate(b);
                 }
+                break;
+            case KEY_DEVICE_NAME:
+                logEntrySelected(TvSettingsEnums.SYSTEM_ABOUT_DEVICE_NAME);
+                break;
+            case KEY_RESET:
+                logEntrySelected(TvSettingsEnums.SYSTEM_ABOUT_FACTORY_RESET);
                 break;
         }
         return super.onPreferenceTreeClick(preference);
@@ -406,5 +406,10 @@ public class AboutFragment extends SettingsPreferenceFragment implements
     @Override
     public int getMetricsCategory() {
         return MetricsEvent.DEVICEINFO;
+    }
+
+    @Override
+    protected int getPageId() {
+        return TvSettingsEnums.SYSTEM_ABOUT;
     }
 }

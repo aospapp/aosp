@@ -66,7 +66,7 @@ public class PreferenceXmlParser {
         int FLAG_NEED_PREF_CONTROLLER = 1 << 1;
     }
 
-    static final String METADATA_KEY = "key";
+    public static final String METADATA_KEY = "key";
     static final String METADATA_CONTROLLER = "controller";
 
     /**

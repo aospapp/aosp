@@ -29,6 +29,14 @@
     <Preference
         android:key="signal_strength"
         android:title="@string/title_signal_strength" />
+    <!-- The android:persistent is set to false for random MAC as it is on per-network basis -->
+    <ListPreference
+        android:key="random_mac"
+        android:title="@string/title_random_mac_settings"
+        android:summary="%s"
+        android:persistent="false"
+        android:entries="@array/random_mac_settings_entries"
+        android:entryValues="@array/random_mac_settings_entry_values" />
     <Preference
         android:key="proxy_settings"
         android:title="@string/title_wifi_proxy_settings" />

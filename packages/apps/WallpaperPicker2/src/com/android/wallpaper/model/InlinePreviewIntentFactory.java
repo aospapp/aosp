@@ -15,14 +15,28 @@
  */
 package com.android.wallpaper.model;
 
+import static android.Manifest.permission.BIND_WALLPAPER;
+import static android.content.pm.PackageManager.PERMISSION_GRANTED;
+
 import android.content.Context;
 import android.content.Intent;
+
+import androidx.core.content.ContextCompat;
 
 /**
  * Factory for getting an intent to show the in-app (inline) preview activity for a given
  * wallpaper, if appropriate for that wallpaper.
  */
 public interface InlinePreviewIntentFactory {
+
+    /**
+     * @return whether it's possible to use the internal live picker, or {@code false} to use the
+     * the Framework Activity.
+     */
+    default boolean shouldUseInternalLivePicker(Context context) {
+        return ContextCompat.checkSelfPermission(context, BIND_WALLPAPER) == PERMISSION_GRANTED;
+    }
+
     /**
      * Gets an intent to show the preview activity for the given wallpaper.
      *
@@ -30,5 +44,5 @@ public interface InlinePreviewIntentFactory {
      * @param wallpaper
      * @return Intent to show the inline preview activity.
      */
-    public Intent newIntent(Context ctx, WallpaperInfo wallpaper);
+    Intent newIntent(Context ctx, WallpaperInfo wallpaper);
 }

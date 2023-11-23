@@ -18,7 +18,7 @@ package com.android.tv.guide;
 
 import android.content.Context;
 import android.graphics.Rect;
-import android.support.v7.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.LinearLayoutManager;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.util.Range;

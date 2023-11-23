@@ -17,7 +17,6 @@ package com.android.documentsui.ui;
 
 import androidx.fragment.app.FragmentManager;
 
-import com.android.documentsui.base.ConfirmationCallback;
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.picker.ConfirmFragment;
 import com.android.documentsui.services.FileOperation;
@@ -25,27 +24,19 @@ import com.android.documentsui.services.FileOperations;
 
 import junit.framework.Assert;
 
-import java.util.List;
-
 public class TestDialogController implements DialogController {
 
-    public int mNextConfirmationCode;
     private int mFileOpStatus;
+    private boolean mActionNotAllowed;
     private boolean mNoApplicationFound;
     private boolean mDocumentsClipped;
     private boolean mViewInArchivesUnsupported;
     private boolean mShowOperationUnsupported;
+    private boolean mShowShareOverLimit;
     private DocumentInfo mTarget;
     private int mConfrimType;
 
     public TestDialogController() {
-        // by default, always confirm
-        mNextConfirmationCode = ConfirmationCallback.CONFIRM;
-    }
-
-    @Override
-    public void confirmDelete(List<DocumentInfo> docs, ConfirmationCallback callback) {
-        callback.accept(mNextConfirmationCode);
     }
 
     @Override
@@ -56,6 +47,11 @@ public class TestDialogController implements DialogController {
     @Override
     public void showProgressDialog(String jobId, FileOperation operation) {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void showActionNotAllowed() {
+        mActionNotAllowed = true;
     }
 
     @Override
@@ -79,6 +75,11 @@ public class TestDialogController implements DialogController {
     }
 
     @Override
+    public void showShareOverLimit(int size) {
+        mShowShareOverLimit = true;
+    }
+
+    @Override
     public void confirmAction(FragmentManager fm, DocumentInfo pickTarget, int type) {
         mTarget = pickTarget;
         mConfrimType = type;
@@ -90,6 +91,14 @@ public class TestDialogController implements DialogController {
 
     public void assertFileOpFailed() {
         Assert.assertEquals(FileOperations.Callback.STATUS_FAILED, mFileOpStatus);
+    }
+
+    public void assertActionNotAllowedShown() {
+        Assert.assertTrue(mActionNotAllowed);
+    }
+
+    public void assertActionNotAllowedNotShown() {
+        Assert.assertFalse(mActionNotAllowed);
     }
 
     public void assertNoAppFoundShown() {
@@ -107,6 +116,10 @@ public class TestDialogController implements DialogController {
         Assert.assertFalse(mDocumentsClipped);
     }
 
+    public void assertShareOverLimitShown() {
+        Assert.assertTrue(mShowShareOverLimit);
+    }
+
     public void assertOverwriteConfirmed(DocumentInfo expected) {
         Assert.assertEquals(expected, mTarget);
         Assert.assertEquals(ConfirmFragment.TYPE_OVERWRITE, mConfrimType);
@@ -115,13 +128,5 @@ public class TestDialogController implements DialogController {
     public void assertDocumentTreeConfirmed(DocumentInfo expected) {
         Assert.assertEquals(expected, mTarget);
         Assert.assertEquals(ConfirmFragment.TYPE_OEPN_TREE, mConfrimType);
-    }
-
-    public void confirmNext() {
-        mNextConfirmationCode = ConfirmationCallback.CONFIRM;
-    }
-
-    public void rejectNext() {
-        mNextConfirmationCode = ConfirmationCallback.REJECT;
     }
 }

@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="963247385700831716">"儲存空間管理員"</string>
+    <string name="app_name" msgid="963247385700831716">"儲存空間管理工具"</string>
     <string name="cancel" msgid="7021218262867558825">"取消"</string>
     <string name="storage_menu_free" msgid="1878247401436882778">"釋出空間"</string>
     <string name="deletion_helper_title" msgid="3526170325226275927">"移除項目"</string>
@@ -39,7 +39,7 @@
     <string name="deletion_helper_clear_dialog_message" msgid="5196490478187120700">"系統將從你的裝置中移除 <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> 的內容"</string>
     <string name="deletion_helper_clear_dialog_remove" msgid="863575755467985516">"釋出空間"</string>
     <string name="deletion_helper_upsell_title" msgid="8512037674466762017">"要讓系統自動管理儲存空間嗎？"</string>
-    <string name="deletion_helper_upsell_summary" msgid="2301597713694474407">"已釋出 <xliff:g id="USED">%1$s</xliff:g>。要允許儲存空間管理員將已備份的內容從裝置中移除，自動釋出儲存空間嗎？"</string>
+    <string name="deletion_helper_upsell_summary" msgid="2301597713694474407">"已釋出 <xliff:g id="USED">%1$s</xliff:g>。要允許儲存空間管理工具將已備份的內容從裝置中移除，自動釋出儲存空間嗎？"</string>
     <string name="deletion_helper_upsell_cancel" msgid="7084167642850053889">"不用了，謝謝"</string>
     <string name="deletion_helper_upsell_activate" msgid="7157360257760895976">"開啟"</string>
     <string name="deletion_helper_apps_group_title" msgid="2578309121350341258">"不常用的應用程式"</string>
@@ -51,7 +51,7 @@
     <string name="automatic_storage_manager_service_label" msgid="648592272375278978">"自動儲存空間管理服務"</string>
     <string name="automatic_storage_manager_notification_title" product="default" msgid="8480483265300964701">"手機儲存空間不足"</string>
     <string name="automatic_storage_manager_notification_title" product="tablet" msgid="3150907918531844467">"平板電腦儲存空間不足"</string>
-    <string name="automatic_storage_manager_notification_summary" msgid="2267399886362245822">"允許儲存空間管理員在你的手機儲存空間即將再次耗盡時，自動移除舊的相片和影片以釋出空間。"</string>
+    <string name="automatic_storage_manager_notification_summary" msgid="2267399886362245822">"允許儲存空間管理工具在你的手機儲存空間即將再次耗盡時，自動移除舊的相片和影片以釋出空間。"</string>
     <string name="automatic_storage_manager_cancel_button" msgid="1826365037494962803">"不用了，謝謝"</string>
     <string name="automatic_storage_manager_activate_button" msgid="6257070263061898041">"開啟"</string>
     <string name="deletion_helper_photos_loading_title" msgid="2768067991066779772">"已備份的相片和影片"</string>
@@ -59,7 +59,7 @@
     <string name="deletion_helper_no_threshold" msgid="6943179204098250444">"顯示所有項目"</string>
     <string name="deletion_helper_default_threshold" msgid="8410389370069021113">"隱藏最近的項目"</string>
     <string name="deletion_helper_clear_dialog_message_first_time" msgid="686530413183529901">"系統將從你的裝置中移除 <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> 的內容"</string>
-    <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"你的儲存空間目前是由儲存空間管理員管理"</string>
+    <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"你的儲存空間目前是由儲存空間管理工具管理"</string>
     <string name="empty_state_title" msgid="4033285438176545309">"沒有可移除的項目"</string>
     <string name="empty_state_review_items_link" msgid="8411186441239304545">"查看最近的項目"</string>
     <string name="empty_state_summary" msgid="8439893007424243790">"沒有任何可以移除的舊檔案。如需增加空間，請移除最近的相片、影片和應用程式。"</string>

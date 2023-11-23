@@ -48,10 +48,8 @@ import com.android.documentsui.DragAndDropManager;
 import com.android.documentsui.Injector;
 import com.android.documentsui.MetricConsts;
 import com.android.documentsui.Metrics;
-import com.android.documentsui.Model;
 import com.android.documentsui.R;
 import com.android.documentsui.TimeoutTask;
-import com.android.documentsui.base.ConfirmationCallback;
 import com.android.documentsui.base.DebugFlags;
 import com.android.documentsui.base.DocumentFilters;
 import com.android.documentsui.base.DocumentInfo;
@@ -63,18 +61,17 @@ import com.android.documentsui.base.Providers;
 import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.base.Shared;
 import com.android.documentsui.base.State;
+import com.android.documentsui.base.UserId;
 import com.android.documentsui.clipping.ClipStore;
 import com.android.documentsui.clipping.DocumentClipper;
 import com.android.documentsui.clipping.UrisSupplier;
 import com.android.documentsui.dirlist.AnimationView;
-import com.android.documentsui.files.ActionHandler.Addons;
 import com.android.documentsui.inspector.InspectorActivity;
 import com.android.documentsui.queries.SearchViewManager;
 import com.android.documentsui.roots.ProvidersAccess;
 import com.android.documentsui.services.FileOperation;
 import com.android.documentsui.services.FileOperationService;
 import com.android.documentsui.services.FileOperations;
-import com.android.documentsui.ui.DialogController;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -84,19 +81,21 @@ import javax.annotation.Nullable;
 
 /**
  * Provides {@link FilesActivity} action specializations to fragments.
+ * @param <T> activity which extends {@link FragmentActivity} and implements
+ *              {@link AbstractActionHandler.CommonAddons}.
  */
-public class ActionHandler<T extends FragmentActivity & Addons> extends AbstractActionHandler<T> {
+public class ActionHandler<T extends FragmentActivity & AbstractActionHandler.CommonAddons>
+        extends AbstractActionHandler<T> {
 
     private static final String TAG = "ManagerActionHandler";
+    private static final int SHARE_FILES_COUNT_LIMIT = 100;
 
     private final ActionModeAddons mActionModeAddons;
     private final Features mFeatures;
     private final ActivityConfig mConfig;
-    private final DialogController mDialogs;
     private final DocumentClipper mClipper;
     private final ClipStore mClipStore;
     private final DragAndDropManager mDragAndDropManager;
-    private final Model mModel;
 
     ActionHandler(
             T activity,
@@ -116,11 +115,9 @@ public class ActionHandler<T extends FragmentActivity & Addons> extends Abstract
         mActionModeAddons = actionModeAddons;
         mFeatures = injector.features;
         mConfig = injector.config;
-        mDialogs = injector.dialogs;
         mClipper = clipper;
         mClipStore = clipStore;
         mDragAndDropManager = dragAndDropManager;
-        mModel = injector.getModel();
     }
 
     @Override
@@ -142,6 +139,10 @@ public class ActionHandler<T extends FragmentActivity & Addons> extends Abstract
     @Override
     public void openSelectedInNewWindow() {
         Selection<String> selection = getStableSelection();
+        if (selection.isEmpty()) {
+            return;
+        }
+
         assert(selection.size() == 1);
         DocumentInfo doc = mModel.getDocument(selection.iterator().next());
         assert(doc != null);
@@ -153,7 +154,7 @@ public class ActionHandler<T extends FragmentActivity & Addons> extends Abstract
         Metrics.logUserAction(MetricConsts.USER_ACTION_SETTINGS);
         final Intent intent = new Intent(DocumentsContract.ACTION_DOCUMENT_ROOT_SETTINGS);
         intent.setDataAndType(root.getUri(), DocumentsContract.Root.MIME_TYPE_ITEM);
-        mActivity.startActivity(intent);
+        root.userId.startActivityAsUser(mActivity, intent);
     }
 
     @Override
@@ -171,7 +172,7 @@ public class ActionHandler<T extends FragmentActivity & Addons> extends Abstract
 
     @Override
     public @Nullable DocumentInfo renameDocument(String name, DocumentInfo document) {
-        ContentResolver resolver = mActivity.getContentResolver();
+        ContentResolver resolver = document.userId.getContentResolver(mActivity);
         ContentProviderClient client = null;
 
         try {
@@ -179,7 +180,7 @@ public class ActionHandler<T extends FragmentActivity & Addons> extends Abstract
                     resolver, document.derivedUri.getAuthority());
             Uri newUri = DocumentsContract.renameDocument(
                     wrap(client), document.derivedUri, name);
-            return DocumentInfo.fromUri(resolver, newUri);
+            return DocumentInfo.fromUri(resolver, newUri, document.userId);
         } catch (Exception e) {
             Log.w(TAG, "Failed to rename file", e);
             return null;
@@ -212,7 +213,7 @@ public class ActionHandler<T extends FragmentActivity & Addons> extends Abstract
     @VisibleForTesting
     public boolean openDocument(DocumentInfo doc, @ViewType int type, @ViewType int fallback) {
         if (mConfig.isDocumentEnabled(doc.mimeType, doc.flags, mState)) {
-            onDocumentPicked(doc, type, fallback);
+            onDocumentOpened(doc, type, fallback, false);
             mSelectionMgr.clearSelection();
             return !doc.isContainer();
         }
@@ -284,67 +285,66 @@ public class ActionHandler<T extends FragmentActivity & Addons> extends Abstract
         }
         DocumentInfo doc = mModel.getDocument(selection.iterator().next());
         Intent intent = new Intent(DocumentsContract.ACTION_DOCUMENT_SETTINGS);
-        intent.setPackage(mProviders.getPackageName(doc.authority));
+        intent.setPackage(mProviders.getPackageName(UserId.DEFAULT_USER, doc.authority));
         intent.addCategory(Intent.CATEGORY_DEFAULT);
         intent.setData(doc.derivedUri);
         try {
-            mActivity.startActivity(intent);
+            doc.userId.startActivityAsUser(mActivity, intent);
         } catch (ActivityNotFoundException e) {
             Log.e(TAG, "Failed to view settings in application for " + doc.derivedUri, e);
             mDialogs.showNoApplicationFound();
         }
     }
 
-
     @Override
-    public void deleteSelectedDocuments() {
-        Metrics.logUserAction(MetricConsts.USER_ACTION_DELETE);
+    public void showDeleteDialog() {
         Selection selection = getSelectedOrFocused();
-
         if (selection.isEmpty()) {
             return;
         }
 
-        final @Nullable DocumentInfo srcParent = mState.stack.peek();
+        DeleteDocumentFragment.show(mActivity.getSupportFragmentManager(),
+                mModel.getDocuments(selection),
+                mState.stack.peek());
+    }
 
-        // Model must be accessed in UI thread, since underlying cursor is not threadsafe.
-        List<DocumentInfo> docs = mModel.getDocuments(selection);
 
-        ConfirmationCallback result = (@ConfirmationCallback.Result int code) -> {
-            // share the news with our caller, be it good or bad.
-            mActionModeAddons.finishOnConfirmed(code);
+    @Override
+    public void deleteSelectedDocuments(List<DocumentInfo> docs, DocumentInfo srcParent) {
+        if (docs == null || docs.isEmpty()) {
+            return;
+        }
 
-            if (code != ConfirmationCallback.CONFIRM) {
-                return;
-            }
+        mActionModeAddons.finishActionMode();
 
-            UrisSupplier srcs;
-            try {
-                srcs = UrisSupplier.create(
-                        selection,
-                        mModel::getItemUri,
-                        mClipStore);
-            } catch (Exception e) {
-                Log.e(TAG,"Failed to delete a file because we were unable to get item URIs.", e);
-                mDialogs.showFileOperationStatus(
-                        FileOperations.Callback.STATUS_FAILED,
-                        FileOperationService.OPERATION_DELETE,
-                        selection.size());
-                return;
-            }
+        List<Uri> uris = new ArrayList<>(docs.size());
+        for (DocumentInfo doc : docs) {
+            uris.add(doc.derivedUri);
+        }
 
-            FileOperation operation = new FileOperation.Builder()
-                    .withOpType(FileOperationService.OPERATION_DELETE)
-                    .withDestination(mState.stack)
-                    .withSrcs(srcs)
-                    .withSrcParent(srcParent == null ? null : srcParent.derivedUri)
-                    .build();
+        UrisSupplier srcs;
+        try {
+            srcs = UrisSupplier.create(
+                    uris,
+                    mClipStore);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to delete a file because we were unable to get item URIs.", e);
+            mDialogs.showFileOperationStatus(
+                    FileOperations.Callback.STATUS_FAILED,
+                    FileOperationService.OPERATION_DELETE,
+                    uris.size());
+            return;
+        }
 
-            FileOperations.start(mActivity, operation, mDialogs::showFileOperationStatus,
-                    FileOperations.createJobId());
-        };
+        FileOperation operation = new FileOperation.Builder()
+                .withOpType(FileOperationService.OPERATION_DELETE)
+                .withDestination(mState.stack)
+                .withSrcs(srcs)
+                .withSrcParent(srcParent == null ? null : srcParent.derivedUri)
+                .build();
 
-        mDialogs.confirmDelete(docs, result);
+        FileOperations.start(mActivity, operation, mDialogs::showFileOperationStatus,
+                FileOperations.createJobId());
     }
 
     @Override
@@ -352,8 +352,12 @@ public class ActionHandler<T extends FragmentActivity & Addons> extends Abstract
         Metrics.logUserAction(MetricConsts.USER_ACTION_SHARE);
 
         Selection<String> selection = getStableSelection();
-
-        assert(!selection.isEmpty());
+        if (selection.isEmpty()) {
+            return;
+        } else if (selection.size() > SHARE_FILES_COUNT_LIMIT) {
+            mDialogs.showShareOverLimit(SHARE_FILES_COUNT_LIMIT);
+            return;
+        }
 
         // Model must be accessed in UI thread, since underlying cursor is not threadsafe.
         List<DocumentInfo> docs = mModel.loadDocuments(
@@ -365,7 +369,7 @@ public class ActionHandler<T extends FragmentActivity & Addons> extends Abstract
             intent = new Intent(Intent.ACTION_SEND);
             DocumentInfo doc = docs.get(0);
             intent.setType(doc.mimeType);
-            intent.putExtra(Intent.EXTRA_STREAM, doc.derivedUri);
+            intent.putExtra(Intent.EXTRA_STREAM, doc.getDocumentUri());
 
         } else if (docs.size() > 1) {
             intent = new Intent(Intent.ACTION_SEND_MULTIPLE);
@@ -374,7 +378,7 @@ public class ActionHandler<T extends FragmentActivity & Addons> extends Abstract
             final ArrayList<Uri> uris = new ArrayList<>();
             for (DocumentInfo doc : docs) {
                 mimeTypes.add(doc.mimeType);
-                uris.add(doc.derivedUri);
+                uris.add(doc.getDocumentUri());
             }
 
             intent.setType(MimeTypes.findCommonMimeType(mimeTypes));
@@ -454,11 +458,7 @@ public class ActionHandler<T extends FragmentActivity & Addons> extends Abstract
 
     @Override
     protected void launchToDefaultLocation() {
-        if (mFeatures.isDefaultRootInBrowseEnabled()) {
-            loadHomeDir();
-        } else {
-            loadRecent();
-        }
+        loadHomeDir();
     }
 
     // If EXTRA_STACK is not null in intent, we'll skip other means of loading
@@ -497,7 +497,7 @@ public class ActionHandler<T extends FragmentActivity & Addons> extends Abstract
                 }
                 // If we've got a specific root to display, restore that root using a dedicated
                 // authority. That way a misbehaving provider won't result in an ANR.
-                loadRoot(uri);
+                loadRoot(uri, UserId.DEFAULT_USER);
                 return true;
             } else if (DocumentsContract.isRootsUri(mActivity, uri)) {
                 if (DEBUG) {
@@ -527,7 +527,7 @@ public class ActionHandler<T extends FragmentActivity & Addons> extends Abstract
         if (DownloadManager.ACTION_VIEW_DOWNLOADS.equals(intent.getAction())) {
             Uri uri = DocumentsContract.buildRootUri(Providers.AUTHORITY_DOWNLOADS,
                     Providers.ROOT_ID_DOWNLOADS);
-            loadRoot(uri);
+            loadRoot(uri, UserId.DEFAULT_USER);
             return true;
         }
 
@@ -546,202 +546,16 @@ public class ActionHandler<T extends FragmentActivity & Addons> extends Abstract
         Intent intent = Intent.createChooser(buildViewIntent(doc), null);
         intent.putExtra(Intent.EXTRA_AUTO_LAUNCH_SINGLE_CHOICE, false);
         try {
-            mActivity.startActivity(intent);
+            doc.userId.startActivityAsUser(mActivity, intent);
         } catch (ActivityNotFoundException e) {
             mDialogs.showNoApplicationFound();
         }
-    }
-
-    private void onDocumentPicked(DocumentInfo doc, @ViewType int type, @ViewType int fallback) {
-        if (doc.isContainer()) {
-            openContainerDocument(doc);
-            return;
-        }
-
-        if (manageDocument(doc)) {
-            return;
-        }
-
-        // For APKs, even if the type is preview, we send an ACTION_VIEW intent to allow
-        // PackageManager to install it.  This allows users to install APKs from any root.
-        // The Downloads special case is handled above in #manageDocument.
-        if (MimeTypes.isApkType(doc.mimeType)) {
-            viewDocument(doc);
-            return;
-        }
-
-        switch (type) {
-          case VIEW_TYPE_REGULAR:
-            if (viewDocument(doc)) {
-                return;
-            }
-            break;
-
-          case VIEW_TYPE_PREVIEW:
-            if (previewDocument(doc)) {
-                return;
-            }
-            break;
-
-          default:
-            throw new IllegalArgumentException("Illegal view type.");
-        }
-
-        switch (fallback) {
-          case VIEW_TYPE_REGULAR:
-            if (viewDocument(doc)) {
-                return;
-            }
-            break;
-
-          case VIEW_TYPE_PREVIEW:
-            if (previewDocument(doc)) {
-                return;
-            }
-            break;
-
-          case VIEW_TYPE_NONE:
-            break;
-
-          default:
-            throw new IllegalArgumentException("Illegal fallback view type.");
-        }
-
-        // Failed to view including fallback, and it's in an archive.
-        if (type != VIEW_TYPE_NONE && fallback != VIEW_TYPE_NONE && doc.isInArchive()) {
-            mDialogs.showViewInArchivesUnsupported();
-        }
-    }
-
-    private boolean viewDocument(DocumentInfo doc) {
-        if (doc.isPartial()) {
-            Log.w(TAG, "Can't view partial file.");
-            return false;
-        }
-
-        if (doc.isInArchive()) {
-            Log.w(TAG, "Can't view files in archives.");
-            return false;
-        }
-
-        if (doc.isDirectory()) {
-            Log.w(TAG, "Can't view directories.");
-            return true;
-        }
-
-        Intent intent = buildViewIntent(doc);
-        if (DEBUG && intent.getClipData() != null) {
-            Log.d(TAG, "Starting intent w/ clip data: " + intent.getClipData());
-        }
-
-        try {
-            mActivity.startActivity(intent);
-            return true;
-        } catch (ActivityNotFoundException e) {
-            mDialogs.showNoApplicationFound();
-        }
-        return false;
-    }
-
-    private boolean previewDocument(DocumentInfo doc) {
-        if (doc.isPartial()) {
-            Log.w(TAG, "Can't view partial file.");
-            return false;
-        }
-
-        Intent intent = new QuickViewIntentBuilder(
-                mActivity.getPackageManager(),
-                mActivity.getResources(),
-                doc,
-                mModel,
-                false /* fromPicker */).build();
-
-        if (intent != null) {
-            // TODO: un-work around issue b/24963914. Should be fixed soon.
-            try {
-                mActivity.startActivity(intent);
-                return true;
-            } catch (SecurityException e) {
-                // Carry on to regular view mode.
-                Log.e(TAG, "Caught security error: " + e.getLocalizedMessage());
-            }
-        }
-
-        return false;
-    }
-
-    private boolean manageDocument(DocumentInfo doc) {
-        if (isManagedDownload(doc)) {
-            // First try managing the document; we expect manager to filter
-            // based on authority, so we don't grant.
-            Intent manage = new Intent(DocumentsContract.ACTION_MANAGE_DOCUMENT);
-            manage.setData(doc.derivedUri);
-            try {
-                mActivity.startActivity(manage);
-                return true;
-            } catch (ActivityNotFoundException ex) {
-                // Fall back to regular handling.
-            }
-        }
-
-        return false;
-    }
-
-    private boolean isManagedDownload(DocumentInfo doc) {
-        // Anything on downloads goes through the back through downloads manager
-        // (that's the MANAGE_DOCUMENT bit).
-        // This is done for two reasons:
-        // 1) The file in question might be a failed/queued or otherwise have some
-        //    specialized download handling.
-        // 2) For APKs, the download manager will add on some important security stuff
-        //    like origin URL.
-        // 3) For partial files, the download manager will offer to restart/retry downloads.
-
-        // All other files not on downloads, event APKs, would get no benefit from this
-        // treatment, thusly the "isDownloads" check.
-
-        // Launch MANAGE_DOCUMENTS only for the root level files, so it's not called for
-        // files in archives. Also, if the activity is already browsing a ZIP from downloads,
-        // then skip MANAGE_DOCUMENTS.
-        if (Intent.ACTION_VIEW.equals(mActivity.getIntent().getAction())
-                && mState.stack.size() > 1) {
-            // viewing the contents of an archive.
-            return false;
-        }
-
-        // management is only supported in downloads.
-        if (mActivity.getCurrentRoot().isDownloads()) {
-            // and only and only on APKs or partial files.
-            return MimeTypes.isApkType(doc.mimeType)
-                    || doc.isPartial();
-        }
-
-        return false;
-    }
-
-    private Intent buildViewIntent(DocumentInfo doc) {
-        Intent intent = new Intent(Intent.ACTION_VIEW);
-        intent.setDataAndType(doc.derivedUri, doc.mimeType);
-
-        // Downloads has traditionally added the WRITE permission
-        // in the TrampolineActivity. Since this behavior is long
-        // established, we set the same permission for non-managed files
-        // This ensures consistent behavior between the Downloads root
-        // and other roots.
-        int flags = Intent.FLAG_GRANT_READ_URI_PERMISSION;
-        if (doc.isWriteSupported()) {
-            flags |= Intent.FLAG_GRANT_WRITE_URI_PERMISSION;
-        }
-        intent.setFlags(flags);
-
-        return intent;
     }
 
     @Override
     public void showInspector(DocumentInfo doc) {
         Metrics.logUserAction(MetricConsts.USER_ACTION_INSPECTOR);
-        Intent intent = new Intent(mActivity, InspectorActivity.class);
-        intent.setData(doc.derivedUri);
+        Intent intent = InspectorActivity.createIntent(mActivity, doc.derivedUri, doc.userId);
 
         // permit the display of debug info about the file.
         intent.putExtra(
@@ -762,8 +576,5 @@ public class ActionHandler<T extends FragmentActivity & Addons> extends Abstract
             intent.putExtra(Intent.EXTRA_TITLE, root.title);
         }
         mActivity.startActivity(intent);
-    }
-
-    public interface Addons extends CommonAddons {
     }
 }

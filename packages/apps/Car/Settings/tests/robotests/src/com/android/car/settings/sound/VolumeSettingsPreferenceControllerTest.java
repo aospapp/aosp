@@ -18,6 +18,9 @@ package com.android.car.settings.sound;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -31,7 +34,6 @@ import android.media.Ringtone;
 import androidx.lifecycle.Lifecycle;
 import androidx.preference.PreferenceGroup;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.R;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.LogicalPreferenceGroup;
@@ -46,13 +48,15 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 @Config(shadows = {ShadowRingtoneManager.class})
 public class VolumeSettingsPreferenceControllerTest {
 
+    private static final int ZONE_ID = 1;
     private static final int GROUP_ID = 0;
     private static final int TEST_MIN_VOLUME = 0;
     private static final int TEST_VOLUME = 40;
@@ -122,6 +126,14 @@ public class VolumeSettingsPreferenceControllerTest {
     }
 
     @Test
+    public void onServiceConnected_registersVolumeCallback() {
+        mPreferenceControllerHelper.markState(Lifecycle.State.CREATED);
+        mController.refreshUi();
+
+        verify(mCarAudioManager).registerCarVolumeCallback(mController.mVolumeChangeCallback);
+    }
+
+    @Test
     public void testRefreshUi_serviceStarted_multipleCalls() {
         mPreferenceControllerHelper.markState(Lifecycle.State.CREATED);
 
@@ -157,5 +169,26 @@ public class VolumeSettingsPreferenceControllerTest {
         SeekBarPreference preference = (SeekBarPreference) mPreferenceGroup.getPreference(0);
         preference.getOnPreferenceChangeListener().onPreferenceChange(preference, TEST_NEW_VOLUME);
         verify(mCarAudioManager).setGroupVolume(GROUP_ID, TEST_NEW_VOLUME, 0);
+    }
+
+    @Test
+    public void onGroupVolumeChanged_sameValue_doesNotUpdateVolumeSeekbar() {
+        mPreferenceControllerHelper.markState(Lifecycle.State.CREATED);
+        mController.refreshUi();
+        SeekBarPreference preference = spy((SeekBarPreference) mPreferenceGroup.getPreference(0));
+        mController.mVolumeChangeCallback.onGroupVolumeChanged(ZONE_ID, GROUP_ID, /* flags= */ 0);
+
+        verify(preference, never()).setValue(any(Integer.class));
+    }
+
+    @Test
+    public void onGroupVolumeChanged_differentValue_updatesVolumeSeekbar() {
+        mPreferenceControllerHelper.markState(Lifecycle.State.CREATED);
+        mController.refreshUi();
+        when(mCarAudioManager.getGroupVolume(GROUP_ID)).thenReturn(TEST_NEW_VOLUME);
+        mController.mVolumeChangeCallback.onGroupVolumeChanged(ZONE_ID, GROUP_ID, /* flags= */ 0);
+
+        SeekBarPreference preference = (SeekBarPreference) mPreferenceGroup.getPreference(0);
+        assertThat(preference.getValue()).isEqualTo(TEST_NEW_VOLUME);
     }
 }

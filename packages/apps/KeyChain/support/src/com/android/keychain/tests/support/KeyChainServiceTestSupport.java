@@ -20,8 +20,11 @@ import android.app.Service;
 import android.content.Intent;
 import android.os.IBinder;
 import android.os.RemoteException;
+import android.security.IKeyChainService;
 import android.security.KeyChain;
 import android.security.KeyStore;
+import android.security.keymaster.KeymasterCertificateChain;
+import android.security.keystore.ParcelableKeyGenParameterSpec;
 import android.util.Log;
 
 public class KeyChainServiceTestSupport extends Service {
@@ -33,7 +36,12 @@ public class KeyChainServiceTestSupport extends Service {
             = new IKeyChainServiceTestSupport.Stub() {
         @Override public boolean keystoreReset() {
             Log.d(TAG, "keystoreReset");
-            return mKeyStore.reset();
+            for (String key : mKeyStore.list("")) {
+                if (!mKeyStore.delete(key, KeyStore.UID_SELF)) {
+                    return false;
+                }
+            }
+            return true;
         }
         @Override public boolean keystoreSetPassword(String password) {
             Log.d(TAG, "keystoreSetPassword");
@@ -60,6 +68,58 @@ public class KeyChainServiceTestSupport extends Service {
             blockingSetGrantPermission(uid, alias, true);
         }
 
+        @Override public boolean installKeyPair(
+                byte[] privateKey, byte[] userCert, byte[] certChain, String alias)
+                throws RemoteException {
+            Log.d(TAG, "installKeyPair");
+            return performBlockingKeyChainCall(keyChainService -> {
+                return keyChainService.installKeyPair(
+                        privateKey, userCert, certChain, alias, KeyStore.UID_SELF);
+            });
+        }
+
+        @Override public boolean removeKeyPair(String alias) throws RemoteException {
+            Log.d(TAG, "removeKeyPair");
+            return performBlockingKeyChainCall(keyChainService -> {
+                return keyChainService.removeKeyPair(alias);
+            });
+        }
+
+        @Override public void setUserSelectable(String alias, boolean isUserSelectable)
+                throws RemoteException {
+            Log.d(TAG, "setUserSelectable");
+            KeyChainAction<Void> action = service -> {
+                service.setUserSelectable(alias, isUserSelectable);
+                return null;
+            };
+            performBlockingKeyChainCall(action);
+        }
+
+        @Override public int generateKeyPair(String algorithm, ParcelableKeyGenParameterSpec spec)
+                throws RemoteException {
+            return performBlockingKeyChainCall(keyChainService -> {
+                return keyChainService.generateKeyPair(algorithm, spec);
+            });
+        }
+
+        @Override public int attestKey(
+                String alias, byte[] attestationChallenge,
+                int[] idAttestationFlags) throws RemoteException {
+            KeymasterCertificateChain attestationChain = new KeymasterCertificateChain();
+            return performBlockingKeyChainCall(keyChainService -> {
+                return keyChainService.attestKey(alias, attestationChallenge, idAttestationFlags,
+                        attestationChain);
+            });
+        }
+
+        @Override public boolean setKeyPairCertificate(String alias, byte[] userCertificate,
+                byte[] userCertificateChain) throws RemoteException {
+            return performBlockingKeyChainCall(keyChainService -> {
+                return keyChainService.setKeyPairCertificate(alias, userCertificate,
+                        userCertificateChain);
+            });
+        }
+
         /**
          * Binds to the KeyChainService and requests that permission for the sender to
          * access the specified alias is granted/revoked.
@@ -69,25 +129,32 @@ public class KeyChainServiceTestSupport extends Service {
          */
         private void blockingSetGrantPermission(int senderUid, String alias, boolean value)
                 throws RemoteException {
-            KeyChain.KeyChainConnection connection = null;
-            try {
-                connection = KeyChain.bind(KeyChainServiceTestSupport.this);
-                connection.getService().setGrant(senderUid, alias, value);
-            } catch (InterruptedException e) {
-                // should never happen. if it does we will not grant the requested permission
-                Log.e(TAG, "interrupted while granting access");
-                Thread.currentThread().interrupt();
-            } finally {
-                if (connection != null) {
-                    connection.close();
-                }
-            }
+            KeyChainAction<Void> action = new KeyChainAction<Void>() {
+                public Void run(IKeyChainService service) throws RemoteException {
+                    service.setGrant(senderUid, alias, value);
+                    return null;
+                };
+            };
+            performBlockingKeyChainCall(action);
         }
     };
 
     @Override public IBinder onBind(Intent intent) {
-        if (IKeyChainServiceTestSupport.class.getName().equals(intent.getAction())) {
-            return mIKeyChainServiceTestSupport;
+        return mIKeyChainServiceTestSupport;
+    }
+
+    public interface KeyChainAction<T> {
+        T run(IKeyChainService service) throws RemoteException;
+    }
+
+    private <T> T performBlockingKeyChainCall(KeyChainAction<T> action) throws RemoteException {
+        try (KeyChain.KeyChainConnection connection =
+        KeyChain.bind(KeyChainServiceTestSupport.this)) {
+            return action.run(connection.getService());
+        } catch (InterruptedException e) {
+            // should never happen.
+            Log.e(TAG, "interrupted while running action");
+            Thread.currentThread().interrupt();
         }
         return null;
     }

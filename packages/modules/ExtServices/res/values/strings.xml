@@ -15,19 +15,15 @@
 -->
 
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name">Android Services Library</string>
+    <string name="app_name" translatable="false">Android Services Library</string>
 
     <string name="notification_assistant">Android Adaptive Notifications</string>
 
-    <string name="autofill_field_classification_default_algorithm">EDIT_DISTANCE</string>
-    <string-array name="autofill_field_classification_available_algorithms">
+    <string name="autofill_field_classification_default_algorithm" translatable="false">EDIT_DISTANCE</string>
+    <string-array name="autofill_field_classification_available_algorithms" translatable="false">
         <item>EDIT_DISTANCE</item>
         <item>EXACT_MATCH</item>
+        <item>CREDIT_CARD</item>
     </string-array>
-
-    <!-- Action chip to copy a one time code to the user's clipboard [CHAR LIMIT=NONE]-->
-    <string name="copy_code_desc">Copy \u201c<xliff:g id="code" example="12345">%1$s</xliff:g>\u201c</string>
-    <!-- Toast to display when text is copied to the device clipboard [CHAR LIMIT=64]-->
-    <string name="code_copied_to_clipboard">Code copied</string>
 
 </resources>

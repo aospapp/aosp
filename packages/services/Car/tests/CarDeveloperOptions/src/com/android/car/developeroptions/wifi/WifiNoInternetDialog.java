@@ -38,9 +38,9 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.CheckBox;
 
+import com.android.car.developeroptions.R;
 import com.android.internal.app.AlertActivity;
 import com.android.internal.app.AlertController;
-import com.android.car.developeroptions.R;
 
 public final class WifiNoInternetDialog extends AlertActivity implements
         DialogInterface.OnClickListener {
@@ -116,9 +116,9 @@ public final class WifiNoInternetDialog extends AlertActivity implements
             finish();
             return;
         }
-        mNetworkName = nc.getSSID();
+        mNetworkName = nc.getSsid();
         if (mNetworkName != null) {
-            mNetworkName = WifiInfo.removeDoubleQuotes(mNetworkName);
+            mNetworkName = WifiInfo.sanitizeSsid(mNetworkName);
         }
 
         createDialog();

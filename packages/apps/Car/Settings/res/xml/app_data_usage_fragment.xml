@@ -18,7 +18,8 @@
 <PreferenceScreen
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:settings="http://schemas.android.com/apk/res-auto"
-    android:title="@string/app_data_usage">
+    android:title="@string/app_data_usage"
+    android:key="@string/psk_app_data_usage">
     <com.android.car.settings.common.LogicalPreferenceGroup
         android:key="@string/pk_app_data_usage_detail"
         settings:controller="com.android.car.settings.datausage.AppDataUsagePreferenceController"/>

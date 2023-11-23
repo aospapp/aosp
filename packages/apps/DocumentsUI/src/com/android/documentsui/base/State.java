@@ -81,14 +81,27 @@ public class State implements android.os.Parcelable {
 
     public boolean allowMultiple;
     public boolean localOnly;
-    public boolean showDeviceStorageOption;
-    public boolean showAdvanced;
 
-    // Indicates that a copy operation (or move) includes a directory.
-    // Why? Directory creation isn't supported by some roots (like Downloads).
-    // This allows us to restrict available roots to just those with support.
-    public boolean directoryCopy;
     public boolean openableOnly;
+    public boolean restrictScopeStorage;
+    public boolean showHiddenFiles;
+
+    /**
+     * Represents whether the state supports cross-profile file picking.
+     */
+    public boolean supportsCrossProfile = false;
+
+    /**
+     * Represents whether the intent is a cross-profile intent
+     */
+    public boolean canShareAcrossProfile = false;
+
+    /**
+     * Returns true if we are allowed to interact with the user.
+     */
+    public boolean canInteractWith(UserId userId) {
+        return canShareAcrossProfile || UserId.CURRENT_USER.equals(userId);
+    }
 
     /**
      * This is basically a sub-type for the copy operation. It can be either COPY,
@@ -143,6 +156,13 @@ public class State implements android.os.Parcelable {
         return true;
     }
 
+    /**
+     * Returns true if DocsUI supports cross-profile for this {@link State}.
+     */
+    public boolean supportsCrossProfile() {
+        return supportsCrossProfile;
+    }
+
     @Override
     public int describeContents() {
         return 0;
@@ -154,12 +174,11 @@ public class State implements android.os.Parcelable {
         out.writeStringArray(acceptMimes);
         out.writeInt(allowMultiple ? 1 : 0);
         out.writeInt(localOnly ? 1 : 0);
-        out.writeInt(showDeviceStorageOption ? 1 : 0);
-        out.writeInt(showAdvanced ? 1 : 0);
         DurableUtils.writeToParcel(out, stack);
         out.writeMap(dirConfigs);
         out.writeList(excludedAuthorities);
         out.writeInt(openableOnly ? 1 : 0);
+        out.writeInt(restrictScopeStorage ? 1 : 0);
         out.writeParcelable(sortModel, 0);
     }
 
@@ -170,12 +189,11 @@ public class State implements android.os.Parcelable {
                 + ", acceptMimes=" + Arrays.toString(acceptMimes)
                 + ", allowMultiple=" + allowMultiple
                 + ", localOnly=" + localOnly
-                + ", showDeviceStorageOption=" + showDeviceStorageOption
-                + ", showAdvanced=" + showAdvanced
                 + ", stack=" + stack
                 + ", dirConfigs=" + dirConfigs
                 + ", excludedAuthorities=" + excludedAuthorities
                 + ", openableOnly=" + openableOnly
+                + ", restrictScopeStorage=" + restrictScopeStorage
                 + ", sortModel=" + sortModel
                 + "}";
     }
@@ -193,12 +211,11 @@ public class State implements android.os.Parcelable {
             state.acceptMimes = in.createStringArray();
             state.allowMultiple = in.readInt() != 0;
             state.localOnly = in.readInt() != 0;
-            state.showDeviceStorageOption = in.readInt() != 0;
-            state.showAdvanced = in.readInt() != 0;
             DurableUtils.readFromParcel(in, state.stack);
             in.readMap(state.dirConfigs, loader);
             in.readList(state.excludedAuthorities, loader);
             state.openableOnly = in.readInt() != 0;
+            state.restrictScopeStorage = in.readInt() != 0;
             state.sortModel = in.readParcelable(loader);
             return state;
         }

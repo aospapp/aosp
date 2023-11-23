@@ -23,7 +23,4 @@
         <!-- 0xA808 for other purposes -->
         <item>0xA808:rat=gsm, type=other, emergency=true, scope=carrier</item>
     </string-array>
-    <string-array name="additional_cbs_channels_strings" translatable="false">
-        <item>0xA807:rat=gsm, emergency=false</item>
-    </string-array>
 </resources>

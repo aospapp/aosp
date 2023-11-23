@@ -16,15 +16,18 @@
 
 # Common make file for all car builds
 
-BOARD_PLAT_PUBLIC_SEPOLICY_DIR += packages/services/Car/car_product/sepolicy/public
-BOARD_PLAT_PRIVATE_SEPOLICY_DIR += packages/services/Car/car_product/sepolicy/private
+PRODUCT_PUBLIC_SEPOLICY_DIRS += packages/services/Car/car_product/sepolicy/public
+PRODUCT_PRIVATE_SEPOLICY_DIRS += packages/services/Car/car_product/sepolicy/private
 
 PRODUCT_PACKAGES += \
     Bluetooth \
     CarDeveloperOptions \
+    CompanionDeviceSupport \
     OneTimeInitializer \
     Provision \
+    StatementService \
     SystemUpdater
+
 
 PRODUCT_PACKAGES += \
     clatd \
@@ -37,10 +40,11 @@ ifneq (,$(filter userdebug eng, $(TARGET_BUILD_VARIANT)))
 PRODUCT_PACKAGES += \
     DefaultStorageMonitoringCompanionApp \
     EmbeddedKitchenSinkApp \
-    VmsPublisherClientSample \
-    VmsSubscriberClientSample \
     DirectRenderingCluster \
     GarageModeTestApp \
+    ExperimentalCarService \
+    RotaryPlayground \
+    BugReportApp \
 
 # SEPolicy for test apps / services
 BOARD_SEPOLICY_DIRS += packages/services/Car/car_product/sepolicy/test
@@ -53,21 +57,12 @@ PRODUCT_PROPERTY_OVERRIDES += \
     persist.bluetooth.enablenewavrcp=false \
     ro.carrier=unknown
 
-# Enable headless user 0
 PRODUCT_SYSTEM_DEFAULT_PROPERTIES += \
     ro.fw.mu.headless_system_user=true \
+    config.disable_systemtextclassifier=true
 
 # Overlay for Google network and fused location providers
 $(call inherit-product, device/sample/products/location_overlay.mk)
-$(call inherit-product-if-exists, frameworks/base/data/fonts/fonts.mk)
-$(call inherit-product-if-exists, external/google-fonts/dancing-script/fonts.mk)
-$(call inherit-product-if-exists, external/google-fonts/carrois-gothic-sc/fonts.mk)
-$(call inherit-product-if-exists, external/google-fonts/coming-soon/fonts.mk)
-$(call inherit-product-if-exists, external/google-fonts/cutive-mono/fonts.mk)
-$(call inherit-product-if-exists, external/noto-fonts/fonts.mk)
-$(call inherit-product-if-exists, external/roboto-fonts/fonts.mk)
-$(call inherit-product-if-exists, external/hyphenation-patterns/patterns.mk)
-$(call inherit-product-if-exists, frameworks/base/data/keyboards/keyboards.mk)
 $(call inherit-product-if-exists, frameworks/webview/chromium/chromium.mk)
 $(call inherit-product, packages/services/Car/car_product/build/car_base.mk)
 
@@ -75,6 +70,8 @@ $(call inherit-product, packages/services/Car/car_product/build/car_base.mk)
 PRODUCT_BRAND := generic
 PRODUCT_DEVICE := generic
 PRODUCT_NAME := generic_car_no_telephony
+
+PRODUCT_IS_AUTOMOTIVE := true
 
 PRODUCT_PROPERTY_OVERRIDES := \
     ro.config.ringtone=Girtab.ogg \
@@ -108,30 +105,102 @@ PRODUCT_PACKAGES += \
     libcar-framework-service-jni \
 
 # System Server components
+# Order is important: if X depends on Y, then Y should precede X on the list.
 PRODUCT_SYSTEM_SERVER_JARS += car-frameworks-service
 
 # Boot animation
 PRODUCT_COPY_FILES += \
     packages/services/Car/car_product/bootanimations/bootanimation-832.zip:system/media/bootanimation.zip
 
-PRODUCT_COPY_FILES += \
-    packages/services/Car/car_product/init/init.car.rc:system/etc/init/init.car.rc
+PRODUCT_LOCALES := \
+    en_US \
+    af_ZA \
+    am_ET \
+    ar_EG ar_XB \
+    as_IN \
+    az_AZ \
+    be_BY \
+    bg_BG \
+    bn_BD \
+    bs_BA \
+    ca_ES \
+    cs_CZ \
+    da_DK \
+    de_DE \
+    el_GR \
+    en_AU en_CA en_GB en_IN en_XA \
+    es_ES es_US \
+    et_EE \
+    eu_ES \
+    fa_IR \
+    fi_FI \
+    fil_PH \
+    fr_CA fr_FR \
+    gl_ES \
+    gu_IN \
+    hi_IN \
+    hr_HR \
+    hu_HU \
+    hy_AM \
+    id_ID \
+    is_IS \
+    it_IT \
+    iw_IL \
+    ja_JP \
+    ka_GE \
+    kk_KZ \
+    km_KH km_MH \
+    kn_IN \
+    ko_KR \
+    ky_KG \
+    lo_LA \
+    lv_LV \
+    lt_LT \
+    mk_MK \
+    ml_IN \
+    mn_MN \
+    mr_IN \
+    ms_MY \
+    my_MM \
+    ne_NP \
+    nl_NL \
+    no_NO \
+    or_IN \
+    pa_IN \
+    pl_PL \
+    pt_BR pt_PT \
+    ro_RO \
+    ru_RU \
+    si_LK \
+    sk_SK \
+    sl_SI \
+    sq_AL \
+    sr_RS \
+    sv_SE \
+    sw_TZ \
+    ta_IN \
+    te_IN \
+    th_TH \
+    tr_TR \
+    uk_UA \
+    ur_PK \
+    uz_UZ \
+    vi_VN \
+    zh_CN zh_HK zh_TW \
+    zu_ZA
 
-PRODUCT_LOCALES := en_US af_ZA am_ET ar_EG bg_BG bn_BD ca_ES cs_CZ da_DK de_DE el_GR en_AU en_GB en_IN es_ES es_US et_EE eu_ES fa_IR fi_FI fr_CA fr_FR gl_ES hi_IN hr_HR hu_HU hy_AM in_ID is_IS it_IT iw_IL ja_JP ka_GE km_KH ko_KR ky_KG lo_LA lt_LT lv_LV km_MH kn_IN mn_MN ml_IN mk_MK mr_IN ms_MY my_MM ne_NP nb_NO nl_NL pl_PL pt_BR pt_PT ro_RO ru_RU si_LK sk_SK sl_SI sr_RS sv_SE sw_TZ ta_IN te_IN th_TH tl_PH tr_TR uk_UA vi_VN zh_CN zh_HK zh_TW zu_ZA en_XA ar_XB
-
-# should add to BOOT_JARS only once
-ifeq (,$(INCLUDED_ANDROID_CAR_TO_PRODUCT_BOOT_JARS))
 PRODUCT_BOOT_JARS += \
     android.car
 
 PRODUCT_HIDDENAPI_STUBS := \
-    android.car-stubs
+    android.car-stubs-dex
 
 PRODUCT_HIDDENAPI_STUBS_SYSTEM := \
-    android.car-system-stubs
+    android.car-system-stubs-dex
 
 PRODUCT_HIDDENAPI_STUBS_TEST := \
-    android.car-test-stubs
+    android.car-test-stubs-dex
 
-INCLUDED_ANDROID_CAR_TO_PRODUCT_BOOT_JARS := yes
-endif
+# Disable Prime Shader Cache in SurfaceFlinger to make it available faster
+PRODUCT_PROPERTY_OVERRIDES += \
+    service.sf.prime_shader_cache=0

@@ -30,13 +30,14 @@ import android.os.CountDownTimer;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
-import android.os.SystemProperties;
+import android.os.UserHandle;
+import android.sysprop.TelephonyProperties;
+import android.telephony.TelephonyManager;
 import android.util.Log;
 
 import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneConstants;
 import com.android.internal.telephony.TelephonyIntents;
-import com.android.internal.telephony.TelephonyProperties;
 import com.android.internal.telephony.util.NotificationChannelController;
 
 import java.text.SimpleDateFormat;
@@ -50,7 +51,7 @@ import java.text.SimpleDateFormat;
 public class EmergencyCallbackModeService extends Service {
 
     // Default Emergency Callback Mode timeout value
-    private static final int DEFAULT_ECM_EXIT_TIMER_VALUE = 300000;
+    private static final long DEFAULT_ECM_EXIT_TIMER_VALUE = 300000L;
     private static final String LOG_TAG = "EmergencyCallbackModeService";
 
     private NotificationManager mNotificationManager = null;
@@ -106,7 +107,8 @@ public class EmergencyCallbackModeService extends Service {
             mPhone.unregisterForEcmTimerReset(mHandler);
 
             // Cancel the notification and timer
-            mNotificationManager.cancel(R.string.phone_in_ecm_notification_title);
+            mNotificationManager.cancelAsUser(null, R.string.phone_in_ecm_notification_title,
+                    UserHandle.ALL);
             mTimer.cancel();
         }
     }
@@ -120,7 +122,7 @@ public class EmergencyCallbackModeService extends Service {
             // Stop the service when phone exits Emergency Callback Mode
             if (intent.getAction().equals(
                     TelephonyIntents.ACTION_EMERGENCY_CALLBACK_MODE_CHANGED)) {
-                if (intent.getBooleanExtra("phoneinECMState", false) == false) {
+                if (!intent.getBooleanExtra(TelephonyManager.EXTRA_PHONE_IN_ECM_STATE, false)) {
                     stopSelf();
                 }
             }
@@ -139,8 +141,7 @@ public class EmergencyCallbackModeService extends Service {
      */
     private void startTimerNotification() {
         // Get Emergency Callback Mode timeout value
-        long ecmTimeout = SystemProperties.getLong(
-                    TelephonyProperties.PROPERTY_ECM_EXIT_TIMER, DEFAULT_ECM_EXIT_TIMER_VALUE);
+        long ecmTimeout = TelephonyProperties.ecm_exit_timer().orElse(DEFAULT_ECM_EXIT_TIMER_VALUE);
 
         // Show the notification
         showNotification(ecmTimeout);
@@ -189,14 +190,20 @@ public class EmergencyCallbackModeService extends Service {
 
         // PendingIntent to launch Emergency Callback Mode Exit activity if the user selects
         // this notification
-        PendingIntent contentIntent = PendingIntent.getActivity(this, 0,
-                new Intent(EmergencyCallbackModeExitDialog.ACTION_SHOW_ECM_EXIT_DIALOG), 0);
+        Intent intent = new Intent(this, EmergencyCallbackModeExitDialog.class);
+        intent.setAction(EmergencyCallbackModeExitDialog.ACTION_SHOW_ECM_EXIT_DIALOG);
+        PendingIntent contentIntent = PendingIntent.getActivity(this, 0, intent,
+                PendingIntent.FLAG_IMMUTABLE);
         builder.setContentIntent(contentIntent);
 
         // Format notification string
         String text = null;
         if(mInEmergencyCall) {
-            text = getText(R.string.phone_in_ecm_call_notification_text).toString();
+            text = getText(
+                    // During IMS ECM, data restriction hint should be removed.
+                    (imsPhone != null && imsPhone.isInImsEcm())
+                    ? R.string.phone_in_ecm_call_notification_text_without_data_restriction_hint
+                    : R.string.phone_in_ecm_call_notification_text).toString();
         } else {
             // Calculate the time in ms when the notification will be finished.
             long finishedCountMs = millisUntilFinished + System.currentTimeMillis();
@@ -207,14 +214,19 @@ public class EmergencyCallbackModeService extends Service {
 
             String completeTime = SimpleDateFormat.getTimeInstance(SimpleDateFormat.SHORT).format(
                     finishedCountMs);
-            text = getResources().getString(R.string.phone_in_ecm_notification_complete_time,
+            text = getResources().getString(
+                    // During IMS ECM, data restriction hint should be removed.
+                    (imsPhone != null && imsPhone.isInImsEcm())
+                    ? R.string.phone_in_ecm_notification_complete_time_without_data_restriction_hint
+                    : R.string.phone_in_ecm_notification_complete_time,
                     completeTime);
         }
         builder.setContentText(text);
         builder.setChannelId(NotificationChannelController.CHANNEL_ID_ALERT);
 
         // Show notification
-        mNotificationManager.notify(R.string.phone_in_ecm_notification_title, builder.build());
+        mNotificationManager.notifyAsUser(null, R.string.phone_in_ecm_notification_title,
+                builder.build(), UserHandle.ALL);
     }
 
     /**

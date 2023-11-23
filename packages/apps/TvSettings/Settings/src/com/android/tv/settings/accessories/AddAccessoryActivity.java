@@ -20,6 +20,8 @@ import android.app.Activity;
 import android.app.FragmentManager;
 import android.bluetooth.BluetoothDevice;
 import android.content.Intent;
+import android.hardware.hdmi.HdmiControlManager;
+import android.hardware.hdmi.HdmiPlaybackClient;
 import android.hardware.input.InputManager;
 import android.os.Bundle;
 import android.os.Handler;
@@ -188,8 +190,7 @@ public class AddAccessoryActivity extends Activity implements BluetoothDevicePai
 
         mMsgHandler.setActivity(this);
 
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON |
-                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
         mNoInputMode = getIntent().getBooleanExtra(INTENT_EXTRA_NO_INPUT_MODE, false);
         mHwKeyDown = false;
@@ -217,6 +218,13 @@ public class AddAccessoryActivity extends Activity implements BluetoothDevicePai
                     fm.getFragment(savedInstanceState,
                             SAVED_STATE_CONTENT_FRAGMENT);
         }
+        sendCecOtpCommand((result) -> {
+            if (result == HdmiControlManager.RESULT_SUCCESS) {
+                Log.i(TAG, "One Touch Play successful");
+            } else {
+                Log.i(TAG, "One Touch Play failed");
+            }
+        });
 
         rearrangeViews();
     }
@@ -656,6 +664,21 @@ public class AddAccessoryActivity extends Activity implements BluetoothDevicePai
             mMsgHandler.sendEmptyMessage(MSG_UPDATE_VIEW);
             mMsgHandler.sendEmptyMessageDelayed(MSG_RESTART, RESTART_DELAY);
         }
+    }
+
+    private void sendCecOtpCommand(HdmiPlaybackClient.OneTouchPlayCallback callback) {
+        HdmiControlManager hdmiControlManager =
+                (HdmiControlManager) getSystemService(HDMI_CONTROL_SERVICE);
+        if (hdmiControlManager == null) {
+            Log.wtf(TAG, "no HdmiControlManager");
+            return;
+        }
+        HdmiPlaybackClient client = hdmiControlManager.getPlaybackClient();
+        if (client == null) {
+            if (DEBUG) Log.d(TAG, "no HdmiPlaybackClient");
+            return;
+        }
+        client.oneTouchPlay(callback);
     }
 
     List<BluetoothDevice> getBluetoothDevices() {

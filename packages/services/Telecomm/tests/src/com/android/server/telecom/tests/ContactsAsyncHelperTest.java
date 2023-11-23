@@ -32,12 +32,15 @@ import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
+import android.os.Handler;
+import android.os.Looper;
 import android.test.suitebuilder.annotation.SmallTest;
 
 import androidx.test.InstrumentationRegistry;
 
 import com.android.server.telecom.ContactsAsyncHelper;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -46,6 +49,7 @@ import org.mockito.ArgumentCaptor;
 
 import java.io.FileNotFoundException;
 import java.io.InputStream;
+import java.util.concurrent.Executor;
 
 @RunWith(JUnit4.class)
 public class ContactsAsyncHelperTest extends TelecomTestCase {
@@ -96,10 +100,17 @@ public class ContactsAsyncHelperTest extends TelecomTestCase {
         mContext = InstrumentationRegistry.getTargetContext();
     }
 
+    @Override
+    @After
+    public void tearDown() throws Exception {
+        super.tearDown();
+    }
+
     @SmallTest
     @Test
     public void testEmptyUri() throws Exception {
-        ContactsAsyncHelper cah = new ContactsAsyncHelper(mNullContentResolverAdapter);
+        ContactsAsyncHelper cah = new ContactsAsyncHelper(mNullContentResolverAdapter,
+                Looper.getMainLooper());
         try {
             cah.startObtainPhotoAsync(TOKEN, mContext, null, mListener, COOKIE);
         } catch (IllegalStateException e) {
@@ -113,7 +124,8 @@ public class ContactsAsyncHelperTest extends TelecomTestCase {
     @SmallTest
     @Test
     public void testNullReturnFromOpenInputStream() {
-        ContactsAsyncHelper cah = new ContactsAsyncHelper(mNullContentResolverAdapter);
+        ContactsAsyncHelper cah = new ContactsAsyncHelper(mNullContentResolverAdapter,
+                Looper.getMainLooper());
         cah.startObtainPhotoAsync(TOKEN, mContext, SAMPLE_CONTACT_PHOTO_URI, mListener, COOKIE);
 
         verify(mListener, timeout(TEST_TIMEOUT)).onImageLoadComplete(eq(TOKEN),
@@ -123,7 +135,8 @@ public class ContactsAsyncHelperTest extends TelecomTestCase {
     @SmallTest
     @Test
     public void testImageScaling() {
-        ContactsAsyncHelper cah = new ContactsAsyncHelper(mWorkingContentResolverAdapter);
+        ContactsAsyncHelper cah = new ContactsAsyncHelper(mWorkingContentResolverAdapter,
+                Looper.getMainLooper());
         cah.startObtainPhotoAsync(TOKEN, mContext, SAMPLE_CONTACT_PHOTO_URI, mListener, COOKIE);
 
         ArgumentCaptor<Drawable> photoCaptor = ArgumentCaptor.forClass(Drawable.class);
@@ -143,7 +156,8 @@ public class ContactsAsyncHelperTest extends TelecomTestCase {
     @SmallTest
     @Test
     public void testNoScaling() {
-        ContactsAsyncHelper cah = new ContactsAsyncHelper(mWorkingContentResolverAdapter);
+        ContactsAsyncHelper cah = new ContactsAsyncHelper(mWorkingContentResolverAdapter,
+                Looper.getMainLooper());
         cah.startObtainPhotoAsync(TOKEN, mContext, SAMPLE_CONTACT_PHOTO_URI_SMALL,
                 mListener, COOKIE);
 

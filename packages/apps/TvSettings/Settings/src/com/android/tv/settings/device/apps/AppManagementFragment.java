@@ -16,13 +16,20 @@
 
 package com.android.tv.settings.device.apps;
 
+import static android.content.pm.ApplicationInfo.FLAG_ALLOW_CLEAR_USER_DATA;
+import static android.content.pm.ApplicationInfo.FLAG_SYSTEM;
+
+import static com.android.tv.settings.util.InstrumentationUtils.logEntrySelected;
+
 import android.app.Activity;
 import android.app.ActivityManager;
+import android.app.tvsettings.TvSettingsEnums;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.IPackageDataObserver;
 import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.os.Handler;
@@ -39,8 +46,10 @@ import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 import com.android.settingslib.applications.ApplicationsState;
 import com.android.tv.settings.R;
 import com.android.tv.settings.SettingsPreferenceFragment;
+import com.android.tv.twopanelsettings.TwoPanelSettingsFragment;
 
 import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Fragment for managing a single app
@@ -61,6 +70,10 @@ public class AppManagementFragment extends SettingsPreferenceFragment {
     private static final String KEY_CLEAR_DEFAULTS = "clearDefaults";
     private static final String KEY_NOTIFICATIONS = "notifications";
     private static final String KEY_PERMISSIONS = "permissions";
+    private static final String KEY_LICENSES = "licenses";
+
+    // Intent action implemented by apps that have open source licenses to display under settings
+    private static final String VIEW_LICENSES_ACTION = "com.android.tv.settings.VIEW_LICENSES";
 
     // Result code identifiers
     private static final int REQUEST_UNINSTALL = 1;
@@ -169,13 +182,27 @@ public class AppManagementFragment extends SettingsPreferenceFragment {
     }
 
     private void navigateBack() {
-        // need to post this to avoid recursing in the fragment manager.
-        mHandler.removeCallbacks(mBailoutRunnable);
-        mHandler.post(mBailoutRunnable);
+        if (getCallbackFragment() instanceof TwoPanelSettingsFragment) {
+            TwoPanelSettingsFragment parentFragment =
+                    (TwoPanelSettingsFragment) getCallbackFragment();
+            if (parentFragment.isFragmentInTheMainPanel(this)) {
+                parentFragment.navigateBack();
+            }
+        } else {
+            // need to post this to avoid recursing in the fragment manager.
+            mHandler.removeCallbacks(mBailoutRunnable);
+            mHandler.post(mBailoutRunnable);
+        }
     }
 
     @Override
     public boolean onPreferenceTreeClick(Preference preference) {
+        if (preference.equals(mEnableDisablePreference)) {
+            // disable the preference to prevent double clicking
+            mHandler.post(() -> {
+                mEnableDisablePreference.setEnabled(false);
+            });
+        }
         final Intent intent = preference.getIntent();
         if (intent != null) {
             try {
@@ -207,6 +234,10 @@ public class AppManagementFragment extends SettingsPreferenceFragment {
         setPreferenceScreen(screen);
 
         updatePrefs();
+
+        if (Intent.ACTION_AUTO_REVOKE_PERMISSIONS.equals(getActivity().getIntent().getAction())) {
+            scrollToPreference(findPreference(KEY_PERMISSIONS));
+        }
     }
 
     private void updatePrefs() {
@@ -245,6 +276,11 @@ public class AppManagementFragment extends SettingsPreferenceFragment {
             openPreference.setIntent(appLaunchIntent);
             openPreference.setTitle(R.string.device_apps_app_management_open);
             openPreference.setVisible(true);
+            openPreference.setOnPreferenceClickListener(
+                    preference -> {
+                        logEntrySelected(TvSettingsEnums.APPS_ALL_APPS_APP_ENTRY_OPEN);
+                        return false;
+                    });
         } else {
             openPreference.setVisible(false);
         }
@@ -274,6 +310,7 @@ public class AppManagementFragment extends SettingsPreferenceFragment {
             replacePreference(mEnableDisablePreference);
         } else {
             mEnableDisablePreference.setEntry(mEntry);
+            mEnableDisablePreference.setEnabled(true);
         }
 
         // Storage used
@@ -286,12 +323,14 @@ public class AppManagementFragment extends SettingsPreferenceFragment {
         }
 
         // Clear data
-        if (mClearDataPreference == null) {
-            mClearDataPreference = new ClearDataPreference(themedContext, mEntry);
-            mClearDataPreference.setKey(KEY_CLEAR_DATA);
-            replacePreference(mClearDataPreference);
-        } else {
-            mClearDataPreference.setEntry(mEntry);
+        if (clearDataAllowed()) {
+            if (mClearDataPreference == null) {
+                mClearDataPreference = new ClearDataPreference(themedContext, mEntry);
+                mClearDataPreference.setKey(KEY_CLEAR_DATA);
+                replacePreference(mClearDataPreference);
+            } else {
+                mClearDataPreference.setEntry(mEntry);
+            }
         }
 
         // Clear cache
@@ -321,6 +360,33 @@ public class AppManagementFragment extends SettingsPreferenceFragment {
             mNotificationsPreference.setEntry(mEntry);
         }
 
+        // Open Source Licenses
+        Preference licensesPreference = findPreference(KEY_LICENSES);
+        if (licensesPreference == null) {
+            licensesPreference = new Preference(themedContext);
+            licensesPreference.setKey(KEY_LICENSES);
+            replacePreference(licensesPreference);
+        }
+        // Check if app has open source licenses to display
+        Intent licenseIntent = new Intent(VIEW_LICENSES_ACTION);
+        licenseIntent.setPackage(mEntry.info.packageName);
+        ResolveInfo resolveInfo = resolveIntent(licenseIntent);
+        if (resolveInfo == null) {
+            licensesPreference.setVisible(false);
+        } else {
+            Intent intent = new Intent(licenseIntent);
+            intent.setClassName(resolveInfo.activityInfo.packageName,
+                    resolveInfo.activityInfo.name);
+            licensesPreference.setIntent(intent);
+            licensesPreference.setTitle(R.string.device_apps_app_management_licenses);
+            licensesPreference.setOnPreferenceClickListener(
+                    preference -> {
+                        logEntrySelected(TvSettingsEnums.APPS_ALL_APPS_APP_ENTRY_LICENSES);
+                        return false;
+                    });
+            licensesPreference.setVisible(true);
+        }
+
         // Permissions
         Preference permissionsPreference = findPreference(KEY_PERMISSIONS);
         if (permissionsPreference == null) {
@@ -329,6 +395,11 @@ public class AppManagementFragment extends SettingsPreferenceFragment {
             permissionsPreference.setTitle(R.string.device_apps_app_management_permissions);
             replacePreference(permissionsPreference);
         }
+        permissionsPreference.setOnPreferenceClickListener(
+                preference -> {
+                    logEntrySelected(TvSettingsEnums.APPS_ALL_APPS_APP_ENTRY_PERMISSIONS);
+                    return false;
+                });
         permissionsPreference.setIntent(new Intent(Intent.ACTION_MANAGE_APP_PERMISSIONS)
                 .putExtra(Intent.EXTRA_PACKAGE_NAME, mPackageName));
     }
@@ -343,6 +414,11 @@ public class AppManagementFragment extends SettingsPreferenceFragment {
             getPreferenceScreen().removePreference(old);
         }
         getPreferenceScreen().addPreference(preference);
+    }
+
+    private ResolveInfo resolveIntent(Intent intent) {
+        List<ResolveInfo> resolveInfos = mPackageManager.queryIntentActivities(intent, 0);
+        return (resolveInfos == null || resolveInfos.size() <= 0) ? null : resolveInfos.get(0);
     }
 
     public String getAppName() {
@@ -362,6 +438,11 @@ public class AppManagementFragment extends SettingsPreferenceFragment {
     }
 
     public void clearData() {
+        if (!clearDataAllowed()) {
+            Log.e(TAG, "Attempt to clear data failed. Clear data is disabled for " + mPackageName);
+            return;
+        }
+
         mMetricsFeatureProvider.action(getContext(), MetricsEvent.ACTION_SETTINGS_CLEAR_APP_DATA);
         mClearDataPreference.setClearingData(true);
         String spaceManagementActivityName = mEntry.info.manageSpaceActivityName;
@@ -442,6 +523,22 @@ public class AppManagementFragment extends SettingsPreferenceFragment {
         }
     }
 
+    /**
+     * Clearing data can only be disabled for system apps. For all non-system apps it is enabled.
+     * System apps disable it explicitly via the android:allowClearUserData tag.
+     **/
+    private boolean clearDataAllowed() {
+        boolean sysApp = (mEntry.info.flags & FLAG_SYSTEM) == FLAG_SYSTEM;
+        boolean allowClearData =
+                (mEntry.info.flags & FLAG_ALLOW_CLEAR_USER_DATA) == FLAG_ALLOW_CLEAR_USER_DATA;
+        return !sysApp || allowClearData;
+    }
+
+    @Override
+    protected int getPageId() {
+        return TvSettingsEnums.APPS_ALL_APPS_APP_ENTRY;
+    }
+
     private class ApplicationsStateCallbacks implements ApplicationsState.Callbacks {
 
         @Override
@@ -477,8 +574,11 @@ public class AppManagementFragment extends SettingsPreferenceFragment {
                 return;
             }
             mAppStoragePreference.refresh();
-            mClearDataPreference.refresh();
             mClearCachePreference.refresh();
+
+            if (mClearDataPreference != null) {
+                mClearDataPreference.refresh();
+            }
         }
 
         @Override
@@ -488,8 +588,11 @@ public class AppManagementFragment extends SettingsPreferenceFragment {
                 return;
             }
             mAppStoragePreference.refresh();
-            mClearDataPreference.refresh();
             mClearCachePreference.refresh();
+
+            if (mClearDataPreference != null) {
+                mClearDataPreference.refresh();
+            }
         }
 
         @Override
@@ -506,8 +609,11 @@ public class AppManagementFragment extends SettingsPreferenceFragment {
                 return;
             }
             mAppStoragePreference.refresh();
-            mClearDataPreference.refresh();
             mClearCachePreference.refresh();
+
+            if (mClearDataPreference != null) {
+                mClearDataPreference.refresh();
+            }
         }
     }
 }

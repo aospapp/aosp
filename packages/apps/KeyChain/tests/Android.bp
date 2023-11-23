@@ -20,6 +20,23 @@ android_test {
         "com.android.keychain.tests.support",
         "core-tests-support",
         "mockwebserver",
+        "platform-test-annotations",
         "junit",
+        "mockito-target-minus-junit4",
+        "androidx.test.ext.junit",
+        "androidx.test.runner",
+        "androidx.test.rules",
+        "testng",
+        "truth-prebuilt",
     ],
+    libs: [
+        "android.test.base",
+    ],
+    test_suites: ["general-tests"],
+    required: [
+        "KeyChainTestsSupport",
+    ],
+
+    instrumentation_for: "KeyChain",
+    certificate: "platform",
 }

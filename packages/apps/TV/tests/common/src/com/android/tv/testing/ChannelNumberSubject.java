@@ -16,6 +16,8 @@
 
 package com.android.tv.testing;
 
+import static com.google.common.truth.Fact.simpleFact;
+
 import android.support.annotation.Nullable;
 import com.android.tv.data.ChannelNumber;
 import com.google.common.truth.ComparableSubject;
@@ -24,8 +26,7 @@ import com.google.common.truth.Subject;
 import com.google.common.truth.Truth;
 
 /** Propositions for {@link ChannelNumber} subjects. */
-public final class ChannelNumberSubject
-        extends ComparableSubject<ChannelNumberSubject, ChannelNumber> {
+public final class ChannelNumberSubject extends ComparableSubject {
     private static final Subject.Factory<ChannelNumberSubject, ChannelNumber> FACTORY =
             ChannelNumberSubject::new;
 
@@ -37,30 +38,30 @@ public final class ChannelNumberSubject
         return Truth.assertAbout(channelNumbers()).that(actual);
     }
 
-    public ChannelNumberSubject(FailureMetadata failureMetadata, @Nullable ChannelNumber subject) {
-        super(failureMetadata, subject);
+  private final ChannelNumber actual;
+
+  public ChannelNumberSubject(FailureMetadata failureMetadata, @Nullable ChannelNumber subject) {
+    super(failureMetadata, subject);
+    this.actual = subject;
     }
 
     public void displaysAs(int major) {
-        if (!getSubject().majorNumber.equals(Integer.toString(major))
-                || getSubject().hasDelimiter) {
-            fail("displaysAs", major);
+    if (!actual.majorNumber.equals(Integer.toString(major)) || actual.hasDelimiter) {
+            failWithActual("expected to display as", major);
         }
     }
 
     public void displaysAs(int major, int minor) {
-        if (!getSubject().majorNumber.equals(Integer.toString(major))
-                || !getSubject().minorNumber.equals(Integer.toString(minor))
-                || !getSubject().hasDelimiter) {
-            fail("displaysAs", major + "-" + minor);
+    if (!actual.majorNumber.equals(Integer.toString(major))
+        || !actual.minorNumber.equals(Integer.toString(minor))
+        || !actual.hasDelimiter) {
+            failWithActual("expected to display as", major + "-" + minor);
         }
     }
 
     public void isEmpty() {
-        if (!getSubject().majorNumber.isEmpty()
-                || !getSubject().minorNumber.isEmpty()
-                || getSubject().hasDelimiter) {
-            fail("isEmpty");
+    if (!actual.majorNumber.isEmpty() || !actual.minorNumber.isEmpty() || actual.hasDelimiter) {
+            failWithActual(simpleFact("expected to be empty"));
         }
     }
 }

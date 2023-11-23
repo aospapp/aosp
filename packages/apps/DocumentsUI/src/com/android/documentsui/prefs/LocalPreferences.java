@@ -18,10 +18,12 @@ package com.android.documentsui.prefs;
 
 import static com.android.documentsui.base.State.MODE_UNKNOWN;
 
-import androidx.annotation.IntDef;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.preference.PreferenceManager;
+
+import androidx.annotation.IntDef;
+import androidx.annotation.VisibleForTesting;
 
 import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.base.State.ViewMode;
@@ -34,23 +36,37 @@ import java.lang.annotation.RetentionPolicy;
  */
 public class LocalPreferences {
     private static final String ROOT_VIEW_MODE_PREFIX = "rootViewMode-";
+    private static final String SHOW_HIDDEN_FILES = "showHiddenFiles";
 
     public static @ViewMode int getViewMode(Context context, RootInfo root,
             @ViewMode int fallback) {
-        return getPrefs(context).getInt(createKey(root), fallback);
+        return getPrefs(context).getInt(createKey(ROOT_VIEW_MODE_PREFIX, root), fallback);
+    }
+
+    /** Returns if hidden files should be shown. */
+    public static boolean getShowHiddenFiles(Context context, boolean fallback) {
+        return getPrefs(context).getBoolean(SHOW_HIDDEN_FILES, fallback);
     }
 
     public static void setViewMode(Context context, RootInfo root, @ViewMode int viewMode) {
         assert(viewMode != MODE_UNKNOWN);
-        getPrefs(context).edit().putInt(createKey(root), viewMode).apply();
+        getPrefs(context).edit().putInt(createKey(ROOT_VIEW_MODE_PREFIX, root), viewMode).apply();
+    }
+
+    /** Sets if hidden files should be shown. */
+    @VisibleForTesting
+    public static void setShowHiddenFiles(Context context, boolean showHiddenFiles) {
+        getPrefs(context).edit()
+                .putBoolean(SHOW_HIDDEN_FILES, showHiddenFiles)
+                .apply();
     }
 
     private static SharedPreferences getPrefs(Context context) {
         return PreferenceManager.getDefaultSharedPreferences(context);
     }
 
-    private static String createKey(RootInfo root) {
-        return ROOT_VIEW_MODE_PREFIX + root.authority + root.rootId;
+    private static String createKey(String prefix, RootInfo root) {
+        return prefix + root.authority + root.rootId;
     }
 
     public static final int PERMISSION_ASK = 0;

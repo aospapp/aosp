@@ -16,7 +16,6 @@
 
 package com.android.documentsui.services;
 
-import static com.android.documentsui.base.SharedMinimal.DEBUG;
 import static com.android.documentsui.services.FileOperationService.OPERATION_MOVE;
 
 import android.app.Notification;
@@ -28,20 +27,17 @@ import android.os.Messenger;
 import android.os.ParcelFileDescriptor;
 import android.os.RemoteException;
 import android.provider.DocumentsContract;
-import android.provider.DocumentsContract.Document;
 import android.util.Log;
 
-import com.android.documentsui.Metrics;
 import com.android.documentsui.R;
 import com.android.documentsui.archives.ArchivesProvider;
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.DocumentStack;
 import com.android.documentsui.base.Features;
+import com.android.documentsui.base.UserId;
 import com.android.documentsui.clipping.UrisSupplier;
 
 import java.io.FileNotFoundException;
-
-import javax.annotation.Nullable;
 
 // TODO: Stop extending CopyJob.
 final class CompressJob extends CopyJob {
@@ -113,7 +109,7 @@ final class CompressJob extends CopyJob {
 
         try {
             mDstInfo = DocumentInfo.fromUri(resolver, ArchivesProvider.buildUriForArchive(
-                    archiveUri, ParcelFileDescriptor.MODE_WRITE_ONLY));
+                    archiveUri, ParcelFileDescriptor.MODE_WRITE_ONLY), UserId.DEFAULT_USER);
             ArchivesProvider.acquireArchive(getClient(mDstInfo), mDstInfo.derivedUri);
         } catch (FileNotFoundException e) {
             Log.e(TAG, "Failed to create dstInfo.", e);

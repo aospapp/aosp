@@ -26,15 +26,15 @@ import android.view.View;
 
 import androidx.preference.PreferenceViewHolder;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.R;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 public class ButtonPasswordEditTextPreferenceTest {
 
     private PreferenceViewHolder mViewHolder;
@@ -44,10 +44,10 @@ public class ButtonPasswordEditTextPreferenceTest {
     public void setUp() {
         Context context = RuntimeEnvironment.application;
         Context themedContext = new ContextThemeWrapper(context, R.style.CarSettingTheme);
-        View rootView = View.inflate(themedContext, R.layout.two_action_preference, /* root= */
-                null);
+
+        mButtonPreference = new ButtonPasswordEditTextPreference(context);
+        View rootView = View.inflate(themedContext, mButtonPreference.getLayoutResource(), null);
         mViewHolder = PreferenceViewHolder.createInstanceForTests(rootView);
-        mButtonPreference = new ButtonPasswordEditTextPreference(RuntimeEnvironment.application);
     }
 
     @Test
@@ -58,7 +58,6 @@ public class ButtonPasswordEditTextPreferenceTest {
         mButtonPreference.setOnButtonClickListener(listener);
 
         mViewHolder.findViewById(android.R.id.widget_frame).performClick();
-
         verify(listener).onButtonClick(mButtonPreference);
     }
 

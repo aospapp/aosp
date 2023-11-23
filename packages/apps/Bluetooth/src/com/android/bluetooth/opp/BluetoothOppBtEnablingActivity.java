@@ -32,6 +32,7 @@
 
 package com.android.bluetooth.opp;
 
+import android.bluetooth.AlertActivity;
 import android.bluetooth.BluetoothAdapter;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -46,8 +47,6 @@ import android.view.View;
 import android.widget.TextView;
 
 import com.android.bluetooth.R;
-import com.android.internal.app.AlertActivity;
-import com.android.internal.app.AlertController;
 
 /**
  * This class is designed to show BT enabling progress.
@@ -80,10 +79,8 @@ public class BluetoothOppBtEnablingActivity extends AlertActivity {
         registerReceiver(mBluetoothReceiver, filter);
         mRegistered = true;
 
-        // Set up the "dialog"
-        final AlertController.AlertParams p = mAlertParams;
-        p.mTitle = getString(R.string.enabling_progress_title);
-        p.mView = createView();
+        mAlertBuilder.setTitle(R.string.enabling_progress_title);
+        mAlertBuilder.setView(createView());
         setupAlert();
 
         // Add timeout for enabling progress

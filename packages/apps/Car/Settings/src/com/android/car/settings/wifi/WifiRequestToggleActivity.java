@@ -18,10 +18,8 @@ package com.android.car.settings.wifi;
 
 import android.annotation.NonNull;
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.content.BroadcastReceiver;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.ApplicationInfo;
@@ -29,9 +27,12 @@ import android.content.pm.PackageManager;
 import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.text.TextUtils;
-import android.widget.Toast;
+
+import androidx.annotation.VisibleForTesting;
+import androidx.fragment.app.FragmentActivity;
 
 import com.android.car.settings.R;
+import com.android.car.settings.common.ConfirmationDialogFragment;
 import com.android.car.settings.common.Logger;
 
 /**
@@ -40,8 +41,7 @@ import com.android.car.settings.common.Logger;
  * This {@link Activity} handles requests to toggle WiFi by collecting user
  * consent and waiting until the state change is completed.
  */
-public class WifiRequestToggleActivity extends Activity implements DialogInterface.OnClickListener,
-        DialogInterface.OnCancelListener {
+public class WifiRequestToggleActivity extends FragmentActivity {
     private static final Logger LOG = new Logger(WifiRequestToggleActivity.class);
     private static final long TOGGLE_TIMEOUT_MILLIS = 10000; // 10 sec
 
@@ -64,9 +64,38 @@ public class WifiRequestToggleActivity extends Activity implements DialogInterfa
     @NonNull
     private CharSequence mAppLabel;
 
-    private AlertDialog mDialog;
+    private ConfirmationDialogFragment mDialog;
     private int mAction = STATE_UNKNOWN;
     private int mState = STATE_UNKNOWN;
+
+    @VisibleForTesting
+    final ConfirmationDialogFragment.ConfirmListener mConfirmListener = arguments -> {
+        switch (mState) {
+            case STATE_ENABLE:
+                mCarWifiManager.setWifiEnabled(true);
+                mState = STATE_ENABLING;
+                updateUi();
+                scheduleToggleTimeout();
+                break;
+            case STATE_DISABLE:
+                mCarWifiManager.setWifiEnabled(false);
+                mState = STATE_DISABLING;
+                updateUi();
+                scheduleToggleTimeout();
+                break;
+        }
+        setResult(RESULT_OK);
+    };
+
+    @VisibleForTesting
+    final ConfirmationDialogFragment.RejectListener mRejectListener = arguments -> {
+        finish();
+    };
+
+    @VisibleForTesting
+    final ConfirmationDialogFragment.DismissListener mDismissListener = arguments -> {
+        finish();
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -84,7 +113,7 @@ public class WifiRequestToggleActivity extends Activity implements DialogInterfa
 
         try {
             ApplicationInfo applicationInfo = getPackageManager().getApplicationInfo(
-                    packageName,  /* flags= */ 0);
+                    packageName, /* flags= */ 0);
             mAppLabel = applicationInfo.loadSafeLabel(getPackageManager());
         } catch (PackageManager.NameNotFoundException e) {
             LOG.e("Couldn't find app with package name " + packageName);
@@ -96,38 +125,6 @@ public class WifiRequestToggleActivity extends Activity implements DialogInterfa
         if (mAction == STATE_UNKNOWN) {
             finish();
         }
-    }
-
-    @Override
-    public void onClick(DialogInterface dialog, int which) {
-        switch (which) {
-            case DialogInterface.BUTTON_POSITIVE:
-                switch (mState) {
-                    case STATE_ENABLE:
-                        mCarWifiManager.setWifiEnabled(true);
-                        mState = STATE_ENABLING;
-                        updateUi();
-                        scheduleToggleTimeout();
-                        break;
-
-                    case STATE_DISABLE:
-                        mCarWifiManager.setWifiEnabled(false);
-                        mState = STATE_DISABLING;
-                        updateUi();
-                        scheduleToggleTimeout();
-                        break;
-                }
-                setResult(RESULT_OK);
-                break;
-            case DialogInterface.BUTTON_NEGATIVE:
-                finish();
-                break;
-        }
-    }
-
-    @Override
-    public void onCancel(DialogInterface dialog) {
-        finish();
     }
 
     @Override
@@ -171,7 +168,6 @@ public class WifiRequestToggleActivity extends Activity implements DialogInterfa
                 }
                 break;
         }
-
         updateUi();
     }
 
@@ -190,12 +186,13 @@ public class WifiRequestToggleActivity extends Activity implements DialogInterfa
             mDialog.dismiss();
         }
 
-        AlertDialog.Builder builder = new AlertDialog.Builder(/* context= */
-                this).setOnCancelListener(/* listener= */ this);
+        ConfirmationDialogFragment.Builder builder =
+                new ConfirmationDialogFragment.Builder(/* context= */ this).setDismissListener(
+                        mDismissListener);
         switch (mState) {
             case STATE_ENABLE:
-                builder.setPositiveButton(R.string.allow, /* listener= */ this);
-                builder.setNegativeButton(R.string.deny, /* listener= */ this);
+                builder.setPositiveButton(R.string.allow, mConfirmListener);
+                builder.setNegativeButton(R.string.deny, mRejectListener);
                 builder.setMessage(getString(R.string.wifi_ask_enable, mAppLabel));
                 break;
 
@@ -204,8 +201,8 @@ public class WifiRequestToggleActivity extends Activity implements DialogInterfa
                 break;
 
             case STATE_DISABLE:
-                builder.setPositiveButton(R.string.allow, /* listener= */ this);
-                builder.setNegativeButton(R.string.deny, /* listener= */ this);
+                builder.setPositiveButton(R.string.allow, mConfirmListener);
+                builder.setNegativeButton(R.string.deny, mRejectListener);
                 builder.setMessage(getString(R.string.wifi_ask_disable, mAppLabel));
                 break;
 
@@ -213,8 +210,8 @@ public class WifiRequestToggleActivity extends Activity implements DialogInterfa
                 builder.setMessage(getString(R.string.wifi_stopping, mAppLabel));
                 break;
         }
-        mDialog = builder.create();
-        mDialog.show();
+        mDialog = builder.build();
+        mDialog.show(getSupportFragmentManager(), ConfirmationDialogFragment.TAG);
     }
 
     private void scheduleToggleTimeout() {
@@ -264,11 +261,6 @@ public class WifiRequestToggleActivity extends Activity implements DialogInterfa
                         activity.setResult(Activity.RESULT_OK);
                         finish();
                     }
-                    break;
-
-                case WifiManager.ERROR:
-                    Toast.makeText(activity, R.string.wifi_error, Toast.LENGTH_SHORT).show();
-                    finish();
                     break;
             }
         }

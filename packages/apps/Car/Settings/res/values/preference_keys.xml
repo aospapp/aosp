@@ -37,6 +37,7 @@
     </string>
     <string name="pk_users_settings_entry" translatable="false">users_settings_entry</string>
     <string name="pk_accounts_settings_entry" translatable="false">accounts_settings_entry</string>
+    <string name="pk_privacy_settings_entry" translatable="false">privacy_settings_entry</string>
     <string name="pk_storage_settings_entry" translatable="false">storage_settings_entry</string>
     <string name="pk_security_settings_entry" translatable="false">security_settings_entry</string>
     <string name="pk_system_settings_entry" translatable="false">system_settings_entry</string>
@@ -141,6 +142,9 @@
     <string name="pk_application_details_permissions" translatable="false">
         application_details_permissions
     </string>
+    <string name="pk_application_details_storage" translatable="false">
+        application_details_storage
+    </string>
     <string name="pk_application_details_version" translatable="false">
         application_details_version
     </string>
@@ -223,6 +227,11 @@
     </string>
     <string name="pk_account_sync_details" translatable="false">account_sync_details</string>
 
+    <!-- Privacy -->
+    <string name="pk_privacy_manage_perms" translatable="false">privacy_manage_perms</string>
+    <string name="pk_show_password" translatable="false">privacy_show_password</string>
+    <string name="pk_privacy_extra_settings" translatable="false">privacy_extra_settings</string>
+
     <!-- Storage -->
     <string name="pk_storage_music_audio" translatable="false">storage_music_audio</string>
     <string name="pk_storage_music_audio_files" translatable="false">storage_music_audio_files
@@ -275,14 +284,10 @@
     <string name="pk_location_recent_requests_entry" translatable="false">
         location_recent_requests_entry
     </string>
-    <string name="pk_location_recent_requests_screen" translatable="false">
-        location_recent_requests_screen
+    <string name="pk_location_recent_requests" translatable="false">
+        location_recent_requests
     </string>
     <string name="pk_location_app_permissions" translatable="false">location_app_permissions
-    </string>
-    <string name="pk_location_scanning" translatable="false">location_scanning</string>
-    <string name="pk_location_scanning_wifi" translatable="false">location_scanning_wifi</string>
-    <string name="pk_location_scanning_bluetooth" translatable="false">location_scanning_bluetooth
     </string>
     <string name="pk_location_services" translatable="false">location_services</string>
     <string name="pk_location_footer" translatable="false">location_footer</string>
@@ -300,14 +305,7 @@
     <string name="pk_password_lock" translatable="false">password_lock</string>
     <string name="pk_pin_lock" translatable="false">pin_lock</string>
     <string name="pk_choose_lock_type" translatable="false">choose_lock_type</string>
-    <string name="pk_trusted_device" translatable="false">trusted_device</string>
-    <string name="pk_car_ble_name" translatable="false">car_ble_name</string>
-    <string name="pk_add_trusted_device" translatable="false">add_trusted_device</string>
-    <string name="pk_trusted_device_list" translatable="false">trusted_device_list</string>
-    <string name="pk_add_device_instruction" translatable="false">add_device_instruction</string>
-    <string name="pk_companion_app_download" translatable="false">companion_app_download</string>
-    <string name="pk_trusted_device_safety_alert" translatable="false">trusted_device_safety_alert
-    </string>
+    <string name="pk_credentials_reset" translatable="false">credentials_reset</string>
 
     <!-- System Settings -->
     <string name="pk_languages_and_input_settings" translatable="false">
@@ -356,13 +354,22 @@
     </string>
 
     <!-- About Settings -->
-    <string name="pk_model_info" translatable="false">model_info</string>
+    <string name="pk_hardware_info" translatable="false">hardware_info</string>
     <string name="pk_firmware_version" translatable="false">firmware_version</string>
     <string name="pk_security_patch" translatable="false">security_patch</string>
     <string name="pk_kernel_version" translatable="false">kernel_version</string>
     <string name="pk_build_number" translatable="false">build_number</string>
     <string name="pk_regulatory_labels" translatable="false">regulatory_labels</string>
     <string name="pk_about_bluetooth_mac_address" translatable="false">about_bluetooth_mac_address
+    </string>
+
+    <!-- Hardware Info -->
+    <string name="pk_hardware_info_device_model" translatable="false">hardware_info_device_model
+    </string>
+    <string name="pk_hardware_info_device_serial" translatable="false">hardware_info_device_serial
+    </string>
+    <string name="pk_hardware_info_device_revision" translatable="false">
+        hardware_info_device_revision
     </string>
 
     <!-- Reset Options -->

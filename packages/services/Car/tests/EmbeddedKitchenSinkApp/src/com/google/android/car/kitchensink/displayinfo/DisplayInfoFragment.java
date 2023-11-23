@@ -16,7 +16,9 @@
 package com.google.android.car.kitchensink.displayinfo;
 
 import android.annotation.Nullable;
+import android.app.ActivityManager;
 import android.content.Context;
+import android.content.pm.ConfigurationInfo;
 import android.content.res.Resources;
 import android.graphics.Point;
 import android.os.Bundle;
@@ -58,6 +60,13 @@ public class DisplayInfoFragment extends Fragment {
         addTextView("display density(dpi): " + getResources().getDisplayMetrics().densityDpi);
         addTextView("display default density(dpi): "
                 + getResources().getDisplayMetrics().DENSITY_DEFAULT);
+
+        addTextView("======================================");
+
+        ActivityManager am =
+                (ActivityManager) getContext().getSystemService(Context.ACTIVITY_SERVICE);
+        ConfigurationInfo ci = am.getDeviceConfigurationInfo();
+        addTextView("OpenGL ES version: " + ci.getGlEsVersion());
 
         addTextView("======================================");
         addTextView("All size are in DP.");
@@ -111,7 +120,7 @@ public class DisplayInfoFragment extends Fragment {
 
     private void addTextView(String text) {
         TextView textView = new TextView(getContext());
-        textView.setTextAppearance(R.style.TextAppearance_Car_Body2);
+        textView.setTextAppearance(R.style.TextAppearance_CarUi_Body2);
         textView.setText(text);
         list.addView(textView);
     }

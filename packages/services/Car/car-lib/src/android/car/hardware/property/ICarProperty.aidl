@@ -33,7 +33,7 @@ interface ICarProperty {
 
     CarPropertyValue getProperty(int prop, int zone) = 3;
 
-    void setProperty(in CarPropertyValue prop) = 4;
+    void setProperty(in CarPropertyValue prop, in ICarPropertyEventListener callback) = 4;
 
     String getReadPermission(int propId) = 5;
 

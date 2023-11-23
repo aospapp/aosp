@@ -16,12 +16,27 @@
 
 package com.android.car.settings.units;
 
+import android.car.Car;
+import android.car.VehiclePropertyIds;
+import android.car.VehicleUnit;
+import android.car.hardware.property.CarPropertyManager;
+import android.content.Context;
+import android.provider.SearchIndexableResource;
+
 import androidx.annotation.LayoutRes;
 
 import com.android.car.settings.R;
+import com.android.car.settings.common.CarSettingActivities;
 import com.android.car.settings.common.SettingsFragment;
+import com.android.car.settings.search.CarBaseSearchIndexProvider;
+import com.android.settingslib.search.SearchIndexable;
+import com.android.settingslib.search.SearchIndexableRaw;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /** Fragment to host Units-related preferences. */
+@SearchIndexable
 public class UnitsSettingsFragment extends SettingsFragment {
 
     @Override
@@ -30,4 +45,90 @@ public class UnitsSettingsFragment extends SettingsFragment {
         return R.xml.units_fragment;
     }
 
+    public static final CarBaseSearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
+            new CarBaseSearchIndexProvider(R.xml.units_fragment,
+                    CarSettingActivities.UnitsSettingsActivity.class) {
+
+                private CarPropertyManager mCarPropertyManager;
+
+                @Override
+                public List<SearchIndexableResource> getXmlResourcesToIndex(Context context,
+                        boolean enabled) {
+                    return null;
+                }
+
+                @Override
+                public List<SearchIndexableRaw> getRawDataToIndex(Context context,
+                        boolean enabled) {
+                    List<SearchIndexableRaw> rawData = new ArrayList<>();
+                    Car car = Car.createCar(context);
+                    mCarPropertyManager = (CarPropertyManager) car.getCarManager(
+                            Car.PROPERTY_SERVICE);
+                    if (mCarPropertyManager != null) {
+                        boolean hasUnits = false;
+                        if (isValidVehicleProperty(
+                                VehiclePropertyIds.VEHICLE_SPEED_DISPLAY_UNITS)) {
+                            hasUnits = true;
+                            rawData.add(createRawDataEntry(context,
+                                    context.getString(R.string.pk_units_speed),
+                                    context.getString(R.string.units_speed_title),
+                                    context.getString(R.string.units_settings)));
+                        }
+                        if (isValidVehicleProperty(VehiclePropertyIds.DISTANCE_DISPLAY_UNITS)) {
+                            hasUnits = true;
+                            rawData.add(createRawDataEntry(context,
+                                    context.getString(R.string.pk_units_distance),
+                                    context.getString(R.string.units_distance_title),
+                                    context.getString(R.string.units_settings)));
+                        }
+                        if (isValidVehicleProperty(VehiclePropertyIds.FUEL_VOLUME_DISPLAY_UNITS)) {
+                            hasUnits = true;
+                            rawData.add(createRawDataEntry(context,
+                                    context.getString(R.string.pk_units_fuel_consumption),
+                                    context.getString(R.string.units_fuel_consumption_title),
+                                    context.getString(R.string.units_settings)));
+                            rawData.add(createRawDataEntry(context,
+                                    context.getString(R.string.pk_units_volume),
+                                    context.getString(R.string.units_volume_title),
+                                    context.getString(R.string.units_settings)));
+                        }
+                        if (isValidVehicleProperty(VehiclePropertyIds.EV_BATTERY_DISPLAY_UNITS)) {
+                            hasUnits = true;
+                            rawData.add(createRawDataEntry(context,
+                                    context.getString(R.string.pk_units_energy_consumption),
+                                    context.getString(R.string.units_energy_consumption_title),
+                                    context.getString(R.string.units_settings)));
+                        }
+                        if (isValidVehicleProperty(
+                                VehiclePropertyIds.HVAC_TEMPERATURE_DISPLAY_UNITS)) {
+                            hasUnits = true;
+                            rawData.add(createRawDataEntry(context,
+                                    context.getString(R.string.pk_units_temperature),
+                                    context.getString(R.string.units_temperature_title),
+                                    context.getString(R.string.units_settings)));
+                        }
+                        if (isValidVehicleProperty(
+                                VehiclePropertyIds.TIRE_PRESSURE_DISPLAY_UNITS)) {
+                            hasUnits = true;
+                            rawData.add(createRawDataEntry(context,
+                                    context.getString(R.string.pk_units_pressure),
+                                    context.getString(R.string.units_pressure_title),
+                                    context.getString(R.string.units_settings)));
+                        }
+                        if (hasUnits) {
+                            rawData.add(createRawDataEntry(context,
+                                    context.getString(R.string.psk_units),
+                                    context.getString(R.string.units_settings),
+                                    context.getString(R.string.units_settings)));
+                        }
+                    }
+                    car.disconnect();
+                    return rawData;
+                }
+
+                private boolean isValidVehicleProperty(int propertyId) {
+                    return mCarPropertyManager.getIntProperty(propertyId, /* area= */ 0)
+                            != VehicleUnit.SHOULD_NOT_USE;
+                }
+            };
 }

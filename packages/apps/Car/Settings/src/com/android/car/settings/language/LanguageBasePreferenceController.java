@@ -72,7 +72,7 @@ public abstract class LanguageBasePreferenceController extends
     protected void updateState(PreferenceGroup preferenceGroup) {
         // Only populate if the preference group is empty.
         if (preferenceGroup.getPreferenceCount() == 0) {
-            defineLocaleProvider().populateBasePreference(preferenceGroup, this);
+            defineLocaleProvider().populateBasePreference(preferenceGroup, getExclusionSet(), this);
         }
     }
 
@@ -98,8 +98,8 @@ public abstract class LanguageBasePreferenceController extends
             Set<LocaleStore.LocaleInfo> subLocales = LocaleStore.getLevelLocales(
                     getContext(),
                     getExclusionSet(),
-                    /* parent */ localeInfo,
-                    /* translatedOnly */ true);
+                    /* parent= */ localeInfo,
+                    /* translatedOnly= */ true);
 
             if (subLocales.size() > 1) {
                 handleLocaleWithChildren(localeInfo);

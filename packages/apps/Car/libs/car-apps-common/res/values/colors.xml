@@ -34,11 +34,14 @@
         <item>#757575</item>
     </array>
 
+    <color name="loading_image_placeholder_color">@color/car_grey_800</color>
+    <color name="improper_image_refs_tint_color">#C8FF0000</color>
+
     <color name="control_bar_background_color">@android:color/transparent</color>
     <color name="minimized_control_bar_background_color">#F50E1013</color>
     <color name="scrim_overlay_color">#C7000000</color>
     <color name="app_bar_background_color">#E0000000</color>
-    <color name="icon_tint">@*android:color/car_tint</color>
+    <color name="icon_tint">@color/car_grey_50</color>
 
     <color name="car_tab_selected_color">@color/car_tab_selected_color_light</color>
     <color name="car_tab_selected_color_dark">#E2FFFFFF</color>
@@ -48,12 +51,10 @@
     <color name="car_tab_unselected_color_light">#90FFFFFF</color>
 
     <color name="primary_text_color">#FFFFFFFF</color>
-    <color name="secondary_text_color">#90FFFFFF</color>
+    <color name="secondary_text_color">#B8FFFFFF</color>
 
     <color name="primary_app_icon_color">#FFFFFFFF</color>
     <color name="secondary_app_icon_color">#B8FFFFFF</color>
-    <color name="car_tint_inverse">@*android:color/car_tint_inverse</color>
-    <color name="car_scrollbar_thumb_inverse">@*android:color/car_scrollbar_thumb_dark</color>
     <color name="car_card_ripple_background">#17000000</color>
 
     <color name="background_image_30p_black">#4D000000</color>
@@ -64,4 +65,42 @@
     <color name="uxr_button_text_disabled_color">#80FFFFFF</color>
 
     <color name="control_bar_button_background_color">#66ffffff</color>
+
+    <color name="hero_button_background_color">@color/car_grey_868</color>
+    <color name="hero_button_text_color">@color/uxr_button_text_color_selector</color>
+
+
+
+    <!--
+        Color palette for cars.
+        Those values are NOT part of the car-ui-lib "resource API", they are just constants used in
+        various places to give a default value to the attributes of the "api".
+     -->
+    <color name="car_grey_972">#ff090A0C</color>
+    <color name="car_grey_958">#ff0e1013</color>
+    <color name="car_grey_928">#ff17181b</color>
+    <color name="car_grey_900">#ff202124</color>
+    <color name="car_grey_868">#ff282a2d</color>
+    <color name="car_grey_846">#ff2e3234</color>
+    <color name="car_grey_800">#ff3c4043</color>
+    <color name="car_grey_772">#ff464a4d</color>
+    <color name="car_grey_746">#ff4d5256</color>
+    <color name="car_grey_700">#ff5f6368</color>
+    <color name="car_grey_600">#ff80868b</color>
+    <color name="car_grey_500">#ff9aa0a6</color>
+    <color name="car_grey_400">#ffbdc1c6</color>
+    <color name="car_grey_300">#ffdadce0</color>
+    <color name="car_grey_200">#ffe8eaed</color>
+    <color name="car_grey_100">#fff1f3f4</color>
+    <color name="car_grey_50">#fff8f9fa</color>
+
+    <color name="car_dark_blue_grey_700">#ff172026</color>
+
+    <color name="car_green_700">#ff218c48</color>
+    <color name="car_green_500">#ff41af6a</color>
+
+    <color name="car_red_500a">#ffd50000</color>
+
+    <!-- End color palette -->
+
 </resources>

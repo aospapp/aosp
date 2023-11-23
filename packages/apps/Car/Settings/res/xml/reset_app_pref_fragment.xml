@@ -16,7 +16,8 @@
 
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
                   xmlns:settings="http://schemas.android.com/apk/res-auto"
-                  android:title="@string/reset_app_pref_title">
+                  android:title="@string/reset_app_pref_title"
+                  android:key="@string/psk_reset_app_pref">
     <Preference
         android:selectable="false"
         android:title="@string/reset_app_pref_desc"

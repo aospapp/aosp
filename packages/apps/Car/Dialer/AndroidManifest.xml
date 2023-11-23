@@ -16,6 +16,7 @@
 
 <manifest
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     package="com.android.car.dialer">
 
     <uses-sdk android:minSdkVersion="24" android:targetSdkVersion='24'/>
@@ -38,16 +39,22 @@
         android:name=".DialerApplication"
         android:directBootAware="true"
         android:label="@string/phone_app_name"
-        android:icon="@drawable/ic_app_icon">
+        android:icon="@drawable/ic_app_icon"
+        android:supportsRtl="true">
 
         <activity android:name=".ui.TelecomActivity"
                   android:launchMode="singleTask"
-                  android:theme="@style/Theme.Dialer"
+                  android:theme="@style/Theme.Dialer.Telecom"
                   android:label="@string/phone_app_name"
                   android:exported="true"
                   android:resizeableActivity="true">
             <meta-data android:name="distractionOptimized" android:value="true"/>
             <meta-data android:name="android.app.searchable" android:resource="@xml/searchable"/>
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.DIAL"/>
                 <category android:name="android.intent.category.DEFAULT"/>
@@ -62,21 +69,23 @@
                 <category android:name="android.intent.category.DEFAULT"/>
                 <data android:scheme="tel"/>
             </intent-filter>
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.DEFAULT"/>
-                <category android:name="android.intent.category.LAUNCHER"/>
-            </intent-filter>
 
             <intent-filter>
                 <action android:name="android.intent.action.SEARCH"/>
                 <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:mimeType="vnd.android.cursor.dir/calls"/>
+            </intent-filter>
         </activity>
 
         <activity android:name=".ui.activecall.InCallActivity"
                   android:launchMode="singleInstance"
-                  android:theme="@style/Theme.Dialer"
+                  android:theme="@style/Theme.Dialer.InCall"
                   android:label="@string/phone_app_name">
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
@@ -86,6 +95,11 @@
                   android:launchMode="singleTask"
                   android:theme="@style/Theme.Dialer.Setting"
                   android:label="@string/setting_title">
+        </activity>
+
+        <activity android:name=".ui.NoHfpActivity"
+                  android:launchMode="singleTask"
+                  android:theme="@style/Theme.Dialer.ErrorActivity">
         </activity>
 
         <service android:name="com.android.car.dialer.telecom.InCallServiceImpl"
@@ -102,12 +116,6 @@
             android:permission="android.permission.BIND_JOB_SERVICE">
         </service>
 
-        <!-- BroadcastReceiver for receiving Intents from Notification mechanism. -->
-        <receiver
-            android:directBootAware="true"
-            android:exported="false"
-            android:name="com.android.car.dialer.notification.NotificationReceiver"/>
-
         <receiver
             android:directBootAware="true"
             android:name="com.android.car.dialer.notification.MissedCallReceiver">
@@ -115,5 +123,14 @@
                 <action android:name="android.telecom.action.SHOW_MISSED_CALLS_NOTIFICATION"/>
             </intent-filter>
         </receiver>
+
+        <receiver
+            android:directBootAware="true"
+            android:name="com.android.car.dialer.storage.BluetoothBondedListReceiver">
+            <intent-filter>
+                <action android:name="android.bluetooth.device.action.BOND_STATE_CHANGED"/>
+            </intent-filter>
+        </receiver>
+
     </application>
 </manifest>

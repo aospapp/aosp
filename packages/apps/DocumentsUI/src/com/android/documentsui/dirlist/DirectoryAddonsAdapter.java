@@ -131,6 +131,8 @@ final class DirectoryAddonsAdapter extends DocumentsAdapter {
                 break;
             case ITEM_TYPE_HEADER_MESSAGE:
                 ((HeaderMessageDocumentHolder) holder).bind(mHeaderMessage);
+                ((HeaderMessageDocumentHolder) holder).setPadding(
+                        mEnv.getDisplayState().derivedMode);
                 break;
             case ITEM_TYPE_INFLATED_MESSAGE:
                 ((InflateMessageDocumentHolder) holder).bind(mInflateMessage);

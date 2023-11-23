@@ -26,99 +26,67 @@
         android:orientation="vertical">
 
         <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="TITLE"
-            android:textColor="@android:color/holo_green_light"
-            android:textSize="28sp" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="USER"
-            android:textColor="@android:color/holo_red_dark"
-            android:textSize="28sp" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="BUG TIME"
-            android:textColor="@android:color/holo_red_light"
-            android:textSize="28sp" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="STATUS"
-            android:textColor="@android:color/holo_orange_light"
-            android:textSize="28sp" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="OTHER"
-            android:textColor="@android:color/holo_blue_dark"
-            android:textSize="28sp" />
-
-        <Button
-            android:id="@+id/bug_info_upload_button"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/bug_report_user_action_button_padding"
-            android:textSize="@dimen/bug_report_button_text_size"
-            android:text="@string/bugreport_upload_button_text" />
-
-    </LinearLayout>
-
-    <LinearLayout
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:paddingLeft="10dp"
-        android:orientation="vertical">
-
-        <TextView
             android:id="@+id/bug_info_row_title"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="left"
-            android:textSize="28sp" />
+            style="@style/TextAppearance.BugReportUi.Title" />
 
-
-        <TextView
-            android:id="@+id/bug_info_row_user"
+        <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textSize="28sp" />
-
-
-        <TextView
-            android:id="@+id/bug_info_row_timestamp"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textSize="28sp" />
-
-
-        <TextView
-            android:id="@+id/bug_info_row_status"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textSize="28sp" />
-
+            android:orientation="horizontal">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginRight="@dimen/bug_report_horizontal_layout_children_margin"
+                android:text="@string/bugreport_info_status"
+                style="@style/TextAppearance.BugReportUi.Body" />
+            <TextView
+                android:id="@+id/bug_info_row_status"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                style="@style/TextAppearance.BugReportUi.Body" />
+        </LinearLayout>
 
         <TextView
             android:id="@+id/bug_info_row_message"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textSize="28sp" />
+            android:visibility="gone"
+            style="@style/TextAppearance.BugReportUi.Body" />
 
-        <Button
-            android:id="@+id/bug_info_move_button"
+        <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/bug_report_user_action_button_padding"
-            android:textSize="@dimen/bug_report_button_text_size"
-            android:text="@string/bugreport_move_button_text" />
-
+            android:orientation="horizontal">
+            <Button
+                android:id="@+id/bug_info_add_audio_button"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/bug_report_user_action_button_padding"
+                android:layout_marginRight="@dimen/bug_report_horizontal_layout_children_margin"
+                android:visibility="gone"
+                android:text="@string/bugreport_add_audio_button_text"
+                style="@style/Widget.BugReportUi.InfoActionButton" />
+            <Button
+                android:id="@+id/bug_info_upload_button"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/bug_report_user_action_button_padding"
+                android:layout_marginRight="@dimen/bug_report_horizontal_layout_children_margin"
+                android:visibility="gone"
+                android:text="@string/bugreport_upload_button_text"
+                style="@style/Widget.BugReportUi.InfoActionButton" />
+            <Button
+                android:id="@+id/bug_info_move_button"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/bug_report_user_action_button_padding"
+                android:visibility="gone"
+                android:text="@string/bugreport_move_button_text"
+                style="@style/Widget.BugReportUi.InfoActionButton" />
+        </LinearLayout>
     </LinearLayout>
 
 </LinearLayout>

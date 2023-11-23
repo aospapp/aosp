@@ -35,7 +35,6 @@ import android.view.ViewAnimationUtils;
 import android.view.accessibility.AccessibilityManager;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
-import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.core.graphics.drawable.RoundedBitmapDrawable;
@@ -154,7 +153,7 @@ public class EmergencyInfoGroup extends FrameLayout implements View.OnClickListe
     private Drawable getCircularUserIcon() {
         final UserManager userManager = (UserManager) getContext().getSystemService(
                 Context.USER_SERVICE);
-        Bitmap bitmapUserIcon = userManager.getUserIcon(UserHandle.getCallingUserId());
+        Bitmap bitmapUserIcon = userManager.getUserIcon();
 
         if (bitmapUserIcon == null) {
             // get default user icon.
@@ -208,23 +207,21 @@ public class EmergencyInfoGroup extends FrameLayout implements View.OnClickListe
 
     @Override
     public void onClick(View view) {
-        switch (view.getId()) {
-            case R.id.emergency_info_view:
-                if (AccessibilityManager.getInstance(mContext).isTouchExplorationEnabled()) {
-                    if (mOnConfirmClickListener != null) {
-                        mOnConfirmClickListener.onConfirmClick(this);
-                    }
-                } else {
-                    revealSelectedButton();
-                }
-                break;
-            case R.id.emergency_info_confirm_view:
+        if (view.getId() == R.id.emergency_info_view) {
+            AccessibilityManager accessibilityMgr =
+                    (AccessibilityManager) getContext().getSystemService(
+                            Context.ACCESSIBILITY_SERVICE);
+            if (accessibilityMgr.isTouchExplorationEnabled()) {
                 if (mOnConfirmClickListener != null) {
                     mOnConfirmClickListener.onConfirmClick(this);
                 }
-                break;
-            default:
-                break;
+            } else {
+                revealSelectedButton();
+            }
+        } else if (view.getId() == R.id.emergency_info_confirm_view) {
+            if (mOnConfirmClickListener != null) {
+                mOnConfirmClickListener.onConfirmClick(this);
+            }
         }
     }
 
@@ -284,18 +281,4 @@ public class EmergencyInfoGroup extends FrameLayout implements View.OnClickListe
             hideSelectedButton();
         }
     };
-
-    /**
-     * Update layout margin when emergency shortcut button more than 2.
-     */
-    public void updateLayoutMargin() {
-        LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) getLayoutParams();
-
-        params.topMargin = getResources().getDimensionPixelSize(
-                R.dimen.emergency_info_button_fix_margin_vertical);
-        params.bottomMargin = getResources().getDimensionPixelSize(
-                R.dimen.emergency_info_button_fix_margin_vertical);
-
-        setLayoutParams(params);
-    }
 }

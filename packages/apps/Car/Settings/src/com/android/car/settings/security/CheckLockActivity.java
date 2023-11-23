@@ -20,6 +20,7 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
 import com.android.car.settings.common.BaseCarSettingsActivity;
+import com.android.internal.widget.LockscreenCredential;
 
 /**
  * Prompts the user to enter their pin, password, or pattern lock (if set) and returns
@@ -39,7 +40,7 @@ public class CheckLockActivity extends BaseCarSettingsActivity implements CheckL
     }
 
     @Override
-    public void onLockVerified(byte[] lock) {
+    public void onLockVerified(LockscreenCredential lock) {
         setResult(RESULT_OK);
         finish();
     }

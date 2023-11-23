@@ -50,7 +50,7 @@
     <string name="roaming_title" msgid="6218635014519017734">"漫遊"</string>
     <string name="roaming_summary" msgid="7476127740259728901">"漫遊時連線到數據傳輸服務"</string>
     <string name="roaming_alert_title" msgid="4433901635766775763">"要允許漫遊服務嗎？"</string>
-    <string name="roaming_warning" msgid="5313281900566657209">"你可能需要支付可觀的費用。"</string>
+    <string name="roaming_warning" msgid="4908184914868720704">"可能要支付漫遊費用。"</string>
     <string name="data_usage_settings" msgid="7877132994777987848">"數據用量"</string>
     <string name="data_usage_title" msgid="2923515974389203812">"主要數據"</string>
     <string name="data_used_formatted" msgid="6684557577780068339">"已使用 <xliff:g id="ID_1">^1</xliff:g> <xliff:g id="ID_2">^2</xliff:g>"</string>
@@ -151,7 +151,7 @@
     <string name="wifi_ap_2G" msgid="5364135697314262014">"2.4 GHz"</string>
     <string name="wifi_ap_5G" msgid="4945574428537860279">"5.0 GHz"</string>
     <string name="wifi_ap_band_select_one" msgid="615578175244067396">"請至少為 Wi-Fi 無線基地台選擇一個頻帶："</string>
-    <string name="tether_settings_title_all" msgid="4663704772599383169">"無線基地台與數據連線"</string>
+    <string name="tether_settings_title_all" msgid="4663704772599383169">"無線基地台與網路共用"</string>
     <string name="wifi_hotspot_auto_off_title" msgid="7871858619924599922">"自動關閉無線基地台"</string>
     <string name="wifi_hotspot_auto_off_summary" msgid="4830341947541735136">"Wi‑Fi 無線基地台會在沒有任何裝置連線時關閉"</string>
     <string name="wifi_ask_enable" msgid="4452418245680754578">"「<xliff:g id="REQUESTER">%s</xliff:g>」要求開啟 Wi-Fi"</string>
@@ -199,6 +199,8 @@
     <string name="bluetooth_device_picker" msgid="673238198452345475">"選擇藍牙裝置"</string>
     <string name="language_settings" msgid="2079258598337245546">"語言"</string>
     <string name="languages_and_input_settings" msgid="3672322610529408248">"語言與輸入設定"</string>
+    <string name="language_picker_list_suggested_header" msgid="7593893806003415948">"建議"</string>
+    <string name="language_picker_list_all_header" msgid="1577387973934368428">"所有語言"</string>
     <string name="keyboard_settings" msgid="1959697870618278081">"鍵盤"</string>
     <string name="manage_keyboard" msgid="4045394766282200132">"管理鍵盤"</string>
     <string name="text_to_speech_settings" msgid="811985746199507343">"文字轉語音輸出"</string>
@@ -283,9 +285,11 @@
     <string name="not_installed" msgid="4218816013370552746">"這位使用者並未安裝"</string>
     <string name="permissions_label" msgid="2701446753515612685">"權限"</string>
     <string name="notifications_label" msgid="6586089149665170731">"通知"</string>
+    <string name="storage_application_label" msgid="5911779903670978586">"儲存空間和快取"</string>
     <string name="application_version_label" msgid="8556889839783311649">"版本：%1$s"</string>
     <string name="runtime_permissions_summary_no_permissions_granted" msgid="6001439205270250021">"未取得任何授權"</string>
     <string name="runtime_permissions_summary_no_permissions_requested" msgid="4074220596273432442">"未要求任何權限"</string>
+    <string name="storage_type_internal" msgid="8918688427078709570">"%s (內部儲存空間)"</string>
     <string name="data_usage_summary_title" msgid="4368024763485916986">"數據用量"</string>
     <string name="data_usage_app_summary_title" msgid="5012851696585421420">"應用程式數據用量"</string>
     <string name="computing_size" msgid="5791407621793083965">"計算中…"</string>
@@ -298,8 +302,8 @@
     <string name="assist_app_settings" msgid="9085261410166776497">"小幫手應用程式"</string>
     <string name="assist_access_context_title" msgid="8034851731390785301">"使用畫面中的文字"</string>
     <string name="assist_access_context_summary" msgid="2374281280599443774">"允許小幫手應用程式使用畫面中的文字內容"</string>
-    <string name="assist_access_screenshot_title" msgid="2855956879971465044">"使用螢幕擷取畫面"</string>
-    <string name="assist_access_screenshot_summary" msgid="6246496926635145782">"允許小幫手應用程式使用螢幕擷取畫面"</string>
+    <string name="assist_access_screenshot_title" msgid="2855956879971465044">"使用螢幕截圖"</string>
+    <string name="assist_access_screenshot_summary" msgid="6246496926635145782">"允許小幫手應用程式使用螢幕截圖"</string>
     <string name="voice_input_settings_title" msgid="3238707827815647526">"語音輸入"</string>
     <string name="autofill_settings_title" msgid="1188754272680049972">"自動填入服務"</string>
     <string name="app_list_preference_none" msgid="7753357799926715901">"無"</string>
@@ -344,17 +348,13 @@
     <string name="location_settings_recent_requests_title" msgid="6345634382240930628">"最近的定位要求"</string>
     <string name="location_settings_recent_requests_empty_message" msgid="7789667070033674910">"最近沒有任何定位要求"</string>
     <string name="location_settings_app_permissions_title" msgid="6446735313354321564">"應用程式層級權限"</string>
-    <string name="location_settings_scanning_title" msgid="4253945869911300740">"掃描"</string>
     <string name="location_settings_services_title" msgid="1186133632690970468">"定位服務"</string>
-    <string name="location_settings_wifi_scanning_title" msgid="8021558840074023719">"Wi-Fi 掃描"</string>
-    <string name="location_settings_wifi_scanning_summary" msgid="2116283960258671324">"允許應用程式和服務隨時掃描 Wi‑Fi 網路 (即使 Wi-Fi 功能處於關閉狀態)。這可以用來改善適地性功能和服務。"</string>
-    <string name="location_settings_bluetooth_scanning_title" msgid="2969682902241932059">"藍牙掃描"</string>
-    <string name="location_settings_bluetooth_scanning_summary" msgid="9158101751700727062">"允許應用程式和服務隨時掃描附近裝置 (即使藍牙功能處於關閉狀態)。這可以用來改善適地性功能和服務。"</string>
     <string name="system_setting_title" msgid="6864599341809463440">"系統"</string>
     <string name="system_update_settings_title" msgid="8448588267784138855">"系統更新"</string>
     <string name="firmware_version" msgid="8491753744549309333">"Android 版本"</string>
     <string name="security_patch" msgid="4794276590178386903">"Android 安全性修補程式等級"</string>
-    <string name="model_info" msgid="4966408071657934452">"型號"</string>
+    <string name="hardware_info" msgid="3973165746261507658">"型號與硬體"</string>
+    <string name="hardware_info_summary" msgid="8262576443254075921">"型號：<xliff:g id="MODEL">%1$s</xliff:g>"</string>
     <string name="baseband_version" msgid="2370088062235041897">"基頻版本"</string>
     <string name="kernel_version" msgid="7327212934187011508">"核心版本"</string>
     <string name="build_number" msgid="3997326631001009102">"版本號碼"</string>
@@ -378,6 +378,9 @@
     <string name="webview_license_title" msgid="6442372337052056463">"System WebView 授權"</string>
     <string name="wallpaper_attributions" msgid="9201272150014500697">"桌布"</string>
     <string name="wallpaper_attributions_values" msgid="4292446851583307603">"衛星影像提供者：\n©2014 CNES / Astrium, DigitalGlobe, Bluesky"</string>
+    <string name="model_info" msgid="4966408071657934452">"型號"</string>
+    <string name="status_serial_number" msgid="9158889113131907656">"序號"</string>
+    <string name="hardware_revision" msgid="5713759927934872874">"硬體版本"</string>
     <string name="regulatory_info_text" msgid="8890339124198005428"></string>
     <string name="settings_license_activity_title" msgid="8499293744313077709">"第三方授權"</string>
     <string name="settings_license_activity_unavailable" msgid="6104592821991010350">"載入授權時發生問題。"</string>
@@ -386,7 +389,7 @@
       <item quantity="other">只要再 <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> 個步驟即可啟用開發人員設定。</item>
       <item quantity="one">只要再 <xliff:g id="STEP_COUNT_0">%1$d</xliff:g> 個步驟即可啟用開發人員設定。</item>
     </plurals>
-    <string name="show_dev_on" msgid="5339077400040834808">"你已啟用開發人員設定！"</string>
+    <string name="show_dev_on" msgid="5339077400040834808">"開發人員設定已啟用！"</string>
     <string name="show_dev_already" msgid="1678087328973865736">"你已啟用開發人員設定。"</string>
     <string name="developer_options_settings" msgid="1530739225109118480">"開發人員選項"</string>
     <string name="reset_options_title" msgid="4388902952861833420">"重設選項"</string>
@@ -478,6 +481,8 @@
     <string name="user_name_label" msgid="3210832645046206845">"名稱"</string>
     <string name="user_summary_not_set_up" msgid="1473688119241224145">"尚未設定"</string>
     <string name="edit_user_name_title" msgid="6890782937520262478">"編輯使用者名稱"</string>
+    <string name="name_input_blank_error" msgid="2088850865880984123">"這個欄位不能留空。"</string>
+    <string name="name_input_invalid_error" msgid="3523545780580744273">"輸入的使用者名稱無效。"</string>
     <string name="users_list_title" msgid="770764290290240909">"使用者"</string>
     <string name="user_details_admin_title" msgid="3530292857178371891">"已將權限授予%1$s"</string>
     <string name="storage_settings_title" msgid="8957054192781341797">"儲存空間"</string>
@@ -497,6 +502,8 @@
     <string name="storage_clear_data_dlg_title" msgid="5863775997588969879">"要刪除應用程式資料嗎？"</string>
     <string name="storage_clear_data_dlg_text" msgid="795055288575727801">"系統會永久刪除這個應用程式的所有資料，包含所有檔案、設定、帳戶、資料庫等。"</string>
     <string name="storage_clear_failed_dlg_text" msgid="6710485971686866306">"無法清除應用程式的儲存空間。"</string>
+    <string name="storage_unmount_success" msgid="1553591517580407021">"已安全退出「<xliff:g id="NAME">%1$s</xliff:g>」"</string>
+    <string name="storage_unmount_failure" msgid="4591934911541762883">"無法安全退出「<xliff:g id="NAME">%1$s</xliff:g>」"</string>
     <string name="accounts_settings_title" msgid="436190037084293471">"帳戶"</string>
     <string name="user_add_account_menu" msgid="6625351983590713721">"新增帳戶"</string>
     <string name="no_accounts_added" msgid="5148163140691096055">"未新增任何帳戶"</string>
@@ -528,6 +535,7 @@
     <string name="sync_button_sync_now" msgid="5767643057970371315">"立即同步處理"</string>
     <string name="sync_button_sync_cancel" msgid="7739510554513641393">"取消同步處理"</string>
     <string name="sync_is_failing" msgid="5766255460901806206">"同步處理目前發生問題，將於短時間內恢復。"</string>
+    <string name="privacy_settings_title" msgid="3150145262029229572">"隱私權"</string>
     <string name="security_settings_title" msgid="6955331714774709746">"安全性"</string>
     <string name="security_settings_subtitle" msgid="2244635550239273229">"螢幕鎖定"</string>
     <string name="security_lock_none" msgid="1054645093754839638">"無"</string>
@@ -618,26 +626,11 @@
     <string name="lockpassword_pin_no_sequential_digits" msgid="38813552228809240">"不得使用依遞增或遞減順序排列或是重複的數字。"</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"螢幕鎖定選項"</string>
     <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g>：<xliff:g id="NUM_DAYS">%3$s</xliff:g> 天前"</string>
-    <string name="add_device_title" msgid="8452168024017866232">"新增信任的裝置"</string>
-    <string name="add_device_summary" msgid="5368217520710573302">"系統會在新增信任的裝置時開啟藍牙"</string>
-    <string name="trusted_device" msgid="5637378361866787603">"信任的裝置"</string>
-    <plurals name="trusted_device_subtitle" formatted="false" msgid="462041049834264945">
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> 部裝置</item>
-      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> 部裝置</item>
-    </plurals>
-    <string name="remove_device_message" msgid="6447820559674148349">"如果你的 <xliff:g id="CONNECTED_DEVICE_NAME_0">%1$s</xliff:g> 與這輛車連結，就能將其解鎖。如果其他人取得你的 <xliff:g id="CONNECTED_DEVICE_NAME_1">%1$s</xliff:g>，對方或許能夠存取這個裝置"</string>
-    <string name="trusted_device_confirm_button" msgid="102354635014627996">"確認"</string>
-    <string name="trusted_device_remove_button" msgid="6140476996063415420">"移除信任的裝置"</string>
-    <string name="trusted_device_done_button" msgid="8481956533222625296">"完成"</string>
-    <string name="add_trusted_device_instruction" msgid="2280382609884918033">"請使用隨附應用程式設定信任的裝置。設定完成後，使用者設定檔就會在你的手機位於車輛附近時自動解鎖。"</string>
-    <string name="trusted_device_download_app" msgid="6971096140154499983">"1. 在手機上下載隨附應用程式"</string>
-    <string name="trusted_device_select_device" msgid="198902765179270739">"2. 在手機上選取 [<xliff:g id="CAR_NAME">%1$s</xliff:g>] 以便將裝置配對"</string>
-    <string name="trusted_device_safety_alert" msgid="3834898922112046769">"只要信任的裝置位於車輛附近，即可在車輛處於發動狀態時將使用者設定檔解鎖，就算該裝置在其他人手中也一樣。"</string>
-    <string name="trusted_device_pairing_code_dialog_title" msgid="8173792468216796873">"請確認配對碼是否相符"</string>
-    <string name="trusted_device_success_enrollment_toast" msgid="1238468775285575827">"已成功註冊手機"</string>
-    <string name="trusted_device_fail_enrollment_toast" msgid="6801324174861209092">"無法註冊 <xliff:g id="DEVICE_NAME">%1$s</xliff:g>"</string>
-    <string name="trusted_device_set_authentication_reminder" msgid="5947077589994822305">"你必須在新增信任的裝置後設定驗證方法。如果你手邊沒有信任的裝置，就必須通過驗證才能存取自己的個人資料。"</string>
-    <string name="trusted_device_disconnected_toast" msgid="2541862946536880255">"裝置已中斷連線。"</string>
+    <string name="credentials_reset" msgid="873900550885788639">"清除憑證"</string>
+    <string name="credentials_reset_summary" msgid="6067911547500459637">"移除所有憑證"</string>
+    <string name="credentials_reset_hint" msgid="3459271621754137661">"要移除所有內容嗎？"</string>
+    <string name="credentials_erased" msgid="2515915439705550379">"憑證儲存空間已清除。"</string>
+    <string name="credentials_not_erased" msgid="6118567459076742720">"無法清除憑證儲存空間。"</string>
     <string name="forget" msgid="3971143908183848527">"清除"</string>
     <string name="connect" msgid="5861699594602380150">"連線"</string>
     <string name="disconnect" msgid="6140789953324820336">"中斷連線"</string>
@@ -653,6 +646,7 @@
     <string name="exit_retail_mode_dialog_body" msgid="8314316171782527301">"這項操作會刪除示範帳戶並將系統恢復原廠設定，且所有使用者資料都會遺失。"</string>
     <string name="exit_retail_mode_dialog_confirmation_button_text" msgid="3147249675355968649">"結束示範模式"</string>
     <string name="suggestion_dismiss_button" msgid="4539412646977050641">"關閉"</string>
-    <string name="restricted_while_driving" msgid="6217369093121968299">"開車時無法使用這項功能。"</string>
-    <string name="add_user_restricted_while_driving" msgid="6384004350628271556">"無法在開車期間新增使用者。"</string>
+    <string name="restricted_while_driving" msgid="6587569249519274524">"開車時無法使用這項功能"</string>
+    <string name="add_user_restricted_while_driving" msgid="4754946754222453656">"開車時無法新增使用者"</string>
+    <string name="default_search_query" msgid="3137420627428857068">"搜尋"</string>
 </resources>

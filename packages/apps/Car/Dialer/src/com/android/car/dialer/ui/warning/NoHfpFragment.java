@@ -16,6 +16,9 @@
 
 package com.android.car.dialer.ui.warning;
 
+import android.car.Car;
+import android.car.content.pm.CarPackageManager;
+import android.car.drivingstate.CarUxRestrictions;
 import android.content.Intent;
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -25,13 +28,13 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 
 import androidx.fragment.app.Fragment;
-import androidx.lifecycle.MutableLiveData;
-import androidx.lifecycle.ViewModelProviders;
 
+import com.android.car.apps.common.UxrButton;
+import com.android.car.apps.common.util.CarPackageManagerUtils;
 import com.android.car.apps.common.util.ViewUtils;
 import com.android.car.dialer.R;
 import com.android.car.dialer.telecom.UiCallManager;
-import com.android.car.dialer.ui.TelecomActivityViewModel;
+import com.android.car.dialer.ui.dialpad.DialpadFragment;
 
 /**
  * A fragment that informs the user that there is no bluetooth device attached that can make
@@ -44,6 +47,9 @@ public class NoHfpFragment extends Fragment {
 
     private TextView mErrorMessageView;
     private String mErrorMessage;
+
+    private Car mCar;
+    private CarPackageManager mCarPackageManager;
 
     /**
      * Returns an instance of the {@link NoHfpFragment} with the given error message as the one to
@@ -66,6 +72,14 @@ public class NoHfpFragment extends Fragment {
         if (args != null) {
             mErrorMessage = args.getString(ERROR_MESSAGE_KEY);
         }
+        mCar = Car.createCar(getActivity());
+        mCarPackageManager = (CarPackageManager) mCar.getCarManager(Car.PACKAGE_SERVICE);
+    }
+
+    @Override
+    public void onDestroy() {
+        mCar.disconnect();
+        super.onDestroy();
     }
 
     /**
@@ -92,20 +106,25 @@ public class NoHfpFragment extends Fragment {
             mErrorMessageView.setText(mErrorMessage);
         }
 
-        TelecomActivityViewModel viewModel = ViewModelProviders.of(getActivity()).get(
-                TelecomActivityViewModel.class);
-        MutableLiveData<Integer> dialerAppStateLiveData = viewModel.getDialerAppState();
         View emergencyButton = view.findViewById(R.id.emergency_call_button);
         ViewUtils.setVisible(emergencyButton, UiCallManager.get().isEmergencyCallSupported());
-        emergencyButton.setOnClickListener(v -> dialerAppStateLiveData.setValue(
-                TelecomActivityViewModel.DialerAppState.EMERGENCY_DIALPAD));
+        emergencyButton.setOnClickListener(v -> getParentFragmentManager()
+                .beginTransaction()
+                .replace(android.R.id.content, DialpadFragment.newEmergencyDialpad())
+                .addToBackStack(null)
+                .commit());
 
-        view.findViewById(R.id.connect_bluetooth_button).setOnClickListener(v -> {
-            Intent launchIntent = new Intent();
-            launchIntent.setAction(Bluetooth_Setting_ACTION);
-            launchIntent.addCategory(Bluetooth_Setting_CATEGORY);
-            startActivity(launchIntent);
-        });
+        Intent launchIntent = new Intent();
+        launchIntent.setAction(Bluetooth_Setting_ACTION);
+        launchIntent.addCategory(Bluetooth_Setting_CATEGORY);
+
+        UxrButton bluetoothButton = view.findViewById(R.id.connect_bluetooth_button);
+        boolean isDistractionOptimized = CarPackageManagerUtils.isDistractionOptimized(
+                mCarPackageManager, getActivity().getPackageManager(), launchIntent);
+        bluetoothButton.setUxRestrictions(isDistractionOptimized
+                ? CarUxRestrictions.UX_RESTRICTIONS_BASELINE
+                : CarUxRestrictions.UX_RESTRICTIONS_NO_SETUP);
+        bluetoothButton.setOnClickListener(v -> startActivity(launchIntent));
 
         return view;
     }

@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef CAR_POWER_MANAGER
-#define CAR_POWER_MANAGER
+#ifndef CAR_LIB_NATIVE_INCLUDE_CARPOWERMANAGER_H_
+#define CAR_LIB_NATIVE_INCLUDE_CARPOWERMANAGER_H_
 
 #include <binder/Status.h>
 #include <utils/RefBase.h>
@@ -38,6 +38,7 @@ public:
     //  NOTE:  The entries in this enum must match the ones in CarPowerStateListener located in
     //      packages/services/Car/car-lib/src/android/car/hardware/power/CarPowerManager.java
     enum class State {
+        kInvalid = 0,
         kWaitForVhal = 1,
         kSuspendEnter = 2,
         kSuspendExit = 3,
@@ -46,8 +47,7 @@ public:
         kShutdownPrepare = 7,
         kShutdownCancelled = 8,
 
-
-        kFirst = kWaitForVhal,
+        kFirst = kInvalid,
         kLast = kShutdownCancelled,
     };
 
@@ -74,7 +74,7 @@ public:
 private:
     class CarPowerStateListener final : public BnCarPowerStateListener {
     public:
-        explicit CarPowerStateListener(CarPowerManager* parent) : mParent(parent) {};
+        explicit CarPowerStateListener(CarPowerManager* parent) : mParent(parent) {}
 
         Status onStateChanged(int state) override {
             sp<CarPowerManager> parent = mParent;
@@ -102,9 +102,9 @@ private:
     sp<CarPowerStateListener> mListenerToService;
 };
 
-} // namespace power
-} // namespace hardware
-} // namespace car
-} // namespace android
+}  // namespace power
+}  // namespace hardware
+}  // namespace car
+}  // namespace android
 
-#endif // CAR_POWER_MANAGER
+#endif  // CAR_LIB_NATIVE_INCLUDE_CARPOWERMANAGER_H_

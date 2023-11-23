@@ -19,7 +19,6 @@ package com.android.car.settings.storage;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.app.usage.StorageStatsManager;
-import android.car.userlib.CarUserManagerHelper;
 import android.content.Context;
 import android.os.Bundle;
 import android.os.storage.StorageManager;
@@ -142,8 +141,7 @@ public class StorageSettingsManager {
         @Override
         public Loader<SparseArray<StorageAsyncLoader.AppsStorageResult>> onCreateLoader(int id,
                 @Nullable Bundle args) {
-            return new StorageAsyncLoader(mContext, new CarUserManagerHelper(mContext),
-                    new StorageStatsSource(mContext));
+            return new StorageAsyncLoader(mContext, new StorageStatsSource(mContext));
         }
 
         @Override

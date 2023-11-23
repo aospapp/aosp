@@ -15,15 +15,20 @@
  */
 package com.android.tv.common.flags.impl;
 
+import com.google.common.collect.ImmutableList;
+import com.android.tv.common.flags.proto.TypedFeatures.StringListParam;
+
 import com.android.tv.common.flags.CloudEpgFlags;
 
 /** Default flags for Cloud EPG */
 public final class DefaultCloudEpgFlags implements CloudEpgFlags {
 
-    private String mThirdPartyEpgInputCsv =
-            "com.google.android.tv/.tuner.tvinput.TunerTvInputService,"
-                    + "com.technicolor.skipper.tuner/.tvinput.TunerTvInputService,"
-                    + "com.silicondust.view/.tif.SDTvInputService";
+    private StringListParam mThirdPartyEpgInputCsv =
+            StringListParam.newBuilder()
+                    .addElement("com.google.android.tv/.tuner.tvinput.TunerTvInputService")
+                    .addElement("com.technicolor.skipper.tuner/.tvinput.TunerTvInputService")
+                    .addElement("com.silicondust.view/.tif.SDTvInputService")
+                    .build();
 
     @Override
     public boolean compiled() {
@@ -35,12 +40,19 @@ public final class DefaultCloudEpgFlags implements CloudEpgFlags {
         return false;
     }
 
-    public void setThirdPartyEpgInputCsv(String value) {
+    public void setThirdPartyEpgInput(StringListParam value) {
         mThirdPartyEpgInputCsv = value;
     }
 
+    public void setThirdPartyEpgInputCsv(String value) {
+        setThirdPartyEpgInput(
+                StringListParam.newBuilder()
+                        .addAllElement(ImmutableList.copyOf(value.split(",")))
+                        .build());
+    }
+
     @Override
-    public String thirdPartyEpgInputsCsv() {
+    public StringListParam thirdPartyEpgInputs() {
         return mThirdPartyEpgInputCsv;
     }
 }

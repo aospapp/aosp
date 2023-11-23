@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 
+  ~ Copyright (C) 2019 The Android Open Source Project
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~
+  ~      http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+   -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="default_device_name" msgid="405493967512651629">"Байланыстырылған құрылғы"</string>
+    <string name="add_device_title" msgid="6166003577845888151">"Байланыстырылған құрылғыны енгізу"</string>
+    <string name="add_associated_device_title" msgid="3275596124326477381">"Көмекші құрылғыны байланыстыру"</string>
+    <string name="add_associated_device_instruction" msgid="1015406964657139291">"Телефоныңызды көлік жүргізуге көмекші құрылғы ретінде пайдалана аласыз."</string>
+    <string name="associated_device_install_app" msgid="981663561198924864">"Телефонда "<b>"қосымша қолданба"</b>" орнатылғанына көз жеткізіңіз."</string>
+    <string name="associated_device_pairing_code_title" msgid="5118861901337336309">"Кодты телефоннан растау"</string>
+    <string name="associated_device_pairing_message" msgid="7319249426394299109">"Мұның телефонда көрсетілетін кодқа сәйкес келетінін растаңыз."</string>
+    <string name="associated_device_success" msgid="584760065696870256">"Құрылғы байланыстырылды."</string>
+    <string name="associated_device_select_device" msgid="1931869046289060602">"Қолданбаны ашып, оны &lt;b&gt;<xliff:g id="CAR_NAME">%1$s</xliff:g>&lt;b&gt; көлігімен байланыстырыңыз."</string>
+    <string name="remove_associated_device_title" msgid="4060806982019423895">"&lt;b&gt;<xliff:g id="CAR_NAME">%1$s</xliff:g>&lt;/b&gt; жойылсын ба?"</string>
+    <string name="remove_associated_device_message" msgid="3991333597951462900">"Бұл көлік енді бұл құрылғымен жұптастырылмайды. Сондай-ақ бұл көлікті қосымша қолданбадан өшіру қажет болады."</string>
+    <string name="device_removed_success_toast_text" msgid="3242832156490823936">"<xliff:g id="PHONE_NAME">%1$s</xliff:g> телефоны жойылды."</string>
+    <string name="device_removed_failure_toast_text" msgid="3756625943664982395">"<xliff:g id="PHONE_NAME">%1$s</xliff:g> телефоны жойылмады."</string>
+    <string name="continue_setup_toast_text" msgid="8487187853051037413">"Pеттеуді телефонда жалғастырыңыз."</string>
+    <string name="error_screen_title" msgid="3977744142045194903">"Бірдеңе дұрыс емес"</string>
+    <string name="error_screen_message" msgid="1217200461704367056">"Өкінішке орай, бұл экранды дұрыс көрсету мүмкін емес. Қайталап көріңіз."</string>
+    <string name="turn_on_bluetooth_title" msgid="2877749869113938263">"Bluetooth функциясын қосу"</string>
+    <string name="turn_on_bluetooth_message" msgid="5087006108685547788">"Телефонды көмекші құрылғы ретінде реттеу үшін Bluetooth функциясы қажет."</string>
+    <string name="turn_on_bluetooth_dialog_title" msgid="8693712073791430461">"Bluetooth функциясын қосу керек пе?"</string>
+    <string name="turn_on_bluetooth_dialog_message" msgid="5347157597209022072">"Көмекші құрылғыны байланыстыру үшін көлігіңізге Bluetooth қажет."</string>
+    <string name="accept" msgid="1454710793329618813">"Қабылдау"</string>
+    <string name="reject" msgid="4315432282758892890">"Қабылдамау"</string>
+    <string name="confirm" msgid="3748997214719276945">"Растау"</string>
+    <string name="cancel" msgid="4306609731174629323">"Бас тарту"</string>
+    <string name="remove" msgid="5513398257088729188">"Өшіру"</string>
+    <string name="ok" msgid="2825038997730899083">"Жарайды"</string>
+    <string name="connection" msgid="2798490936433656846">"Байланыс"</string>
+    <string name="forget_title" msgid="3027608547243824729">"Бұл құрылғыны жою"</string>
+    <string name="forget" msgid="2069897665699141222">"Жою"</string>
+    <string name="disable" msgid="4619854429066283970">"Өшіру"</string>
+    <string name="enable" msgid="7656386199154111316">"Қосу"</string>
+    <string name="continue_button" msgid="2748318968566159950">"Жалғастыру"</string>
+    <string name="retry" msgid="3783419451480721367">"Қайталау"</string>
+    <string name="turn_on" msgid="4288754850470994812">"Қосу"</string>
+    <string name="not_now" msgid="8764692269093707622">"Қазір емес"</string>
+    <string name="connected" msgid="8051190714042020471">"Байланыстырылған"</string>
+    <string name="notDetected" msgid="4115229772085594506">"Анықталмаған"</string>
+    <string name="disconnected" msgid="8526513868622591894">"Ажыратылған"</string>
+    <string name="unknown" msgid="555736316465118024">"Белгісіз"</string>
+    <string name="app_running_msg_channel_name" msgid="87011783084544733">"Телефонда мәтіндік хабар қызметі іске қосылған."</string>
+    <string name="app_running_msg_notification_title" msgid="388907180286994900">"Телефонда мәтіндік хабар қызметі қосулы."</string>
+    <string name="app_running_msg_notification_content" msgid="4602261901969140233">"Мәтіндік хабарларды көмекші құрылғы арқылы алу"</string>
+    <string name="trusted_device_feature_title" msgid="2690568414493283969">"Профиль құлпын телефонмен ашу"</string>
+    <string name="trusted_device_feature_instruction" msgid="2546439818978826962">"Құлпын ашу опцияларын орнату үшін көмекші қолданбаны тексеріңіз."</string>
+    <string name="trusted_device_item_title" msgid="4390572381407233745">"&lt;b&gt;<xliff:g id="PHONE_NAME">%1$s</xliff:g>&lt;/b&gt; телефонына профиль құлпын ашуға рұқсат ету"</string>
+    <string name="device_not_connected_dialog_title" msgid="1157155922752758658">"Телефоныңыз байланыстырулы күйде болуы керек"</string>
+    <string name="device_not_connected_dialog_message" msgid="4987412656697205324">"Бұл функцияны қосу үшін көлігіңіз бен телефоныңызда Bluetooth қосулы екеніне және құрылғылар бір-біріне жақын екеніне көз жеткізіңіз."</string>
+    <string name="trusted_device_enrollment_success_message" msgid="2080578779942302923">"&lt;b&gt;<xliff:g id="PHONE_NAME">%1$s</xliff:g>&lt;/b&gt; телефоны енді профиліңіздің құлпын аша алады."</string>
+    <string name="create_profile_lock_dialog_title" msgid="7865225698595414341">"Негізгі профиль құлпын жасау"</string>
+    <string name="create_profile_lock_dialog_message" msgid="5078929325894045416">"Профиль құлпын телефонмен ашу үшін негізгі профиль құлпы да орнатылған болу керек."</string>
+    <string name="unlock_profile_to_finish_title" msgid="6542028315996392302">"Аяқтау үшін профильдің құлпын ашу"</string>
+    <string name="unlock_profile_to_finish_message" msgid="8616094218201557262">"Жаңа профиль құлпын жасадыңыз. Енді телефон профиліңіздің құлпын автоматты түрде аша алатынын растау үшін оны енгізіңіз."</string>
+    <string name="disable_device_connection_text" msgid="4361795552013963732">"Бұл құрылғыны ажырату"</string>
+    <string name="enable_device_connection_text" msgid="7742550392552935783">"Бұл құрылғыны қайта байланыстыру"</string>
+    <string name="trusted_device_notification_channel_name" msgid="6717174570621750321">"Құлпын телефонмен ашу"</string>
+    <string name="trusted_device_notification_title" msgid="249913439061543209">"Телефонға профильдің құлпын ашуға рұқсат етіңіз"</string>
+    <string name="trusted_device_notification_content" msgid="7536321078698712456">"Бұл функцияға рұқсат ету үшін осы жерді басыңыз."</string>
+    <string name="trusted_device_enrollment_error_dialog_title" msgid="8120284275374458606">"Бірдеңе дұрыс емес"</string>
+    <string name="trusted_device_enrollment_error_dialog_message" msgid="7205036748277720461">"Өкінішке орай, бұл функцияны дәл қазір қосу мүмкін емес. Қайталап көріңіз."</string>
+    <string name="create_phone_lock_dialog_title" msgid="9160142569534569820">"Телефоннан экран құлпын жасау"</string>
+    <string name="create_phone_lock_dialog_message" msgid="8209460622086922427">"Телефоныңыздың экран құлпы орнатылмаған. Көлік профилінің құлпын телефонмен ашу үшін алдымен телефон параметрлерінен экран құлпын (рұқсат коды деп те аталады) жасаңыз."</string>
+</resources>

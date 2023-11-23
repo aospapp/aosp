@@ -22,6 +22,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.Bundle;
 import android.provider.CallLog.Calls;
 import android.provider.ContactsContract.CommonDataKinds.Phone;
 import android.provider.ContactsContract.PhoneLookup;
@@ -31,7 +32,7 @@ import android.util.Log;
 import com.android.bluetooth.R;
 import com.android.bluetooth.Utils;
 import com.android.bluetooth.util.DevicePolicyUtils;
-import com.android.internal.telephony.GsmAlphabet;
+import com.android.bluetooth.util.GsmAlphabet;
 
 import java.util.HashMap;
 
@@ -115,9 +116,13 @@ public class AtPhonebook {
     /** Returns the last dialled number, or null if no numbers have been called */
     public String getLastDialledNumber() {
         String[] projection = {Calls.NUMBER};
-        Cursor cursor = mContentResolver.query(Calls.CONTENT_URI, projection,
-                Calls.TYPE + "=" + Calls.OUTGOING_TYPE, null,
-                Calls.DEFAULT_SORT_ORDER + " LIMIT 1");
+        Bundle queryArgs = new Bundle();
+        queryArgs.putString(ContentResolver.QUERY_ARG_SQL_SELECTION,
+                Calls.TYPE + "=" + Calls.OUTGOING_TYPE);
+        queryArgs.putString(ContentResolver.QUERY_ARG_SQL_SORT_ORDER, Calls.DEFAULT_SORT_ORDER);
+        queryArgs.putInt(ContentResolver.QUERY_ARG_LIMIT, 1);
+
+        Cursor cursor = mContentResolver.query(Calls.CONTENT_URI, projection, queryArgs, null);
         if (cursor == null) {
             Log.w(TAG, "getLastDialledNumber, cursor is null");
             return null;

@@ -60,6 +60,11 @@
     <string name="forget" msgid="892068061425802502">"அகற்று"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"வைஃபை டைரக்ட் மூலமாக இணைக்கிறது"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"<xliff:g id="IP_ADDRESS">%1$s</xliff:g> இல் தற்போதைய நெட்வொர்க் மூலம் இணைக்கிறது"</string>
+    <string name="recommendation_summary" msgid="2979700524954307566">"இயல்புநிலை அச்சிடுதல் சேவையானது அடிப்படையான விருப்பத்தேர்வுகளை வழங்குகிறது. இந்த பிரிண்ட்டருக்கான மற்ற விருப்பத்தேர்வுகள் வேறு அச்சிடுதல் சேவை மூலம் கிடைக்கக்கூடும்."</string>
+    <string name="recommendations_heading" msgid="5086762263560605249">"பரிந்துரைக்கப்படும் சேவைகள்"</string>
+    <string name="recommendation_install_summary" msgid="374785283809791669">"நிறுவுவதற்கு தேர்வு செய்யவும்"</string>
+    <string name="recommendation_enable_summary" msgid="3500907868251326224">"இயக்குவதற்குத் தேர்ந்தெடுக்கவும்"</string>
+    <string name="recommendation_manage" msgid="4683640588502866284">"சேவைகளை நிர்வகி"</string>
     <string name="security" msgid="2279008326210305401">"பாதுகாப்பு"</string>
     <string name="certificate_update_request" msgid="1314796413107139475">"இந்தப் பிரிண்டரோ இதன் பெயரில் வேறொரு சாதனமோ புதிய பாதுகாப்பு சான்றிதழை வழங்கியுள்ளது. புதிய சான்றிதழை ஏற்கவா?"</string>
     <string name="not_encrypted_request" msgid="4871472176807381642">"இந்தப் பிரிண்ட்டரானது என்க்ரிப்ஷன் செய்தவற்றை அச்சிடாது. அச்சிடுவதைத் தொடரவா?"</string>
@@ -68,4 +73,5 @@
     <string name="connections" msgid="8895413761760117180">"இணைப்புகள்"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"அருகிலுள்ள சாதனங்களைக் கண்டறிய \'இயல்புநிலை அச்சிடுதல் சேவைக்கு\' இருப்பிட அனுமதி தேவை."</string>
     <string name="fix" msgid="7784394272611365393">"அனுமதியைச் சரிபார்"</string>
+    <string name="print" msgid="7851318072404916362">"அச்சிடு"</string>
 </resources>

@@ -83,7 +83,10 @@ public abstract class AbstractBluetoothA2dpPreferenceController extends
         final BluetoothCodecConfig codecConfig = mBluetoothA2dpConfigStore.createCodecConfig();
         synchronized (mBluetoothA2dpConfigStore) {
             if (mBluetoothA2dp != null) {
-                setCodecConfigPreference(null, codecConfig);    // Use current active device
+                BluetoothDevice activeDevice = mBluetoothA2dp.getActiveDevice();
+                if (activeDevice != null) {
+                    setCodecConfigPreference(mBluetoothA2dp.getActiveDevice(), codecConfig);
+                }
             }
         }
         // Because the setting is not persisted into permanent storage, we cannot call update state
@@ -102,13 +105,17 @@ public abstract class AbstractBluetoothA2dpPreferenceController extends
 
     @Override
     public void updateState(Preference preference) {
-        if (getCodecConfig(null) == null || mPreference == null) { // Use current active device
+        if (mBluetoothA2dp == null) {
+            return;
+        }
+        BluetoothDevice activeDevice = mBluetoothA2dp.getActiveDevice();
+        if (activeDevice == null || getCodecConfig(activeDevice) == null || mPreference == null) {
             return;
         }
 
         BluetoothCodecConfig codecConfig;
         synchronized (mBluetoothA2dpConfigStore) {
-            codecConfig = getCodecConfig(null);         // Use current active device
+            codecConfig = getCodecConfig(activeDevice);         // Use current active device
         }
 
         final int index = getCurrentA2dpSettingIndex(codecConfig);
@@ -178,13 +185,22 @@ public abstract class AbstractBluetoothA2dpPreferenceController extends
     @VisibleForTesting
     void setCodecConfigPreference(BluetoothDevice device,
             BluetoothCodecConfig config) {
-        mBluetoothA2dp.setCodecConfigPreference(device, config);
+        BluetoothDevice bluetoothDevice =
+                (device != null) ? device : mBluetoothA2dp.getActiveDevice();
+        if (bluetoothDevice != null) {
+            mBluetoothA2dp.setCodecConfigPreference(bluetoothDevice, config);
+        }
     }
 
     @VisibleForTesting
     BluetoothCodecConfig getCodecConfig(BluetoothDevice device) {
         if (mBluetoothA2dp != null) {
-            BluetoothCodecStatus codecStatus = mBluetoothA2dp.getCodecStatus(device);
+            BluetoothDevice bluetoothDevice =
+                    (device != null) ? device : mBluetoothA2dp.getActiveDevice();
+            if (bluetoothDevice == null) {
+                return null;
+            }
+            BluetoothCodecStatus codecStatus = mBluetoothA2dp.getCodecStatus(bluetoothDevice);
             if (codecStatus != null) {
                 return codecStatus.getCodecConfig();
             }

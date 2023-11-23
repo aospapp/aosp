@@ -21,8 +21,8 @@
     <string name="pkcs12_password_dialog_title" msgid="5997624645207427161">"Extraer certificado"</string>
     <string name="extracting_pkcs12" msgid="1881267738821799771">"Extrayendo..."</string>
     <string name="pkcs12_file_password_dialog_title" msgid="8102721384767269510">"Extraer de %s"</string>
-    <string name="name_credential_dialog_title" msgid="277729846491554437">"Nombre del certificado"</string>
-    <string name="credential_name" msgid="1974979771369744378">"Nombre del certificado:"</string>
+    <string name="name_credential_dialog_title" msgid="1481964824549786927">"Da un nombre al certificado"</string>
+    <string name="certificate_name" msgid="8415893401368824792">"Nombre del certificado"</string>
     <string name="credential_password" msgid="3520176519550993326">"Escribe la contraseña para extraer los certificados"</string>
     <string name="credential_info" msgid="2436768402308470397">"El paquete contiene:"</string>
     <string name="p12_description" msgid="4128352087331630024">"Certificados del almacén de claves PKCS12"</string>
@@ -41,10 +41,24 @@
     <string name="invalid_cert" msgid="7704228670980743590">"El certificado no es válido."</string>
     <string name="action_missing_private_key" msgid="7543470057312920042">"Se necesita una clave privada para instalar un certificado"</string>
     <string name="action_missing_user_cert" msgid="3727411730202316771">"Se necesita un certificado para instalar una clave privada"</string>
-    <string name="cert_is_added" msgid="6996557598167000500">"<xliff:g id="CREDENTIAL">%s</xliff:g> se ha instalado."</string>
+    <string name="select_certificate_usage_title" msgid="8853023485944920851">"Elige un tipo de certificado"</string>
+    <string name="redirect_ca_certificate_title" msgid="3457516863949244510">"Instala certificados de CA en Ajustes"</string>
+    <string name="redirect_ca_certificate_with_app_info_message" msgid="934477720755323579">"Este certificado de <xliff:g id="REQUESTING_APP">%1$s</xliff:g> debe instalarse en Ajustes. Instala solo certificados de CA de organizaciones en las que confíes."</string>
+    <string name="redirect_ca_certificate_close_button" msgid="4291301659747279488">"Cerrar"</string>
+    <string name="invalid_certificate_title" msgid="6500315398016809635">"No se puede usar este archivo"</string>
+    <string name="invalid_certificate_close_button" msgid="350986774973653102">"Cerrar"</string>
+    <string name="invalid_certificate_message" msgid="3508065546083182733">"Este archivo no puede utilizarse como <xliff:g id="CERTIFICATE_USAGE">%1$s</xliff:g>"</string>
+    <string name="certificate" msgid="8790577925509962529">"certificado"</string>
+    <string name="ca_certificate" msgid="7397198551290322945">"certificado de CA"</string>
+    <string name="user_certificate" msgid="514888069820553128">"Certificado de usuario de VPN y aplicaciones"</string>
+    <string name="wifi_certificate" msgid="5356595832360140989">"certificado de Wi‑Fi"</string>
+    <string name="ca_cert_is_added" msgid="2847081843756291802">"Se ha instalado el certificado de CA"</string>
+    <string name="user_cert_is_added" msgid="3088794616560630823">"Se ha instalado el certificado de usuario"</string>
+    <string name="wifi_cert_is_added" msgid="333220613655140428">"Se ha instalado el certificado de Wi‑Fi"</string>
     <string name="cert_too_large_error" msgid="8715414972725646285">"No se ha podido instalar porque el tamaño del certificado es demasiado grande."</string>
     <string name="cert_missing_error" msgid="7040527352278728220">"No se ha podido instalar porque no se ha encontrado el archivo de certificado."</string>
     <string name="cert_read_error" msgid="7353463360652419796">"No se ha podido instalar porque no se puede leer el archivo de certificado."</string>
+    <string name="cert_temp_error" msgid="617276803992714550">"Se ha producido un error temporal. Inténtalo de nuevo más tarde."</string>
     <string name="only_primary_user_allowed" msgid="4005084935023047716">"Solo el propietario de este dispositivo puede instalar certificados."</string>
     <string name="credential_usage_label" msgid="1513892208033156805">"Uso de credenciales:"</string>
   <string-array name="credential_usage">

@@ -18,8 +18,7 @@
 -->
 <resources>
     <!-- Semi-transparent background color of blocking activity. -->
-    <!-- In Call background scrim: black -->
-    <color name="activity_blocking_activity_background">@android:color/black</color>
+    <color name="activity_blocking_activity_background">#c7000000</color>
 
     <!-- Color of text in blocking activity. -->
     <color name="blocking_text">#fff5f5f5</color>

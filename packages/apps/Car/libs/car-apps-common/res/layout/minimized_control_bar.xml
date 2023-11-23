@@ -28,7 +28,7 @@
         android:id="@+id/metadata_background"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:background="@drawable/car_card_ripple_background"
+        android:background="?android:attr/selectableItemBackground"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -68,6 +68,9 @@
         app:layout_constraintStart_toStartOf="@+id/minimized_control_bar_title"
         app:layout_constraintEnd_toEndOf="@+id/minimized_control_bar_title"/>
 
+    <!-- Using a LinearLayout as a wrapper to be able to define layout constraints between the
+    parent (ConstraintLayout with locale based layout) and the child (LinearLayout with LTR
+    layout).  -->
     <LinearLayout
         android:id="@+id/minimized_control_buttons_wrapper"
         android:layout_width="wrap_content"
@@ -79,31 +82,38 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toEndOf="@+id/minimized_control_bar_title"
         app:layout_constraintEnd_toEndOf="parent">
-        <include
-            android:id="@+id/minimized_control_bar_left_slot"
-            android:layout_width="@dimen/minimized_control_bar_button_size"
-            android:layout_height="@dimen/minimized_control_bar_button_size"
-            android:layout_marginEnd="@dimen/minimized_control_bar_button_padding"
-            android:layout_gravity="center_vertical"
-            android:layout_weight="1"
-            layout="@layout/control_bar_slot"/>
-        <include
-            android:id="@+id/minimized_control_bar_main_slot"
-            android:layout_width="@dimen/minimized_control_bar_button_size"
-            android:layout_height="@dimen/minimized_control_bar_button_size"
-            android:layout_gravity="center_vertical"
-            android:layout_weight="1"
-            layout="@layout/control_bar_slot"/>
-        <include
-            android:id="@+id/minimized_control_bar_right_slot"
-            android:layout_width="@dimen/minimized_control_bar_button_size"
-            android:layout_height="@dimen/minimized_control_bar_button_size"
-            android:layout_marginStart="@dimen/minimized_control_bar_button_padding"
-            android:layout_gravity="center_vertical"
-            android:layout_weight="1"
-            layout="@layout/control_bar_slot"/>
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:clipChildren="false"
+            android:layoutDirection="ltr"
+            android:layout_gravity="center_vertical">
+            <include
+                android:id="@+id/minimized_control_bar_left_slot"
+                android:layout_width="@dimen/minimized_control_bar_button_size"
+                android:layout_height="@dimen/minimized_control_bar_button_size"
+                android:layout_marginEnd="@dimen/minimized_control_bar_button_padding"
+                android:layout_gravity="center_vertical"
+                android:layout_weight="1"
+                layout="@layout/control_bar_slot"/>
+            <include
+                android:id="@+id/minimized_control_bar_main_slot"
+                android:layout_width="@dimen/minimized_control_bar_button_size"
+                android:layout_height="@dimen/minimized_control_bar_button_size"
+                android:layout_gravity="center_vertical"
+                android:layout_weight="1"
+                layout="@layout/control_bar_slot"/>
+            <include
+                android:id="@+id/minimized_control_bar_right_slot"
+                android:layout_width="@dimen/minimized_control_bar_button_size"
+                android:layout_height="@dimen/minimized_control_bar_button_size"
+                android:layout_marginStart="@dimen/minimized_control_bar_button_padding"
+                android:layout_gravity="center_vertical"
+                android:layout_weight="1"
+                layout="@layout/control_bar_slot"/>
+        </LinearLayout>
     </LinearLayout>
-
 
 
 </androidx.constraintlayout.widget.ConstraintLayout>

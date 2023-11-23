@@ -16,6 +16,7 @@
 
 package com.android.managedprovisioning.common;
 
+import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_FINANCED_DEVICE;
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_DEVICE;
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_DEVICE_FROM_TRUSTED_SOURCE;
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_PROFILE;
@@ -25,6 +26,11 @@ import static android.app.admin.DevicePolicyManager.MIME_TYPE_PROVISIONING_NFC;
 import static android.app.admin.DevicePolicyManager.PROVISIONING_TRIGGER_CLOUD_ENROLLMENT;
 import static android.app.admin.DevicePolicyManager.PROVISIONING_TRIGGER_QR_CODE;
 import static android.app.admin.DevicePolicyManager.PROVISIONING_TRIGGER_UNSPECIFIED;
+import static android.content.pm.PackageManager.MATCH_HIDDEN_UNTIL_INSTALLED_COMPONENTS;
+import static android.content.pm.PackageManager.MATCH_UNINSTALLED_PACKAGES;
+import static android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET;
+import static android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED;
+import static android.net.NetworkCapabilities.TRANSPORT_CELLULAR;
 import static android.nfc.NfcAdapter.ACTION_NDEF_DISCOVERED;
 
 import static com.android.managedprovisioning.common.Globals.ACTION_PROVISION_MANAGED_DEVICE_SILENTLY;
@@ -33,6 +39,7 @@ import static com.android.managedprovisioning.model.ProvisioningParams.PROVISION
 import static com.android.managedprovisioning.model.ProvisioningParams.PROVISIONING_MODE_MANAGED_PROFILE_ON_FULLY_NAMAGED_DEVICE;
 
 import android.annotation.WorkerThread;
+import android.net.NetworkCapabilities;
 import android.os.Handler;
 import android.os.Looper;
 import com.android.managedprovisioning.R;
@@ -90,8 +97,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 import com.google.android.setupdesign.GlifLayout;
@@ -124,7 +133,8 @@ public class Utils {
         List<ApplicationInfo> aInfos = null;
         try {
             aInfos = ipm.getInstalledApplications(
-                    PackageManager.MATCH_UNINSTALLED_PACKAGES, userId).getList();
+                    MATCH_UNINSTALLED_PACKAGES | MATCH_HIDDEN_UNTIL_INSTALLED_COMPONENTS, userId)
+                    .getList();
         } catch (RemoteException neverThrown) {
             ProvisionLogger.loge("This should not happen.", neverThrown);
         }
@@ -477,6 +487,7 @@ public class Utils {
             case ACTION_PROVISION_MANAGED_SHAREABLE_DEVICE:
             case ACTION_PROVISION_MANAGED_USER:
             case ACTION_PROVISION_MANAGED_PROFILE:
+            case ACTION_PROVISION_FINANCED_DEVICE:
                 dpmProvisioningAction = intent.getAction();
                 break;
 
@@ -516,13 +527,6 @@ public class Utils {
         return dpmProvisioningAction;
     }
 
-    public boolean isCloudEnrollment(Intent intent) {
-        return PROVISIONING_TRIGGER_CLOUD_ENROLLMENT ==
-                intent.getIntExtra(
-                        DevicePolicyManager.EXTRA_PROVISIONING_TRIGGER,
-                        /* defValue= */ PROVISIONING_TRIGGER_UNSPECIFIED);
-    }
-
     /**
      * Returns if the given intent for a organization owned provisioning.
      * Only QR, cloud enrollment and NFC are owned by organization.
@@ -544,6 +548,13 @@ public class Utils {
             default:
                 return false;
         }
+    }
+
+    public boolean isQrProvisioning(Intent intent) {
+        return PROVISIONING_TRIGGER_QR_CODE ==
+                intent.getIntExtra(
+                        DevicePolicyManager.EXTRA_PROVISIONING_TRIGGER,
+                        /* defValue= */ PROVISIONING_TRIGGER_UNSPECIFIED);
     }
 
     /**
@@ -591,6 +602,13 @@ public class Utils {
     }
 
     /**
+     * Returns whether the given provisioning action is a financed device action.
+     */
+    public final boolean isFinancedDeviceAction(String action) {
+        return ACTION_PROVISION_FINANCED_DEVICE.equals(action);
+    }
+
+    /**
      * Returns whether the device currently has connectivity.
      */
     public boolean isConnectedToNetwork(Context context) {
@@ -598,14 +616,44 @@ public class Utils {
         return info != null && info.isConnected();
     }
 
+    public boolean isMobileNetworkConnectedToInternet(Context context) {
+        final ConnectivityManager connectivityManager =
+                (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+        return Arrays.stream(connectivityManager.getAllNetworks())
+                .filter(network -> {
+                    return Objects.nonNull(connectivityManager.getNetworkCapabilities(network));
+                })
+                .map(connectivityManager::getNetworkCapabilities)
+                .filter(this::isCellularNetwork)
+                .anyMatch(this::isConnectedToInternet);
+    }
+
+    private boolean isConnectedToInternet(NetworkCapabilities capabilities) {
+        return capabilities.hasCapability(NET_CAPABILITY_INTERNET)
+                && capabilities.hasCapability(NET_CAPABILITY_VALIDATED);
+    }
+
+    private boolean isCellularNetwork(NetworkCapabilities capabilities) {
+        return capabilities.hasTransport(TRANSPORT_CELLULAR);
+    }
+
     /**
-     * Returns whether the device is currently connected to a wifi.
+     * Returns whether the device is currently connected to specific network type, such as {@link
+     * ConnectivityManager.TYPE_WIFI} or {@link ConnectivityManager.TYPE_ETHERNET}
+     *
+     * {@see ConnectivityManager}
      */
-    public boolean isConnectedToWifi(Context context) {
-        NetworkInfo info = getActiveNetworkInfo(context);
-        return info != null
-                && info.isConnected()
-                && info.getType() == ConnectivityManager.TYPE_WIFI;
+    public boolean isNetworkTypeConnected(Context context, int... types) {
+        final NetworkInfo networkInfo = getActiveNetworkInfo(context);
+        if (networkInfo != null && networkInfo.isConnected()) {
+            final int activeNetworkType = networkInfo.getType();
+            for (int type : types) {
+                if (activeNetworkType == type) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /**
@@ -790,19 +838,39 @@ public class Utils {
             textView.setText(contactDeviceProvider);
             return;
         }
-        final SpannableString spannableString = new SpannableString(contactDeviceProvider);
         final Intent intent = WebActivity.createIntent(
                 context, customizationParams.supportUrl, customizationParams.statusBarColor);
+
+        handlePartialClickableTextView(textView, contactDeviceProvider, deviceProvider, intent,
+                clickableSpanFactory);
+
+        contextMenuMaker.registerWithActivity(textView);
+    }
+
+    /**
+     * Utility function to make a TextView partial clickable. It also associates the TextView with
+     * an Intent. The intent will be triggered when the clickable part is clicked.
+     *
+     * @param textView The TextView which hosts the clickable string.
+     * @param content The content of the TextView.
+     * @param clickableString The substring which is clickable.
+     * @param intent The Intent that will be launched.
+     * @param clickableSpanFactory The factory which is used to create ClickableSpan to decorate
+     *                             clickable string.
+     */
+    public void handlePartialClickableTextView(TextView textView, String content,
+            String clickableString, Intent intent, ClickableSpanFactory clickableSpanFactory) {
+        final SpannableString spannableString = new SpannableString(content);
         if (intent != null) {
             final ClickableSpan span = clickableSpanFactory.create(intent);
-            final int startIx = contactDeviceProvider.indexOf(deviceProvider);
-            final int endIx = startIx + deviceProvider.length();
-            spannableString.setSpan(span, startIx, endIx, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            textView.setMovementMethod(LinkMovementMethod.getInstance()); // make clicks work
+            final int startIdx = content.indexOf(clickableString);
+            final int endIdx = startIdx + clickableString.length();
+
+            spannableString.setSpan(span, startIdx, endIdx, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            textView.setMovementMethod(LinkMovementMethod.getInstance());
         }
 
         textView.setText(spannableString);
-        contextMenuMaker.registerWithActivity(textView);
     }
 
     public static boolean isSilentProvisioningForTestingDeviceOwner(

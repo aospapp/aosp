@@ -23,12 +23,14 @@ import static com.android.tv.common.feature.TestableFeature.createTestableFeatur
 
 import android.content.Context;
 import android.util.Log;
+
 import com.android.tv.common.flags.has.HasCloudEpgFlags;
 import com.android.tv.common.util.LocationUtils;
+
 import com.android.tv.common.flags.CloudEpgFlags;
 
 /**
- * List of {@link Feature} that affect more than just the Live TV app.
+ * List of {@link Feature} that affect more than just the TV app.
  *
  * <p>Remove the {@code Feature} once it is launched.
  */
@@ -52,7 +54,7 @@ public class CommonFeatures {
      * <p>Enables dvr recording regardless of storage status.
      */
     public static final Feature FORCE_RECORDING_UNTIL_NO_SPACE =
-            PropertyFeature.create("force_recording_until_no_space", false);
+            DeveloperPreferenceFeature.create("force_recording_until_no_space", false);
 
     /** Show postal code fragment before channel scan. */
     public static final Feature ENABLE_CLOUD_EPG_REGION =

@@ -14,22 +14,29 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 -->
-<merge xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- The invisible foreground ripple stops Android O from drawing an ugly square over the play
-    button -->
+<FrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/play_pause_container"
+    android:focusable="false"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content">
+    <!-- The invisible foreground ripple stops Android O from drawing an ugly square over the play button -->
     <com.android.car.media.common.PlayPauseStopImageView
         android:id="@+id/play_pause_stop"
         style="@style/Widget.ActionButton"
         android:foreground="@drawable/fab_empty_foreground"
         android:src="@drawable/ic_play_pause_stop_animated"/>
     <ProgressBar
-        android:id="@+id/spinner"
+        android:id="@+id/circular_progress_bar"
         android:layout_width="@dimen/fab_spinner_size"
         android:layout_height="@dimen/fab_spinner_size"
         android:layout_gravity="center"
         android:padding="9dp"
         android:indeterminateDrawable="@drawable/music_buffering"
         android:indeterminateTint="@color/fab_spinner_indeterminate_color"
+        android:progressDrawable="@drawable/circular_progress_bar"
+        android:progressTint="@color/minimized_progress_bar_highlight"
+        android:progressBackgroundTint="@color/minimized_progress_bar_background"
         android:focusable="false"
-        android:visibility="invisible" />
-</merge>
+        android:indeterminateOnly="false"/>
+</FrameLayout>

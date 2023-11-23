@@ -50,13 +50,13 @@ import android.os.Message;
 import android.os.PowerManager;
 import android.os.UserManager;
 import android.telephony.TelephonyManager;
-import android.text.TextUtils;
 import android.util.Log;
 
 import com.android.bluetooth.IObexConnectionHandler;
 import com.android.bluetooth.ObexServerSockets;
 import com.android.bluetooth.R;
 import com.android.bluetooth.Utils;
+import com.android.bluetooth.btservice.AdapterService;
 import com.android.bluetooth.btservice.ProfileService;
 import com.android.bluetooth.sdp.SdpManager;
 import com.android.bluetooth.util.DevicePolicyUtils;
@@ -140,7 +140,8 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
     private ObexServerSockets mServerSockets = null;
 
     private static final int SDP_PBAP_SERVER_VERSION = 0x0102;
-    private static final int SDP_PBAP_SUPPORTED_REPOSITORIES = 0x0001;
+    // PBAP v1.2.3, Sec. 7.1.2: local phonebook and favorites
+    private static final int SDP_PBAP_SUPPORTED_REPOSITORIES = 0x0009;
     private static final int SDP_PBAP_SUPPORTED_FEATURES = 0x021F;
 
     /* PBAP will use Bluetooth notification ID from 1000000 (included) to 2000000 (excluded).
@@ -417,8 +418,17 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
         }
     }
 
-    int getConnectionState(BluetoothDevice device) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+    /**
+     * Get the current connection state of PBAP with the passed in device
+     *
+     * @param device is the device whose connection state to PBAP we are trying to get
+     * @return current connection state, one of {@link BluetoothProfile#STATE_DISCONNECTED},
+     * {@link BluetoothProfile#STATE_CONNECTING}, {@link BluetoothProfile#STATE_CONNECTED}, or
+     * {@link BluetoothProfile#STATE_DISCONNECTING}
+     */
+    public int getConnectionState(BluetoothDevice device) {
+        enforceCallingOrSelfPermission(
+                BLUETOOTH_PRIVILEGED, "Need BLUETOOTH_PRIVILEGED permission");
         if (mPbapStateMachineMap == null) {
             return BluetoothProfile.STATE_DISCONNECTED;
         }
@@ -460,7 +470,60 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
         return devices;
     }
 
-    void disconnect(BluetoothDevice device) {
+    /**
+     * Set connection policy of the profile and tries to disconnect it if connectionPolicy is
+     * {@link BluetoothProfile#CONNECTION_POLICY_FORBIDDEN}
+     *
+     * <p> The device should already be paired.
+     * Connection policy can be one of:
+     * {@link BluetoothProfile#CONNECTION_POLICY_ALLOWED},
+     * {@link BluetoothProfile#CONNECTION_POLICY_FORBIDDEN},
+     * {@link BluetoothProfile#CONNECTION_POLICY_UNKNOWN}
+     *
+     * @param device Paired bluetooth device
+     * @param connectionPolicy is the connection policy to set to for this profile
+     * @return true if connectionPolicy is set, false on error
+     */
+    public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy) {
+        enforceCallingOrSelfPermission(
+                BLUETOOTH_PRIVILEGED, "Need BLUETOOTH_PRIVILEGED permission");
+        if (DEBUG) {
+            Log.d(TAG, "Saved connectionPolicy " + device + " = " + connectionPolicy);
+        }
+        AdapterService.getAdapterService().getDatabase()
+                .setProfileConnectionPolicy(device, BluetoothProfile.PBAP, connectionPolicy);
+        if (connectionPolicy == BluetoothProfile.CONNECTION_POLICY_FORBIDDEN) {
+            disconnect(device);
+        }
+        return true;
+    }
+
+    /**
+     * Get the connection policy of the profile.
+     *
+     * <p> The connection policy can be any of:
+     * {@link BluetoothProfile#CONNECTION_POLICY_ALLOWED},
+     * {@link BluetoothProfile#CONNECTION_POLICY_FORBIDDEN},
+     * {@link BluetoothProfile#CONNECTION_POLICY_UNKNOWN}
+     *
+     * @param device Bluetooth device
+     * @return connection policy of the device
+     * @hide
+     */
+    public int getConnectionPolicy(BluetoothDevice device) {
+        if (device == null) {
+            throw new IllegalArgumentException("Null device");
+        }
+        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
+        return AdapterService.getAdapterService().getDatabase()
+                .getProfileConnectionPolicy(device, BluetoothProfile.PBAP);
+    }
+
+    /**
+     * Disconnects pbap server profile with device
+     * @param device is the remote bluetooth device
+     */
+    public void disconnect(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
         synchronized (mPbapStateMachineMap) {
             PbapStateMachine sm = mPbapStateMachineMap.get(device);
@@ -645,6 +708,19 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
         }
 
         @Override
+        public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy) {
+            if (DEBUG) {
+                Log.d(TAG, "setConnectionPolicy for device: " + device + ", policy:"
+                        + connectionPolicy);
+            }
+            BluetoothPbapService service = getService();
+            if (service == null) {
+                return false;
+            }
+            return service.setConnectionPolicy(device, connectionPolicy);
+        }
+
+        @Override
         public void disconnect(BluetoothDevice device) {
             if (DEBUG) {
                 Log.d(TAG, "disconnect");
@@ -692,6 +768,7 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
         }
 
         if (permission == BluetoothDevice.ACCESS_ALLOWED) {
+            setConnectionPolicy(device, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
             stateMachine.sendMessage(PbapStateMachine.AUTHORIZED);
         } else if (permission == BluetoothDevice.ACCESS_REJECTED) {
             stateMachine.sendMessage(PbapStateMachine.REJECTED);
@@ -777,10 +854,7 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
         TelephonyManager tm = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
         if (tm != null) {
             sLocalPhoneNum = tm.getLine1Number();
-            sLocalPhoneName = tm.getLine1AlphaTag();
-            if (TextUtils.isEmpty(sLocalPhoneName)) {
-                sLocalPhoneName = this.getString(R.string.localPhoneName);
-            }
+            sLocalPhoneName = this.getString(R.string.localPhoneName);
         }
         if (VERBOSE)
             Log.v(TAG, "Local Phone Details- Number:" + sLocalPhoneNum

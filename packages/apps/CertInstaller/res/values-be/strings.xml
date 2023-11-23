@@ -21,8 +21,8 @@
     <string name="pkcs12_password_dialog_title" msgid="5997624645207427161">"Выманне сертыфікату"</string>
     <string name="extracting_pkcs12" msgid="1881267738821799771">"Выманне..."</string>
     <string name="pkcs12_file_password_dialog_title" msgid="8102721384767269510">"Выпіска з %s"</string>
-    <string name="name_credential_dialog_title" msgid="277729846491554437">"Дайце назву сертыфікату"</string>
-    <string name="credential_name" msgid="1974979771369744378">"Назва сертыфіката:"</string>
+    <string name="name_credential_dialog_title" msgid="1481964824549786927">"Дайце назву гэтаму сертыфікату"</string>
+    <string name="certificate_name" msgid="8415893401368824792">"Назва сертыфіката"</string>
     <string name="credential_password" msgid="3520176519550993326">"Увядзіце пароль, каб атрымаць сертыфікаты."</string>
     <string name="credential_info" msgid="2436768402308470397">"Пакет змяшчае:"</string>
     <string name="p12_description" msgid="4128352087331630024">"Сертыфікаты ў сховішчы ключоў PKCS12."</string>
@@ -41,10 +41,24 @@
     <string name="invalid_cert" msgid="7704228670980743590">"Сертыфікат несапраўдны."</string>
     <string name="action_missing_private_key" msgid="7543470057312920042">"Каб усталяваць сертыфікат, патрэбны закрыты ключ"</string>
     <string name="action_missing_user_cert" msgid="3727411730202316771">"Каб усталяваць закрыты ключ, патрэбны сертыфікат"</string>
-    <string name="cert_is_added" msgid="6996557598167000500">"Усталяваны <xliff:g id="CREDENTIAL">%s</xliff:g>."</string>
+    <string name="select_certificate_usage_title" msgid="8853023485944920851">"Выберыце тып сертыфіката"</string>
+    <string name="redirect_ca_certificate_title" msgid="3457516863949244510">"Усталяваць сертыфікаты ЦС у Наладах"</string>
+    <string name="redirect_ca_certificate_with_app_info_message" msgid="934477720755323579">"Гэты сертыфікат з праграмы \"<xliff:g id="REQUESTING_APP">%1$s</xliff:g>\" трэба ўсталяваць у Наладах. Усталёўвайце сертыфікаты ЦС толькі ад арганізацый, якім давяраеце."</string>
+    <string name="redirect_ca_certificate_close_button" msgid="4291301659747279488">"Закрыць"</string>
+    <string name="invalid_certificate_title" msgid="6500315398016809635">"Не ўдалося скарыстаць гэты файл"</string>
+    <string name="invalid_certificate_close_button" msgid="350986774973653102">"Закрыць"</string>
+    <string name="invalid_certificate_message" msgid="3508065546083182733">"Гэты файл нельга выкарыстоўваць як <xliff:g id="CERTIFICATE_USAGE">%1$s</xliff:g>"</string>
+    <string name="certificate" msgid="8790577925509962529">"Сертыфікат"</string>
+    <string name="ca_certificate" msgid="7397198551290322945">"Сертыфікат ЦС"</string>
+    <string name="user_certificate" msgid="514888069820553128">"Сертыфікат карыстальніка VPN і праграм"</string>
+    <string name="wifi_certificate" msgid="5356595832360140989">"Сертыфікат Wi‑Fi"</string>
+    <string name="ca_cert_is_added" msgid="2847081843756291802">"Сертыфікат ЦС усталяваны"</string>
+    <string name="user_cert_is_added" msgid="3088794616560630823">"Сертыфікат карыстальніка ўсталяваны"</string>
+    <string name="wifi_cert_is_added" msgid="333220613655140428">"Сертыфікат Wi‑Fi усталяваны"</string>
     <string name="cert_too_large_error" msgid="8715414972725646285">"Не атрымлiваецца ўсталяваць, таму што памер сертыфiката занадта вялікі."</string>
     <string name="cert_missing_error" msgid="7040527352278728220">"Не атрымлiваецца ўсталяваць, таму што немагчыма размясцiць файл сертыфіката."</string>
     <string name="cert_read_error" msgid="7353463360652419796">"Не атрымлiваецца ўсталяваць, таму што немагчыма прачытаць файл сертыфіката."</string>
+    <string name="cert_temp_error" msgid="617276803992714550">"Часовая памылка. Паўтарыце спробу пазней."</string>
     <string name="only_primary_user_allowed" msgid="4005084935023047716">"Сертыфiкаты можа ўсталёўваць толькi ўладальнiк гэтай прылады."</string>
     <string name="credential_usage_label" msgid="1513892208033156805">"Выкарыстанне ўліковых дадзеных:"</string>
   <string-array name="credential_usage">

@@ -19,17 +19,15 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
   package="com.android.networkstack"
   android:sharedUserId="android.uid.networkstack"
-  android:versionCode="290000000"
+  android:versionCode="300000000"
   android:versionName="2019-09"
 >
-
-    <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="29" />
-
     <!-- Permissions must be defined here, and not in the base manifest, as the network stack
          running in the system server process does not need any permission, and having privileged
          permissions added would cause crashes on startup unless they are also added to the
          privileged permissions whitelist for that package. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
@@ -43,8 +41,10 @@
     <uses-permission android:name="android.permission.MAINLINE_NETWORK_STACK" />
     <application
         android:extractNativeLibs="false"
-        android:persistent="true">
-        <service android:name="com.android.server.NetworkStackService">
+        android:persistent="true"
+        android:process="com.android.networkstack.process">
+        <service android:name="com.android.server.NetworkStackService"
+                 android:permission="android.permission.MAINLINE_NETWORK_STACK">
             <intent-filter>
                 <action android:name="android.net.INetworkStackConnector"/>
             </intent-filter>

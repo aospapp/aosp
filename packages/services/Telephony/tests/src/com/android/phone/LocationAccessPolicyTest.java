@@ -21,6 +21,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.when;
 
 import android.Manifest;
@@ -146,6 +147,9 @@ public class LocationAccessPolicyTest {
         }
     }
 
+    private static final int TESTING_UID = 10001;
+    private static final int TESTING_PID = 8009;
+
     @Mock Context mContext;
     @Mock AppOpsManager mAppOpsManager;
     @Mock LocationManager mLocationManager;
@@ -187,22 +191,25 @@ public class LocationAccessPolicyTest {
                 anyInt(), anyInt())).thenReturn(s.appHasCoarseManifest
                 ? PackageManager.PERMISSION_GRANTED : PackageManager.PERMISSION_DENIED);
 
-        when(mAppOpsManager.noteOpNoThrow(eq(AppOpsManager.OP_FINE_LOCATION),
-                anyInt(), anyString()))
+        when(mAppOpsManager.noteOpNoThrow(eq(AppOpsManager.OPSTR_FINE_LOCATION),
+                anyInt(), anyString(), nullable(String.class), nullable(String.class)))
                 .thenReturn(s.fineAppOp);
-        when(mAppOpsManager.noteOpNoThrow(eq(AppOpsManager.OP_COARSE_LOCATION),
-                anyInt(), anyString()))
+        when(mAppOpsManager.noteOpNoThrow(eq(AppOpsManager.OPSTR_COARSE_LOCATION),
+                anyInt(), anyString(), nullable(String.class), nullable(String.class)))
                 .thenReturn(s.coarseAppOp);
 
+        // set this permission to denied by default, and only allow for the proper pid/uid
+        // combination
+        when(mContext.checkPermission(eq(Manifest.permission.INTERACT_ACROSS_USERS_FULL),
+                anyInt(), anyInt())).thenReturn(PackageManager.PERMISSION_DENIED);
         if (s.isDynamicLocationEnabled) {
             when(mLocationManager.isLocationEnabledForUser(any(UserHandle.class))).thenReturn(true);
             when(mContext.checkPermission(eq(Manifest.permission.INTERACT_ACROSS_USERS_FULL),
-                    anyInt(), anyInt())).thenReturn(PackageManager.PERMISSION_GRANTED);
+                    eq(TESTING_PID), eq(TESTING_UID)))
+                    .thenReturn(PackageManager.PERMISSION_GRANTED);
         } else {
             when(mLocationManager.isLocationEnabledForUser(any(UserHandle.class)))
                     .thenReturn(false);
-            when(mContext.checkPermission(eq(Manifest.permission.INTERACT_ACROSS_USERS_FULL),
-                    anyInt(), anyInt())).thenReturn(PackageManager.PERMISSION_DENIED);
         }
 
         ApplicationInfo fakeAppInfo = new ApplicationInfo();
@@ -220,8 +227,9 @@ public class LocationAccessPolicyTest {
         return new LocationAccessPolicy.LocationPermissionQuery.Builder()
                 .setMethod("test")
                 .setCallingPackage("com.android.test")
-                .setCallingPid(10001)
-                .setCallingUid(10001);
+                .setCallingFeatureId(null)
+                .setCallingPid(TESTING_PID)
+                .setCallingUid(TESTING_UID);
     }
 
     @Parameterized.Parameters(name = "{0}")

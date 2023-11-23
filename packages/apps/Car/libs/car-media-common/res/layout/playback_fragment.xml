@@ -27,7 +27,8 @@
         android:foreground="?android:attr/selectableItemBackground"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:scaleType="fitStart" />
+        android:focusable="false"
+        android:scaleType="fitStart"/>
 
     <View
         android:id="@+id/playback_scrim"
@@ -36,73 +37,98 @@
         android:background="@color/album_art_scrim"
         android:alpha="@dimen/album_art_scrim_alpha"/>
 
-    <androidx.constraintlayout.widget.ConstraintLayout
-        android:id="@+id/playback_container"
+    <com.android.car.ui.FocusArea
         android:layout_width="match_parent"
         android:layout_height="match_parent">
 
-        <TextView
-            android:id="@+id/app_name"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/playback_fragment_text_margin_top"
-            android:layout_marginLeft="@dimen/playback_fragment_text_margin_x"
-            android:layout_marginRight="@dimen/playback_fragment_text_margin_x"
-            android:textAppearance="?android:attr/textAppearanceMedium"
-            android:singleLine="true"
-            android:includeFontPadding="false"
-            app:layout_constraintLeft_toLeftOf="parent"
-            app:layout_constraintRight_toLeftOf="@+id/app_switch_container"
-            app:layout_constraintTop_toTopOf="parent"/>
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:id="@+id/playback_container"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
 
-        <com.android.car.media.common.MediaAppSelectorWidget
-            android:id="@+id/app_switch_container"
-            android:layout_width="@dimen/app_switch_widget_width"
-            android:layout_height="@dimen/appbar_view_icon_touch_target_size"
-            app:layout_constraintRight_toRightOf="parent"
-            app:layout_constraintTop_toTopOf="@+id/app_name"
-            app:layout_constraintBottom_toBottomOf="@+id/app_name"
-            app:fullScreenDialog="false"
-            android:padding="@dimen/app_switch_widget_icon_padding"
-            android:orientation="horizontal"
-            android:background="@drawable/appbar_view_icon_background"
-            android:gravity="center" />
+            <ImageView
+                android:id="@+id/app_icon"
+                android:layout_width="@dimen/app_selector_icon_size"
+                android:layout_height="@dimen/app_selector_icon_size"
+                android:layout_gravity="center"
+                android:layout_marginStart="@dimen/playback_fragment_text_margin_x"
+                android:background="?android:attr/selectableItemBackground"
+                android:src="@drawable/ic_app_switch"
+                app:layout_constraintTop_toTopOf="@+id/app_name"
+                app:layout_constraintBottom_toBottomOf="@+id/app_name"
+                app:layout_constraintStart_toStartOf="parent"/>
 
-        <TextView
-            android:id="@+id/title"
-            style="@style/PlaybackTitleStyle"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/playback_fragment_text_margin_top"
-            android:layout_marginLeft="@dimen/playback_fragment_text_margin_x"
-            android:layout_marginRight="@dimen/playback_fragment_text_margin_x"
-            app:layout_constraintLeft_toLeftOf="parent"
-            app:layout_constraintRight_toRightOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/app_name"/>
+            <TextView
+                android:id="@+id/app_name"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/playback_fragment_text_margin_top"
+                android:layout_marginStart="@dimen/playback_fragment_text_margin_x"
+                android:layout_marginEnd="@dimen/playback_fragment_text_margin_x"
+                android:textAppearance="?android:attr/textAppearanceMedium"
+                android:singleLine="true"
+                android:includeFontPadding="false"
+                app:layout_constraintStart_toEndOf="@+id/app_icon"
+                app:layout_constraintEnd_toStartOf="@+id/app_selector_container"
+                app:layout_constraintTop_toTopOf="parent"/>
 
-        <TextView
-            android:id="@+id/subtitle"
-            style="@style/PlaybackSubtitleStyle"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/playback_fragment_text_margin_top"
-            android:layout_marginLeft="@dimen/playback_fragment_text_margin_x"
-            android:layout_marginRight="@dimen/playback_fragment_text_margin_x"
-            app:layout_constraintLeft_toLeftOf="parent"
-            app:layout_constraintRight_toRightOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/title"/>
+            <TextView
+                android:id="@+id/title"
+                style="@style/PlaybackTitleStyle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/playback_fragment_text_margin_top"
+                android:layout_marginStart="@dimen/playback_fragment_text_margin_x"
+                android:layout_marginEnd="@dimen/playback_fragment_text_margin_x"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/app_name"/>
 
-        <com.android.car.media.common.PlaybackControlsActionBar
-            android:id="@+id/playback_controls"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="@dimen/playback_fragment_controls_margin_bottom"
-            app:columns="3"
-            app:enableOverflow="false"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintLeft_toLeftOf="parent"
-            app:layout_constraintRight_toRightOf="parent"/>
+            <TextView
+                android:id="@+id/subtitle"
+                style="@style/PlaybackSubtitleStyle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/playback_fragment_text_margin_top"
+                android:layout_marginStart="@dimen/playback_fragment_text_margin_x"
+                android:layout_marginEnd="@dimen/playback_fragment_text_margin_x"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toStartOf="@+id/app_selector_container"
+                app:layout_constraintTop_toBottomOf="@+id/title"/>
 
-    </androidx.constraintlayout.widget.ConstraintLayout>
+            <FrameLayout
+                android:id="@+id/app_selector_container"
+                xmlns:android="http://schemas.android.com/apk/res/android"
+                android:layout_width="@dimen/app_selector_icon_touch_target"
+                android:layout_height="@dimen/app_selector_icon_touch_target"
+                android:background="?android:attr/selectableItemBackground"
+                android:layout_marginEnd="@dimen/app_selector_margin_x"
+                app:layout_constraintTop_toTopOf="@+id/app_name"
+                app:layout_constraintBottom_toBottomOf="@+id/app_name"
+                app:layout_constraintEnd_toEndOf="parent">
+
+                <ImageView
+                    android:id="@+id/app_selector"
+                    android:layout_width="@dimen/app_selector_icon_size"
+                    android:layout_height="@dimen/app_selector_icon_size"
+                    android:layout_gravity="center"
+                    android:src="@drawable/ic_app_switch"
+                    android:tint="@color/icon_tint"/>
+            </FrameLayout>
+
+            <com.android.car.media.common.PlaybackControlsActionBar
+                android:id="@+id/playback_controls"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="@dimen/playback_fragment_controls_margin_bottom"
+                app:columns="3"
+                app:enableOverflow="false"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"/>
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
+    </com.android.car.ui.FocusArea>
 
 </androidx.cardview.widget.CardView>

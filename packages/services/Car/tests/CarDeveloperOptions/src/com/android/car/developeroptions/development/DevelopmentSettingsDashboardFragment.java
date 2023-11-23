@@ -45,13 +45,13 @@ import com.android.car.developeroptions.dashboard.RestrictedDashboardFragment;
 import com.android.car.developeroptions.development.autofill.AutofillLoggingLevelPreferenceController;
 import com.android.car.developeroptions.development.autofill.AutofillResetOptionsPreferenceController;
 import com.android.car.developeroptions.search.BaseSearchIndexProvider;
-import com.android.car.developeroptions.search.Indexable;
 import com.android.car.developeroptions.widget.SwitchBar;
 import com.android.settingslib.core.AbstractPreferenceController;
 import com.android.settingslib.core.lifecycle.Lifecycle;
 import com.android.settingslib.development.DeveloperOptionsPreferenceController;
 import com.android.settingslib.development.DevelopmentSettingsEnabler;
 import com.android.settingslib.development.SystemPropPoker;
+import com.android.settingslib.search.Indexable;
 import com.android.settingslib.search.SearchIndexable;
 
 import java.util.ArrayList;
@@ -403,7 +403,6 @@ public class DevelopmentSettingsDashboardFragment extends RestrictedDashboardFra
             BluetoothA2dpConfigStore bluetoothA2dpConfigStore) {
         final List<AbstractPreferenceController> controllers = new ArrayList<>();
         controllers.add(new MemoryUsagePreferenceController(context));
-        controllers.add(new BugReportPreferenceController(context));
         controllers.add(new SystemServerHeapDumpPreferenceController(context));
         controllers.add(new LocalBackupPasswordPreferenceController(context));
         controllers.add(new StayAwakePreferenceController(context, lifecycle));
@@ -418,7 +417,6 @@ public class DevelopmentSettingsDashboardFragment extends RestrictedDashboardFra
         controllers.add(new AdbPreferenceController(context, fragment));
         controllers.add(new ClearAdbKeysPreferenceController(context, fragment));
         controllers.add(new LocalTerminalPreferenceController(context));
-        controllers.add(new BugReportInPowerPreferenceController(context));
         controllers.add(new AutomaticSystemServerHeapDumpPreferenceController(context));
         controllers.add(new MockLocationAppPreferenceController(context, fragment));
         controllers.add(new DebugViewAttributesPreferenceController(context));
@@ -481,6 +479,7 @@ public class DevelopmentSettingsDashboardFragment extends RestrictedDashboardFra
         controllers.add(new DesktopModePreferenceController(context));
         controllers.add(new ShortcutManagerThrottlingPreferenceController(context));
         controllers.add(new EnableGnssRawMeasFullTrackingPreferenceController(context));
+        controllers.add(new EnableUserSwitchMessageController(context));
         controllers.add(new DefaultLaunchPreferenceController(context, "running_apps"));
         controllers.add(new DefaultLaunchPreferenceController(context, "demo_mode"));
         controllers.add(new DefaultLaunchPreferenceController(context, "quick_settings_tiles"));

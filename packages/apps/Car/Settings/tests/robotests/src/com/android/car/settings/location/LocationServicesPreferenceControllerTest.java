@@ -35,7 +35,6 @@ import androidx.preference.Preference;
 import androidx.preference.PreferenceCategory;
 import androidx.preference.PreferenceGroup;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
 import com.android.settingslib.location.SettingsInjector;
 
@@ -44,13 +43,14 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 public class LocationServicesPreferenceControllerTest {
 
     private static final int PROFILE_ID = UserHandle.USER_CURRENT;
@@ -74,16 +74,6 @@ public class LocationServicesPreferenceControllerTest {
     }
 
     @Test
-    public void onCreate_addsInjectedSettingsToPreferenceCategory() {
-        Map<Integer, List<Preference>> samplePrefs = getSamplePreferences();
-        doReturn(samplePrefs).when(mSettingsInjector)
-                .getInjectedSettings(any(Context.class), anyInt());
-        mControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_CREATE);
-
-        assertThat(mCategory.getPreferenceCount()).isEqualTo(samplePrefs.get(PROFILE_ID).size());
-    }
-
-    @Test
     public void onStart_registersBroadcastReceiver() {
         mControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_START);
         mContext.sendBroadcast(new Intent(SettingInjectorService.ACTION_INJECTED_SETTING_CHANGED));
@@ -100,6 +90,32 @@ public class LocationServicesPreferenceControllerTest {
         mControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_STOP);
         mContext.sendBroadcast(new Intent(SettingInjectorService.ACTION_INJECTED_SETTING_CHANGED));
         verify(mSettingsInjector, never()).reloadStatusMessages();
+    }
+
+    @Test
+    public void updateState_addsInjectedSettingsToPreferenceCategory() {
+        mControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_START);
+        Map<Integer, List<Preference>> samplePrefs = getSamplePreferences();
+        doReturn(samplePrefs).when(mSettingsInjector)
+                .getInjectedSettings(any(Context.class), anyInt());
+
+        mController.updateState(mCategory);
+
+        assertThat(mCategory.getPreferenceCount()).isEqualTo(samplePrefs.get(PROFILE_ID).size());
+    }
+
+    @Test
+    public void updateState_updatesPreferenceSummary() {
+        Map<Integer, List<Preference>> samplePrefs = getSamplePreferences();
+        doReturn(samplePrefs).when(mSettingsInjector)
+                .getInjectedSettings(any(Context.class), anyInt());
+        mControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_START);
+        String summary = "Summary";
+        samplePrefs.get(PROFILE_ID).get(0).setSummary(summary);
+
+        mController.updateState(mCategory);
+
+        assertThat(mCategory.getPreference(0).getSummary()).isEqualTo(summary);
     }
 
     @Test

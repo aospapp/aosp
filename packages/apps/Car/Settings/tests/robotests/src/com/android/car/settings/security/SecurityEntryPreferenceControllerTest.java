@@ -21,57 +21,52 @@ import static com.android.car.settings.common.PreferenceController.DISABLED_FOR_
 
 import static com.google.common.truth.Truth.assertThat;
 
-import static org.mockito.Mockito.when;
+import android.content.Context;
+import android.content.pm.UserInfo;
+import android.os.UserHandle;
+import android.os.UserManager;
 
-import android.car.userlib.CarUserManagerHelper;
-
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
-import com.android.car.settings.testutils.ShadowCarUserManagerHelper;
 
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
-import org.robolectric.annotation.Config;
+import org.robolectric.Shadows;
+import org.robolectric.shadows.ShadowUserManager;
 
 /** Unit test for {@link SecurityEntryPreferenceController}. */
-@RunWith(CarSettingsRobolectricTestRunner.class)
-@Config(shadows = {ShadowCarUserManagerHelper.class})
+@RunWith(RobolectricTestRunner.class)
 public class SecurityEntryPreferenceControllerTest {
 
-    @Mock
-    private CarUserManagerHelper mCarUserManagerHelper;
     private SecurityEntryPreferenceController mController;
+    private Context mContext;
 
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
-        ShadowCarUserManagerHelper.setMockInstance(mCarUserManagerHelper);
-
+        mContext = RuntimeEnvironment.application;
         mController = new PreferenceControllerTestHelper<>(RuntimeEnvironment.application,
                 SecurityEntryPreferenceController.class).getController();
     }
 
-    @After
-    public void tearDown() {
-        ShadowCarUserManagerHelper.reset();
-    }
-
     @Test
     public void getAvailabilityStatus_guestUser_disabledForUser() {
-        when(mCarUserManagerHelper.isCurrentProcessGuestUser()).thenReturn(true);
+        getShadowUserManager().addUser(UserHandle.myUserId(), "name", UserInfo.FLAG_GUEST);
 
         assertThat(mController.getAvailabilityStatus()).isEqualTo(DISABLED_FOR_USER);
     }
 
     @Test
     public void getAvailabilityStatus_nonGuestUser_available() {
-        when(mCarUserManagerHelper.isCurrentProcessGuestUser()).thenReturn(false);
+        getShadowUserManager().addUser(UserHandle.myUserId(), "name", /* flags= */ 0);
 
         assertThat(mController.getAvailabilityStatus()).isEqualTo(AVAILABLE);
+    }
+
+    private ShadowUserManager getShadowUserManager() {
+        return Shadows.shadowOf(UserManager.get(mContext));
     }
 }

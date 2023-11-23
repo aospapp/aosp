@@ -17,7 +17,9 @@ limitations under the License.
         android:viewportWidth="48"
         android:viewportHeight="48"
         android:width="@dimen/primary_icon_size"
-        android:height="@dimen/primary_icon_size">
+        android:height="@dimen/primary_icon_size"
+        android:tint="@color/icon_tint_state_list"
+        android:autoMirrored="true">
 
     <path android:pathData="M0-.25h48v48H0z"/>
     <path

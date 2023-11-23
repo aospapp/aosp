@@ -17,102 +17,73 @@
 package com.android.car.dialer.ui.search;
 
 import android.app.Application;
-import android.database.Cursor;
-import android.net.Uri;
-import android.provider.ContactsContract;
 import android.text.TextUtils;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.lifecycle.AndroidViewModel;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 
-import com.android.car.telephony.common.ObservableAsyncQuery;
-import com.android.car.telephony.common.QueryParam;
+import com.android.car.dialer.R;
+import com.android.car.dialer.livedata.SharedPreferencesLiveData;
+import com.android.car.dialer.ui.common.ContactResultsLiveData;
 
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
-/** {link AndroidViewModel} used for search functionality. */
+/**
+ * {link AndroidViewModel} used for search functionality.
+ */
 public class ContactResultsViewModel extends AndroidViewModel {
-    private static final String[] CONTACT_DETAILS_PROJECTION = {
-            ContactsContract.Contacts._ID,
-            ContactsContract.Contacts.LOOKUP_KEY,
-            ContactsContract.Contacts.DISPLAY_NAME,
-            ContactsContract.Contacts.PHOTO_URI
-    };
 
-    private final SearchQueryParamProvider mSearchQueryParamProvider;
-    private final ObservableAsyncQuery mObservableAsyncQuery;
-    private final MutableLiveData<List<ContactDetails>> mContactSearchResultsLiveData;
-    private String mSearchQuery;
+    private final ContactResultsLiveData mContactSearchResultsLiveData;
+    private final MutableLiveData<String> mSearchQueryLiveData;
+    private final SharedPreferencesLiveData mSharedPreferencesLiveData;
 
     public ContactResultsViewModel(@NonNull Application application) {
         super(application);
-        mSearchQueryParamProvider = new SearchQueryParamProvider();
-        mContactSearchResultsLiveData = new MutableLiveData<>();
-        mObservableAsyncQuery = new ObservableAsyncQuery(mSearchQueryParamProvider,
-                application.getContentResolver(), this::onQueryFinished);
+        mSearchQueryLiveData = new MutableLiveData<>();
+        mSharedPreferencesLiveData =
+                new SharedPreferencesLiveData(application, R.string.sort_order_key);
+        mContactSearchResultsLiveData = new ContactResultsLiveData(application,
+                mSearchQueryLiveData, mSharedPreferencesLiveData);
     }
 
-    void setSearchQuery(String searchQuery) {
-        if (TextUtils.equals(mSearchQuery, searchQuery)) {
+    /**
+     * Sets search query.
+     */
+    public void setSearchQuery(String searchQuery) {
+        if (TextUtils.equals(mSearchQueryLiveData.getValue(), searchQuery)) {
             return;
         }
 
-        mSearchQuery = searchQuery;
-        if (TextUtils.isEmpty(searchQuery)) {
-            mContactSearchResultsLiveData.setValue(Collections.emptyList());
-        } else {
-            mObservableAsyncQuery.startQuery();
-        }
+        mSearchQueryLiveData.setValue(searchQuery);
     }
 
-    LiveData<List<ContactDetails>> getContactSearchResults() {
+    /**
+     * Returns live data of search results.
+     */
+    public LiveData<List<ContactResultsLiveData.ContactResultListItem>> getContactSearchResults() {
         return mContactSearchResultsLiveData;
     }
 
-    String getSearchQuery() {
-        return mSearchQuery;
+    /**
+     * Returns search query.
+     */
+    public String getSearchQuery() {
+        return mSearchQueryLiveData.getValue();
     }
 
-    private void onQueryFinished(@Nullable Cursor cursor) {
-        if (cursor == null) {
-            mContactSearchResultsLiveData.setValue(Collections.emptyList());
-            return;
-        }
-
-        List<ContactDetails> contactDetails = new ArrayList<>();
-        while (cursor.moveToNext()) {
-            int idColIdx = cursor.getColumnIndex(ContactsContract.Contacts._ID);
-            int lookupColIdx = cursor.getColumnIndex(ContactsContract.Contacts.LOOKUP_KEY);
-            int nameColIdx = cursor.getColumnIndex(ContactsContract.Contacts.DISPLAY_NAME);
-            int photoUriColIdx = cursor.getColumnIndex(ContactsContract.Contacts.PHOTO_URI);
-
-            Uri lookupUri = ContactsContract.Contacts.getLookupUri(
-                    cursor.getLong(idColIdx), cursor.getString(lookupColIdx));
-
-            contactDetails.add(new ContactDetails(
-                    cursor.getString(nameColIdx),
-                    cursor.getString(photoUriColIdx),
-                    lookupUri));
-        }
-        mContactSearchResultsLiveData.setValue(contactDetails);
-        cursor.close();
+    /**
+     * Returns Search Query LiveData.
+     */
+    public MutableLiveData<String> getSearchQueryLiveData() {
+        return mSearchQueryLiveData;
     }
 
-    private class SearchQueryParamProvider implements QueryParam.Provider {
-
-        @Nullable
-        @Override
-        public QueryParam getQueryParam() {
-            Uri lookupUri = Uri.withAppendedPath(ContactsContract.Contacts.CONTENT_FILTER_URI,
-                    Uri.encode(mSearchQuery));
-            return new QueryParam(lookupUri, CONTACT_DETAILS_PROJECTION,
-                    ContactsContract.Contacts.HAS_PHONE_NUMBER + "!=0",
-                    /* selectionArgs= */null, /* orderBy= */null);
-        }
+    /**
+     * Returns Shared Preferences LiveData.
+     */
+    public SharedPreferencesLiveData getSharedPreferencesLiveData() {
+        return mSharedPreferencesLiveData;
     }
 }

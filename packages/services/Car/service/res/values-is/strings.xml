@@ -22,6 +22,8 @@
     <string name="car_permission_desc_camera" msgid="917024932164501426">"Fá aðgang að myndavél(um) bílsins."</string>
     <string name="car_permission_label_energy" msgid="7409144323527821558">"fá aðgang að upplýsingum um orkunotkun bílsins"</string>
     <string name="car_permission_desc_energy" msgid="3392963810053235407">"Aðgangur að upplýsingum um orkunotkun bílsins."</string>
+    <string name="car_permission_label_adjust_range_remaining" msgid="839033553999920138">"stilla gildi fyrir eftirstandandi drægi bílsins"</string>
+    <string name="car_permission_desc_adjust_range_remaining" msgid="2369321650437370673">"Stilla gildi fyrir eftirstandandi drægi bílsins."</string>
     <string name="car_permission_label_hvac" msgid="1499454192558727843">"fá aðgang að hitun og loftræstingu bílsins"</string>
     <string name="car_permission_desc_hvac" msgid="3754229695589774195">"Fá aðgang að hitun og loftræstingu bílsins."</string>
     <string name="car_permission_label_mileage" msgid="4661317074631150551">"fá aðgang að upplýsingum um ekna vegalengd bílsins"</string>
@@ -62,13 +64,19 @@
     <string name="car_permission_desc_car_ux_restrictions_configuration" msgid="5711926927484813777">"Stilla takmarkanir á upplifun notanda"</string>
     <string name="car_permission_label_car_handle_usb_aoap_device" msgid="72783989504378036">"Eiga samskipti við USB-tæki í AOAP-stillingu"</string>
     <string name="car_permission_desc_car_handle_usb_aoap_device" msgid="273505990971317034">"Gerir forriti kleift að eiga í samskiptum við tæki í AOAP-stillingu"</string>
+    <string name="car_permission_label_read_car_occupant_awareness_state" msgid="125517953575032758">"Lesaðgangur að Occupant Awareness System"</string>
+    <string name="car_permission_desc_read_car_occupant_awareness_state" msgid="188865882598414986">"Leyfir lestur á stöðu og kennslagögnum fyrir Occupant Awareness System"</string>
+    <string name="car_permission_label_control_car_occupant_awareness_system" msgid="7163330266691094542">"Stjórna riti fyrir Occupant Awareness System"</string>
+    <string name="car_permission_desc_control_car_occupant_awareness_system" msgid="7123482622084531911">"Leyfir stjórnun á kennslariti fyrir Occupant Awareness System"</string>
     <string name="car_permission_label_bind_input_service" msgid="6698489034024273750">"Inntaksþjónusta bíls"</string>
     <string name="car_permission_desc_bind_input_service" msgid="1670323419931890170">"Stjórna inntakstilvikum"</string>
     <string name="car_can_bus_failure" msgid="2334035748788283914">"Bilun í CAN-gagnabraut"</string>
     <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"CAN-gagnabraut svarar ekki. Taktu stjórneiningarboxið úr sambandi, settu það aftur í samband og gangsettu bílinn aftur."</string>
-    <string name="activity_blocked_text" msgid="5342114426610711378">"Af öryggisástæðum er þessi aðgerð ekki í boði við akstur.\nLeggðu ökutækinu áður en þú heldur áfram."</string>
+    <string name="activity_blocked_text" msgid="8088902789540147995">"Þú getur ekki notað þennan eiginleika við akstur"</string>
     <string name="exit_button_message" msgid="8554690915924055685">"Til að byrja aftur að setja upp örugga forritseiginleika skaltu velja <xliff:g id="EXIT_BUTTON">%s</xliff:g>."</string>
     <string name="exit_button" msgid="5829638404777671253">"Til baka"</string>
+    <string name="exit_button_close_application" msgid="8824289547809332460">"Loka forriti"</string>
+    <string name="exit_button_go_back" msgid="3469083862100560326">"Til baka"</string>
     <string name="car_permission_label_diag_read" msgid="7248894224877702604">"lesa greiningargögn"</string>
     <string name="car_permission_desc_diag_read" msgid="1121426363040966178">"Lesa greiningargögn úr bílnum."</string>
     <string name="car_permission_label_diag_clear" msgid="4783070510879698157">"hreinsa greiningargögn"</string>
@@ -87,6 +95,8 @@
     <string name="car_permission_desc_car_engine_detailed" msgid="1746863362811347700">"Fá aðgang að ítarlegum upplýsingum um vél bílsins."</string>
     <string name="car_permission_label_car_energy_ports" msgid="8548990315169219454">"fá aðgang að bensínloki og hleðslutengi bílsins"</string>
     <string name="car_permission_desc_car_energy_ports" msgid="7771185999828794949">"Fá aðgang að bensínloki og hleðslutengi bílsins."</string>
+    <string name="car_permission_label_control_car_energy_ports" msgid="4375137311026313475">"stjórna bensínloki og hleðslutengi bílsins"</string>
+    <string name="car_permission_desc_control_car_energy_ports" msgid="7364633710492525387">"Stjórna bensínloki og hleðslutengi bílsins."</string>
     <string name="car_permission_label_car_identification" msgid="5896712510164020478">"lesa auðkenni bílsins"</string>
     <string name="car_permission_desc_car_identification" msgid="4132040867171275059">"Fá aðgang að auðkenni bílsins."</string>
     <string name="car_permission_label_control_car_doors" msgid="3032058819250195700">"stjórna hurðum bílsins"</string>
@@ -99,6 +109,8 @@
     <string name="car_permission_desc_control_car_seats" msgid="2407536601226470563">"Stjórna bílsætum."</string>
     <string name="car_permission_label_car_info" msgid="4707513570676492315">"fá aðgang að grunnupplýsingum bílsins"</string>
     <string name="car_permission_desc_car_info" msgid="2118081474543537653">"Fá aðgang að grunnupplýsingum bílsins."</string>
+    <string name="car_permission_label_vendor_permission_info" msgid="4471260460536888654">"fá aðgang að heimildarupplýsingum bílasala"</string>
+    <string name="car_permission_desc_vendor_permission_info" msgid="8152113853528488398">"Fá aðgang að heimildarupplýsingum bílasala."</string>
     <string name="car_permission_label_car_exterior_lights" msgid="541304469604902110">"lesa stöðu ljósa bíls að utanverðu"</string>
     <string name="car_permission_desc_car_exterior_lights" msgid="4038037584100849318">"Fá aðgang að stöðu ljósa bíls að utanverðu."</string>
     <string name="car_permission_label_control_car_exterior_lights" msgid="101357531386232141">"lesa ljós bíls að utanverðu"</string>
@@ -123,5 +135,12 @@
     <string name="car_permission_desc_car_power" msgid="9202079903668652864">"Fá aðgang að orkustöðu bílsins."</string>
     <string name="car_permission_label_enroll_trust" msgid="3512907900486690218">"Skrá sem traust tæki"</string>
     <string name="car_permission_desc_enroll_trust" msgid="4148649994602185130">"Heimila skráningu sem traust tæki"</string>
+    <string name="car_permission_label_car_test_service" msgid="9159328930558208708">"Stjórna prófunarstillingu bíls"</string>
+    <string name="car_permission_desc_car_test_service" msgid="7426844534110145843">"Stjórna prófunarstillingu bíls"</string>
+    <string name="car_permission_label_control_car_features" msgid="3905791560378888286">"Kveikja eða slökkva á bíleiginleikum"</string>
+    <string name="car_permission_desc_control_car_features" msgid="7646711104530599901">"Kveikja eða slökkva á bíleiginleikum."</string>
+    <string name="car_permission_label_use_car_watchdog" msgid="6973938293170413475">"nota bílaeftirlitsaðila"</string>
+    <string name="car_permission_desc_use_car_watchdog" msgid="8244592601805516086">"Nota bílaeftirlitsaðila."</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"Tækið mitt"</string>
+    <string name="default_guest_name" msgid="2912812799433131476">"Gestur"</string>
 </resources>

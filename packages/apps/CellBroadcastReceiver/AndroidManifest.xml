@@ -17,7 +17,9 @@
  */
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        package="com.android.cellbroadcastreceiver">
+        package="com.android.cellbroadcastreceiver.module"
+        android:versionCode="300000000"
+        android:versionName="R-initial">
 
     <original-package android:name="com.android.cellbroadcastreceiver" />
 
@@ -25,44 +27,50 @@
     <uses-permission android:name="android.permission.RECEIVE_EMERGENCY_BROADCAST" />
     <uses-permission android:name="android.permission.READ_PRIVILEGED_PHONE_STATE" />
     <uses-permission android:name="android.permission.MODIFY_PHONE_STATE" />
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS" />
     <uses-permission android:name="android.permission.MANAGE_USERS" />
     <uses-permission android:name="android.permission.DEVICE_POWER" />
+    <uses-permission android:name="android.permission.GRANT_RUNTIME_PERMISSIONS_TO_TELEPHONY_DEFAULTS" />
     <uses-permission android:name="android.permission.START_ACTIVITIES_FROM_BACKGROUND" />
+    <uses-permission android:name="android.permission.READ_CELL_BROADCASTS" />
+    <uses-permission android:name="android.permission.READ_SMS" />
+    <uses-permission android:name="android.permission.HIDE_NON_SYSTEM_OVERLAY_WINDOWS"/>
+    <uses-permission android:name="com.android.cellbroadcastservice.FULL_ACCESS_CELL_BROADCAST_HISTORY" />
 
     <uses-sdk android:minSdkVersion="21"/>
 
-    <application android:name="CellBroadcastReceiverApp"
+    <application android:name="com.android.cellbroadcastreceiver.CellBroadcastReceiverApp"
             android:label="@string/app_label"
             android:icon="@mipmap/ic_launcher_cell_broadcast"
-            android:backupAgent="CellBroadcastBackupAgent"
+            android:backupAgent="com.android.cellbroadcastreceiver.CellBroadcastBackupAgent"
             android:defaultToDeviceProtectedStorage="true"
             android:supportsRtl="true"
             android:directBootAware="true">
 
         <meta-data android:name="com.google.android.backup.api_key"
-            android:value="AEdPqrEAAAAI2_Lb4sDI0e0twL-kf6GIqXpZIfrR0OhnM1pNJQ" />
+                android:value="AEdPqrEAAAAI2_Lb4sDI0e0twL-kf6GIqXpZIfrR0OhnM1pNJQ" />
 
-        <service android:name="CellBroadcastAlertAudio"
+        <service android:name="com.android.cellbroadcastreceiver.CellBroadcastAlertAudio"
                  android:exported="false" />
 
-        <service android:name="CellBroadcastAlertService"
+        <service android:name="com.android.cellbroadcastreceiver.CellBroadcastAlertService"
                  android:exported="false" />
 
-        <service android:name="CellBroadcastConfigService"
+        <service android:name="com.android.cellbroadcastreceiver.CellBroadcastConfigService"
                  android:exported="false" />
 
-        <service android:name="CellBroadcastAlertReminder"
+        <service android:name="com.android.cellbroadcastreceiver.CellBroadcastAlertReminder"
                  android:exported="false" />
 
-        <provider android:name="CellBroadcastContentProvider"
-                  android:authorities="cellbroadcasts"
+        <!-- Export provider for AT&T Device and Network Reset-->
+        <provider android:name="com.android.cellbroadcastreceiver.CellBroadcastContentProvider"
+                  android:authorities="cellbroadcasts-app"
+                  android:exported="true"
                   android:readPermission="android.permission.READ_CELL_BROADCASTS" />
 
-        <activity android:name="CellBroadcastListActivity"
+        <activity android:name="com.android.cellbroadcastreceiver.CellBroadcastListActivity"
                   android:label="@string/app_label"
                   android:theme="@style/CellBroadcastSettingsTheme"
                   android:configChanges="orientation|keyboardHidden" >
@@ -81,14 +89,26 @@
             </intent-filter>
         </activity>
 
+        <!-- Alias activity for CellBroadcastListActivity. Once enabled, it will appear in the launcher -->
+        <activity-alias android:name="com.android.cellbroadcastreceiver.CellBroadcastListLauncherActivity"
+            android:targetActivity="com.android.cellbroadcastreceiver.CellBroadcastListActivity"
+            android:enabled="false"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity-alias>
+
         <!-- Settings opened by ListActivity menu, Settings app link or opt-out dialog. -->
-        <activity android:name="CellBroadcastSettings"
+        <activity android:name="com.android.cellbroadcastreceiver.CellBroadcastSettings"
                   android:theme="@style/CellBroadcastSettingsTheme"
                   android:label="@string/sms_cb_settings"
                   android:exported="true" />
 
-        <activity android:name="CellBroadcastAlertDialog"
-                  android:theme="@android:style/Theme.DeviceDefault.Light.Dialog"
+        <activity android:name="com.android.cellbroadcastreceiver.CellBroadcastAlertDialog"
+                  android:theme="@style/CellBroadcastAlertTheme"
                   android:launchMode="singleTask"
                   android:exported="false"
                   android:excludeFromRecents="true"
@@ -99,39 +119,29 @@
         </activity>
 
         <!-- Container activity for CMAS opt-in/opt-out dialog. -->
-        <activity android:name="CellBroadcastOptOutActivity"
+        <activity android:name="com.android.cellbroadcastreceiver.CellBroadcastOptOutActivity"
                   android:exported="false" />
 
-        <!-- Require sender permissions to prevent SMS spoofing -->
-        <receiver android:name="PrivilegedCellBroadcastReceiver"
-            android:permission="android.permission.BROADCAST_SMS">
+        <receiver android:name="com.android.cellbroadcastreceiver.CellBroadcastReceiver">
             <intent-filter>
-                <action android:name="android.provider.Telephony.SMS_EMERGENCY_CB_RECEIVED" />
+                <action android:name="android.telephony.action.DEFAULT_SMS_SUBSCRIPTION_CHANGED" />
+                <action android:name="android.telephony.action.CARRIER_CONFIG_CHANGED" />
+                <action android:name="android.provider.action.SMS_EMERGENCY_CB_RECEIVED" />
                 <action android:name="android.provider.Telephony.SMS_CB_RECEIVED" />
                 <action android:name="android.cellbroadcastreceiver.START_CONFIG" />
                 <action android:name="android.provider.Telephony.SMS_SERVICE_CATEGORY_PROGRAM_DATA_RECEIVED" />
                 <action android:name="android.intent.action.LOCALE_CHANGED" />
+                <action android:name="android.intent.action.SERVICE_STATE" />
             </intent-filter>
-        </receiver>
-
-        <!-- Require sender permission for querying latest area info broadcast -->
-        <receiver android:name="CellBroadcastAreaInfoReceiver"
-            android:permission="android.permission.READ_PHONE_STATE">
             <intent-filter>
-                 <action android:name="com.android.cellbroadcastreceiver.GET_LATEST_CB_AREA_INFO" />
-            </intent-filter>
-        </receiver>
-
-        <receiver android:name="CellBroadcastReceiver">
-            <intent-filter>
-                 <action android:name="android.telephony.action.DEFAULT_SMS_SUBSCRIPTION_CHANGED" />
-                 <action android:name="android.telephony.action.CARRIER_CONFIG_CHANGED" />
-                 <action android:name="android.intent.action.SERVICE_STATE" />
+                <action android:name="android.telephony.action.SECRET_CODE" />
+                <!-- CMAS: To toggle test mode for cell broadcast testing on userdebug build -->
+                <data android:scheme="android_secret_code" android:host="2627" />
             </intent-filter>
         </receiver>
 
         <provider
-                android:name="CellBroadcastSearchIndexableProvider"
+                android:name="com.android.cellbroadcastreceiver.CellBroadcastSearchIndexableProvider"
                 android:authorities="com.android.cellbroadcastreceiver"
                 android:multiprocess="false"
                 android:grantUriPermissions="true"

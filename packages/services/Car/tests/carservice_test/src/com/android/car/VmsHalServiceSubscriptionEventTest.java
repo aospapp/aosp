@@ -23,9 +23,11 @@ import android.hardware.automotive.vehicle.V2_0.VmsBaseMessageIntegerValuesIndex
 import android.hardware.automotive.vehicle.V2_0.VmsMessageType;
 import android.hardware.automotive.vehicle.V2_0.VmsSubscriptionsStateIntegerValuesIndex;
 
+import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.MediumTest;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -33,6 +35,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 
+@RunWith(AndroidJUnit4.class)
 @MediumTest
 public class VmsHalServiceSubscriptionEventTest extends MockedVmsTestBase {
     @Test

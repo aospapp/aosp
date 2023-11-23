@@ -19,23 +19,19 @@
     android:title="@string/inputs_inputs">
     <PreferenceCategory
         android:key="connected_inputs"
-        android:orderingFromXml="false"
-        android:layout="@layout/preference_category_compact_layout"/>
+        android:orderingFromXml="false"/>
 
     <PreferenceCategory
         android:key="standby_inputs"
-        android:orderingFromXml="false"
-        android:layout="@layout/preference_category_compact_layout"/>
+        android:orderingFromXml="false"/>
 
     <PreferenceCategory
         android:key="disconnected_inputs"
-        android:orderingFromXml="false"
-        android:layout="@layout/preference_category_compact_layout"/>
+        android:orderingFromXml="false"/>
 
     <PreferenceCategory
         android:key="cec"
-        android:title="@string/inputs_header_cec"
-        android:layout="@layout/preference_category_compact_layout" >
+        android:title="@string/inputs_header_cec">
         <SwitchPreference
             android:key="hdmi_control"
             android:persistent="true"

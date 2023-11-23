@@ -17,15 +17,12 @@ package com.android.wallpaper.module;
 
 import android.content.Context;
 
-import com.android.wallpaper.compat.BuildCompat;
+import androidx.annotation.Nullable;
+
 import com.android.wallpaper.compat.WallpaperManagerCompat;
-import com.android.wallpaper.model.CurrentWallpaperInfoV16;
 import com.android.wallpaper.model.CurrentWallpaperInfoVN;
-import com.android.wallpaper.model.LiveWallpaperInfo;
 import com.android.wallpaper.model.WallpaperInfo;
 import com.android.wallpaper.module.WallpaperPreferences.PresentationMode;
-
-import androidx.annotation.Nullable;
 
 /**
  * Default implementation of {@link CurrentWallpaperInfoFactory} which actually constructs
@@ -35,7 +32,6 @@ public class DefaultCurrentWallpaperInfoFactory implements CurrentWallpaperInfoF
 
     private final Context mAppContext;
     private final WallpaperRefresher mWallpaperRefresher;
-    private final LiveWallpaperStatusChecker mLiveWallpaperStatusChecker;
     private final LiveWallpaperInfoFactory mLiveWallpaperInfoFactory;
 
     // Cached copies of the currently-set WallpaperInfo(s) and presentation mode.
@@ -49,8 +45,6 @@ public class DefaultCurrentWallpaperInfoFactory implements CurrentWallpaperInfoF
         mAppContext = context.getApplicationContext();
         Injector injector = InjectorProvider.getInjector();
         mWallpaperRefresher = injector.getWallpaperRefresher(mAppContext);
-        mLiveWallpaperStatusChecker =
-                injector.getLiveWallpaperStatusChecker(mAppContext);
         mLiveWallpaperInfoFactory = injector.getLiveWallpaperInfoFactory(mAppContext);
     }
 
@@ -72,29 +66,16 @@ public class DefaultCurrentWallpaperInfoFactory implements CurrentWallpaperInfoF
 
         mWallpaperRefresher.refresh(
                 (homeWallpaperMetadata, lockWallpaperMetadata, presentationMode) -> {
-
                     WallpaperInfo homeWallpaper;
-
-                    if (homeWallpaperMetadata.getWallpaperComponent() == null
-                            || mLiveWallpaperStatusChecker.isNoBackupImageWallpaperSet()) {
-                        // Image wallpaper
-                        if (BuildCompat.isAtLeastN()) {
-                            homeWallpaper = new CurrentWallpaperInfoVN(
-                                    homeWallpaperMetadata.getAttributions(),
-                                    homeWallpaperMetadata.getActionUrl(),
-                                    homeWallpaperMetadata.getActionLabelRes(),
-                                    homeWallpaperMetadata.getActionIconRes(),
-                                    homeWallpaperMetadata.getCollectionId(),
-                                    WallpaperManagerCompat.FLAG_SYSTEM);
-                        } else {
-                            homeWallpaper = new CurrentWallpaperInfoV16(
-                                    homeWallpaperMetadata.getAttributions(),
-                                    homeWallpaperMetadata.getActionUrl(),
-                                    homeWallpaperMetadata.getActionLabelRes(),
-                                    homeWallpaperMetadata.getActionIconRes(),
-                                    homeWallpaperMetadata.getCollectionId());
-                        }
-                    } else { // Live wallpaper
+                    if (homeWallpaperMetadata.getWallpaperComponent() == null) {
+                        homeWallpaper = new CurrentWallpaperInfoVN(
+                                homeWallpaperMetadata.getAttributions(),
+                                homeWallpaperMetadata.getActionUrl(),
+                                homeWallpaperMetadata.getActionLabelRes(),
+                                homeWallpaperMetadata.getActionIconRes(),
+                                homeWallpaperMetadata.getCollectionId(),
+                                WallpaperManagerCompat.FLAG_SYSTEM);
+                    } else {
                         homeWallpaper = mLiveWallpaperInfoFactory.getLiveWallpaperInfo(
                                 homeWallpaperMetadata.getWallpaperComponent());
                     }

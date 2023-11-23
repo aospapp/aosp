@@ -20,6 +20,7 @@ import static com.android.documentsui.base.Shared.EXTRA_BENCHMARK;
 import static com.android.documentsui.base.SharedMinimal.DEBUG;
 import static com.android.documentsui.base.State.MODE_GRID;
 
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
@@ -52,20 +53,18 @@ import androidx.fragment.app.Fragment;
 import com.android.documentsui.AbstractActionHandler.CommonAddons;
 import com.android.documentsui.Injector.Injected;
 import com.android.documentsui.NavigationViewManager.Breadcrumb;
-import com.android.documentsui.R;
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.EventHandler;
 import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.base.Shared;
 import com.android.documentsui.base.State;
 import com.android.documentsui.base.State.ViewMode;
+import com.android.documentsui.base.UserId;
 import com.android.documentsui.dirlist.AnimationView;
 import com.android.documentsui.dirlist.AppsRowManager;
 import com.android.documentsui.dirlist.DirectoryFragment;
 import com.android.documentsui.prefs.LocalPreferences;
-import com.android.documentsui.prefs.Preferences;
 import com.android.documentsui.prefs.PreferencesMonitor;
-import com.android.documentsui.prefs.ScopedPreferences;
 import com.android.documentsui.queries.CommandInterceptor;
 import com.android.documentsui.queries.SearchChipData;
 import com.android.documentsui.queries.SearchFragment;
@@ -91,6 +90,7 @@ public abstract class BaseActivity
 
     protected SearchViewManager mSearchManager;
     protected AppsRowManager mAppsRowManager;
+    protected UserIdManager mUserIdManager;
     protected State mState;
 
     @Injected
@@ -130,7 +130,7 @@ public abstract class BaseActivity
 
     @CallSuper
     @Override
-    public void onCreate(Bundle icicle) {
+    public void onCreate(Bundle savedInstanceState) {
         // Record the time when onCreate is invoked for metric.
         mStartTime = new Date().getTime();
 
@@ -139,7 +139,7 @@ public abstract class BaseActivity
         // in case Activity continueusly encounter resource not found exception
         getTheme().applyStyle(R.style.DocumentsDefaultTheme, false);
 
-        super.onCreate(icicle);
+        super.onCreate(savedInstanceState);
 
         final Intent intent = getIntent();
 
@@ -150,21 +150,23 @@ public abstract class BaseActivity
         setContainer();
 
         mInjector = getInjector();
-        mState = getState(icicle);
+        mState = getState(savedInstanceState);
         mDrawer = DrawerController.create(this, mInjector.config);
         Metrics.logActivityLaunch(mState, intent);
 
         mProviders = DocumentsApplication.getProvidersCache(this);
-        mDocs = DocumentsAccess.create(this);
+        mDocs = DocumentsAccess.create(this, mState);
 
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
-        Breadcrumb breadcrumb =
-                Shared.findView(this, R.id.dropdown_breadcrumb, R.id.horizontal_breadcrumb);
+        Breadcrumb breadcrumb = findViewById(R.id.horizontal_breadcrumb);
         assert(breadcrumb != null);
+        View profileTabsContainer = findViewById(R.id.tabs_container);
+        assert (profileTabsContainer != null);
 
-        mNavigator = new NavigationViewManager(this, mDrawer, mState, this, breadcrumb);
+        mNavigator = new NavigationViewManager(this, mDrawer, mState, this, breadcrumb,
+                profileTabsContainer, DocumentsApplication.getUserIdManager(this));
         SearchManagerListener searchListener = new SearchManagerListener() {
             /**
              * Called when search results changed. Refreshes the content of the directory. It
@@ -198,6 +200,9 @@ public abstract class BaseActivity
             @Override
             public void onSearchViewChanged(boolean opened) {
                 mNavigator.update();
+                // We also need to update AppsRowManager because we may want to show/hide the
+                // appsRow in cross-profile search according to the searching conditions.
+                mAppsRowManager.updateView(BaseActivity.this);
             }
 
             @Override
@@ -208,6 +213,9 @@ public abstract class BaseActivity
                     Metrics.logUserAction(MetricConsts.USER_ACTION_SEARCH_CHIP);
                     Metrics.logSearchType(item.getChipType());
                 }
+                // We also need to update AppsRowManager because we may want to show/hide the
+                // appsRow in cross-profile search according to the searching conditions.
+                mAppsRowManager.updateView(BaseActivity.this);
             }
 
             @Override
@@ -215,10 +223,13 @@ public abstract class BaseActivity
                 final boolean isInitailSearch
                         = !TextUtils.isEmpty(mSearchManager.getCurrentSearch())
                         && TextUtils.isEmpty(mSearchManager.getSearchViewText());
-                if (hasFocus && (SearchFragment.get(getSupportFragmentManager()) == null)
-                        && !isInitailSearch) {
-                    SearchFragment.showFragment(getSupportFragmentManager(),
-                            mSearchManager.getSearchViewText());
+                if (hasFocus) {
+                    if (!isInitailSearch) {
+                        SearchFragment.showFragment(getSupportFragmentManager(),
+                                mSearchManager.getSearchViewText());
+                    }
+                } else {
+                    SearchFragment.dismissFragment(getSupportFragmentManager());
                 }
             }
 
@@ -247,15 +258,16 @@ public abstract class BaseActivity
                         cmdInterceptor);
 
         ViewGroup chipGroup = findViewById(R.id.search_chip_group);
+        mUserIdManager = DocumentsApplication.getUserIdManager(this);
         mSearchManager = new SearchViewManager(searchListener, queryInterceptor,
-                chipGroup, icicle);
+                chipGroup, savedInstanceState);
         // initialize the chip sets by accept mime types
         mSearchManager.initChipSets(mState.acceptMimes);
         // update the chip items by the mime types of the root
         mSearchManager.updateChips(getCurrentRoot().derivedMimeTypes);
         // parse the query content from intent when launch the
         // activity at the first time
-        if (icicle == null) {
+        if (savedInstanceState == null) {
             mHasQueryContentFromIntent = mSearchManager.parseQueryContentFromIntent(getIntent(),
                     mState.action);
         }
@@ -263,6 +275,41 @@ public abstract class BaseActivity
         mNavigator.setSearchBarClickListener(v -> {
             mSearchManager.onSearchBarClicked();
             mNavigator.update();
+        });
+
+        mNavigator.setProfileTabsListener(userId -> {
+            // There are several possible cases that may trigger this callback.
+            // 1. A user click on tab layout.
+            // 2. A user click on tab layout, when filter is checked. (searching = true)
+            // 3. A user click on a open a dir of a different user in search (stack size > 1)
+            // 4. After tab layout is initialized.
+
+            if (!mState.stack.isInitialized()) {
+                return;
+            }
+
+            // Reload the roots when the selected user is changed.
+            // After reloading, we have visually same roots in the drawer. But they are
+            // different by holding different userId. Next time when user select a root, it can
+            // bring the user to correct root doc.
+            final RootsFragment roots = RootsFragment.get(getSupportFragmentManager());
+            if (roots != null) {
+                roots.onSelectedUserChanged();
+            }
+
+            if (mState.stack.size() <= 1) {
+                // We do not load cross-profile root if the stack contains two documents. The
+                // stack may contain >1 docs when the user select a folder of the other user in
+                // search. In that case, we don't want to reload the root. The whole stack
+                // and the root will be updated in openFolderInSearchResult.
+
+                // When a user filters files by search chips on the root doc, we will be in
+                // searching mode and with stack size 1 (0 if rootDoc cannot be loaded).
+                // The activity will clear search on root picked. If we don't clear the search,
+                // user may see the search result screen show up briefly and then get cleared.
+                mSearchManager.cancelSearch();
+                mInjector.actions.loadCrossProfileRoot(getCurrentRoot(), userId);
+            }
         });
 
         mSortController = SortController.create(this, mState.derivedMode, mState.sortModel);
@@ -281,12 +328,7 @@ public abstract class BaseActivity
         // For now, we only work with prefs that we backup. This
         // just limits the scope of what we expect to come flowing
         // through here until we know we want more and fancier options.
-        assert(Preferences.shouldBackup(pref));
-
-        switch (pref) {
-            case ScopedPreferences.INCLUDE_DEVICE_ROOT:
-                updateDisplayAdvancedDevices(mInjector.prefs.getShowDeviceRoot());
-        }
+        assert (LocalPreferences.shouldBackup(pref));
     }
 
     @Override
@@ -342,9 +384,9 @@ public abstract class BaseActivity
         super.onDestroy();
     }
 
-    private State getState(@Nullable Bundle icicle) {
-        if (icicle != null) {
-            State state = icicle.<State>getParcelable(Shared.EXTRA_STATE);
+    private State getState(@Nullable Bundle savedInstanceState) {
+        if (savedInstanceState != null) {
+            State state = savedInstanceState.<State>getParcelable(Shared.EXTRA_STATE);
             if (DEBUG) {
                 Log.d(mTag, "Recovered existing state object: " + state);
             }
@@ -358,14 +400,14 @@ public abstract class BaseActivity
         state.sortModel = SortModel.createModel();
         state.localOnly = intent.getBooleanExtra(Intent.EXTRA_LOCAL_ONLY, false);
         state.excludedAuthorities = getExcludedAuthorities();
+        state.restrictScopeStorage = Shared.shouldRestrictStorageAccessFramework(this);
+        state.showHiddenFiles = LocalPreferences.getShowHiddenFiles(
+                getApplicationContext(),
+                getApplicationContext()
+                        .getResources()
+                        .getBoolean(R.bool.show_hidden_files_by_default));
 
         includeState(state);
-
-        state.showAdvanced = Shared.mustShowDeviceRoot(intent)
-                || mInjector.prefs.getShowDeviceRoot();
-
-        // Only show the toggle if advanced isn't forced enabled.
-        state.showDeviceStorageOption = !Shared.mustShowDeviceRoot(intent);
 
         if (DEBUG) {
             Log.d(mTag, "Created new state object: " + state);
@@ -406,12 +448,18 @@ public abstract class BaseActivity
     }
 
     @Override
+    public void setRootsDrawerLocked(boolean locked) {
+        mDrawer.setLocked(locked);
+        mNavigator.update();
+    }
+
+    @Override
     public void onRootPicked(RootInfo root) {
         // Clicking on the current root removes search
         mSearchManager.cancelSearch();
 
         // Skip refreshing if root nor directory didn't change
-        if (root.equals(getCurrentRoot()) && mState.stack.size() == 1) {
+        if (root.equals(getCurrentRoot()) && mState.stack.size() <= 1) {
             return;
         }
 
@@ -443,6 +491,10 @@ public abstract class BaseActivity
         updateHeaderTitle();
     }
 
+    protected ProfileTabsAddons getProfileTabsAddon() {
+        return mNavigator.getProfileTabsAddons();
+    }
+
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
 
@@ -459,10 +511,6 @@ public abstract class BaseActivity
                 // SearchViewManager listens for this directly.
                 return false;
 
-            case R.id.option_menu_advanced:
-                onDisplayAdvancedDevices();
-                return true;
-
             case R.id.option_menu_select_all:
                 getInjector().actions.selectAllFiles();
                 return true;
@@ -473,6 +521,14 @@ public abstract class BaseActivity
 
             case R.id.option_menu_sort:
                 getInjector().actions.showSortDialog();
+                return true;
+
+            case R.id.option_menu_launcher:
+                getInjector().actions.switchLauncherIcon();
+                return true;
+
+            case R.id.option_menu_show_hidden_files:
+                onClickedShowHiddenFiles();
                 return true;
 
             case R.id.sub_menu_grid:
@@ -536,12 +592,6 @@ public abstract class BaseActivity
      */
     @Override
     public final void refreshCurrentRootAndDirectory(int anim) {
-        // The following call will crash if it's called before onCreateOptionMenu() is called in
-        // which we install menu item to search view manager, and there is a search query we need to
-        // restore. This happens when we're still initializing our UI so we shouldn't cancel the
-        // search which will be restored later in onCreateOptionMenu(). Try finding a way to guard
-        // refreshCurrentRootAndDirectory() from being called while we're restoring the state of UI
-        // from the saved state passed in onCreate().
         mSearchManager.cancelSearch();
 
         // only set the query content in the first launch
@@ -561,8 +611,18 @@ public abstract class BaseActivity
             roots.onCurrentRootChanged();
         }
 
-        // Causes talkback to announce the activity's new title
-        setTitle(mState.stack.getTitle());
+        String appName = getString(R.string.files_label);
+        String currentTitle = getTitle() != null ? getTitle().toString() : "";
+        if (currentTitle.equals(appName)) {
+            // First launch, TalkBack announces app name.
+            getWindow().getDecorView().announceForAccessibility(appName);
+        }
+
+        String newTitle = mState.stack.getTitle();
+        if (newTitle != null) {
+            // Causes talkback to announce the activity's new title
+            setTitle(newTitle);
+        }
 
         invalidateOptionsMenu();
         mSortController.onViewModeChanged(mState.derivedMode);
@@ -597,25 +657,20 @@ public abstract class BaseActivity
     }
 
     /**
-     * Set internal storage visible based on explicit user action.
+     * Updates hidden files visibility based on user action.
      */
-    private void onDisplayAdvancedDevices() {
-        boolean display = !mState.showAdvanced;
-        Metrics.logUserAction(display
-                ? MetricConsts.USER_ACTION_SHOW_ADVANCED : MetricConsts.USER_ACTION_HIDE_ADVANCED);
+    private void onClickedShowHiddenFiles() {
+        boolean showHiddenFiles = !mState.showHiddenFiles;
+        Context context = getApplicationContext();
 
-        mInjector.prefs.setShowDeviceRoot(display);
-        updateDisplayAdvancedDevices(display);
-    }
+        Metrics.logUserAction(showHiddenFiles
+                ? MetricConsts.USER_ACTION_SHOW_HIDDEN_FILES
+                : MetricConsts.USER_ACTION_HIDE_HIDDEN_FILES);
+        LocalPreferences.setShowHiddenFiles(context, showHiddenFiles);
+        mState.showHiddenFiles = showHiddenFiles;
 
-    private void updateDisplayAdvancedDevices(boolean display) {
-        mState.showAdvanced = display;
-        @Nullable RootsFragment fragment = RootsFragment.get(getSupportFragmentManager());
-        if (fragment != null) {
-            // This also takes care of updating launcher shortcuts (which are roots :)
-            fragment.onDisplayStateChanged();
-        }
-        invalidateOptionsMenu();
+        // Calls this to trigger either MultiRootDocumentsLoader or DirectoryLoader reloading.
+        mInjector.actions.loadDocumentsForCurrentStack();
     }
 
     /**
@@ -642,8 +697,14 @@ public abstract class BaseActivity
         mSortController.onViewModeChanged(mode);
     }
 
-    public void setPending(boolean pending) {
-        // TODO: Isolate this behavior to PickActivity.
+    /**
+     * Reload documnets by current stack in certain situation.
+     */
+    public void reloadDocumentsIfNeeded() {
+        if (isInRecents() || mSearchManager.isSearching()) {
+            // Both using MultiRootDocumentsLoader which have not ContentObserver.
+            mInjector.actions.loadDocumentsForCurrentStack();
+        }
     }
 
     public void expandAppBar() {
@@ -670,9 +731,11 @@ public abstract class BaseActivity
             case RootInfo.TYPE_IMAGES:
             case RootInfo.TYPE_VIDEO:
             case RootInfo.TYPE_AUDIO:
-                result = getString(R.string.root_info_header_media, rootTitle);
+                result = rootTitle;
                 break;
             case RootInfo.TYPE_DOWNLOADS:
+                result = getHeaderDownloadsTitle();
+                break;
             case RootInfo.TYPE_LOCAL:
             case RootInfo.TYPE_MTP:
             case RootInfo.TYPE_SD:
@@ -706,10 +769,21 @@ public abstract class BaseActivity
         }
     }
 
+    private String getHeaderDownloadsTitle() {
+        return getString(mState.isPhotoPicking()
+            ? R.string.root_info_header_image_downloads : R.string.root_info_header_downloads);
+    }
+
     private String getHeaderStorageTitle(String rootTitle) {
-        final int resId = mState.isPhotoPicking()
-                ? R.string.root_info_header_image_storage : R.string.root_info_header_storage;
-        return getString(resId, rootTitle);
+        if (mState.stack.size() > 1) {
+            final int resId = mState.isPhotoPicking()
+                    ? R.string.root_info_header_image_folder : R.string.root_info_header_folder;
+            return getString(resId, getCurrentTitle());
+        } else {
+            final int resId = mState.isPhotoPicking()
+                    ? R.string.root_info_header_image_storage : R.string.root_info_header_storage;
+            return getString(resId, rootTitle);
+        }
     }
 
     private String getHeaderDefaultTitle(String rootTitle, String summary) {
@@ -754,12 +828,16 @@ public abstract class BaseActivity
     }
 
     @Override
+    public UserId getSelectedUser() {
+        return mNavigator.getSelectedUser();
+    }
+
     public RootInfo getCurrentRoot() {
         RootInfo root = mState.stack.getRoot();
         if (root != null) {
             return root;
         } else {
-            return mProviders.getRecentsRoot();
+            return mProviders.getRecentsRoot(getSelectedUser());
         }
     }
 

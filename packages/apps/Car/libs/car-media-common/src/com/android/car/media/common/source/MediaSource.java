@@ -16,8 +16,6 @@
 
 package com.android.car.media.common.source;
 
-import android.annotation.NonNull;
-import android.annotation.Nullable;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -26,206 +24,173 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.content.pm.ServiceInfo;
 import android.graphics.Bitmap;
-import android.graphics.Canvas;
-import android.graphics.Paint;
-import android.graphics.PorterDuff;
-import android.graphics.PorterDuffXfermode;
-import android.graphics.Rect;
-import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.service.media.MediaBrowserService;
+import android.text.TextUtils;
 import android.util.Log;
 
-import java.util.HashSet;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
+import com.android.car.apps.common.BitmapUtils;
+import com.android.car.apps.common.IconCropper;
+import com.android.car.media.common.R;
+
+import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
+
 
 /**
  * This represents a source of media content. It provides convenient methods to access media source
- * metadata, such as primary color and application name.
+ * metadata, such as application name and icon.
  */
 public class MediaSource {
     private static final String TAG = "MediaSource";
 
-    /**
-     * Custom media sources which should not be templatized.
-     */
-    private static final Set<String> CUSTOM_MEDIA_SOURCES = new HashSet<>();
-    static {
-        CUSTOM_MEDIA_SOURCES.add("com.android.car.radio");
-    }
-
-    private final String mPackageName;
-    @Nullable
-    private final String mBrowseServiceClassName;
-    private final Context mContext;
-    private CharSequence mName;
+    @NonNull
+    private final ComponentName mBrowseService;
+    @NonNull
+    private final CharSequence mDisplayName;
+    @NonNull
+    private final Drawable mIcon;
+    @NonNull
+    private final IconCropper mIconCropper;
 
     /**
-     * Creates a {@link MediaSource} for the given application package name
-     */
-    public MediaSource(@NonNull Context context, @NonNull String packageName) {
-        mContext = context;
-        mPackageName = packageName;
-        mBrowseServiceClassName = getBrowseServiceClassName(packageName);
-        extractComponentInfo(mPackageName, mBrowseServiceClassName);
-    }
-
-    /**
-     * @return the classname corresponding to a {@link MediaBrowserService} in the media source, or
-     * null if the media source doesn't implement {@link MediaBrowserService}. A non-null result
-     * doesn't imply that this service is accessible. The consumer code should attempt to connect
-     * and handle rejections gracefully.
+     * Creates a {@link MediaSource} for the given {@link ComponentName}
      */
     @Nullable
-    private String getBrowseServiceClassName(@NonNull String packageName) {
-        PackageManager packageManager = mContext.getPackageManager();
+    public static MediaSource create(@NonNull Context context,
+            @NonNull ComponentName componentName) {
+        ServiceInfo serviceInfo = getBrowseServiceInfo(context, componentName);
+
+        String className = serviceInfo != null ? serviceInfo.name : null;
+        if (TextUtils.isEmpty(className)) {
+            Log.w(TAG,
+                    "No MediaBrowserService found in component " + componentName.flattenToString());
+            return null;
+        }
+
+        try {
+            String packageName = componentName.getPackageName();
+            CharSequence displayName = extractDisplayName(context, serviceInfo, packageName);
+            Drawable icon = extractIcon(context, serviceInfo, packageName);
+            ComponentName browseService = new ComponentName(packageName, className);
+            return new MediaSource(browseService, displayName, icon, new IconCropper(context));
+        } catch (PackageManager.NameNotFoundException e) {
+            Log.w(TAG, "Component not found " + componentName.flattenToString());
+            return null;
+        }
+    }
+
+    private MediaSource(@NonNull ComponentName browseService, @NonNull CharSequence displayName,
+            @NonNull Drawable icon, @NonNull IconCropper iconCropper) {
+        mBrowseService = browseService;
+        mDisplayName = displayName;
+        mIcon = icon;
+        mIconCropper = iconCropper;
+    }
+
+    /**
+     * @return the {@link ServiceInfo} corresponding to a {@link MediaBrowserService} in the media
+     * source, or null if the media source doesn't implement {@link MediaBrowserService}. A non-null
+     * result doesn't imply that this service is accessible. The consumer code should attempt to
+     * connect and handle rejections gracefully.
+     */
+    @Nullable
+    private static ServiceInfo getBrowseServiceInfo(@NonNull Context context,
+            @NonNull ComponentName componentName) {
+        PackageManager packageManager = context.getPackageManager();
         Intent intent = new Intent();
         intent.setAction(MediaBrowserService.SERVICE_INTERFACE);
-        intent.setPackage(packageName);
+        intent.setPackage(componentName.getPackageName());
         List<ResolveInfo> resolveInfos = packageManager.queryIntentServices(intent,
                 PackageManager.GET_RESOLVED_FILTER);
         if (resolveInfos == null || resolveInfos.isEmpty()) {
             return null;
         }
-        return resolveInfos.get(0).serviceInfo.name;
-    }
-
-
-
-    private void extractComponentInfo(@NonNull String packageName,
-            @Nullable String browseServiceClassName) {
-        try {
-            ApplicationInfo applicationInfo =
-                    mContext.getPackageManager().getApplicationInfo(packageName,
-                            PackageManager.GET_META_DATA);
-            ServiceInfo serviceInfo = browseServiceClassName != null
-                    ? mContext.getPackageManager().getServiceInfo(
-                    new ComponentName(packageName, browseServiceClassName),
-                    PackageManager.GET_META_DATA)
-                    : null;
-
-            // Get the proper app name, check service label, then application label.
-            if (serviceInfo != null && serviceInfo.labelRes != 0) {
-                mName = serviceInfo.loadLabel(mContext.getPackageManager());
-            } else {
-                mName = applicationInfo.loadLabel(mContext.getPackageManager());
-            }
-        } catch (PackageManager.NameNotFoundException e) {
-            Log.w(TAG, "Unable to update media client package attributes.", e);
+        String className = componentName.getClassName();
+        if (TextUtils.isEmpty(className)) {
+            return resolveInfos.get(0).serviceInfo;
         }
+        for (ResolveInfo resolveInfo : resolveInfos) {
+            ServiceInfo result = resolveInfo.serviceInfo;
+            if (result.name.equals(className)) {
+                return result;
+            }
+        }
+        return null;
     }
 
     /**
-     * @return media source human readable name.
+     * @return a proper app name. Checks service label first. If failed, uses application label
+     * as fallback.
      */
-    public CharSequence getName() {
-        return mName;
+    @NonNull
+    private static CharSequence extractDisplayName(@NonNull Context context,
+            @Nullable ServiceInfo serviceInfo, @NonNull String packageName)
+            throws PackageManager.NameNotFoundException {
+        if (serviceInfo != null && serviceInfo.labelRes != 0) {
+            return serviceInfo.loadLabel(context.getPackageManager());
+        }
+        ApplicationInfo applicationInfo =
+                context.getPackageManager().getApplicationInfo(packageName,
+                        PackageManager.GET_META_DATA);
+        return applicationInfo.loadLabel(context.getPackageManager());
     }
 
     /**
-     * @return the package name that identifies this media source.
+     * @return a proper icon. Checks service icon first. If failed, uses application icon as
+     * fallback.
      */
+    @NonNull
+    private static Drawable extractIcon(@NonNull Context context, @Nullable ServiceInfo serviceInfo,
+            @NonNull String packageName) throws PackageManager.NameNotFoundException {
+        Drawable appIcon = serviceInfo != null ? serviceInfo.loadIcon(context.getPackageManager())
+                : context.getPackageManager().getApplicationIcon(packageName);
+
+        return BitmapUtils.maybeFlagDrawable(context, appIcon);
+    }
+
+    /**
+     * @return media source human readable name for display.
+     */
+    @NonNull
+    public CharSequence getDisplayName() {
+        return mDisplayName;
+    }
+
+    /**
+     * @return the package name of this media source.
+     */
+    @NonNull
     public String getPackageName() {
-        return mPackageName;
+        return mBrowseService.getPackageName();
     }
 
     /**
-     * @return a {@link ComponentName} referencing this media source's {@link MediaBrowserService},
-     * or NULL if this media source doesn't implement such service.
+     * @return a {@link ComponentName} referencing this media source's {@link MediaBrowserService}.
      */
-    @Nullable
+    @NonNull
     public ComponentName getBrowseServiceComponentName() {
-        if (mBrowseServiceClassName != null) {
-            return new ComponentName(mPackageName, mBrowseServiceClassName);
-        } else {
-            return null;
-        }
+        return mBrowseService;
     }
 
     /**
-     * Returns this media source's icon as a {@link Drawable}
+     * @return a {@link Drawable} as the media source's icon.
      */
-    public Drawable getPackageIcon() {
-        try {
-            return mContext.getPackageManager().getApplicationIcon(getPackageName());
-        } catch (PackageManager.NameNotFoundException e) {
-            return null;
-        }
+    @NonNull
+    public Drawable getIcon() {
+        return mIcon;
     }
 
     /**
-     * Returns this media source's icon cropped to a circle.
+     * Returns this media source's icon cropped to a predefined shape (see
+     * {@link #IconCropper(Context)} on where and how the shape is defined).
      */
-    public Bitmap getRoundPackageIcon() {
-        Drawable packageIcon = getPackageIcon();
-        return packageIcon != null
-                ? getRoundCroppedBitmap(drawableToBitmap(getPackageIcon()))
-                : null;
-    }
-
-    /**
-     * Returns {@code true} iff this media source should not be templatized.
-     */
-    public boolean isCustom() {
-        return isCustom(mPackageName);
-    }
-
-    /**
-     * Returns {@code true} iff the provided media package should not be templatized.
-     */
-    public static boolean isCustom(String packageName) {
-        return CUSTOM_MEDIA_SOURCES.contains(packageName);
-    }
-
-    /**
-     * Returns {@code true} iff this media source has a browse service to connect to.
-     */
-    public boolean isBrowsable() {
-        return mBrowseServiceClassName != null;
-    }
-
-    private Bitmap drawableToBitmap(Drawable drawable) {
-        Bitmap bitmap = null;
-
-        if (drawable instanceof BitmapDrawable) {
-            BitmapDrawable bitmapDrawable = (BitmapDrawable) drawable;
-            if (bitmapDrawable.getBitmap() != null) {
-                return bitmapDrawable.getBitmap();
-            }
-        }
-
-        if (drawable.getIntrinsicWidth() <= 0 || drawable.getIntrinsicHeight() <= 0) {
-            bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888);
-        } else {
-            bitmap = Bitmap.createBitmap(drawable.getIntrinsicWidth(),
-                    drawable.getIntrinsicHeight(), Bitmap.Config.ARGB_8888);
-        }
-
-        Canvas canvas = new Canvas(bitmap);
-        drawable.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
-        drawable.draw(canvas);
-        return bitmap;
-    }
-
-    private Bitmap getRoundCroppedBitmap(Bitmap bitmap) {
-        Bitmap output = Bitmap.createBitmap(bitmap.getWidth(), bitmap.getHeight(),
-                Bitmap.Config.ARGB_8888);
-        Canvas canvas = new Canvas(output);
-
-        final int color = 0xff424242;
-        final Paint paint = new Paint();
-        final Rect rect = new Rect(0, 0, bitmap.getWidth(), bitmap.getHeight());
-
-        paint.setAntiAlias(true);
-        canvas.drawARGB(0, 0, 0, 0);
-        paint.setColor(color);
-        canvas.drawCircle(bitmap.getWidth() / 2, bitmap.getHeight() / 2,
-                bitmap.getWidth() / 2f, paint);
-        paint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.SRC_IN));
-        canvas.drawBitmap(bitmap, rect, rect, paint);
-        return output;
+    public Bitmap getCroppedPackageIcon() {
+        return mIconCropper.crop(mIcon);
     }
 
     @Override
@@ -233,24 +198,36 @@ public class MediaSource {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         MediaSource that = (MediaSource) o;
-        return Objects.equals(mPackageName, that.mPackageName)
-                && Objects.equals(mBrowseServiceClassName, that.mBrowseServiceClassName);
+        return Objects.equals(mBrowseService, that.mBrowseService);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(mPackageName, mBrowseServiceClassName);
+        return Objects.hash(mBrowseService);
     }
 
     @Override
     @NonNull
     public String toString() {
-        return getPackageName();
+        return mBrowseService.flattenToString();
     }
 
-    /** Returns the package name of the given source, or null. */
+    /**
+     * @return an intent to open the media source selector, or null if no source selector is
+     * configured.
+     * @param popup Whether the intent should point to the regular app selector (false), which
+     *              would open the selected media source in Media Center, or the "popup" version
+     *              (true), which would just select the source and dismiss itself.
+     */
     @Nullable
-    public static String getPackageName(@Nullable MediaSource source) {
-        return (source != null) ? source.getPackageName() : null;
+    public static Intent getSourceSelectorIntent(Context context, boolean popup) {
+        String uri = context.getString(popup ? R.string.launcher_popup_intent
+                : R.string.launcher_intent);
+        try {
+            return uri != null && !uri.isEmpty() ? Intent.parseUri(uri, Intent.URI_INTENT_SCHEME)
+                    : null;
+        } catch (URISyntaxException e) {
+            throw new IllegalStateException("Wrong app-launcher intent: " + uri, e);
+        }
     }
 }

@@ -30,7 +30,6 @@ import android.os.SystemProperties;
 
 import androidx.preference.Preference;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.settingslib.bluetooth.CachedBluetoothDevice;
 
 import org.junit.Before;
@@ -39,10 +38,11 @@ import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 
 /** Unit test for {@link BluetoothDevicePreference}. */
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 public class BluetoothDevicePreferenceTest {
 
     @Mock

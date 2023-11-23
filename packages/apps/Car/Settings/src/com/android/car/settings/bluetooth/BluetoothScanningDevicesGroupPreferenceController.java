@@ -95,8 +95,7 @@ public abstract class BluetoothScanningDevicesGroupPreferenceController extends
             }
         }
         // Users who cannot configure Bluetooth cannot scan.
-        return !getCarUserManagerHelper().isCurrentProcessUserHasRestriction(
-                DISALLOW_CONFIG_BLUETOOTH);
+        return !getUserManager().hasUserRestriction(DISALLOW_CONFIG_BLUETOOTH);
     }
 
     /**

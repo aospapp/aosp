@@ -183,6 +183,7 @@ static int _start_page(pcl_job_info_t *job_info, int pixel_width, int pixel_heig
     int outBuffSize = 0;
 
     _START_PAGE(job_info, pixel_width, pixel_height);
+    job_info->pixel_width = pixel_width;
 
     page_info->sourceHeight = (float) pixel_height / job_info->standard_scale;
     page_info->sourceWidth = (float) pixel_width / job_info->standard_scale;
@@ -272,10 +273,14 @@ static int _end_page(pcl_job_info_t *job_info, int page_number) {
 
     if (page_number == -1) {
         LOGI("_end_page(): writing blank page");
-        _start_page(job_info, 0, 0);
-        unsigned char blank_data[1] = {0xFF};
-        PCLmEncapsulate(job_info->pclmgen_obj, (void *) blank_data, 1, 1,
+        _start_page(job_info, job_info->pixel_width, job_info->strip_height);
+        size_t blank_data_size = (size_t) job_info->strip_height * job_info->pixel_width *
+                job_info->num_components;
+        void *blank_data = malloc(blank_data_size);
+        memset(blank_data, 0xff, blank_data_size);
+        PCLmEncapsulate(job_info->pclmgen_obj, blank_data, blank_data_size, job_info->strip_height,
                 (void **) &job_info->pclm_output_buffer, &outBuffSize);
+        free(blank_data);
         _WRITE(job_info, (const char *) job_info->pclm_output_buffer, outBuffSize);
     }
     LOGI("_end_page()");

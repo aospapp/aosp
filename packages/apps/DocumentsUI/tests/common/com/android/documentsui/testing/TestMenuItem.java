@@ -19,9 +19,10 @@ package com.android.documentsui.testing;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-import androidx.annotation.StringRes;
 import android.view.MenuItem;
 import android.view.View;
+
+import androidx.annotation.StringRes;
 
 import org.mockito.Mockito;
 
@@ -96,19 +97,13 @@ public abstract class TestMenuItem implements MenuItem {
         return this.actionView;
     }
 
-    public void assertEnabled() {
+    public void assertEnabledAndVisible() {
         assertTrue(this.enabled);
-    }
-
-    public void assertDisabled() {
-        assertFalse(this.enabled);
-    }
-
-    public void assertVisible() {
         assertTrue(this.visible);
     }
 
-    public void assertInvisible() {
+    public void assertDisabledAndInvisible() {
+        assertFalse(this.enabled);
         assertFalse(this.visible);
     }
 

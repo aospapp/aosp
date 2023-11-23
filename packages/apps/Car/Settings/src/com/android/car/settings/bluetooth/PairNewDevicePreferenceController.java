@@ -21,12 +21,12 @@ import static android.os.UserManager.DISALLOW_CONFIG_BLUETOOTH;
 
 import android.bluetooth.BluetoothAdapter;
 import android.car.drivingstate.CarUxRestrictions;
-import android.car.userlib.CarUserManagerHelper;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.os.UserManager;
 
 import androidx.lifecycle.LifecycleObserver;
 import androidx.preference.Preference;
@@ -44,7 +44,7 @@ import com.android.car.settings.common.PreferenceController;
 public class PairNewDevicePreferenceController extends PreferenceController<Preference> implements
         LifecycleObserver {
 
-    private final CarUserManagerHelper mCarUserManagerHelper;
+    private final UserManager mUserManager;
     private final IntentFilter mIntentFilter = new IntentFilter(
             BluetoothAdapter.ACTION_STATE_CHANGED);
     private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
@@ -57,7 +57,7 @@ public class PairNewDevicePreferenceController extends PreferenceController<Pref
     public PairNewDevicePreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
-        mCarUserManagerHelper = new CarUserManagerHelper(context);
+        mUserManager = UserManager.get(context);
     }
 
     @Override
@@ -82,9 +82,8 @@ public class PairNewDevicePreferenceController extends PreferenceController<Pref
     }
 
     private boolean isUserRestricted() {
-        return mCarUserManagerHelper.isCurrentProcessUserHasRestriction(DISALLOW_BLUETOOTH)
-                || mCarUserManagerHelper.isCurrentProcessUserHasRestriction(
-                DISALLOW_CONFIG_BLUETOOTH);
+        return mUserManager.hasUserRestriction(DISALLOW_BLUETOOTH)
+                || mUserManager.hasUserRestriction(DISALLOW_CONFIG_BLUETOOTH);
     }
 
     @Override

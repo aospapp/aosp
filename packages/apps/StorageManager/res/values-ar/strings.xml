@@ -30,7 +30,7 @@
     <string name="deletion_helper_photos_age_summary" msgid="1820871709448371984">"أقدم من 30 يومًا"</string>
     <!-- no translation found for deletion_helper_photos_summary (3194825464552700889) -->
     <skip />
-    <string name="deletion_helper_downloads_title" msgid="8002058095019254694">"التنزيلات"</string>
+    <string name="deletion_helper_downloads_title" msgid="8002058095019254694">"عمليات التنزيل"</string>
     <!-- no translation found for deletion_helper_downloads_category_summary (8545989355108311347) -->
     <skip />
     <!-- no translation found for deletion_helper_downloads_summary_empty (3988054032360371887) -->
@@ -41,7 +41,7 @@
     <string name="deletion_helper_upsell_title" msgid="8512037674466762017">"هل تريد إدارة مساحة التخزين تلقائيًا؟"</string>
     <string name="deletion_helper_upsell_summary" msgid="2301597713694474407">"أصبح خاليًا الآن <xliff:g id="USED">%1$s</xliff:g>. هل تسمح لمدير مساحة التخزين بالتفريغ التلقائي للمساحة بإزالة المحتوى من جهازك بعد أن احتفظت بنسخة احتياطية منه؟"</string>
     <string name="deletion_helper_upsell_cancel" msgid="7084167642850053889">"لا، شكرًا"</string>
-    <string name="deletion_helper_upsell_activate" msgid="7157360257760895976">"تشغيل"</string>
+    <string name="deletion_helper_upsell_activate" msgid="7157360257760895976">"تفعيل"</string>
     <string name="deletion_helper_apps_group_title" msgid="2578309121350341258">"التطبيقات المستخدمة قليلاً"</string>
     <!-- no translation found for deletion_helper_apps_group_summary (360315517252452356) -->
     <skip />
@@ -53,7 +53,7 @@
     <string name="automatic_storage_manager_notification_title" product="tablet" msgid="3150907918531844467">"أوشكت المساحة على النفاد في جهازك اللوحي"</string>
     <string name="automatic_storage_manager_notification_summary" msgid="2267399886362245822">"السماح لمدير مساحة التخزين بالتفريغ التلقائي للمساحة بإزالة الصور والفيديوهات القديمة عندما توشك مساحة التخزين في هاتفك على الامتلاء مرة أخرى."</string>
     <string name="automatic_storage_manager_cancel_button" msgid="1826365037494962803">"لا، شكرًا"</string>
-    <string name="automatic_storage_manager_activate_button" msgid="6257070263061898041">"تشغيل"</string>
+    <string name="automatic_storage_manager_activate_button" msgid="6257070263061898041">"تفعيل"</string>
     <string name="deletion_helper_photos_loading_title" msgid="2768067991066779772">"الصور والفيديوهات التي تم الاحتفاظ بنسخة احتياطية منها"</string>
     <string name="deletion_helper_photos_loading_summary" msgid="8203033249458245854">"جارٍ البحث عن…"</string>
     <string name="deletion_helper_no_threshold" msgid="6943179204098250444">"عرض كل العناصر"</string>

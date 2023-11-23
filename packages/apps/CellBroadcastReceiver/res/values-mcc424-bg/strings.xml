@@ -17,6 +17,11 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="cmas_presidential_level_alert" msgid="175237477015066795">"Сигнал при спешни случаи на национално ниво"</string>
-    <string name="cmas_amber_alert" msgid="2410977367530696102">"Сигнал за предупреждение"</string>
+    <string name="pws_other_message_identifiers" msgid="9062780351883657067">"Сигнал за предупреждение"</string>
+    <string name="public_safety_message" msgid="2187283654023170988">"Сигнал за обществена безопасност"</string>
+    <string name="cmas_exercise_alert" msgid="5775307523978007483">"Упражняване"</string>
     <string name="cmas_required_monthly_test" msgid="7606843318721168353">"Тестови сигнал"</string>
+    <string name="state_local_test_alert" msgid="3092681020067564217">"Тестови сигнал"</string>
+    <string name="enable_emergency_alerts_message_title" msgid="876981179796412627">"Сигнали за предупреждение"</string>
+    <string name="enable_public_safety_messages_title" msgid="4810131816678424099">"Сигнали за обществена безопасност"</string>
 </resources>

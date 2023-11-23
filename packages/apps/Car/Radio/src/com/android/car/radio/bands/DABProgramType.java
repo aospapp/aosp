@@ -18,6 +18,7 @@ package com.android.car.radio.bands;
 
 import android.hardware.radio.ProgramSelector;
 
+import androidx.annotation.DrawableRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
@@ -44,6 +45,12 @@ class DABProgramType extends ProgramType {
     @StringRes
     public int getLocalizedName() {
         return R.string.programtype_dab_text;
+    }
+
+    @Override
+    @DrawableRes
+    public int getResourceId() {
+        return 0;
     }
 
     @Override

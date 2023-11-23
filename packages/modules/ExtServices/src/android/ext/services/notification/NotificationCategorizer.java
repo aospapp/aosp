@@ -19,12 +19,12 @@ import static android.app.NotificationManager.IMPORTANCE_DEFAULT;
 import static android.app.NotificationManager.IMPORTANCE_HIGH;
 import static android.app.NotificationManager.IMPORTANCE_MIN;
 
-import android.annotation.IntDef;
 import android.app.Notification;
 import android.media.AudioAttributes;
 import android.os.Process;
 
-import com.android.internal.annotations.VisibleForTesting;
+import androidx.annotation.IntDef;
+import androidx.annotation.VisibleForTesting;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -33,7 +33,6 @@ import java.lang.annotation.RetentionPolicy;
  * Default categorizer for incoming notifications; used to determine what notifications
  * should be silenced.
  */
-// TODO: stop using @hide methods
 public class NotificationCategorizer {
 
     protected static final int CATEGORY_MIN = -3;
@@ -49,7 +48,7 @@ public class NotificationCategorizer {
     protected static final int CATEGORY_HIGH = 7;
 
     /** @hide */
-    @IntDef(prefix = { "CATEGORY_" }, value = {
+    @IntDef({
             CATEGORY_MIN, CATEGORY_EVERYTHING_ELSE, CATEGORY_ONGOING, CATEGORY_CALL,
             CATEGORY_SYSTEM_LOW, CATEGORY_EVENT, CATEGORY_REMINDER, CATEGORY_SYSTEM,
             CATEGORY_PEOPLE, CATEGORY_ALARM, CATEGORY_HIGH

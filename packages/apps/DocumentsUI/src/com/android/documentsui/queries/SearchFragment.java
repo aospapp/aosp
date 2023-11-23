@@ -16,25 +16,23 @@
 
 package com.android.documentsui.queries;
 
-import android.app.Dialog;
 import android.content.Context;
 import android.os.Bundle;
-import android.text.TextUtils;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
+import android.widget.FrameLayout;
 import android.widget.ListView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.appcompat.widget.SearchView;
-import androidx.appcompat.widget.Toolbar;
-import androidx.fragment.app.DialogFragment;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
+import androidx.fragment.app.FragmentTransaction;
 
 import com.android.documentsui.BaseActivity;
 import com.android.documentsui.Injector;
@@ -42,8 +40,7 @@ import com.android.documentsui.R;
 
 import java.util.List;
 
-public class SearchFragment extends DialogFragment
-        implements SearchView.OnQueryTextListener{
+public class SearchFragment extends Fragment{
 
     private static final String TAG = "SearchFragment";
     private static final String KEY_QUERY = "query";
@@ -51,7 +48,6 @@ public class SearchFragment extends DialogFragment
 
     private SearchViewManager mSearchViewManager;
 
-    private SearchView mSearchView;
     private ViewGroup mSearchChipGroup;
     private ListView mListView;
     private ArrayAdapter<String> mAdapter;
@@ -59,12 +55,26 @@ public class SearchFragment extends DialogFragment
     private List<String> mHistoryList;
 
     public static void showFragment(FragmentManager fm, String initQuery) {
+        if (fm.isStateSaved()) {
+            Log.w(TAG, "Skip show because state saved");
+            return;
+        }
+
         final SearchFragment fragment = new SearchFragment();
         final Bundle args = new Bundle();
         args.putString(KEY_QUERY, initQuery);
         fragment.setArguments(args);
-        fragment.setStyle(DialogFragment.STYLE_NO_FRAME, R.style.DocumentsTheme);
-        fragment.show(fm, TAG);
+
+        final FragmentTransaction ft = fm.beginTransaction();
+        ft.replace(getFragmentId(), fragment, TAG);
+        ft.commitNow();
+    }
+
+    public static void dismissFragment(FragmentManager fm) {
+        SearchFragment fragment = get(fm);
+        if (fragment != null && fragment.getActivity() != null) {
+            fragment.dismiss();
+        }
     }
 
     public static SearchFragment get(FragmentManager fm) {
@@ -74,33 +84,12 @@ public class SearchFragment extends DialogFragment
                 : null;
     }
 
-    private void onChipClicked(View view) {
-        final Object tag = view.getTag();
-        if (tag instanceof SearchChipData) {
-            mSearchViewManager.onMirrorChipClick((SearchChipData) tag);
-            dismiss();
-        }
-    }
-
-    private void onHistoryItemClicked(AdapterView<?> parent, View view, int position, long id) {
-        final String item = mHistoryList.get(position);
-        mSearchViewManager.setHistorySearch();
-        mSearchView.setQuery(item, true);
-    }
-
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
             @Nullable Bundle savedInstanceState) {
         final View view = inflater.inflate(R.layout.fragment_search, container, false);
 
-        final Toolbar toolbar = view.findViewById(R.id.toolbar);
-        toolbar.setNavigationOnClickListener(v -> {
-            mSearchViewManager.cancelSearch();
-            dismiss();
-        });
-
-        mSearchView = view.findViewById(R.id.search_view);
         mSearchChipGroup = view.findViewById(R.id.search_chip_group);
         mListView = view.findViewById(R.id.history_list);
 
@@ -114,12 +103,10 @@ public class SearchFragment extends DialogFragment
         final BaseActivity activity = (BaseActivity) getActivity();
         final Injector injector = activity.getInjector();
         mSearchViewManager = injector.searchManager;
+        mSearchViewManager.setFragmentManager(this.getParentFragmentManager());
 
         final String currentQuery = getArguments().getString(KEY_QUERY, "");
 
-        mSearchView.onActionViewExpanded();
-        mSearchView.setQuery(currentQuery, false);
-        mSearchView.setOnQueryTextListener(this);
         mHistoryList = SearchHistoryManager.getInstance(
                 getContext().getApplicationContext()).getHistoryList(currentQuery);
 
@@ -133,54 +120,62 @@ public class SearchFragment extends DialogFragment
         mAdapter = new HistoryListAdapter(getContext(), mHistoryList);
         mListView.setAdapter(mAdapter);
         mListView.setOnItemClickListener(this::onHistoryItemClicked);
-    }
 
-    @Override
-    public void onStart() {
-        super.onStart();
-        getDialog().getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT);
-    }
-
-    @Override
-    public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
-        return new Dialog(getActivity(), getTheme()){
-            @Override
-            public void onBackPressed() {
-                if (TextUtils.isEmpty(mSearchView.getQuery())) {
-                    mSearchViewManager.cancelSearch();
-                } else {
-                    mSearchViewManager.restoreSearch(false);
-                }
-                dismiss();
-            }
-        };
-    }
-
-    @Override
-    public boolean onQueryTextSubmit(String s) {
-        if (!TextUtils.isEmpty(mSearchView.getQuery())) {
-            mSearchViewManager.setCurrentSearch(s);
-            mSearchViewManager.restoreSearch(false);
-            mSearchViewManager.recordHistory();
-            dismiss();
+        View toolbar = getActivity().findViewById(R.id.toolbar_background_layout);
+        if (toolbar != null) {
+            // Align top with the bottom of search bar.
+            FrameLayout.LayoutParams layoutParams = new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT);
+            layoutParams.setMargins(0, getResources().getDimensionPixelSize(
+                    R.dimen.action_bar_space_height), 0, 0);
+            getView().setLayoutParams(layoutParams);
         }
-        return true;
+
+        updateDirectoryVisibility(View.GONE);
     }
 
-    @Override
-    public boolean onQueryTextChange(String s) {
-        if (!TextUtils.isEmpty(mSearchView.getQuery())) {
-            mSearchViewManager.setCurrentSearch(s);
-            mSearchViewManager.restoreSearch(true);
-            dismiss();
-        } else {
-            mHistoryList = SearchHistoryManager.getInstance(
-                    mSearchView.getContext().getApplicationContext()).getHistoryList("");
-            mAdapter.clear();
-            mAdapter.addAll(mHistoryList);
+    private static int getFragmentId() {
+        return R.id.container_search_fragment;
+    }
+
+    private void onChipClicked(View view) {
+        final Object tag = view.getTag();
+        if (tag instanceof SearchChipData) {
+            mSearchViewManager.onMirrorChipClick((SearchChipData) tag);
         }
-        return true;
+    }
+
+    private void onHistoryItemClicked(AdapterView<?> parent, View view, int position, long id) {
+        final String item = mHistoryList.get(position);
+        mSearchViewManager.setHistorySearch();
+        mSearchViewManager.setCurrentSearch(item);
+        mSearchViewManager.restoreSearch(true);
+    }
+
+    private void dismiss() {
+        if (getActivity() == null) {
+            // Fragment has already been detached from activity.
+            return;
+        }
+
+        updateDirectoryVisibility(View.VISIBLE);
+
+        FragmentTransaction ft = getParentFragmentManager().beginTransaction();
+        ft.remove(this);
+        ft.commitNow();
+    }
+
+    private void updateDirectoryVisibility(int visibility) {
+        View directoryHeader = getActivity().findViewById(R.id.directory_header);
+        if (directoryHeader != null) {
+            directoryHeader.setVisibility(visibility);
+        }
+
+        View directoryContainer = getActivity().findViewById(R.id.container_directory);
+        if (directoryContainer != null) {
+            directoryContainer.setVisibility(visibility);
+        }
     }
 
     private class HistoryListAdapter extends ArrayAdapter<String> {

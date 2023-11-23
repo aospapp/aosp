@@ -27,15 +27,14 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.UiThread;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.media2.MediaController;
-import androidx.media2.MediaItem;
-import androidx.media2.SessionPlayer;
-import androidx.media2.SessionToken;
-import androidx.media2.UriMediaItem;
+import androidx.core.content.ContextCompat;
+import androidx.media.AudioAttributesCompat;
+import androidx.media2.common.SessionPlayer;
+import androidx.media2.common.UriMediaItem;
+import androidx.media2.player.MediaPlayer;
 import androidx.media2.widget.VideoView;
 
 import com.android.pump.R;
-import com.android.pump.concurrent.Executors;
 import com.android.pump.db.Video;
 import com.android.pump.util.Clog;
 import com.android.pump.util.IntentUtils;
@@ -46,7 +45,7 @@ public class VideoPlayerActivity extends AppCompatActivity {
     private static final String SAVED_POSITION_KEY = "SavedPosition";
 
     private VideoView mVideoView;
-    private MediaController mMediaController;
+    private MediaPlayer mMediaPlayer;
     private long mSavedPosition = SessionPlayer.UNKNOWN_TIME;
 
     public static void start(@NonNull Context context, @NonNull Video video) {
@@ -70,33 +69,21 @@ public class VideoPlayerActivity extends AppCompatActivity {
                     SessionPlayer.UNKNOWN_TIME);
         }
 
+        mMediaPlayer = new MediaPlayer(VideoPlayerActivity.this);
+        AudioAttributesCompat audioAttributes = new AudioAttributesCompat.Builder()
+                .setUsage(AudioAttributesCompat.USAGE_MEDIA)
+                .setContentType(AudioAttributesCompat.CONTENT_TYPE_MOVIE).build();
+
+        mMediaPlayer.setAudioAttributes(audioAttributes);
+        mVideoView.setPlayer(mMediaPlayer);
+
         handleIntent();
     }
 
     @Override
     public void onSaveInstanceState(@NonNull Bundle outState) {
-        if (mMediaController != null) {
-            outState.putLong(SAVED_POSITION_KEY, mMediaController.getCurrentPosition());
-        }
-
+        outState.putLong(SAVED_POSITION_KEY, mMediaPlayer.getCurrentPosition());
         super.onSaveInstanceState(outState);
-    }
-
-    @Override
-    public void onAttachedToWindow() {
-        if (mMediaController == null) {
-            SessionToken token = mVideoView.getSessionToken();
-            mMediaController = new MediaController(this, token, Executors.uiThreadExecutor(),
-                    new ControllerCallback());
-        }
-    }
-
-    @Override
-    public void onDetachedFromWindow() {
-        if (mMediaController != null) {
-            mMediaController.close();
-            mMediaController = null;
-        }
     }
 
     @Override
@@ -116,18 +103,26 @@ public class VideoPlayerActivity extends AppCompatActivity {
             return;
         }
         UriMediaItem mediaItem = new UriMediaItem.Builder(uri).build();
-        mVideoView.setMediaItem(mediaItem);
+        mMediaPlayer.setMediaItem(mediaItem)
+                .addListener(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (mSavedPosition != SessionPlayer.UNKNOWN_TIME) {
+                            mMediaPlayer.seekTo(mSavedPosition);
+                            mSavedPosition = SessionPlayer.UNKNOWN_TIME;
+                        }
+                        mMediaPlayer.play();
+                    }
+                }, ContextCompat.getMainExecutor(this));
     }
 
-    private class ControllerCallback extends MediaController.ControllerCallback {
-        @Override
-        public void onCurrentMediaItemChanged(@NonNull MediaController controller,
-                @Nullable MediaItem item) {
-            if (mSavedPosition != SessionPlayer.UNKNOWN_TIME) {
-                controller.seekTo(mSavedPosition);
-                mSavedPosition = SessionPlayer.UNKNOWN_TIME;
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        try {
+            if (mMediaPlayer != null) {
+                mMediaPlayer.close();
             }
-            controller.play();
-        }
+        } catch (Exception e) { }
     }
 }

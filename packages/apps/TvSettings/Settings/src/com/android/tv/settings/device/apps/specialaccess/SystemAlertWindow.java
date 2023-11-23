@@ -18,6 +18,7 @@ package com.android.tv.settings.device.apps.specialaccess;
 
 import android.Manifest;
 import android.app.AppOpsManager;
+import android.app.tvsettings.TvSettingsEnums;
 import android.os.Bundle;
 
 import androidx.annotation.Keep;
@@ -63,6 +64,11 @@ public class SystemAlertWindow extends ManageAppOp {
     @Override
     public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
         setPreferencesFromResource(R.xml.system_alert_window, null);
+    }
+
+    @Override
+    public int customizedIgnoredPackagesArray() {
+        return R.array.customized_ignored_system_alert_window_packages;
     }
 
     @NonNull
@@ -111,5 +117,10 @@ public class SystemAlertWindow extends ManageAppOp {
         } else {
             return null;
         }
+    }
+
+    @Override
+    protected int getPageId() {
+        return TvSettingsEnums.APPS_SPECIAL_APP_ACCESS_DISPLAY_OVER_OTHERS;
     }
 }

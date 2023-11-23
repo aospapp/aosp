@@ -22,6 +22,7 @@ import android.media.tv.TvContentRatingSystemInfo;
 import android.support.annotation.Nullable;
 import android.text.TextUtils;
 import com.android.tv.R;
+import com.android.tv.common.util.PermissionUtils;
 import com.android.tv.parental.ContentRatingSystem.Rating;
 import com.android.tv.parental.ContentRatingSystem.SubRating;
 import com.android.tv.util.TvInputManagerHelper;
@@ -42,13 +43,14 @@ public class ContentRatingsManager {
 
     public void update() {
         mContentRatingSystems.clear();
-        ContentRatingsParser parser = new ContentRatingsParser(mContext);
-
-        List<TvContentRatingSystemInfo> infos = mTvInputManager.getTvContentRatingSystemList();
-        for (TvContentRatingSystemInfo info : infos) {
-            List<ContentRatingSystem> list = parser.parse(info);
-            if (list != null) {
-                mContentRatingSystems.addAll(list);
+        if (PermissionUtils.hasReadContetnRatingSystem(mContext)) {
+            ContentRatingsParser parser = new ContentRatingsParser(mContext);
+            List<TvContentRatingSystemInfo> infos = mTvInputManager.getTvContentRatingSystemList();
+            for (TvContentRatingSystemInfo info : infos) {
+                List<ContentRatingSystem> list = parser.parse(info);
+                if (list != null) {
+                    mContentRatingSystems.addAll(list);
+                }
             }
         }
     }

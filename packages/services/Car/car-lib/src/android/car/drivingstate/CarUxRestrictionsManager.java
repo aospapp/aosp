@@ -16,15 +16,15 @@
 
 package android.car.drivingstate;
 
-import android.annotation.IntDef;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.RequiresPermission;
 import android.car.Car;
 import android.car.CarManagerBase;
-import android.content.Context;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
+import android.os.IRemoteCallback;
 import android.os.Looper;
 import android.os.Message;
 import android.os.RemoteException;
@@ -33,17 +33,16 @@ import android.view.Display;
 
 import com.android.internal.annotations.GuardedBy;
 
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
 import java.lang.ref.WeakReference;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * API to register and get the User Experience restrictions imposed based on the car's driving
  * state.
  */
-public final class CarUxRestrictionsManager implements CarManagerBase {
+public final class CarUxRestrictionsManager extends CarManagerBase {
     private static final String TAG = "CarUxRManager";
     private static final boolean DBG = false;
     private static final boolean VDBG = false;
@@ -54,33 +53,8 @@ public final class CarUxRestrictionsManager implements CarManagerBase {
      *
      * @hide
      */
-    public static final int UX_RESTRICTION_MODE_BASELINE = 0;
-    /**
-     * Passenger restriction mode uses UX restrictions for {@link #UX_RESTRICTION_MODE_PASSENGER},
-     * set through {@link CarUxRestrictionsConfiguration.Builder.UxRestrictions#setMode(int)}.
-     *
-     * <p>If a new {@link CarUxRestrictions} is available upon mode transition, it'll be immediately
-     * dispatched to listeners.
-     *
-     * <p>If passenger mode restrictions is not configured for current driving state, it will fall
-     * back to {@link #UX_RESTRICTION_MODE_BASELINE}.
-     *
-     * <p>Caller are responsible for determining and executing the criteria for entering and exiting
-     * this mode. Exiting by setting mode to {@link #UX_RESTRICTION_MODE_BASELINE}.
-     *
-     * @hide
-     */
-    public static final int UX_RESTRICTION_MODE_PASSENGER = 1;
+    public static final String UX_RESTRICTION_MODE_BASELINE = "baseline";
 
-    /** @hide */
-    @IntDef(prefix = { "UX_RESTRICTION_MODE_" }, value = {
-            UX_RESTRICTION_MODE_BASELINE,
-            UX_RESTRICTION_MODE_PASSENGER
-    })
-    @Retention(RetentionPolicy.SOURCE)
-    public @interface UxRestrictionMode {}
-
-    private final Context mContext;
     private int mDisplayId = Display.INVALID_DISPLAY;
     private final ICarUxRestrictionsManager mUxRService;
     private final EventCallbackHandler mEventCallbackHandler;
@@ -89,10 +63,11 @@ public final class CarUxRestrictionsManager implements CarManagerBase {
     private CarUxRestrictionsChangeListenerToService mListenerToService;
 
     /** @hide */
-    public CarUxRestrictionsManager(IBinder service, Context context, Handler handler) {
-        mContext = context;
+    public CarUxRestrictionsManager(Car car, IBinder service) {
+        super(car);
         mUxRService = ICarUxRestrictionsManager.Stub.asInterface(service);
-        mEventCallbackHandler = new EventCallbackHandler(this, handler.getLooper());
+        mEventCallbackHandler = new EventCallbackHandler(this,
+                getEventHandler().getLooper());
     }
 
     /** @hide */
@@ -152,7 +127,7 @@ public final class CarUxRestrictionsManager implements CarManagerBase {
             // register to the Service to listen for changes.
             mUxRService.registerUxRestrictionsChangeListener(mListenerToService, displayId);
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            handleRemoteExceptionFromCarService(e);
         }
     }
 
@@ -172,7 +147,7 @@ public final class CarUxRestrictionsManager implements CarManagerBase {
         try {
             mUxRService.unregisterUxRestrictionsChangeListener(mListenerToService);
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            handleRemoteExceptionFromCarService(e);
         }
     }
 
@@ -188,7 +163,6 @@ public final class CarUxRestrictionsManager implements CarManagerBase {
      *
      * @param configs Map of display Id to UX restrictions configurations to be persisted.
      * @return {@code true} if input config was successfully saved; {@code false} otherwise.
-     *
      * @hide
      */
     @RequiresPermission(value = Car.PERMISSION_CAR_UX_RESTRICTIONS_CONFIGURATION)
@@ -197,7 +171,7 @@ public final class CarUxRestrictionsManager implements CarManagerBase {
         try {
             return mUxRService.saveUxRestrictionsConfigurationForNextBoot(configs);
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            return handleRemoteExceptionFromCarService(e, false);
         }
     }
 
@@ -219,36 +193,53 @@ public final class CarUxRestrictionsManager implements CarManagerBase {
         try {
             return mUxRService.getCurrentUxRestrictions(displayId);
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            return handleRemoteExceptionFromCarService(e, null);
         }
     }
 
     /**
      * Sets restriction mode. Returns {@code true} if the operation succeeds.
      *
+     * <p>The default mode is {@link #UX_RESTRICTION_MODE_BASELINE}.
+     *
+     * <p>If a new {@link CarUxRestrictions} is available upon mode transition, it'll
+     * be immediately dispatched to listeners.
+     *
+     * <p>If the given mode is not configured for current driving state, it
+     * will fall back to the default value.
+     *
+     * <p>If a configuration was set for a passenger mode before an upgrade to Android R, that
+     * passenger configuration is now called "passenger".
+     *
      * @hide
      */
     @RequiresPermission(value = Car.PERMISSION_CAR_UX_RESTRICTIONS_CONFIGURATION)
-    public boolean setRestrictionMode(@UxRestrictionMode int mode) {
+    public boolean setRestrictionMode(@NonNull String mode) {
+        Objects.requireNonNull(mode, "mode must not be null");
         try {
             return mUxRService.setRestrictionMode(mode);
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            return handleRemoteExceptionFromCarService(e, false);
         }
     }
 
     /**
      * Returns the current restriction mode.
      *
+     * <p>The default mode is {@link #UX_RESTRICTION_MODE_BASELINE}.
+     *
+     * <p>If a configuration was set for a passenger mode before an upgrade to Android R, that
+     * passenger configuration is now called "passenger".
+     *
      * @hide
      */
     @RequiresPermission(value = Car.PERMISSION_CAR_UX_RESTRICTIONS_CONFIGURATION)
-    @UxRestrictionMode
-    public int getRestrictionMode() {
+    @NonNull
+    public String getRestrictionMode() {
         try {
             return mUxRService.getRestrictionMode();
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            return handleRemoteExceptionFromCarService(e, null);
         }
     }
 
@@ -260,7 +251,6 @@ public final class CarUxRestrictionsManager implements CarManagerBase {
      *
      * @param config UX restrictions configuration to be persisted.
      * @return {@code true} if input config was successfully saved; {@code false} otherwise.
-     *
      * @hide
      */
     @RequiresPermission(value = Car.PERMISSION_CAR_UX_RESTRICTIONS_CONFIGURATION)
@@ -279,7 +269,6 @@ public final class CarUxRestrictionsManager implements CarManagerBase {
      * This methods is only for test purpose, please do not use in production.
      *
      * @return current staged configuration, {@code null} if it's not available
-     *
      * @hide
      */
     @Nullable
@@ -288,7 +277,7 @@ public final class CarUxRestrictionsManager implements CarManagerBase {
         try {
             return mUxRService.getStagedConfigs();
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            return handleRemoteExceptionFromCarService(e, null);
         }
     }
 
@@ -296,7 +285,6 @@ public final class CarUxRestrictionsManager implements CarManagerBase {
      * Gets the current configurations.
      *
      * @return current configurations that is in effect.
-     *
      * @hide
      */
     @RequiresPermission(value = Car.PERMISSION_CAR_UX_RESTRICTIONS_CONFIGURATION)
@@ -304,21 +292,7 @@ public final class CarUxRestrictionsManager implements CarManagerBase {
         try {
             return mUxRService.getConfigs();
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
-    }
-
-    /**
-     * @hide
-     */
-    public static String modeToString(@UxRestrictionMode int mode) {
-        switch (mode) {
-            case UX_RESTRICTION_MODE_BASELINE:
-                return "baseline";
-            case UX_RESTRICTION_MODE_PASSENGER:
-                return "passenger";
-            default:
-                throw new IllegalArgumentException("Unrecognized restriction mode " + mode);
+            return handleRemoteExceptionFromCarService(e, null);
         }
     }
 
@@ -330,7 +304,7 @@ public final class CarUxRestrictionsManager implements CarManagerBase {
             ICarUxRestrictionsChangeListener.Stub {
         private final WeakReference<CarUxRestrictionsManager> mUxRestrictionsManager;
 
-        public CarUxRestrictionsChangeListenerToService(CarUxRestrictionsManager manager) {
+        CarUxRestrictionsChangeListenerToService(CarUxRestrictionsManager manager) {
             mUxRestrictionsManager = new WeakReference<>(manager);
         }
 
@@ -363,7 +337,7 @@ public final class CarUxRestrictionsManager implements CarManagerBase {
     private static final class EventCallbackHandler extends Handler {
         private final WeakReference<CarUxRestrictionsManager> mUxRestrictionsManager;
 
-        public EventCallbackHandler(CarUxRestrictionsManager manager, Looper looper) {
+        EventCallbackHandler(CarUxRestrictionsManager manager, Looper looper) {
             super(looper);
             mUxRestrictionsManager = new WeakReference<>(manager);
         }
@@ -399,7 +373,7 @@ public final class CarUxRestrictionsManager implements CarManagerBase {
             return mDisplayId;
         }
 
-        mDisplayId = mContext.getDisplayId();
+        mDisplayId = getContext().getDisplayId();
         Log.i(TAG, "Context returns display ID " + mDisplayId);
 
         if (mDisplayId == Display.INVALID_DISPLAY) {
@@ -408,5 +382,48 @@ public final class CarUxRestrictionsManager implements CarManagerBase {
         }
 
         return mDisplayId;
+    }
+
+    // Dummy Callback to identify the requester of reportVirtualDisplayToPhysicalDisplay() and
+    // to clean up the internal data when the requester is crashed.
+    private final IRemoteCallback mRequester = new IRemoteCallback.Stub() {
+        @Override
+        public void sendResult(Bundle data) {
+            // Unused
+        }
+    };
+
+    /**
+     * Reports the mapping the virtual display to the physical display.
+     *
+     * @param virtualDisplayId the display id of the embedded virtual display.
+     * @parom physicalDisplayId the display id where the ActivityView is placed in.
+     * @hide
+     */
+    public void reportVirtualDisplayToPhysicalDisplay(int virtualDisplayId, int physicalDisplayId) {
+        try {
+            mUxRService.reportVirtualDisplayToPhysicalDisplay(mRequester,
+                    virtualDisplayId, physicalDisplayId);
+        } catch (RemoteException e) {
+            handleRemoteExceptionFromCarService(e);
+        }
+    }
+
+    /**
+     * Finds out the physical display id where ActivityView is actually located in.
+     * If the given ActivityView is placed inside of another ActivityView, then it will return
+     * the display id where the parent ActivityView is located in.
+     *
+     * @param displayId the display id of the embedded virtual display of ActivityView.
+     * @return the physical display id where ActivityView is actually located in.
+     * @hide
+     */
+    public int getMappedPhysicalDisplayOfVirtualDisplay(int displayId) {
+        try {
+            return mUxRService.getMappedPhysicalDisplayOfVirtualDisplay(displayId);
+        } catch (RemoteException e) {
+            // When CarService isn't ready, we'll return DEFAULT_DISPLAY defensively.
+            return handleRemoteExceptionFromCarService(e, Display.DEFAULT_DISPLAY);
+        }
     }
 }

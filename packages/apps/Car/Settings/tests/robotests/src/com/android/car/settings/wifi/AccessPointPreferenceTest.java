@@ -16,6 +16,9 @@
 
 package com.android.car.settings.wifi;
 
+import static android.net.wifi.WifiConfiguration.NetworkSelectionStatus.NETWORK_SELECTION_ENABLED;
+import static android.net.wifi.WifiConfiguration.NetworkSelectionStatus.NETWORK_SELECTION_PERMANENTLY_DISABLED;
+
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.Mockito.mock;
@@ -25,10 +28,10 @@ import android.app.AlertDialog;
 import android.content.Context;
 import android.net.wifi.WifiConfiguration;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.R;
 import com.android.car.settings.common.SettingsFragment;
 import com.android.car.settings.testutils.FragmentController;
+import com.android.car.ui.core.testsupport.CarUiInstallerRobolectric;
 import com.android.settingslib.wifi.AccessPoint;
 
 import org.junit.Before;
@@ -36,10 +39,11 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.shadows.ShadowAlertDialog;
 
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 public class AccessPointPreferenceTest {
 
     private static final String TEST_KEY = "test_key";
@@ -52,6 +56,10 @@ public class AccessPointPreferenceTest {
     public void setUp() {
         MockitoAnnotations.initMocks(this);
         Context context = RuntimeEnvironment.application;
+
+        // Needed to install Install CarUiLib BaseLayouts Toolbar for test activity
+        CarUiInstallerRobolectric.install();
+
         FragmentController<TestSettingsFragment> fragmentController = FragmentController.of(
                 new TestSettingsFragment());
         TestSettingsFragment fragment = fragmentController.get();
@@ -80,7 +88,7 @@ public class AccessPointPreferenceTest {
         when(mAccessPoint.isSaved()).thenReturn(true);
         when(mAccessPoint.getConfig()).thenReturn(config);
         when(config.getNetworkSelectionStatus()).thenReturn(status);
-        when(status.isNetworkEnabled()).thenReturn(true);
+        when(status.getNetworkSelectionStatus()).thenReturn(NETWORK_SELECTION_ENABLED);
         mPreference.onClick();
 
         AlertDialog dialog = ShadowAlertDialog.getLatestAlertDialog();
@@ -97,7 +105,7 @@ public class AccessPointPreferenceTest {
         when(mAccessPoint.isSaved()).thenReturn(true);
         when(mAccessPoint.getConfig()).thenReturn(config);
         when(config.getNetworkSelectionStatus()).thenReturn(status);
-        when(status.isNetworkEnabled()).thenReturn(false);
+        when(status.getNetworkSelectionStatus()).thenReturn(NETWORK_SELECTION_PERMANENTLY_DISABLED);
         when(status.getNetworkSelectionDisableReason()).thenReturn(
                 WifiConfiguration.NetworkSelectionStatus.DISABLED_BY_WRONG_PASSWORD);
         mPreference.onClick();

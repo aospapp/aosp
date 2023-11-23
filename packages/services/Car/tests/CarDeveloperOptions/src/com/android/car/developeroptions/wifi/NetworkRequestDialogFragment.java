@@ -30,6 +30,7 @@ import android.net.wifi.WifiManager.NetworkRequestMatchCallback;
 import android.net.wifi.WifiManager.NetworkRequestUserSelectionCallback;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.HandlerExecutor;
 import android.os.Message;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
@@ -304,13 +305,13 @@ public class NetworkRequestDialogFragment extends InstrumentedDialogFragment imp
         final WifiManager wifiManager = getContext().getApplicationContext()
                 .getSystemService(WifiManager.class);
         if (wifiManager != null) {
-            wifiManager.registerNetworkRequestMatchCallback(this, mHandler);
+            wifiManager.registerNetworkRequestMatchCallback(new HandlerExecutor(mHandler), this);
         }
         // Sets time-out to stop scanning.
         mHandler.sendEmptyMessageDelayed(MESSAGE_STOP_SCAN_WIFI_LIST, DELAY_TIME_STOP_SCAN_MS);
 
         if (mFilterWifiTracker == null) {
-            mFilterWifiTracker = new FilterWifiTracker(getActivity(), getSettingsLifecycle());
+            mFilterWifiTracker = new FilterWifiTracker(getContext(), getSettingsLifecycle());
         }
         mFilterWifiTracker.onResume();
     }
@@ -473,11 +474,13 @@ public class NetworkRequestDialogFragment extends InstrumentedDialogFragment imp
     private final class FilterWifiTracker {
         private final List<String> mAccessPointKeys;
         private final WifiTracker mWifiTracker;
+        private final Context mContext;
 
         public FilterWifiTracker(Context context, Lifecycle lifecycle) {
             mWifiTracker = WifiTrackerFactory.create(context, mWifiListener,
                     lifecycle, /* includeSaved */ true, /* includeScans */ true);
             mAccessPointKeys = new ArrayList<>();
+            mContext = context;
         }
 
         /**
@@ -486,7 +489,7 @@ public class NetworkRequestDialogFragment extends InstrumentedDialogFragment imp
          */
         public void updateKeys(List<ScanResult> scanResults) {
             for (ScanResult scanResult : scanResults) {
-                final String key = AccessPoint.getKey(scanResult);
+                final String key = AccessPoint.getKey(mContext, scanResult);
                 if (!mAccessPointKeys.contains(key)) {
                     mAccessPointKeys.add(key);
                 }

@@ -43,10 +43,10 @@ import android.os.SystemProperties;
 import android.os.UserHandle;
 import android.util.Log;
 import android.util.Pair;
-import android.util.StatsLog;
 
 import androidx.annotation.VisibleForTesting;
 
+import com.android.bluetooth.BluetoothStatsLog;
 import com.android.bluetooth.Utils;
 import com.android.bluetooth.btservice.RemoteDevices.DeviceProperties;
 
@@ -182,6 +182,7 @@ class AdapterProperties {
     AdapterProperties(AdapterService service) {
         mService = service;
         mAdapter = BluetoothAdapter.getDefaultAdapter();
+        invalidateBluetoothCaches();
     }
 
     public void init(RemoteDevices remoteDevices) {
@@ -223,6 +224,7 @@ class AdapterProperties {
         filter.addAction(BluetoothPbapClient.ACTION_CONNECTION_STATE_CHANGED);
         mService.registerReceiver(mReceiver, filter);
         mReceiverRegistered = true;
+        invalidateBluetoothCaches();
     }
 
     public void cleanup() {
@@ -234,6 +236,22 @@ class AdapterProperties {
         }
         mService = null;
         mBondedDevices.clear();
+        invalidateBluetoothCaches();
+    }
+
+    private static void invalidateGetProfileConnectionStateCache() {
+        BluetoothAdapter.invalidateGetProfileConnectionStateCache();
+    }
+    private static void invalidateIsOffloadedFilteringSupportedCache() {
+        BluetoothAdapter.invalidateIsOffloadedFilteringSupportedCache();
+    }
+    private static void invalidateGetBondStateCache() {
+        BluetoothDevice.invalidateBluetoothGetBondStateCache();
+    }
+    private static void invalidateBluetoothCaches() {
+        invalidateGetProfileConnectionStateCache();
+        invalidateIsOffloadedFilteringSupportedCache();
+        invalidateGetBondStateCache();
     }
 
     @Override
@@ -538,6 +556,7 @@ class AdapterProperties {
                     debugLog("Failed to remove device: " + device);
                 }
             }
+            invalidateGetBondStateCache();
         } catch (Exception ee) {
             Log.w(TAG, "onBondStateChanged: Exception ", ee);
         }
@@ -580,8 +599,9 @@ class AdapterProperties {
         Log.d(TAG,
                 "PROFILE_CONNECTION_STATE_CHANGE: profile=" + profile + ", device=" + device + ", "
                         + prevState + " -> " + state);
-        StatsLog.write(StatsLog.BLUETOOTH_CONNECTION_STATE_CHANGED, state, 0 /* deprecated */,
-                profile, mService.obfuscateAddress(device));
+        BluetoothStatsLog.write(BluetoothStatsLog.BLUETOOTH_CONNECTION_STATE_CHANGED, state,
+                0 /* deprecated */, profile, mService.obfuscateAddress(device),
+                mService.getMetricId(device));
 
         if (!isNormalStateTransition(prevState, state)) {
             Log.w(TAG,
@@ -764,6 +784,7 @@ class AdapterProperties {
 
         if (update) {
             mProfileConnectionState.put(profile, new Pair<Integer, Integer>(newHashState, numDev));
+            invalidateGetProfileConnectionStateCache();
         }
     }
 
@@ -889,6 +910,7 @@ class AdapterProperties {
                 + " mIsLeExtendedAdvertisingSupported = " + mIsLeExtendedAdvertisingSupported
                 + " mIsLePeriodicAdvertisingSupported = " + mIsLePeriodicAdvertisingSupported
                 + " mLeMaximumAdvertisingDataLength = " + mLeMaximumAdvertisingDataLength);
+        invalidateIsOffloadedFilteringSupportedCache();
     }
 
     void onBluetoothReady() {
@@ -899,6 +921,7 @@ class AdapterProperties {
             // Reset adapter and profile connection states
             setConnectionState(BluetoothAdapter.STATE_DISCONNECTED);
             mProfileConnectionState.clear();
+            invalidateGetProfileConnectionStateCache();
             mProfilesConnected = 0;
             mProfilesConnecting = 0;
             mProfilesDisconnecting = 0;
@@ -912,15 +935,6 @@ class AdapterProperties {
     void onBleDisable() {
         // Sequence BLE_ON to STATE_OFF - that is _complete_ OFF state.
         debugLog("onBleDisable");
-        // Set the scan_mode to NONE (no incoming connections).
-        setScanMode(AbstractionLayer.BT_SCAN_MODE_NONE);
-    }
-
-    void onBluetoothDisable() {
-        // From STATE_ON to BLE_ON
-        debugLog("onBluetoothDisable()");
-        // Turn off any Device Search/Inquiry
-        mService.cancelDiscovery();
         // Set the scan_mode to NONE (no incoming connections).
         setScanMode(AbstractionLayer.BT_SCAN_MODE_NONE);
     }

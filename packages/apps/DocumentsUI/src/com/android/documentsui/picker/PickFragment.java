@@ -16,20 +16,18 @@
 
 package com.android.documentsui.picker;
 
-import static com.android.documentsui.services.FileOperationService.OPERATION_DELETE;
-import static com.android.documentsui.services.FileOperationService.OPERATION_COPY;
 import static com.android.documentsui.services.FileOperationService.OPERATION_COMPRESS;
+import static com.android.documentsui.services.FileOperationService.OPERATION_COPY;
+import static com.android.documentsui.services.FileOperationService.OPERATION_DELETE;
 import static com.android.documentsui.services.FileOperationService.OPERATION_EXTRACT;
 import static com.android.documentsui.services.FileOperationService.OPERATION_MOVE;
 import static com.android.documentsui.services.FileOperationService.OPERATION_UNKNOWN;
 
 import android.os.Bundle;
-import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
-import android.widget.TextView;
 
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentActivity;
@@ -42,6 +40,9 @@ import com.android.documentsui.R;
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.State;
 import com.android.documentsui.services.FileOperationService.OpType;
+import com.android.documentsui.ui.Snackbars;
+
+import com.google.android.material.snackbar.Snackbar;
 
 /**
  * Display pick confirmation bar, usually for selecting a directory.
@@ -52,11 +53,17 @@ public class PickFragment extends Fragment {
     private static final String ACTION_KEY = "action";
     private static final String COPY_OPERATION_SUBTYPE_KEY = "copyOperationSubType";
     private static final String PICK_TARGET_KEY = "pickTarget";
+    private static final String RESTRICT_SCOPE_STORAGE_KEY = "restrictScopeStorage";
 
     private final View.OnClickListener mPickListener = new View.OnClickListener() {
         @Override
         public void onClick(View v) {
-            mInjector.actions.pickDocument(getChildFragmentManager(), mPickTarget);
+            if (mPick.isEnabled()) {
+                mInjector.actions.pickDocument(getChildFragmentManager(), mPickTarget);
+            } else {
+                String msg = getResources().getString(R.string.directory_blocked_header_subtitle);
+                Snackbars.makeSnackbar(getActivity(), msg, Snackbar.LENGTH_LONG).show();
+            }
         }
     };
 
@@ -72,13 +79,15 @@ public class PickFragment extends Fragment {
 
     private Injector<ActionHandler<PickActivity>> mInjector;
     private int mAction;
+    private boolean mRestrictScopeStorage;
     // Only legal values are OPERATION_COPY, OPERATION_COMPRESS, OPERATION_EXTRACT,
     // OPERATION_MOVE, and unset (OPERATION_UNKNOWN).
     private @OpType int mCopyOperationSubType = OPERATION_UNKNOWN;
     private DocumentInfo mPickTarget;
     private View mContainer;
-    private TextView mPick;
-    private TextView mCancel;
+    private View mPickOverlay;
+    private Button mPick;
+    private Button mCancel;
 
     public static void show(FragmentManager fm) {
         // Fragment can be restored by FragmentManager automatically.
@@ -102,6 +111,8 @@ public class PickFragment extends Fragment {
         mContainer = inflater.inflate(R.layout.fragment_pick, container, false);
 
         mPick = (Button) mContainer.findViewById(android.R.id.button1);
+        mPickOverlay = mContainer.findViewById((R.id.pick_button_overlay));
+        mPickOverlay.setOnClickListener(mPickListener);
         mPick.setOnClickListener(mPickListener);
 
         mCancel = (Button) mContainer.findViewById(android.R.id.button2);
@@ -120,6 +131,7 @@ public class PickFragment extends Fragment {
             mCopyOperationSubType =
                     savedInstanceState.getInt(COPY_OPERATION_SUBTYPE_KEY);
             mPickTarget = savedInstanceState.getParcelable(PICK_TARGET_KEY);
+            mRestrictScopeStorage = savedInstanceState.getBoolean(RESTRICT_SCOPE_STORAGE_KEY);
             updateView();
         }
 
@@ -132,17 +144,19 @@ public class PickFragment extends Fragment {
         outState.putInt(ACTION_KEY, mAction);
         outState.putInt(COPY_OPERATION_SUBTYPE_KEY, mCopyOperationSubType);
         outState.putParcelable(PICK_TARGET_KEY, mPickTarget);
+        outState.putBoolean(RESTRICT_SCOPE_STORAGE_KEY, mRestrictScopeStorage);
     }
 
     /**
      * @param action Which action defined in State is the picker shown for.
      */
-    public void setPickTarget(
-            int action, @OpType int copyOperationSubType, DocumentInfo pickTarget) {
+    public void setPickTarget(int action, @OpType int copyOperationSubType,
+            boolean restrictScopeStorage, DocumentInfo pickTarget) {
         assert(copyOperationSubType != OPERATION_DELETE);
 
         mAction = action;
         mCopyOperationSubType = copyOperationSubType;
+        mRestrictScopeStorage = restrictScopeStorage;
         mPickTarget = pickTarget;
         if (mContainer != null) {
             updateView();
@@ -164,14 +178,14 @@ public class PickFragment extends Fragment {
 
         switch (mAction) {
             case State.ACTION_OPEN_TREE:
-                final BaseActivity activity = (BaseActivity) getActivity();
-                final String target = activity.getCurrentTitle();
-                final String text = TextUtils.isEmpty(target)
-                        ? getString(R.string.button_select)
-                        : getString(R.string.open_tree_button, target);
-                mPick.setText(text);
+                mPick.setText(getString(R.string.open_tree_button));
                 mPick.setWidth(Integer.MAX_VALUE);
                 mCancel.setVisibility(View.GONE);
+                mPick.setEnabled(!(mPickTarget.isBlockedFromTree() && mRestrictScopeStorage));
+                mPickOverlay.setVisibility(
+                        mPickTarget.isBlockedFromTree() && mRestrictScopeStorage
+                                ? View.VISIBLE
+                                : View.GONE);
                 break;
             case State.ACTION_PICK_COPY_DESTINATION:
                 int titleId;

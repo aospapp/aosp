@@ -18,13 +18,16 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
 
     <!-- The name of the Cell Broadcast Receiver app. [CHAR LIMIT=NONE] -->
-    <string name="app_label">Emergency alerts</string>
+    <string name="app_label">Wireless emergency alerts</string>
 
     <!-- Label for settings screen. [CHAR LIMIT=NONE] -->
-    <string name="sms_cb_settings">Emergency alerts</string>
+    <string name="sms_cb_settings">Wireless emergency alerts</string>
+
+    <!-- Value of sms sender display name to be shown in SMS inbox -->
+    <string name="sms_cb_sender_name" translatable="false">Wireless emergency alerts</string>
 
     <!-- Error message for users that aren't allowed to modify Cell broadcast settings [CHAR LIMIT=none] -->
-    <string name="cell_broadcast_settings_not_available">Cell Broadcast settings are not available for this user</string>
+    <string name="cell_broadcast_settings_not_available">Wireless emergency alert settings are not available for this user</string>
 
     <!-- Text for dismiss button in broadcast message view dialog. [CHAR LIMIT=25] -->
     <string name="button_dismiss">OK</string>
@@ -44,6 +47,9 @@
 
     <!-- Title of "View details" dialog -->
     <string name="view_details_title">Alert details</string>
+
+    <!-- Title of "View details for debugging" dialog. Note this is for debugging purposes only -->
+    <string name="view_details_debugging_title">Alert details for debugging</string>
 
     <!-- Confirm Delete -->
     <!-- Delete broadcast confirmation dialog message. [CHAR LIMIT=NONE] -->
@@ -102,19 +108,19 @@
     <string name="notification_channel_broadcast_messages">Broadcast messages</string>
     <!-- Notification channel name for a channel containing emergency alert notifications. [CHAR LIMIT=50] -->
     <string name="notification_channel_emergency_alerts">Emergency alerts</string>
+    <!-- Notification channel name for a channel containing emergency alert notifications during voice call. [CHAR LIMIT=100] -->
+    <string name="notification_channel_broadcast_messages_in_voicecall">Emergency alerts in voice call</string>
 
     <!-- Preference title for enable emergency alerts checkbox. [CHAR LIMIT=50] -->
     <string name="enable_alerts_master_toggle_title">Allow alerts</string>
-    <!-- Preference summaries for allow alerts checkbox. [CHAR LIMIT=50] -->
-    <string name="enable_alerts_master_toggle_summary">Receive emergency notifications</string>
+    <!-- Preference summaries for allow alerts checkbox. [CHAR LIMIT=66] -->
+    <string name="enable_alerts_master_toggle_summary">Receive wireless emergency alert notifications</string>
     <!-- Preference title for alert reminder interval list. [CHAR LIMIT=50] -->
-    <string name="alert_reminder_interval_title">Alert reminder sound</string>
+    <string name="alert_reminder_interval_title">Alert reminder</string>
     <!-- Do not translate. Empty summary for alert reminder (set by CellBroadcastSettings). -->
     <string name="alert_reminder_interval_summary"></string>
-    <!-- Preference title for enable text-to-speech checkbox. [CHAR LIMIT=50] -->
-    <string name="enable_alert_speech_title">Speak alert message</string>
-    <!-- Preference summary for enable text-to-speech checkbox. [CHAR LIMIT=100] -->
-    <string name="enable_alert_speech_summary">Use text-to-speech to speak emergency alert messages</string>
+    <!-- Dialog title for alert reminder interval list. [CHAR LIMIT=100] -->
+    <string name="alert_reminder_dialog_title">A reminder sound will play at regular volume</string>
     <!-- Preference title for emergency alert history. [CHAR LIMIT=50] -->
     <string name="emergency_alert_history_title">Emergency alert history</string>
 
@@ -156,26 +162,23 @@
     <!-- Preference summary for enable emergency alerts messages checkbox. [CHAR LIMIT=100] -->
     <string name="enable_emergency_alerts_message_summary">Warn about life-threatening events</string>
 
-    <!-- Preference title for required monthly test alert checkbox. [CHAR LIMIT=50] -->
-    <string name="enable_cmas_test_alerts_title">Required monthly test</string>
-    <!-- Preference summary for enable required monthly test alerts checkbox. [CHAR LIMIT=100] -->
-    <string name="enable_cmas_test_alerts_summary">Receive test messages for the safety alert system</string>
+    <!-- Preference title for other test alerts checkbox. [CHAR LIMIT=50] -->
+    <string name="enable_cmas_test_alerts_title">Test alerts</string>
+    <!-- Preference summary for other test alerts checkbox. [CHAR LIMIT=125] -->
+    <string name="enable_cmas_test_alerts_summary">Receive carrier tests and monthly tests from the safety alert system</string>
 
     <!-- Preference title for CMAS vibration on/off. [CHAR LIMIT=50] -->
     <string name="enable_alert_vibrate_title">Vibration</string>
 
-    <!-- Preference title for use full volume option. [CHAR LIMIT=50] -->
-    <string name="use_full_volume_title">Use full volume</string>
-    <!-- Preference summary for use full volume option. [CHAR LIMIT=100] -->
-    <string name="use_full_volume_summary">Ignore other volume and Do Not Disturb preferences</string>
+    <!-- Preference title for overriding Do Not Disturb. [CHAR LIMIT=50] -->
+    <string name="override_dnd_title">Always alert at full volume</string>
+    <!-- Preference summary for overriding Do Not Disturb mode. [CHAR LIMIT=125] -->
+    <string name="override_dnd_summary">Ignore Do Not Disturb &amp; other volume settings</string>
 
     <!-- Preference title for enable area update information broadcasts. [CHAR LIMIT=50] -->
     <string name="enable_area_update_info_alerts_title">Area update broadcasts</string>
     <!-- Preference summary for enable area update information broadcasts. [CHAR LIMIT=100] -->
     <string name="enable_area_update_info_alerts_summary">Show update information in SIM status</string>
-
-    <!-- Preference category title for developer settings. [CHAR LIMIT=50] -->
-    <string name="category_dev_settings_title">Developer options</string>
 
     <!-- CMAS alert category heading (including colon). [CHAR LIMIT=30] -->
     <string name="cmas_category_heading">Alert Category:</string>
@@ -258,7 +261,7 @@
     <string name="show_cmas_opt_out_title">Show opt-out dialog</string>
 
     <!-- CMAS opt-out dialog message. [CHAR LIMIT=160] -->
-    <string name="cmas_opt_out_dialog_text">You are currently receiving Emergency Alerts. Would you like to continue receiving Emergency Alerts?</string>
+    <string name="cmas_opt_out_dialog_text">You are currently receiving wireless emergency alerts. Would you like to continue receiving wireless emergency alerts?</string>
     <!-- Text for positive button in CMAS opt-out dialog. [CHAR LIMIT=25] -->
     <string name="cmas_opt_out_button_yes">Yes</string>
     <!-- Text for negative button in CMAS opt-out dialog. [CHAR LIMIT=25] -->
@@ -273,9 +276,69 @@
       <item>Every 2 minutes</item>
       <item>Every 5 minutes</item>
       <item>Every 15 minutes</item>
-      <item>Off</item>
+      <item>Never</item>
     </string-array>
 
     <!-- Label to open emergencyNotifications dialog [CHAR LIMIT=40] -->
     <string name="emergency_alert_settings_title_watches">Wireless emergency alerts</string>
+
+    <!-- Show checkbox for Presidential alerts in settings -->
+    <!-- Preference title for enable presidential threat alerts checkbox. [CHAR LIMIT=40] -->
+    <string name="enable_cmas_presidential_alerts_title">Presidential alerts</string>
+    <!-- Preference summary for enable presidential threat alerts checkbox. [CHAR LIMIT=100] -->
+    <string name="enable_cmas_presidential_alerts_summary">National warning messages issued by the President. Can\'t be turned off.</string>
+
+    <!-- Show additional language on/off switch in settings -->
+    <!-- Preference title for enable CMAS second language checkbox. [CHAR LIMIT=50] -->
+    <string name="receive_cmas_in_second_language_title"></string>
+    <!-- Preference summary for enable CMAS second language checkbox. [CHAR LIMIT=100] -->
+    <string name="receive_cmas_in_second_language_summary"></string>
+
+    <!-- Preference summary for emergency alert header -->
+    <string name="alerts_header_summary"></string>
+
+    <!-- Toast message to indicate testing mode is enabled. [CHAR LIMIT=100] -->
+    <string name="testing_mode_enabled">Cell broadcast testing mode is enabled.</string>
+    <!-- Toast message to indicate testing mode is disabled. [CHAR LIMIT=100] -->
+    <string name="testing_mode_disabled">Cell broadcast testing mode is disabled.</string>
+
+    <!-- Show all emergency messages including the hidden messages. This is for debugging purposes
+         only -->
+    <string name="show_all_messages">Show all messages</string>
+
+    <!-- Show regular emergency messages (not including hidden messages). This is for debugging
+         purposes only -->
+    <string name="show_regular_messages">Show regular messages</string>
+
+    <!-- Cell broadcast message identifier. This is the id of the alert message. For debugging
+         purposes only -->
+    <string name="message_identifier">Identifier:</string>
+
+    <!-- Serial number of the message. This is for debugging purposes only -->
+    <string name="message_serial_number">Serial number:</string>
+
+    <!-- Data coding scheme of the emergency message. This is for debugging purposes only -->
+    <string name="data_coding_scheme">Data coding scheme:</string>
+
+    <!-- Content of the emergency message. This is for debugging purposes only -->
+    <string name="message_content">Message content:</string>
+
+    <!-- Location check time of the emergency message. This is for debugging purposes only -->
+    <string name="location_check_time">Location check time:</string>
+
+    <!-- Whether emergency message displayed to the user or not. This is for debugging purposes
+         only -->
+    <string name="message_displayed">Message displayed:</string>
+
+    <!-- Coordinates of the emergency alert. This is for debugging purposes only -->
+    <string name="message_coordinates">Coordinates:</string>
+
+    <!-- Maximum waiting time for location check. This is for debugging purposes only -->
+    <string name="maximum_waiting_time">Maximum waiting time:</string>
+
+    <!-- Sesconds (time unit). This is for debugging purposes only -->
+    <string name="seconds">seconds</string>
+
+    <!-- Emergency alert message copied to clipboard. -->
+    <string name="message_copied">Message copied</string>
 </resources>

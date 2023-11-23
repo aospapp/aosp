@@ -23,7 +23,7 @@
         <activity
             android:name="com.android.customization.picker.CustomizationPickerActivity"
             android:label="@string/app_name"
-            android:resizeableActivity="true"
+            android:resizeableActivity="false"
             android:theme="@style/CustomizationTheme.NoActionBar">
             <intent-filter>
                 <action android:name="android.intent.action.SET_WALLPAPER"/>
@@ -32,7 +32,7 @@
             </intent-filter>
         </activity>
         <activity android:name="com.android.customization.picker.theme.CustomThemeActivity"
-                  android:resizeableActivity="true"
+                  android:resizeableActivity="false"
                   android:theme="@style/CustomizationTheme.NoActionBar"/>
     </application>
 

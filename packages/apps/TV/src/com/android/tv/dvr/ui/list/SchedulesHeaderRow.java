@@ -16,8 +16,9 @@
 
 package com.android.tv.dvr.ui.list;
 
-import com.android.tv.data.Program;
+import com.android.tv.data.api.Program;
 import com.android.tv.dvr.data.SeriesRecording;
+
 import java.util.List;
 
 /** A base class for the rows for schedules' header. */

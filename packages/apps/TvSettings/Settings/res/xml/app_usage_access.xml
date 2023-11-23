@@ -16,9 +16,9 @@
   -->
 
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
-        android:title="@string/usage_access">
+                  android:title="@string/usage_access">
     <Preference
-            android:key="header"
-            android:title="@string/usage_access_description"
-            android:singleLineTitle="false"/>
+        android:key="header"
+        android:singleLineTitle="false"
+        android:title="@string/usage_access_description"/>
 </PreferenceScreen>

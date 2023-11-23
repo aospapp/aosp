@@ -46,6 +46,7 @@ import androidx.annotation.Nullable;
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.documentsui.MetricConsts;
 import com.android.documentsui.R;
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.DocumentStack;
@@ -62,6 +63,8 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.Timer;
@@ -127,6 +130,7 @@ public final class SearchViewManagerTest {
     private static class TestableSearchViewManager extends SearchViewManager {
 
         private String mHistoryRecorded;
+        private boolean mIsHistoryRecorded;
 
         public TestableSearchViewManager(
                 SearchManagerListener listener,
@@ -146,12 +150,17 @@ public final class SearchViewManagerTest {
         }
 
         @Override
-        public void recordHistory() {
+        protected void recordHistoryInternal() {
             mHistoryRecorded = getCurrentSearch();
+            mIsHistoryRecorded = true;
         }
 
         public String getRecordedHistory() {
             return mHistoryRecorded;
+        }
+
+        public boolean isHistoryRecorded() {
+            return mIsHistoryRecorded;
         }
     }
 
@@ -313,6 +322,13 @@ public final class SearchViewManagerTest {
     }
 
     @Test
+    public void testHistoryRecorded_skipWhenNoSearchString() {
+        mSearchViewManager.recordHistory();
+
+        assertFalse(mSearchViewManager.isHistoryRecorded());
+    }
+
+    @Test
     public void testCheckedChipItems_IsEmptyIfSearchCanceled() throws Exception {
         mSearchViewManager.onClick(null);
         mSearchChipViewManager.mCheckedChipItems = getFakeSearchChipDataList();
@@ -336,6 +352,37 @@ public final class SearchViewManagerTest {
     }
 
     @Test
+    public void testBuildQueryArgs_emptySearchString_expandedSearchWithChips_hasEmptyButNotMissingSearchString()
+            throws Exception {
+        mSearchViewManager.onClick(null);
+        mSearchChipViewManager.mCheckedChipItems = getFakeSearchChipDataList();
+        fastForwardTo(SearchViewManager.SEARCH_DELAY_MS);
+
+        final String queryString =
+                mSearchViewManager.buildQueryArgs()
+                        .getString(DocumentsContract.QUERY_ARG_DISPLAY_NAME);
+        assertEquals("", queryString);
+    }
+
+    @Test
+    public void testBuildQueryArgs_emptySearchString_withChipsWithoutExpandedSearch_hasNoSearchString()
+            throws Exception {
+        mSearchChipViewManager.mCheckedChipItems = getFakeSearchChipDataList();
+        fastForwardTo(SearchViewManager.SEARCH_DELAY_MS);
+
+        assertFalse(mSearchViewManager.buildQueryArgs().containsKey(QUERY_ARG_DISPLAY_NAME));
+    }
+
+    @Test
+    public void testBuildQueryArgs_emptySearchString_expandedSearchWithNoChips_hasNoSearchString()
+            throws Exception {
+        mSearchViewManager.onClick(null);
+        fastForwardTo(SearchViewManager.SEARCH_DELAY_MS);
+
+        assertFalse(mSearchViewManager.buildQueryArgs().containsKey(QUERY_ARG_DISPLAY_NAME));
+    }
+
+    @Test
     public void testBuildQueryArgs_hasMimeType() throws Exception {
         mSearchViewManager.onClick(null);
         mSearchChipViewManager.mCheckedChipItems = getFakeSearchChipDataList();
@@ -346,6 +393,35 @@ public final class SearchViewManagerTest {
         final String[] mimeTypes = queryArgs.getStringArray(QUERY_ARG_MIME_TYPES);
         assertTrue(mimeTypes.length > 0);
         assertEquals("image/*", mimeTypes[0]);
+    }
+
+    @Test
+    public void testBuildQueryArgs_hasLargeFilesSize() throws Exception {
+        mSearchViewManager.onClick(null);
+        mSearchChipViewManager.mCheckedChipItems = getFakeSearchChipDataList();
+
+        final Bundle queryArgs = mSearchViewManager.buildQueryArgs();
+        assertFalse(queryArgs.isEmpty());
+
+        final long largeFilesSize = queryArgs.getLong(QUERY_ARG_FILE_SIZE_OVER);
+        assertEquals(10000000L, largeFilesSize);
+    }
+
+    @Test
+    public void testBuildQueryArgs_hasWeekAgoTime() throws Exception {
+        mSearchViewManager.onClick(null);
+        mSearchChipViewManager.mCheckedChipItems = getFakeSearchChipDataList();
+
+        final long startTime = LocalDate.now().minusDays(7).atStartOfDay(ZoneId.systemDefault())
+                .toInstant().toEpochMilli();
+
+        final Bundle queryArgs = mSearchViewManager.buildQueryArgs();
+        assertFalse(queryArgs.isEmpty());
+
+        final long endTime  = LocalDate.now().minusDays(7).atStartOfDay(ZoneId.systemDefault())
+                .toInstant().toEpochMilli();
+        final long weekAgoTime = queryArgs.getLong(QUERY_ARG_LAST_MODIFIED_AFTER);
+        assertTrue(weekAgoTime == endTime || weekAgoTime == startTime);
     }
 
     @Test
@@ -404,7 +480,12 @@ public final class SearchViewManagerTest {
 
     private static Set<SearchChipData> getFakeSearchChipDataList() {
         final Set<SearchChipData> chipDataList = new HashSet<>();
-        chipDataList.add(new SearchChipData(0 /* chipType */, 0, new String[]{"image/*"}));
+        chipDataList.add(new SearchChipData(MetricConsts.TYPE_CHIP_IMAGES,
+                0 /* titleRes */, new String[]{"image/*"}));
+        chipDataList.add(new SearchChipData(MetricConsts.TYPE_CHIP_LARGE_FILES,
+                0 /* titleRes */, new String[]{""}));
+        chipDataList.add(new SearchChipData(MetricConsts.TYPE_CHIP_FROM_THIS_WEEK,
+                0 /* titleRes */, new String[]{""}));
         return chipDataList;
     }
 }

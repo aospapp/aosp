@@ -16,7 +16,15 @@
 
 package com.android.car.storagemonitoring;
 
-import static org.mockito.Mockito.*;
+import static com.google.common.truth.Truth.assertThat;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
 
 import android.car.storagemonitoring.IoStats;
 import android.car.storagemonitoring.IoStatsEntry;
@@ -37,11 +45,11 @@ import android.util.SparseArray;
 import com.android.car.test.utils.TemporaryDirectory;
 import com.android.car.test.utils.TemporaryFile;
 
-import junit.framework.TestCase;
-
 import org.json.JSONObject;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.MockitoJUnitRunner;
 
 import java.io.FileWriter;
 import java.io.StringReader;
@@ -53,22 +61,18 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-
 /**
  * Tests the storage monitoring API in CarService.
  */
+@RunWith(MockitoJUnitRunner.class)
 @MediumTest
-public class CarStorageMonitoringTest extends TestCase {
+public class CarStorageMonitoringTest {
     static final String TAG = CarStorageMonitoringTest.class.getSimpleName();
 
     @Mock private IHealth mMockedHal;
     @Mock private HealthServiceWearInfoProvider.IHealthSupplier mHealthServiceSupplier;
 
-    @Override
-    public void setUp() {
-        MockitoAnnotations.initMocks(this);
-    }
-
+    @Test
     public void testEMmcWearInformationProvider() throws Exception {
         try (TemporaryFile lifetimeFile = new TemporaryFile(TAG)) {
             try (TemporaryFile eolFile = new TemporaryFile(TAG)) {
@@ -80,16 +84,17 @@ public class CarStorageMonitoringTest extends TestCase {
 
                 WearInformation wearInformation = wearInfoProvider.load();
 
-                assertNotNull(wearInformation);
-                assertEquals(40, wearInformation.lifetimeEstimateA);
-                assertEquals(WearInformation.UNKNOWN_LIFETIME_ESTIMATE,
-                        wearInformation.lifetimeEstimateB);
-
-                assertEquals(WearInformation.PRE_EOL_INFO_NORMAL, wearInformation.preEolInfo);
+                assertThat(wearInformation).isNotNull();
+                assertThat(wearInformation.lifetimeEstimateA).isEqualTo(40);
+                assertThat(wearInformation.lifetimeEstimateB)
+                    .isEqualTo(WearInformation.UNKNOWN_LIFETIME_ESTIMATE);
+                assertThat(wearInformation.preEolInfo)
+                    .isEqualTo(WearInformation.PRE_EOL_INFO_NORMAL);
             }
         }
     }
 
+    @Test
     public void testUfsWearInformationProvider() throws Exception {
         try (TemporaryFile lifetimeFile = new TemporaryFile(TAG)) {
             lifetimeFile.write("ufs version: 1.0\n" +
@@ -104,14 +109,15 @@ public class CarStorageMonitoringTest extends TestCase {
 
             WearInformation wearInformation = wearInfoProvider.load();
 
-            assertNotNull(wearInformation);
-            assertEquals(90, wearInformation.lifetimeEstimateB);
-            assertEquals(WearInformation.PRE_EOL_INFO_WARNING, wearInformation.preEolInfo);
-            assertEquals(WearInformation.UNKNOWN_LIFETIME_ESTIMATE,
-                    wearInformation.lifetimeEstimateA);
+            assertThat(wearInformation).isNotNull();
+            assertThat(wearInformation.lifetimeEstimateB).isEqualTo(90);
+            assertThat(wearInformation.preEolInfo).isEqualTo(WearInformation.PRE_EOL_INFO_WARNING);
+            assertThat(wearInformation.lifetimeEstimateA)
+                .isEqualTo(WearInformation.UNKNOWN_LIFETIME_ESTIMATE);
         }
     }
 
+    @Test
     public void testHealthServiceWearInformationProvider() throws Exception {
         StorageInfo storageInfo = new StorageInfo();
         storageInfo.eol = WearInformation.PRE_EOL_INFO_NORMAL;
@@ -132,31 +138,38 @@ public class CarStorageMonitoringTest extends TestCase {
         }).when(mMockedHal).getStorageInfo(any(getStorageInfoCallback.class));
         WearInformation wearInformation = wearInfoProvider.load();
 
-        assertNotNull(wearInformation);
-        assertEquals(storageInfo.lifetimeA, wearInformation.lifetimeEstimateA);
-        assertEquals(storageInfo.lifetimeB, wearInformation.lifetimeEstimateB);
-        assertEquals(storageInfo.eol, wearInformation.preEolInfo);
+        assertThat(wearInformation).isNotNull();
+        assertThat(wearInformation.lifetimeEstimateA).isEqualTo(storageInfo.lifetimeA);
+        assertThat(wearInformation.lifetimeEstimateB).isEqualTo(storageInfo.lifetimeB);
+        assertThat(wearInformation.preEolInfo).isEqualTo(storageInfo.eol);
     }
 
+    @Test
+    @SuppressWarnings("TruthSelfEquals")
+    // TODO: use EqualsTester to check equality with itself,
+    // Remove @SuppressWarnings("TruthSelfEquals") at other places too
     public void testWearEstimateEquality() {
         WearEstimate wearEstimate1 = new WearEstimate(10, 20);
         WearEstimate wearEstimate2 = new WearEstimate(10, 20);
         WearEstimate wearEstimate3 = new WearEstimate(20, 30);
-        assertEquals(wearEstimate1, wearEstimate1);
-        assertEquals(wearEstimate1, wearEstimate2);
-        assertNotSame(wearEstimate1, wearEstimate3);
+        assertThat(wearEstimate1).isEqualTo(wearEstimate1);
+        assertThat(wearEstimate2).isEqualTo(wearEstimate1);
+        assertThat(wearEstimate1).isNotSameAs(wearEstimate3);
     }
 
+    @Test
     public void testWearEstimateParcel() throws Exception {
         WearEstimate originalWearEstimate = new WearEstimate(10, 20);
         Parcel p = Parcel.obtain();
         originalWearEstimate.writeToParcel(p, 0);
         p.setDataPosition(0);
         WearEstimate newWearEstimate = new WearEstimate(p);
-        assertEquals(originalWearEstimate, newWearEstimate);
+        assertThat(newWearEstimate).isEqualTo(originalWearEstimate);
         p.recycle();
     }
 
+    @Test
+    @SuppressWarnings("TruthSelfEquals")
     public void testWearEstimateChangeEquality() {
         WearEstimateChange wearEstimateChange1 = new WearEstimateChange(
                 new WearEstimate(10, 20),
@@ -170,17 +183,18 @@ public class CarStorageMonitoringTest extends TestCase {
             5000L,
             wearEstimateChange1.dateAtChange,
             false);
-        assertEquals(wearEstimateChange1, wearEstimateChange1);
-        assertEquals(wearEstimateChange1, wearEstimateChange2);
+        assertThat(wearEstimateChange1).isEqualTo(wearEstimateChange1);
+        assertThat(wearEstimateChange2).isEqualTo(wearEstimateChange1);
         WearEstimateChange wearEstimateChange3 = new WearEstimateChange(
             new WearEstimate(10, 30),
             new WearEstimate(20, 30),
             3000L,
             Instant.now(),
             true);
-        assertNotSame(wearEstimateChange1, wearEstimateChange3);
+        assertThat(wearEstimateChange1).isNotSameAs(wearEstimateChange3);
     }
 
+    @Test
     public void testWearEstimateChangeParcel() throws Exception {
         WearEstimateChange originalWearEstimateChange = new WearEstimateChange(
                 new WearEstimate(10, 0),
@@ -192,10 +206,11 @@ public class CarStorageMonitoringTest extends TestCase {
         originalWearEstimateChange.writeToParcel(p, 0);
         p.setDataPosition(0);
         WearEstimateChange newWearEstimateChange = new WearEstimateChange(p);
-        assertEquals(originalWearEstimateChange, newWearEstimateChange);
+        assertThat(newWearEstimateChange).isEqualTo(originalWearEstimateChange);
         p.recycle();
     }
 
+    @Test
     public void testWearEstimateJson() throws Exception {
         WearEstimate originalWearEstimate = new WearEstimate(20, 0);
         StringWriter stringWriter = new StringWriter(1024);
@@ -204,9 +219,10 @@ public class CarStorageMonitoringTest extends TestCase {
         StringReader stringReader = new StringReader(stringWriter.toString());
         JsonReader jsonReader = new JsonReader(stringReader);
         WearEstimate newWearEstimate = new WearEstimate(jsonReader);
-        assertEquals(originalWearEstimate, newWearEstimate);
+        assertThat(newWearEstimate).isEqualTo(originalWearEstimate);
     }
 
+    @Test
     public void testWearEstimateRecordJson() throws Exception {
         try (TemporaryFile temporaryFile = new TemporaryFile(TAG)) {
             WearEstimateRecord originalWearEstimateRecord = new WearEstimateRecord(new WearEstimate(10, 20),
@@ -217,10 +233,12 @@ public class CarStorageMonitoringTest extends TestCase {
             JSONObject jsonObject = new JSONObject(
                     new String(Files.readAllBytes(temporaryFile.getPath())));
             WearEstimateRecord newWearEstimateRecord = new WearEstimateRecord(jsonObject);
-            assertEquals(originalWearEstimateRecord, newWearEstimateRecord);
+            assertThat(newWearEstimateRecord).isEqualTo(originalWearEstimateRecord);
         }
     }
 
+    @Test
+    @SuppressWarnings("TruthSelfEquals")
     public void testWearEstimateRecordEquality() throws Exception {
         WearEstimateRecord wearEstimateRecord1 = new WearEstimateRecord(WearEstimate.UNKNOWN_ESTIMATE,
                 new WearEstimate(10, 20), 5000, Instant.ofEpochMilli(2000));
@@ -229,11 +247,12 @@ public class CarStorageMonitoringTest extends TestCase {
         WearEstimateRecord wearEstimateRecord3 = new WearEstimateRecord(WearEstimate.UNKNOWN_ESTIMATE,
             new WearEstimate(10, 40), 5000, Instant.ofEpochMilli(1000));
 
-        assertEquals(wearEstimateRecord1, wearEstimateRecord1);
-        assertEquals(wearEstimateRecord1, wearEstimateRecord2);
-        assertNotSame(wearEstimateRecord1, wearEstimateRecord3);
+        assertThat(wearEstimateRecord1).isEqualTo(wearEstimateRecord1);
+        assertThat(wearEstimateRecord2).isEqualTo(wearEstimateRecord1);
+        assertThat(wearEstimateRecord1).isNotSameAs(wearEstimateRecord3);
     }
 
+    @Test
     public void testWearHistoryJson() throws Exception {
         try (TemporaryFile temporaryFile = new TemporaryFile(TAG)) {
             WearEstimateRecord wearEstimateRecord1 = new WearEstimateRecord(
@@ -253,10 +272,12 @@ public class CarStorageMonitoringTest extends TestCase {
             JSONObject jsonObject = new JSONObject(
                 new String(Files.readAllBytes(temporaryFile.getPath())));
             WearHistory newWearHistory = new WearHistory(jsonObject);
-            assertEquals(originalWearHistory, newWearHistory);
+            assertThat(newWearHistory).isEqualTo(originalWearHistory);
         }
     }
 
+    @Test
+    @SuppressWarnings("TruthSelfEquals")
     public void testWearHistoryEquality() throws Exception {
         WearEstimateRecord wearEstimateRecord1 = new WearEstimateRecord(
             WearEstimate.UNKNOWN_ESTIMATE,
@@ -281,11 +302,12 @@ public class CarStorageMonitoringTest extends TestCase {
         WearHistory wearHistory3 = WearHistory.fromRecords(wearEstimateRecord1,
             wearEstimateRecord2, wearEstimateRecord3, wearEstimateRecord5);
 
-        assertEquals(wearHistory1, wearHistory1);
-        assertEquals(wearHistory1, wearHistory2);
-        assertNotSame(wearHistory1, wearHistory3);
+        assertThat(wearHistory1).isEqualTo(wearHistory1);
+        assertThat(wearHistory2).isEqualTo(wearHistory1);
+        assertThat(wearHistory1).isNotSameAs(wearHistory3);
     }
 
+    @Test
     public void testWearHistoryToChanges() {
         WearEstimateRecord wearEstimateRecord1 = new WearEstimateRecord(
             WearEstimate.UNKNOWN_ESTIMATE,
@@ -302,30 +324,34 @@ public class CarStorageMonitoringTest extends TestCase {
 
         List<WearEstimateChange> wearEstimateChanges = wearHistory.toWearEstimateChanges(1);
 
-        assertEquals(3, wearEstimateChanges.size());
+        assertThat(wearEstimateChanges.size()).isEqualTo(3);
         WearEstimateChange unknownToOne = wearEstimateChanges.get(0);
         WearEstimateChange oneToTwo = wearEstimateChanges.get(1);
         WearEstimateChange twoToThree = wearEstimateChanges.get(2);
 
-        assertEquals(unknownToOne.oldEstimate, wearEstimateRecord1.getOldWearEstimate());
-        assertEquals(unknownToOne.newEstimate, wearEstimateRecord1.getNewWearEstimate());
-        assertEquals(unknownToOne.uptimeAtChange, wearEstimateRecord1.getTotalCarServiceUptime());
-        assertEquals(unknownToOne.dateAtChange, wearEstimateRecord1.getUnixTimestamp());
-        assertTrue(unknownToOne.isAcceptableDegradation);
+        assertThat(wearEstimateRecord1.getOldWearEstimate()).isEqualTo(unknownToOne.oldEstimate);
+        assertThat(wearEstimateRecord1.getNewWearEstimate()).isEqualTo(unknownToOne.newEstimate);
+        assertThat(wearEstimateRecord1.getTotalCarServiceUptime())
+            .isEqualTo(unknownToOne.uptimeAtChange);
+        assertThat(wearEstimateRecord1.getUnixTimestamp()).isEqualTo(unknownToOne.dateAtChange);
+        assertThat(unknownToOne.isAcceptableDegradation).isTrue();
 
-        assertEquals(oneToTwo.oldEstimate, wearEstimateRecord2.getOldWearEstimate());
-        assertEquals(oneToTwo.newEstimate, wearEstimateRecord2.getNewWearEstimate());
-        assertEquals(oneToTwo.uptimeAtChange, wearEstimateRecord2.getTotalCarServiceUptime());
-        assertEquals(oneToTwo.dateAtChange, wearEstimateRecord2.getUnixTimestamp());
-        assertTrue(oneToTwo.isAcceptableDegradation);
+        assertThat(wearEstimateRecord2.getOldWearEstimate()).isEqualTo(oneToTwo.oldEstimate);
+        assertThat(wearEstimateRecord2.getNewWearEstimate()).isEqualTo(oneToTwo.newEstimate);
+        assertThat(wearEstimateRecord2.getTotalCarServiceUptime())
+            .isEqualTo(oneToTwo.uptimeAtChange);
+        assertThat(wearEstimateRecord2.getUnixTimestamp()).isEqualTo(oneToTwo.dateAtChange);
+        assertThat(oneToTwo.isAcceptableDegradation).isTrue();
 
-        assertEquals(twoToThree.oldEstimate, wearEstimateRecord3.getOldWearEstimate());
-        assertEquals(twoToThree.newEstimate, wearEstimateRecord3.getNewWearEstimate());
-        assertEquals(twoToThree.uptimeAtChange, wearEstimateRecord3.getTotalCarServiceUptime());
-        assertEquals(twoToThree.dateAtChange, wearEstimateRecord3.getUnixTimestamp());
-        assertFalse(twoToThree.isAcceptableDegradation);
+        assertThat(wearEstimateRecord3.getOldWearEstimate()).isEqualTo(twoToThree.oldEstimate);
+        assertThat(wearEstimateRecord3.getNewWearEstimate()).isEqualTo(twoToThree.newEstimate);
+        assertThat(wearEstimateRecord3.getTotalCarServiceUptime())
+            .isEqualTo(twoToThree.uptimeAtChange);
+        assertThat(wearEstimateRecord3.getUnixTimestamp()).isEqualTo(twoToThree.dateAtChange);
+        assertThat(twoToThree.isAcceptableDegradation).isFalse();
     }
 
+    @Test
     public void testUidIoStatEntry() throws Exception {
         try (TemporaryFile statsFile = new TemporaryFile(TAG)) {
             statsFile.write("0 256797495 181736102 362132480 947167232 0 0 0 0 250 0\n"
@@ -336,41 +362,42 @@ public class CarStorageMonitoringTest extends TestCase {
 
             SparseArray<UidIoRecord> entries = statsProvider.load();
 
-            assertNotNull(entries);
-            assertEquals(2, entries.size());
+            assertThat(entries).isNotNull();
+            assertThat(entries.size()).isEqualTo(2);
 
             IoStatsEntry entry = new IoStatsEntry(entries.get(0), 1234);
-            assertNotNull(entry);
-            assertEquals(0, entry.uid);
-            assertEquals(1234, entry.runtimeMillis);
-            assertEquals(256797495, entry.foreground.bytesRead);
-            assertEquals(181736102, entry.foreground.bytesWritten);
-            assertEquals(362132480, entry.foreground.bytesReadFromStorage);
-            assertEquals(947167232, entry.foreground.bytesWrittenToStorage);
-            assertEquals(250, entry.foreground.fsyncCalls);
-            assertEquals(0, entry.background.bytesRead);
-            assertEquals(0, entry.background.bytesWritten);
-            assertEquals(0, entry.background.bytesReadFromStorage);
-            assertEquals(0, entry.background.bytesWrittenToStorage);
-            assertEquals(0, entry.background.fsyncCalls);
+            assertThat(entry).isNotNull();
+            assertThat(entry.uid).isEqualTo(0);
+            assertThat(entry.runtimeMillis).isEqualTo(1234);
+            assertThat(entry.foreground.bytesRead).isEqualTo(256797495);
+            assertThat(entry.foreground.bytesWritten).isEqualTo(181736102);
+            assertThat(entry.foreground.bytesReadFromStorage).isEqualTo(362132480);
+            assertThat(entry.foreground.bytesWrittenToStorage).isEqualTo(947167232);
+            assertThat(entry.foreground.fsyncCalls).isEqualTo(250);
+            assertThat(entry.background.bytesRead).isEqualTo(0);
+            assertThat(entry.background.bytesWritten).isEqualTo(0);
+            assertThat(entry.background.bytesReadFromStorage).isEqualTo(0);
+            assertThat(entry.background.bytesWrittenToStorage).isEqualTo(0);
+            assertThat(entry.background.fsyncCalls).isEqualTo(0);
 
             entry = new IoStatsEntry(entries.get(1006), 4321);
-            assertNotNull(entry);
-            assertEquals(1006, entry.uid);
-            assertEquals(4321, entry.runtimeMillis);
-            assertEquals(489007, entry.foreground.bytesRead);
-            assertEquals(196802, entry.foreground.bytesWritten);
-            assertEquals(0, entry.foreground.bytesReadFromStorage);
-            assertEquals(20480, entry.foreground.bytesWrittenToStorage);
-            assertEquals(1, entry.foreground.fsyncCalls);
-            assertEquals(51474, entry.background.bytesRead);
-            assertEquals(2048, entry.background.bytesWritten);
-            assertEquals(1024, entry.background.bytesReadFromStorage);
-            assertEquals(2048, entry.background.bytesWrittenToStorage);
-            assertEquals(1, entry.background.fsyncCalls);
+            assertThat(entry).isNotNull();
+            assertThat(entry.uid).isEqualTo(1006);
+            assertThat(entry.runtimeMillis).isEqualTo(4321);
+            assertThat(entry.foreground.bytesRead).isEqualTo(489007);
+            assertThat(entry.foreground.bytesWritten).isEqualTo(196802);
+            assertThat(entry.foreground.bytesReadFromStorage).isEqualTo(0);
+            assertThat(entry.foreground.bytesWrittenToStorage).isEqualTo(20480);
+            assertThat(entry.foreground.fsyncCalls).isEqualTo(1);
+            assertThat(entry.background.bytesRead).isEqualTo(51474);
+            assertThat(entry.background.bytesWritten).isEqualTo(2048);
+            assertThat(entry.background.bytesReadFromStorage).isEqualTo(1024);
+            assertThat(entry.background.bytesWrittenToStorage).isEqualTo(2048);
+            assertThat(entry.background.fsyncCalls).isEqualTo(1);
         }
     }
 
+    @Test
     public void testUidIoStatEntryMissingFields() throws Exception {
         try (TemporaryFile statsFile = new TemporaryFile(TAG)) {
             statsFile.write("0 256797495 181736102 362132480 947167232 0 0 0 0 250 0\n"
@@ -381,10 +408,11 @@ public class CarStorageMonitoringTest extends TestCase {
 
             SparseArray<UidIoRecord> entries = statsProvider.load();
 
-            assertNull(entries);
+            assertThat(entries).isNull();
         }
     }
 
+    @Test
     public void testUidIoStatEntryNonNumericFields() throws Exception {
         try (TemporaryFile statsFile = new TemporaryFile(TAG)) {
             statsFile.write("0 256797495 181736102 362132480 947167232 0 0 0 0 250 0\n"
@@ -395,10 +423,12 @@ public class CarStorageMonitoringTest extends TestCase {
 
             SparseArray<UidIoRecord> entries = statsProvider.load();
 
-            assertNull(entries);
+            assertThat(entries).isNull();
         }
     }
 
+    @Test
+    @SuppressWarnings("TruthSelfEquals")
     public void testUidIoStatEntryEquality() throws Exception {
         IoStatsEntry statEntry1 = new IoStatsEntry(10, 1234,
             new IoStatsEntry.Metrics(10, 20, 30, 40, 50),
@@ -416,13 +446,14 @@ public class CarStorageMonitoringTest extends TestCase {
             new IoStatsEntry.Metrics(10, 20, 30, 40, 0),
             new IoStatsEntry.Metrics(100, 200, 300, 400, 500));
 
-        assertEquals(statEntry1, statEntry1);
-        assertEquals(statEntry1, statEntry2);
-        assertNotSame(statEntry1, statEntry3);
-        assertNotSame(statEntry1, statEntry4);
-        assertNotSame(statEntry1, statEntry5);
+        assertThat(statEntry1).isEqualTo(statEntry1);
+        assertThat(statEntry2).isEqualTo(statEntry1);
+        assertThat(statEntry1).isNotSameAs(statEntry3);
+        assertThat(statEntry1).isNotSameAs(statEntry4);
+        assertThat(statEntry1).isNotSameAs(statEntry5);
     }
 
+    @Test
     public void testUidIoStatEntryParcel() throws Exception {
         IoStatsEntry statEntry = new IoStatsEntry(10, 5000,
             new IoStatsEntry.Metrics(10, 20, 30, 40, 50),
@@ -431,9 +462,10 @@ public class CarStorageMonitoringTest extends TestCase {
         statEntry.writeToParcel(p, 0);
         p.setDataPosition(0);
         IoStatsEntry other = new IoStatsEntry(p);
-        assertEquals(other, statEntry);
+        assertThat(statEntry).isEqualTo(other);
     }
 
+    @Test
     public void testUidIoStatEntryJson() throws Exception {
         try (TemporaryFile temporaryFile = new TemporaryFile(TAG)) {
             IoStatsEntry statEntry = new IoStatsEntry(10, 1200,
@@ -445,11 +477,12 @@ public class CarStorageMonitoringTest extends TestCase {
             JSONObject jsonObject = new JSONObject(
                 new String(Files.readAllBytes(temporaryFile.getPath())));
             IoStatsEntry other = new IoStatsEntry(jsonObject);
-            assertEquals(statEntry, other);
+            assertThat(other).isEqualTo(statEntry);
         }
     }
 
 
+    @Test
     public void testUidIoStatEntryDelta() throws Exception {
         IoStatsEntry statEntry1 = new IoStatsEntry(10, 1000,
             new IoStatsEntry.Metrics(10, 20, 30, 40, 50),
@@ -465,21 +498,21 @@ public class CarStorageMonitoringTest extends TestCase {
 
 
         IoStatsEntry delta21 = statEntry2.delta(statEntry1);
-        assertNotNull(delta21);
-        assertEquals(statEntry1.uid, delta21.uid);
+        assertThat(delta21).isNotNull();
+        assertThat(delta21.uid).isEqualTo(statEntry1.uid);
 
-        assertEquals(1000, delta21.runtimeMillis);
-        assertEquals(100, delta21.foreground.bytesRead);
-        assertEquals(100, delta21.foreground.bytesWritten);
-        assertEquals(100, delta21.foreground.bytesReadFromStorage);
-        assertEquals(100, delta21.foreground.bytesWrittenToStorage);
-        assertEquals(100, delta21.foreground.fsyncCalls);
+        assertThat(delta21.runtimeMillis).isEqualTo(1000);
+        assertThat(delta21.foreground.bytesRead).isEqualTo(100);
+        assertThat(delta21.foreground.bytesWritten).isEqualTo(100);
+        assertThat(delta21.foreground.bytesReadFromStorage).isEqualTo(100);
+        assertThat(delta21.foreground.bytesWrittenToStorage).isEqualTo(100);
+        assertThat(delta21.foreground.fsyncCalls).isEqualTo(100);
 
-        assertEquals(200, delta21.background.bytesRead);
-        assertEquals(300, delta21.background.bytesWritten);
-        assertEquals(400, delta21.background.bytesReadFromStorage);
-        assertEquals(410, delta21.background.bytesWrittenToStorage);
-        assertEquals(10, delta21.background.fsyncCalls);
+        assertThat(delta21.background.bytesRead).isEqualTo(200);
+        assertThat(delta21.background.bytesWritten).isEqualTo(300);
+        assertThat(delta21.background.bytesReadFromStorage).isEqualTo(400);
+        assertThat(delta21.background.bytesWrittenToStorage).isEqualTo(410);
+        assertThat(delta21.background.fsyncCalls).isEqualTo(10);
 
         try {
             IoStatsEntry delta31 = statEntry3.delta(statEntry1);
@@ -489,6 +522,7 @@ public class CarStorageMonitoringTest extends TestCase {
         }
     }
 
+    @Test
     public void testUidIoStatsRecordDelta() throws Exception {
         IoStatsEntry statEntry = new IoStatsEntry(10, 1000,
             new IoStatsEntry.Metrics(10, 20, 30, 40, 50),
@@ -500,20 +534,20 @@ public class CarStorageMonitoringTest extends TestCase {
 
         UidIoRecord delta = statRecord.delta(statEntry);
 
-        assertNotNull(delta);
-        assertEquals(statRecord.uid, delta.uid);
+        assertThat(delta).isNotNull();
+        assertThat(delta.uid).isEqualTo(statRecord.uid);
 
-        assertEquals(10, delta.foreground_rchar);
-        assertEquals(0, delta.foreground_wchar);
-        assertEquals(0, delta.foreground_read_bytes);
-        assertEquals(10, delta.foreground_write_bytes);
-        assertEquals(20, delta.foreground_fsync);
+        assertThat(delta.foreground_rchar).isEqualTo(10);
+        assertThat(delta.foreground_wchar).isEqualTo(0);
+        assertThat(delta.foreground_read_bytes).isEqualTo(0);
+        assertThat(delta.foreground_write_bytes).isEqualTo(10);
+        assertThat(delta.foreground_fsync).isEqualTo(20);
 
-        assertEquals(20, delta.background_rchar);
-        assertEquals(0, delta.background_wchar);
-        assertEquals(0, delta.background_read_bytes);
-        assertEquals(10, delta.background_write_bytes);
-        assertEquals(10, delta.background_fsync);
+        assertThat(delta.background_rchar).isEqualTo(20);
+        assertThat(delta.background_wchar).isEqualTo(0);
+        assertThat(delta.background_read_bytes).isEqualTo(0);
+        assertThat(delta.background_write_bytes).isEqualTo(10);
+        assertThat(delta.background_fsync).isEqualTo(10);
 
         statRecord = new UidIoRecord(30,
             20, 20, 30, 50, 70,
@@ -527,6 +561,8 @@ public class CarStorageMonitoringTest extends TestCase {
         }
     }
 
+    @Test
+    @SuppressWarnings("TruthSelfEquals")
     public void testUidIoStatsDelta() throws Exception {
         IoStatsEntry entry10 = new IoStatsEntry(10, 1000,
             new IoStatsEntry.Metrics(10, 20, 30, 40, 50),
@@ -555,12 +591,13 @@ public class CarStorageMonitoringTest extends TestCase {
         IoStats delta3 = new IoStats(statsEntries2, 3000);
         IoStats delta4 = new IoStats(statsEntries1, 5000);
 
-        assertEquals(delta1, delta1);
-        assertEquals(delta1, delta2);
-        assertNotSame(delta1, delta3);
-        assertNotSame(delta3, delta4);
+        assertThat(delta1).isEqualTo(delta1);
+        assertThat(delta2).isEqualTo(delta1);
+        assertThat(delta1).isNotSameAs(delta3);
+        assertThat(delta3).isNotSameAs(delta4);
     }
 
+    @Test
     public void testUidIoStatsTotals() throws Exception {
         IoStatsEntry entry10 = new IoStatsEntry(10, 1000,
             new IoStatsEntry.Metrics(20, 0, 10, 0, 0),
@@ -581,26 +618,27 @@ public class CarStorageMonitoringTest extends TestCase {
         IoStatsEntry.Metrics backgroundTotals = delta.getBackgroundTotals();
         IoStatsEntry.Metrics overallTotals = delta.getTotals();
 
-        assertEquals(120, foregroundTotals.bytesRead);
-        assertEquals(200, foregroundTotals.bytesWritten);
-        assertEquals(60, foregroundTotals.bytesReadFromStorage);
-        assertEquals(200, foregroundTotals.bytesWrittenToStorage);
-        assertEquals(1, foregroundTotals.fsyncCalls);
+        assertThat(foregroundTotals.bytesRead).isEqualTo(120);
+        assertThat(foregroundTotals.bytesWritten).isEqualTo(200);
+        assertThat(foregroundTotals.bytesReadFromStorage).isEqualTo(60);
+        assertThat(foregroundTotals.bytesWrittenToStorage).isEqualTo(200);
+        assertThat(foregroundTotals.fsyncCalls).isEqualTo(1);
 
 
-        assertEquals(10, backgroundTotals.bytesRead);
-        assertEquals(80, backgroundTotals.bytesWritten);
-        assertEquals(10, backgroundTotals.bytesReadFromStorage);
-        assertEquals(20, backgroundTotals.bytesWrittenToStorage);
-        assertEquals(3, backgroundTotals.fsyncCalls);
+        assertThat(backgroundTotals.bytesRead).isEqualTo(10);
+        assertThat(backgroundTotals.bytesWritten).isEqualTo(80);
+        assertThat(backgroundTotals.bytesReadFromStorage).isEqualTo(10);
+        assertThat(backgroundTotals.bytesWrittenToStorage).isEqualTo(20);
+        assertThat(backgroundTotals.fsyncCalls).isEqualTo(3);
 
-        assertEquals(130, overallTotals.bytesRead);
-        assertEquals(280, overallTotals.bytesWritten);
-        assertEquals(70, overallTotals.bytesReadFromStorage);
-        assertEquals(220, overallTotals.bytesWrittenToStorage);
-        assertEquals(4, overallTotals.fsyncCalls);
+        assertThat(overallTotals.bytesRead).isEqualTo(130);
+        assertThat(overallTotals.bytesWritten).isEqualTo(280);
+        assertThat(overallTotals.bytesReadFromStorage).isEqualTo(70);
+        assertThat(overallTotals.bytesWrittenToStorage).isEqualTo(220);
+        assertThat(overallTotals.fsyncCalls).isEqualTo(4);
     }
 
+    @Test
     public void testUidIoStatsDeltaParcel() throws Exception {
         IoStatsEntry entry10 = new IoStatsEntry(10, 1000,
             new IoStatsEntry.Metrics(10, 20, 30, 40, 50),
@@ -623,13 +661,14 @@ public class CarStorageMonitoringTest extends TestCase {
 
         IoStats parceledStatsDelta = new IoStats(p);
 
-        assertEquals(statsDelta.getTimestamp(), parceledStatsDelta.getTimestamp());
+        assertThat(parceledStatsDelta.getTimestamp()).isEqualTo(statsDelta.getTimestamp());
 
         assertEquals(2, parceledStatsDelta.getStats().stream()
                 .filter(e -> e.equals(entry10) || e.equals(entry20))
                 .count());
     }
 
+    @Test
     public void testUidIoStatsDeltaJson() throws Exception {
         try (TemporaryFile temporaryFile = new TemporaryFile(TAG)) {
             IoStatsEntry entry10 = new IoStatsEntry(10, 1000,
@@ -652,10 +691,11 @@ public class CarStorageMonitoringTest extends TestCase {
             JSONObject jsonObject = new JSONObject(
                 new String(Files.readAllBytes(temporaryFile.getPath())));
             IoStats other = new IoStats(jsonObject);
-            assertEquals(statsDelta, other);
+            assertThat(other).isEqualTo(statsDelta);
         }
     }
 
+    @Test
     public void testLifetimeWriteInfo() throws Exception {
         try (TemporaryDirectory temporaryDirectory = new TemporaryDirectory(TAG)) {
             try (TemporaryDirectory ext4 = temporaryDirectory.getSubdirectory("ext4");
@@ -683,8 +723,8 @@ public class CarStorageMonitoringTest extends TestCase {
 
                     LifetimeWriteInfo[] writeInfos = sysfsLifetimeWriteInfoProvider.load();
 
-                    assertNotNull(writeInfos);
-                    assertEquals(3, writeInfos.length);
+                    assertThat(writeInfos).isNotNull();
+                    assertThat(writeInfos.length).isEqualTo(3);
                     assertTrue(Arrays.stream(writeInfos).anyMatch(
                             li -> li.equals(expected_ext4_part1)));
                     assertTrue(Arrays.stream(writeInfos).anyMatch(
@@ -696,6 +736,8 @@ public class CarStorageMonitoringTest extends TestCase {
         }
     }
 
+    @Test
+    @SuppressWarnings("TruthSelfEquals")
     public void testLifetimeWriteInfoEquality() throws Exception {
         LifetimeWriteInfo writeInfo = new LifetimeWriteInfo("part1", "ext4", 123);
         LifetimeWriteInfo writeInfoEq = new LifetimeWriteInfo("part1", "ext4", 123);
@@ -704,13 +746,14 @@ public class CarStorageMonitoringTest extends TestCase {
         LifetimeWriteInfo writeInfoNeq2 = new LifetimeWriteInfo("part1", "f2fs", 123);
         LifetimeWriteInfo writeInfoNeq3 = new LifetimeWriteInfo("part1", "ext4", 100);
 
-        assertEquals(writeInfo, writeInfo);
-        assertEquals(writeInfo, writeInfoEq);
-        assertNotSame(writeInfo, writeInfoNeq1);
-        assertNotSame(writeInfo, writeInfoNeq2);
-        assertNotSame(writeInfo, writeInfoNeq3);
+        assertThat(writeInfo).isEqualTo(writeInfo);
+        assertThat(writeInfoEq).isEqualTo(writeInfo);
+        assertThat(writeInfo).isNotSameAs(writeInfoNeq1);
+        assertThat(writeInfo).isNotSameAs(writeInfoNeq2);
+        assertThat(writeInfo).isNotSameAs(writeInfoNeq3);
     }
 
+    @Test
     public void testLifetimeWriteInfoParcel() throws Exception {
         LifetimeWriteInfo lifetimeWriteInfo = new LifetimeWriteInfo("part1", "ext4", 1024);
 
@@ -720,9 +763,10 @@ public class CarStorageMonitoringTest extends TestCase {
 
         LifetimeWriteInfo parceled = new LifetimeWriteInfo(p);
 
-        assertEquals(lifetimeWriteInfo, parceled);
+        assertThat(parceled).isEqualTo(lifetimeWriteInfo);
     }
 
+    @Test
     public void testLifetimeWriteInfoJson() throws Exception {
         try (TemporaryFile temporaryFile = new TemporaryFile(TAG)) {
             LifetimeWriteInfo lifetimeWriteInfo = new LifetimeWriteInfo("part1", "ext4", 1024);
@@ -733,7 +777,7 @@ public class CarStorageMonitoringTest extends TestCase {
             JSONObject jsonObject = new JSONObject(
                 new String(Files.readAllBytes(temporaryFile.getPath())));
             LifetimeWriteInfo other = new LifetimeWriteInfo(jsonObject);
-            assertEquals(lifetimeWriteInfo, other);
+            assertThat(other).isEqualTo(lifetimeWriteInfo);
         }
     }
 }

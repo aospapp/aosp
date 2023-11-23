@@ -21,25 +21,6 @@ import com.android.tv.common.BooleanSystemProperty;
 /** A convenience class for getting TV related system properties. */
 public final class SystemProperties {
 
-    /** Allow Google Analytics for eng builds. */
-    public static final BooleanSystemProperty ALLOW_ANALYTICS_IN_ENG =
-            new BooleanSystemProperty("tv_allow_analytics_in_eng", false);
-
-    /** Allow Strict mode for debug builds. */
-    public static final BooleanSystemProperty ALLOW_STRICT_MODE =
-            new BooleanSystemProperty("tv_allow_strict_mode", true);
-
-    /** When true {@link android.view.KeyEvent}s are logged. Defaults to false. */
-    public static final BooleanSystemProperty LOG_KEYEVENT =
-            new BooleanSystemProperty("tv_log_keyevent", false);
-    /** When true debug keys are used. Defaults to false. */
-    public static final BooleanSystemProperty USE_DEBUG_KEYS =
-            new BooleanSystemProperty("tv_use_debug_keys", false);
-
-    /** Send {@link com.android.tv.analytics.Tracker} information. Defaults to {@code true}. */
-    public static final BooleanSystemProperty USE_TRACKER =
-            new BooleanSystemProperty("tv_use_tracker", true);
-
     /** Allow third party inputs. */
     public static final BooleanSystemProperty ALLOW_THIRD_PARTY_INPUTS =
             new BooleanSystemProperty("ro.tv_allow_third_party_inputs", true);

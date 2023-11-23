@@ -23,9 +23,10 @@ import android.widget.CompoundButton;
 import android.widget.Switch;
 
 import com.android.car.settings.R;
+import com.android.car.ui.preference.CarUiTwoActionPreference;
 
 /** A preference that can be clicked on one side and toggled on another. */
-public class MasterSwitchPreference extends TwoActionPreference {
+public class MasterSwitchPreference extends CarUiTwoActionPreference {
 
     /**
      * Interface definition for a callback to be invoked when the switch is toggled.

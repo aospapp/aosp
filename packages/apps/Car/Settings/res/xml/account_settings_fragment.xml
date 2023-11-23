@@ -18,7 +18,8 @@
 <PreferenceScreen
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:settings="http://schemas.android.com/apk/res-auto"
-    android:title="@string/accounts_settings_title">
+    android:title="@string/accounts_settings_title"
+    android:key="@string/psk_account_settings">
     <PreferenceCategory
         android:key="@string/pk_account_list"
         android:title="@string/account_list_title"

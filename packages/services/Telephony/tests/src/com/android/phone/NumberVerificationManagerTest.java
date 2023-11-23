@@ -57,7 +57,7 @@ public class NumberVerificationManagerTest {
     public void setUp() {
         MockitoAnnotations.initMocks(this);
         ServiceState ss = mock(ServiceState.class);
-        when(ss.getVoiceRegState()).thenReturn(ServiceState.STATE_IN_SERVICE);
+        when(ss.getState()).thenReturn(ServiceState.STATE_IN_SERVICE);
         when(mPhone1.getServiceState()).thenReturn(ss);
         when(mPhone1.getForegroundCall()).thenReturn(mForegroundCall);
         when(mPhone1.getRingingCall()).thenReturn(mRingingCall);
@@ -107,7 +107,7 @@ public class NumberVerificationManagerTest {
     @Test
     public void testNoPhoneInServiceFailure() throws Exception {
         ServiceState ss = mock(ServiceState.class);
-        when(ss.getVoiceRegState()).thenReturn(ServiceState.STATE_POWER_OFF);
+        when(ss.getState()).thenReturn(ServiceState.STATE_POWER_OFF);
         when(mPhone1.getServiceState()).thenReturn(ss);
         when(mPhone2.getServiceState()).thenReturn(ss);
         NumberVerificationManager manager =
@@ -138,7 +138,7 @@ public class NumberVerificationManagerTest {
     @Test
     public void testVerificationWorksWithOnePhoneInService() throws Exception {
         ServiceState ss = mock(ServiceState.class);
-        when(ss.getVoiceRegState()).thenReturn(ServiceState.STATE_POWER_OFF);
+        when(ss.getState()).thenReturn(ServiceState.STATE_POWER_OFF);
         when(mPhone1.getServiceState()).thenReturn(ss);
         NumberVerificationManager manager =
                 new NumberVerificationManager(() -> new Phone[]{mPhone1, mPhone2});

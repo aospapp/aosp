@@ -17,9 +17,9 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="permlab_bluetoothShareManager" msgid="311492132450338925">"Aceder ao gestor de transferências."</string>
-    <string name="permdesc_bluetoothShareManager" msgid="8930572979123190223">"Permite à aplicação aceder ao gestor BluetoothShare e utilizá-lo para transferir ficheiros."</string>
+    <string name="permdesc_bluetoothShareManager" msgid="8930572979123190223">"Permite à app aceder ao gestor BluetoothShare e utilizá-lo para transferir ficheiros."</string>
     <string name="permlab_bluetoothWhitelist" msgid="7091552898592306386">"Colocar na lista de autorizações o acesso do dispositivo Bluetooth."</string>
-    <string name="permdesc_bluetoothWhitelist" msgid="5494513855192170109">"Permite que a aplicação coloque temporariamente um dispositivo Bluetooth na lista de autorizações, permitindo que esse dispositivo envie ficheiros para este dispositivo sem a confirmação do utilizador."</string>
+    <string name="permdesc_bluetoothWhitelist" msgid="5494513855192170109">"Permite que a app coloque temporariamente um dispositivo Bluetooth na lista de autorizações, permitindo que esse dispositivo envie ficheiros para este dispositivo sem a confirmação do utilizador."</string>
     <string name="bt_share_picker_label" msgid="6268100924487046932">"Bluetooth"</string>
     <string name="unknown_device" msgid="9221903979877041009">"Dispositivo desconhecido"</string>
     <string name="unknownNumber" msgid="4994750948072751566">"Desconhecido"</string>
@@ -69,11 +69,10 @@
     <string name="upload_succ_ok" msgid="7705428476405478828">"OK"</string>
     <string name="upload_fail_line1" msgid="7899394672421491701">"O ficheiro não foi enviado para “<xliff:g id="RECIPIENT">%1$s</xliff:g>”."</string>
     <string name="upload_fail_line1_2" msgid="2108129204050841798">"Ficheiro: <xliff:g id="FILE">%1$s</xliff:g>"</string>
-    <string name="upload_fail_ok" msgid="5807702461606714296">"Tente novamente"</string>
     <string name="upload_fail_cancel" msgid="9118496285835687125">"Fechar"</string>
     <string name="bt_error_btn_ok" msgid="5965151173011534240">"OK"</string>
     <string name="unknown_file" msgid="6092727753965095366">"Ficheiro desconhecido"</string>
-    <string name="unknown_file_desc" msgid="480434281415453287">"Não existe nenhuma aplicação para executar este tipo de ficheiro. \n"</string>
+    <string name="unknown_file_desc" msgid="480434281415453287">"Não existe nenhuma app para executar este tipo de ficheiro. \n"</string>
     <string name="not_exist_file" msgid="3489434189599716133">"Nenhum ficheiro"</string>
     <string name="not_exist_file_desc" msgid="4059531573790529229">"O ficheiro não existe. \n"</string>
     <string name="enabling_progress_title" msgid="436157952334723406">"Aguarde..."</string>
@@ -127,11 +126,12 @@
     <string name="bluetooth_map_settings_cancel" msgid="9205350798049865699">"Cancelar"</string>
     <string name="bluetooth_map_settings_intro" msgid="6482369468223987562">"Selecione as contas que pretende partilhar através de Bluetooth. Ao ligar, ainda tem de aceitar eventuais acessos às contas."</string>
     <string name="bluetooth_map_settings_count" msgid="4557473074937024833">"Ranhuras restantes:"</string>
-    <string name="bluetooth_map_settings_app_icon" msgid="7105805610929114707">"Ícone de aplicação"</string>
+    <string name="bluetooth_map_settings_app_icon" msgid="7105805610929114707">"Ícone de app"</string>
     <string name="bluetooth_map_settings_title" msgid="7420332483392851321">"Definições de partilha de mensagens por Bluetooth"</string>
     <string name="bluetooth_map_settings_no_account_slots_left" msgid="1796029082612965251">"Não é possível selecionar a conta. Não há ranhuras restantes"</string>
     <string name="bluetooth_connected" msgid="6718623220072656906">"Áudio Bluetooth ligado"</string>
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"Áudio Bluetooth desligado"</string>
     <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"Áudio Bluetooth"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="8894450394309084519">"Não é possível transferir os ficheiros com mais de 4 GB."</string>
+    <string name="bluetooth_connect_action" msgid="4009848433321657090">"Ligar ao Bluetooth"</string>
 </resources>

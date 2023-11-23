@@ -18,7 +18,8 @@
 <PreferenceScreen
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:settings="http://schemas.android.com/apk/res-auto"
-    android:title="@string/applications_settings">
+    android:title="@string/applications_settings"
+    android:key="@string/psk_applications_settings">
     <com.android.car.settings.common.LogicalPreferenceGroup
         android:key="@string/pk_all_applications_settings_list"
         settings:controller="com.android.car.settings.applications.ApplicationsSettingsPreferenceController"/>

@@ -49,4 +49,6 @@
     <string name="action_confirm_url_open" msgid="3458322738812921189">"Ouvrir le lien"</string>
     <string name="tag_read_error" msgid="2485274498885877547">"Erreur de lecture NFC. Veuillez réessayer."</string>
     <string name="tag_dispatch_failed" msgid="3562984995049738400">"Aucune application compatible avec ce tag NFC"</string>
+    <string name="nfc_blocking_alert_title" msgid="1086172436984457085">"La fonctionnalité NFC est peut-être bloquée"</string>
+    <string name="nfc_blocking_alert_message" msgid="7003156052570107490">"Appuyez pour savoir comment y remédier."</string>
 </resources>

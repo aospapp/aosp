@@ -18,9 +18,9 @@ package com.android.car.notification.template;
 import android.app.Notification;
 import android.graphics.drawable.Icon;
 import android.os.Bundle;
-import android.service.notification.StatusBarNotification;
 import android.view.View;
 
+import com.android.car.notification.AlertEntry;
 import com.android.car.notification.NotificationClickHandlerFactory;
 import com.android.car.notification.R;
 
@@ -44,22 +44,22 @@ public class InboxNotificationViewHolder extends CarNotificationBaseViewHolder {
     }
 
     /**
-     * Binds a {@link StatusBarNotification} to an inbox style car notification template.
+     * Binds a {@link AlertEntry} to an inbox style car notification template.
      */
     @Override
-    public void bind(StatusBarNotification statusBarNotification, boolean isInGroup,
+    public void bind(AlertEntry alertEntry, boolean isInGroup,
             boolean isHeadsUp) {
-        super.bind(statusBarNotification, isInGroup, isHeadsUp);
-        bindBody(statusBarNotification);
-        mHeaderView.bind(statusBarNotification, isInGroup);
-        mActionsView.bind(mClickHandlerFactory, statusBarNotification);
+        super.bind(alertEntry, isInGroup, isHeadsUp);
+        bindBody(alertEntry);
+        mHeaderView.bind(alertEntry, isInGroup);
+        mActionsView.bind(mClickHandlerFactory, alertEntry);
     }
 
     /**
      * Private method that binds the data to the view.
      */
-    private void bindBody(StatusBarNotification statusBarNotification) {
-        Notification notification = statusBarNotification.getNotification();
+    private void bindBody(AlertEntry alertEntry) {
+        Notification notification = alertEntry.getNotification();
         Bundle extraData = notification.extras;
         CharSequence title = extraData.getCharSequence(Notification.EXTRA_TITLE_BIG);
         CharSequence text = extraData.getCharSequence(Notification.EXTRA_SUMMARY_TEXT);

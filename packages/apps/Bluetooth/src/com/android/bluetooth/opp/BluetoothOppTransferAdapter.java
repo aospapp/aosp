@@ -58,7 +58,7 @@ public class BluetoothOppTransferAdapter extends ResourceCursorAdapter {
     private Context mContext;
 
     public BluetoothOppTransferAdapter(Context context, int layout, Cursor c) {
-        super(context, layout, c);
+        super(context, layout, c, true /* autoRequery */ );
         mContext = context;
     }
 

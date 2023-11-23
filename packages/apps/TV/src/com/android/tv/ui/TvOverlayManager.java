@@ -33,6 +33,7 @@ import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.ViewGroup;
 import android.view.accessibility.AccessibilityManager.AccessibilityStateChangeListener;
+
 import com.android.tv.ChannelTuner;
 import com.android.tv.MainActivity;
 import com.android.tv.MainActivity.KeyHandlerResultType;
@@ -47,6 +48,7 @@ import com.android.tv.common.ui.setup.OnActionClickListener;
 import com.android.tv.common.ui.setup.SetupFragment;
 import com.android.tv.common.ui.setup.SetupMultiPaneFragment;
 import com.android.tv.data.ChannelDataManager;
+import com.android.tv.data.ProgramDataManager;
 import com.android.tv.dialog.DvrHistoryDialogFragment;
 import com.android.tv.dialog.FullscreenDialogFragment;
 import com.android.tv.dialog.HalfSizedDialogFragment;
@@ -61,6 +63,7 @@ import com.android.tv.menu.Menu;
 import com.android.tv.menu.Menu.MenuShowReason;
 import com.android.tv.menu.MenuRowFactory;
 import com.android.tv.menu.MenuView;
+import com.android.tv.menu.TvOptionsRowAdapter;
 import com.android.tv.onboarding.NewSourcesFragment;
 import com.android.tv.onboarding.SetupSourcesFragment;
 import com.android.tv.search.ProgramGuideSearchFragment;
@@ -68,6 +71,10 @@ import com.android.tv.ui.TvTransitionManager.SceneType;
 import com.android.tv.ui.sidepanel.SideFragmentManager;
 import com.android.tv.ui.sidepanel.parentalcontrols.RatingsFragment;
 import com.android.tv.util.TvInputManagerHelper;
+
+import com.google.auto.factory.AutoFactory;
+import com.google.auto.factory.Provided;
+
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
@@ -79,6 +86,7 @@ import java.util.Set;
 
 /** A class responsible for the life cycle and event handling of the pop-ups over TV view. */
 @UiThread
+@AutoFactory
 public class TvOverlayManager implements AccessibilityStateChangeListener {
     private static final String TAG = "TvOverlayManager";
     private static final boolean DEBUG = false;
@@ -216,6 +224,7 @@ public class TvOverlayManager implements AccessibilityStateChangeListener {
 
     private final List<Runnable> mPendingActions = new ArrayList<>();
     private final Queue<PendingDialogAction> mPendingDialogActionQueue = new LinkedList<>();
+    private final TvOptionsRowAdapter.Factory mTvOptionsRowAdapterFactory;
 
     private OnBackStackChangedListener mOnBackStackChangedListener;
 
@@ -229,12 +238,17 @@ public class TvOverlayManager implements AccessibilityStateChangeListener {
             InputBannerView inputBannerView,
             SelectInputView selectInputView,
             ViewGroup sceneContainer,
-            ProgramGuideSearchFragment searchFragment) {
+            ProgramGuideSearchFragment searchFragment,
+            @Provided ChannelDataManager channelDataManager,
+            @Provided TvInputManagerHelper tvInputManager,
+            @Provided ProgramDataManager programDataManager,
+            @Provided TvOptionsRowAdapter.Factory mTvOptionsRowAdapterFactory) {
         mMainActivity = mainActivity;
         mChannelTuner = channelTuner;
+        this.mTvOptionsRowAdapterFactory = mTvOptionsRowAdapterFactory;
         TvSingletons singletons = TvSingletons.getSingletons(mainActivity);
-        mChannelDataManager = singletons.getChannelDataManager();
-        mInputManager = singletons.getTvInputManagerHelper();
+        mChannelDataManager = channelDataManager;
+        mInputManager = tvInputManager;
         mTvView = tvView;
         mChannelBannerView = channelBannerView;
         mKeypadChannelSwitchView = keypadChannelSwitchView;
@@ -271,7 +285,7 @@ public class TvOverlayManager implements AccessibilityStateChangeListener {
                         tvView,
                         optionsManager,
                         menuView,
-                        new MenuRowFactory(mainActivity, tvView),
+                        new MenuRowFactory(mainActivity, tvView, this.mTvOptionsRowAdapterFactory),
                         new Menu.OnMenuVisibilityChangeListener() {
                             @Override
                             public void onMenuVisibilityChange(boolean visible) {
@@ -304,9 +318,9 @@ public class TvOverlayManager implements AccessibilityStateChangeListener {
                 new ProgramGuide(
                         mainActivity,
                         channelTuner,
-                        singletons.getTvInputManagerHelper(),
+                        mInputManager,
                         mChannelDataManager,
-                        singletons.getProgramDataManager(),
+                        programDataManager,
                         dvrDataManager,
                         singletons.getDvrScheduleManager(),
                         singletons.getTracker(),

@@ -41,7 +41,7 @@ import android.test.suitebuilder.annotation.Suppress;
 import android.text.TextUtils;
 
 import androidx.test.InstrumentationRegistry;
-import androidx.test.runner.AndroidJUnit4;
+import androidx.test.filters.RequiresDevice;
 
 import com.android.internal.util.test.BroadcastInterceptingContext;
 import com.android.internal.util.test.FakeSettingsProvider;
@@ -53,8 +53,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.InOrder;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
 import org.mockito.invocation.InvocationOnMock;
+import org.mockito.junit.MockitoJUnitRunner;
 import org.mockito.stubbing.Answer;
 
 import java.util.ArrayList;
@@ -68,7 +68,8 @@ import java.util.List;
  * Run:
  * atest BluetoothProfileDeviceManagerTest
  */
-@RunWith(AndroidJUnit4.class)
+@RequiresDevice
+@RunWith(MockitoJUnitRunner.class)
 public class BluetoothProfileDeviceManagerTest {
     private static final int CONNECT_LATENCY_MS = 100;
     private static final int CONNECT_TIMEOUT_MS = 8000;
@@ -105,7 +106,7 @@ public class BluetoothProfileDeviceManagerTest {
     private final String mSettingsKey = KEY_BLUETOOTH_HFP_CLIENT_DEVICES;
     private final String mConnectionAction = BluetoothHeadsetClient.ACTION_CONNECTION_STATE_CHANGED;
     private ParcelUuid[] mUuids = new ParcelUuid[] {
-            BluetoothUuid.Handsfree_AG,
+            BluetoothUuid.HFP_AG,
             BluetoothUuid.HSP_AG};
     private ParcelUuid[] mBadUuids = new ParcelUuid[] {
             BluetoothUuid.PANU};
@@ -158,9 +159,6 @@ public class BluetoothProfileDeviceManagerTest {
 
     @Before
     public void setUp() {
-
-        MockitoAnnotations.initMocks(this);
-
         mMockContext = new MockContext(InstrumentationRegistry.getTargetContext());
         setSettingsDeviceList("");
         assertSettingsContains("");
@@ -1178,6 +1176,30 @@ public class BluetoothProfileDeviceManagerTest {
      * - The device manager is initialized, there are no devices in the list.
      *
      * Actions:
+     * - A Bonding state change with state == BOND_BONDING is received
+     * - A Uuid set is received for a device that has PRIORITY_UNDEFINED
+     *
+     * Outcome:
+     * - The device has its priority updated to PRIORITY_ON.
+     */
+    @Test
+    public void testReceiveUuidDevicePriorityUndefinedBonding_setPriorityOn() throws Exception {
+        setPreconditionsAndStart(ADAPTER_STATE_ANY, EMPTY_SETTINGS_STRING, EMPTY_DEVICE_LIST);
+        BluetoothDevice device = mBluetoothAdapter.getRemoteDevice(SINGLE_DEVICE_LIST.get(0));
+        mockDevicePriority(device, BluetoothProfile.PRIORITY_UNDEFINED);
+        sendBondStateChanged(device, BluetoothDevice.BOND_BONDING);
+        sendDeviceUuids(device, mUuids);
+        assertDeviceList(EMPTY_DEVICE_LIST);
+        verify(mMockProxies, times(1)).setProfilePriority(mProfileId, device,
+                BluetoothProfile.PRIORITY_ON);
+    }
+
+        /**
+     * Preconditions:
+     * - The device manager is initialized, there are no devices in the list.
+     * - The designated device is not in a bonding state.
+     *
+     * Actions:
      * - A Uuid set is received for a device that has PRIORITY_UNDEFINED
      *
      * Outcome:
@@ -1190,7 +1212,7 @@ public class BluetoothProfileDeviceManagerTest {
         mockDevicePriority(device, BluetoothProfile.PRIORITY_UNDEFINED);
         sendDeviceUuids(device, mUuids);
         assertDeviceList(EMPTY_DEVICE_LIST);
-        verify(mMockProxies, times(1)).setProfilePriority(mProfileId, device,
+        verify(mMockProxies, times(0)).setProfilePriority(mProfileId, device,
                 BluetoothProfile.PRIORITY_ON);
     }
 

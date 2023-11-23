@@ -154,12 +154,12 @@ public class TunerSession {
 
         @Override
         public void onSkipToNext() {
-            mAppService.seek(true);
+            mAppService.skip(true);
         }
 
         @Override
         public void onSkipToPrevious() {
-            mAppService.seek(false);
+            mAppService.skip(false);
         }
 
         @Override

@@ -37,7 +37,7 @@ public final class DevicePolicyUtils {
 
         // Check each user.
         for (UserInfo ui : userInfoList) {
-            if (!ui.isManagedProfile()) {
+            if (!userManager.isManagedProfile(ui.id)) {
                 continue; // Not a managed user.
             }
             return dpm.getBluetoothContactSharingDisabled(new UserHandle(ui.id));

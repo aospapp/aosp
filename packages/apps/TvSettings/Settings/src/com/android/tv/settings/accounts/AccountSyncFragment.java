@@ -16,9 +16,13 @@
 
 package com.android.tv.settings.accounts;
 
+import static com.android.tv.settings.util.InstrumentationUtils.logEntrySelected;
+import static com.android.tv.settings.util.InstrumentationUtils.logToggleInteracted;
+
 import android.accounts.Account;
 import android.accounts.AccountManager;
 import android.app.Activity;
+import android.app.tvsettings.TvSettingsEnums;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
@@ -144,6 +148,11 @@ public class AccountSyncFragment extends SettingsPreferenceFragment implements
         final Preference removeAccountPref = findPreference(KEY_REMOVE_ACCOUNT);
         removeAccountPref.setIntent(new Intent(getActivity(), RemoveAccountDialog.class)
                 .putExtra(AccountSyncActivity.EXTRA_ACCOUNT, mAccount.name));
+        removeAccountPref.setOnPreferenceClickListener(
+                preference -> {
+                    logEntrySelected(TvSettingsEnums.ACCOUNT_CLASSIC_REG_ACCOUNT_REMOVE_ACCOUNT);
+                    return false;
+                });
 
         mSyncCategory = (PreferenceGroup) findPreference(KEY_SYNC_ADAPTERS);
     }
@@ -155,12 +164,19 @@ public class AccountSyncFragment extends SettingsPreferenceFragment implements
             String authority = syncPref.getAuthority();
             Account account = syncPref.getAccount();
             final int userId = mUserHandle.getIdentifier();
+            int toggleId = getToggleId(authority);
             if (syncPref.isOneTimeSyncMode()) {
+                if (toggleId != -1) {
+                    logToggleInteracted(toggleId, true);
+                }
                 requestOrCancelSync(account, authority, true);
             } else {
                 boolean syncOn = syncPref.isChecked();
                 boolean oldSyncState = ContentResolver.getSyncAutomaticallyAsUser(account,
                         authority, userId);
+                if (toggleId != -1) {
+                    logToggleInteracted(toggleId, syncOn);
+                }
                 if (syncOn != oldSyncState) {
                     // if we're enabling sync, this will request a sync as well
                     ContentResolver.setSyncAutomaticallyAsUser(account, authority, syncOn, userId);
@@ -181,6 +197,7 @@ public class AccountSyncFragment extends SettingsPreferenceFragment implements
             } else {
                 startSyncForEnabledProviders();
             }
+            logEntrySelected(TvSettingsEnums.ACCOUNT_CLASSIC_REG_ACCOUNT_SYNC_NOW);
             return true;
         } else {
             return super.onPreferenceTreeClick(preference);
@@ -412,5 +429,30 @@ public class AccountSyncFragment extends SettingsPreferenceFragment implements
     @Override
     public int getMetricsCategory() {
         return MetricsProto.MetricsEvent.ACCOUNTS_ACCOUNT_SYNC;
+    }
+
+    @Override
+    protected int getPageId() {
+        return TvSettingsEnums.ACCOUNT_CLASSIC_REG_ACCOUNT;
+    }
+
+    // Currently, we only log the toggling of the mapped entries
+    private int getToggleId(String authority) {
+        if (TextUtils.isEmpty(authority)) {
+            return -1;
+        }
+        if (authority.contains("calendar")) {
+            return TvSettingsEnums.ACCOUNT_CLASSIC_REG_ACCOUNT_SYNC_CALENDAR;
+        } else if (authority.contains("contacts")) {
+            return TvSettingsEnums.ACCOUNT_CLASSIC_REG_ACCOUNT_SYNC_CONTACTS;
+        } else if (authority.contains("videos")) {
+            return TvSettingsEnums.ACCOUNT_CLASSIC_REG_ACCOUNT_SYNC_GPMT;
+        } else if (authority.contains("music")) {
+            return TvSettingsEnums.ACCOUNT_CLASSIC_REG_ACCOUNT_SYNC_GPM;
+        } else if (authority.contains("people")) {
+            return TvSettingsEnums.ACCOUNT_CLASSIC_REG_ACCOUNT_SYNC_PEOPLE;
+        } else {
+            return -1;
+        }
     }
 }

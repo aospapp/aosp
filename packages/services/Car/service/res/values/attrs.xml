@@ -24,7 +24,7 @@
     </declare-styleable>
     <declare-styleable name="volumeGroups_group"/>
     <declare-styleable name="volumeGroups_context">
-        <!-- Align with hardware/interfaces/automotive/audiocontrol/1.0/types.hal:ContextNumber -->
+        <!-- Align with CarAudioContext -->
         <attr name="context">
             <enum name="music" value="1"/>
             <enum name="navigation" value="2"/>
@@ -34,6 +34,10 @@
             <enum name="alarm" value="6"/>
             <enum name="notification" value="7"/>
             <enum name="system_sound" value="8"/>
+            <enum name="emergency" value="9"/>
+            <enum name="safety" value="10"/>
+            <enum name="vehicle_status" value="11"/>
+            <enum name="announcement" value="12"/>
         </attr>
     </declare-styleable>
 
@@ -99,14 +103,11 @@
             <flag name="no_voice_transcription" value="256"/>
             <flag name="fully_restricted" value="511"/>
         </attr>
-        <!-- UX restrictions service supports returning different sets of UX restrictions for
-        the same driving state, through configurations for each "mode". -->
-        <attr name="mode">
-            <!-- Default mode. -->
-            <flag name="baseline" value="0"/>
-            <!-- Mode for passenger to interact with system. -->
-            <flag name="passenger" value="1"/>
-        </attr>
+        <!-- UX restrictions service supports returning different sets of UX restrictions for the
+             same driving state, through configurations for each "mode". These modes can be
+             specified by any string name, for example, "passenger". "baseline" is the default
+             value. -->
+        <attr name="mode" format="string"/>
     </declare-styleable>
 
     <!-- 2. Some of UX restrictions can be parametrized. -->

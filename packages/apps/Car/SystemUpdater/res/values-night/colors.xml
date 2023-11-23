@@ -16,8 +16,5 @@
 -->
 <resources>
     <!-- The default color for all activities in the SetupWizard. -->
-    <color name="windowBackground">@color/car_dark_blue_grey_700</color>
-
-    <!-- The color of the status bar. -->
-    <color name="colorPrimaryDark">@color/car_dark_blue_grey_800</color>
+    <color name="windowBackground">#ff172026</color>
 </resources>

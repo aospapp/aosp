@@ -35,6 +35,8 @@ import java.util.concurrent.TimeUnit;
 @SmallTest
 public class PreferencesMonitorTest {
 
+    private static final String LOCAL_PREFERENCE = "rootViewMode-testRoot";
+
     private SharedPreferences mPrefs;
     private PreferencesMonitor mMonitor;
     private TestConsumer<String> mConsumer;
@@ -54,9 +56,9 @@ public class PreferencesMonitorTest {
 
     @Test
     public void testReportsChangesToListener() throws Exception {
-      mPrefs.edit().putBoolean(ScopedPreferences.INCLUDE_DEVICE_ROOT, true).apply();
-      // internally the monitor waits for notification of changes.
-      mConsumer.waitForCall(100, TimeUnit.MILLISECONDS);
-      mConsumer.assertLastArgument(ScopedPreferences.INCLUDE_DEVICE_ROOT);
+        mPrefs.edit().putInt(LOCAL_PREFERENCE, 1).apply();
+        // internally the monitor waits for notification of changes.
+        mConsumer.waitForCall(100, TimeUnit.MILLISECONDS);
+        mConsumer.assertLastArgument(LOCAL_PREFERENCE);
     }
 }

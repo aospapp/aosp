@@ -84,7 +84,10 @@ public class AccessControlEnforcer {
         mAccessRuleCache = new AccessRuleCache();
     }
 
-    public static byte[] getDefaultAccessControlAid() {
+    public byte[] getDefaultAccessControlAid() {
+        if (mAraController != null) {
+            return mAraController.getAccessControlAid();
+        }
         return AraController.getAraMAid();
     }
 
@@ -448,12 +451,49 @@ public class AccessControlEnforcer {
         }
     }
 
+    /** Returns true if the given package has Carrier Privileges */
+    public synchronized boolean checkCarrierPrivilege(PackageInfo pInfo, boolean checkRefreshTag) {
+        if (!mUseAra && !mUseArf) {
+            return false;
+        }
+        if (checkRefreshTag) {
+            try {
+                updateAccessRuleIfNeed();
+            } catch (IOException | MissingResourceException e) {
+                throw new AccessControlException("Access-Control not found in "
+                        + mTerminal.getName());
+            }
+        }
+        if (!mRulesRead) {
+            return false;
+        }
+        try {
+            List<byte[]> appCertHashes = getAppCertHashes(pInfo.packageName);
+            if (appCertHashes == null || appCertHashes.size() == 0) {
+                return false;
+            }
+
+            return mAccessRuleCache.checkCarrierPrivilege(pInfo.packageName, appCertHashes);
+        } catch (Exception e) {
+            Log.w(mTag, " checkCarrierPrivilege: " + e.getLocalizedMessage());
+        }
+        return false;
+    }
+
     /** Debug information to be used by dumpsys */
     public void dump(PrintWriter writer) {
         writer.println(mTag + ":");
 
         writer.println("mUseArf: " + mUseArf);
         writer.println("mUseAra: " + mUseAra);
+        if (mUseAra && mAraController != null) {
+            if (getDefaultAccessControlAid() == null) {
+                writer.println("AraInUse: default applet");
+            } else {
+                writer.println("AraInUse: " + ByteArrayConverter.byteArrayToHexString(
+                        getDefaultAccessControlAid()));
+            }
+        }
         writer.println("mInitialChannelAccess:");
         writer.println(mInitialChannelAccess.toString());
         writer.println();
@@ -488,9 +528,6 @@ public class AccessControlEnforcer {
             }
         }
         if (!mTerminal.getName().startsWith(SecureElementService.UICC_TERMINAL)) {
-            // It shall be allowed to grant full access if no rule can be retrieved
-            // from the secure element except for UICC.
-            mFullAccess = true;
             // ARF is supported only on UICC.
             mUseArf = false;
         }

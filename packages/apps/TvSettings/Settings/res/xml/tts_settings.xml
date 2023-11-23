@@ -21,7 +21,6 @@
     <!-- The contents of this category are filled in by the Java code
          based on the list of available engines. -->
     <PreferenceCategory android:key="tts_engine_preference_section"
-                        android:layout="@layout/preference_category_compact_layout"
                         android:title="@string/tts_engine_preference_section_title"/>
 
     <Preference android:fragment="com.android.tv.settings.system.TtsEngineSettingsFragment"
@@ -29,7 +28,6 @@
                 android:title="@string/system_accessibility_tts_engine_config"/>
 
     <PreferenceCategory android:key="tts_general_section"
-                        android:layout="@layout/preference_category_compact_layout"
                         android:title="@string/tts_general_section_title">
         <ListPreference
             android:entries="@array/tts_rate_entries"

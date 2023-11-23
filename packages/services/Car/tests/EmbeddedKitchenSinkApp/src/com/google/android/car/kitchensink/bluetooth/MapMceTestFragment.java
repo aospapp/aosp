@@ -50,12 +50,53 @@ import com.google.android.car.kitchensink.KitchenSinkActivity;
 import com.google.android.car.kitchensink.R;
 
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 
 @TargetApi(Build.VERSION_CODES.LOLLIPOP)
 public class MapMceTestFragment extends Fragment {
-    static final String MESSAGE_TO_SEND = "Im Busy Driving";
-    static final String NEW_MESSAGE_TO_SEND = "This is new msg";
+    static final String REPLY_MESSAGE_TO_SEND = "I am currently driving.";
+    static final String NEW_MESSAGE_TO_SEND_SHORT = "This is a new message.";
+    static final String NEW_MESSAGE_TO_SEND_LONG = "Lorem ipsum dolor sit amet, consectetur "
+            + "adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna "
+            + "aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi "
+            + "ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in "
+            + "voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint "
+            + "occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim "
+            + "id est laborum.\n\nCurabitur pretium tincidunt lacus. Nulla gravida orci a odio. "
+            + "Nullam varius, turpis et commodo pharetra, est eros bibendum elit, nec luctus "
+            + "magna felis sollicitudin mauris. Integer in mauris eu nibh euismod gravida. Duis "
+            + "ac tellus et risus vulputate vehicula. Donec lobortis risus a elit. Etiam tempor. "
+            + "Ut ullamcorper, ligula eu tempor congue, eros est euismod turpis, id tincidunt "
+            + "sapien risus a quam. Maecenas fermentum consequat mi. Donec fermentum. "
+            + "Pellentesque malesuada nulla a mi. Duis sapien sem, aliquet nec, commodo eget, "
+            + "consequat quis, neque. Aliquam faucibus, elit ut dictum aliquet, felis nisl "
+            + "adipiscing sapien, sed malesuada diam lacus eget erat. Cras mollis scelerisque "
+            + "nunc. Nullam arcu. Aliquam consequat. Curabitur augue lorem, dapibus quis, "
+            + "laoreet et, pretium ac, nisi. Aenean magna nisl, mollis quis, molestie eu, "
+            + "feugiat in, orci. In hac habitasse platea dictumst.\n\nLorem ipsum dolor sit "
+            + "amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et "
+            + "dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco "
+            + "laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in "
+            + "reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. "
+            + "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia "
+            + "deserunt mollit anim id est laborum.\n\nCurabitur pretium tincidunt lacus. Nulla "
+            + "gravida orci a odio. Nullam varius, turpis et commodo pharetra, est eros bibendum "
+            + "elit, nec luctus magna felis sollicitudin mauris. Integer in mauris eu nibh "
+            + "euismod gravida. Duis ac tellus et risus vulputate vehicula. Donec lobortis risus "
+            + "a elit. Etiam tempor. Ut ullamcorper, ligula eu tempor congue, eros est euismod "
+            + "turpis, id tincidunt sapien risus a quam. Maecenas fermentum consequat mi. Donec "
+            + "fermentum. Pellentesque malesuada nulla a mi. Duis sapien sem, aliquet nec, "
+            + "commodo eget, consequat quis, neque. Aliquam faucibus, elit ut dictum aliquet, "
+            + "felis nisl adipiscing sapien, sed malesuada diam lacus eget erat. Cras mollis "
+            + "scelerisque nunc. Nullam arcu. Aliquam consequat. Curabitur augue lorem, dapibus "
+            + "quis, laoreet et, pretium ac, nisi. Aenean magna nisl, mollis quis, molestie eu, "
+            + "feugiat in, orci. In hac habitasse platea dictumst.";
+    private static final int SEND_NEW_SMS_SHORT = 1;
+    private static final int SEND_NEW_SMS_LONG = 2;
+    private static final int SEND_NEW_MMS_SHORT = 3;
+    private static final int SEND_NEW_MMS_LONG = 4;
+    private int mSendNewMsgCounter = 0;
     private static final String TAG = "CAR.BLUETOOTH.KS";
     private static final int SEND_SMS_PERMISSIONS_REQUEST = 1;
     BluetoothMapClient mMapProfile;
@@ -86,7 +127,9 @@ public class MapMceTestFragment extends Fragment {
         Button reply = (Button) v.findViewById(R.id.reply);
         Button checkMessages = (Button) v.findViewById(R.id.check_messages);
         mBluetoothDevice = (TextView) v.findViewById(R.id.bluetoothDevice);
-        Button sendNewMsg = (Button) v.findViewById(R.id.sms_new_message);
+        Button sendNewMsgShort = (Button) v.findViewById(R.id.sms_new_message);
+        Button sendNewMsgLong = (Button) v.findViewById(R.id.mms_new_message);
+        Button resetSendNewMsgCounter = (Button) v.findViewById(R.id.reset_message_counter);
         mSmsTelNum = (EditText) v.findViewById(R.id.sms_tel_num);
         mOriginator = (EditText) v.findViewById(R.id.messageOriginator);
         mOriginatorDisplayName = (TextView) v.findViewById(R.id.messageOriginatorDisplayName);
@@ -114,18 +157,29 @@ public class MapMceTestFragment extends Fragment {
             @Override
             public void onClick(View view) {
                 sendMessage(new Uri[]{Uri.parse(mOriginator.getText().toString())},
-                        MESSAGE_TO_SEND);
+                        REPLY_MESSAGE_TO_SEND);
             }
         });
 
-        sendNewMsg.setOnClickListener(new View.OnClickListener() {
+        sendNewMsgShort.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                String s = mSmsTelNum.getText().toString();
-                Toast.makeText(getContext(), "sending msg to " + s, Toast.LENGTH_SHORT).show();
-                Uri.Builder builder = new Uri.Builder();
-                Uri uri = builder.appendPath(s).scheme(PhoneAccount.SCHEME_TEL).build();
-                sendMessage(new Uri[]{uri}, NEW_MESSAGE_TO_SEND);
+                sendNewMsgOnClick(SEND_NEW_SMS_SHORT);
+            }
+        });
+
+        sendNewMsgLong.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                sendNewMsgOnClick(SEND_NEW_MMS_LONG);
+            }
+        });
+
+        resetSendNewMsgCounter.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                mSendNewMsgCounter = 0;
+                Toast.makeText(getContext(), "Counter reset to zero.", Toast.LENGTH_SHORT).show();
             }
         });
 
@@ -165,7 +219,11 @@ public class MapMceTestFragment extends Fragment {
     }
 
     void disconnectDevice(String device) {
-        mMapProfile.disconnect(mBluetoothAdapter.getRemoteDevice((device)));
+        try {
+            mMapProfile.disconnect(mBluetoothAdapter.getRemoteDevice(device));
+        } catch (IllegalArgumentException e) {
+            Log.e(TAG, "Failed to disconnect from " + device, e);
+        }
     }
 
     @Override
@@ -206,6 +264,28 @@ public class MapMceTestFragment extends Fragment {
                 mMapProfile.getUnreadMessages(remoteDevice);
             }
         }
+    }
+
+    private void sendNewMsgOnClick(int msgType) {
+        String messageToSend = "";
+        switch (msgType) {
+            case SEND_NEW_SMS_SHORT:
+                messageToSend = NEW_MESSAGE_TO_SEND_SHORT;
+                break;
+            case SEND_NEW_MMS_LONG:
+                messageToSend = NEW_MESSAGE_TO_SEND_LONG;
+                break;
+        }
+        String s = mSmsTelNum.getText().toString();
+        Toast.makeText(getContext(), "sending msg to " + s, Toast.LENGTH_SHORT).show();
+        HashSet<Uri> uris = new HashSet<Uri>();
+        Uri.Builder builder = new Uri.Builder();
+        for (String telNum : s.split(",")) {
+            uris.add(builder.path(telNum).scheme(PhoneAccount.SCHEME_TEL).build());
+        }
+        sendMessage(uris.toArray(new Uri[uris.size()]), Integer.toString(mSendNewMsgCounter)
+                + ":  " + messageToSend);
+        mSendNewMsgCounter += 1;
     }
 
     private int getUploadingFeatureValue() {

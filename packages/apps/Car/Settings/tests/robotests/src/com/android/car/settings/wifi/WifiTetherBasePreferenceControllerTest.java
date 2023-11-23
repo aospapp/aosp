@@ -20,27 +20,30 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
+import android.content.Intent;
+import android.net.wifi.SoftApConfiguration;
 
 import androidx.annotation.Nullable;
 import androidx.lifecycle.Lifecycle;
 import androidx.preference.Preference;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
 import com.android.car.settings.common.ValidatedEditTextPreference;
 import com.android.car.settings.testutils.ShadowCarWifiManager;
+import com.android.car.settings.testutils.ShadowLocalBroadcastManager;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadow.api.Shadow;
 
-@RunWith(CarSettingsRobolectricTestRunner.class)
-@Config(shadows = {ShadowCarWifiManager.class})
+@RunWith(RobolectricTestRunner.class)
+@Config(shadows = {ShadowCarWifiManager.class, ShadowLocalBroadcastManager.class})
 public class WifiTetherBasePreferenceControllerTest {
 
     private static final String SUMMARY = "SUMMARY";
@@ -153,12 +156,26 @@ public class WifiTetherBasePreferenceControllerTest {
     }
 
     @Test
-    public void summaryToShow_defaultSummaryNotSet_shouldSHowNonDefaultSummary() {
+    public void summaryToShow_defaultSummaryNotSet_shouldShowNonDefaultSummary() {
         mController.setConfigSummaries(SUMMARY, /* defaultSummary= */ null);
         mControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_START);
         mController.updateState(mPreference);
 
         assertThat(mPreference.getSummary()).isEqualTo(SUMMARY);
+    }
+
+    @Test
+    public void onSetWifiTetherConfig_requestsWifiTetherRestart() {
+        mControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_START);
+        SoftApConfiguration config = new SoftApConfiguration.Builder().build();
+        mController.setCarSoftApConfig(config);
+
+        Intent expectedIntent = new Intent(
+                WifiTetherBasePreferenceController.ACTION_RESTART_WIFI_TETHERING);
+
+        assertThat(
+                ShadowLocalBroadcastManager.getSentBroadcastIntents().get(0).toString())
+                .isEqualTo(expectedIntent.toString());
     }
 
     private ShadowCarWifiManager getShadowCarWifiManager() {

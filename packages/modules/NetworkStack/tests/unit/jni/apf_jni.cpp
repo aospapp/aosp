@@ -14,19 +14,20 @@
  * limitations under the License.
  */
 
+#include <android/log.h>
 #include <nativehelper/JNIHelp.h>
 #include <nativehelper/ScopedUtfChars.h>
 #include <jni.h>
 #include <pcap.h>
 #include <stdlib.h>
 #include <string>
-#include <utils/Log.h>
 #include <vector>
 
 #include "apf_interpreter.h"
 #include "nativehelper/scoped_primitive_array.h"
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
+#define LOG_TAG "NetworkStackUtils-JNI"
 
 // JNI function acting as simply call-through to native APF interpreter.
 static jint com_android_server_ApfTest_apfSimulate(
@@ -226,7 +227,7 @@ static jboolean com_android_server_ApfTest_dropsAllPackets(JNIEnv* env, jclass, 
 extern "C" jint JNI_OnLoad(JavaVM* vm, void*) {
     JNIEnv *env;
     if (vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) != JNI_OK) {
-        ALOGE("ERROR: GetEnv failed");
+        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "ERROR: GetEnv failed");
         return -1;
     }
 

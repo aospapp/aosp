@@ -15,11 +15,18 @@
  */
 package android.car.apitest;
 
+import static com.google.common.truth.Truth.assertThat;
+
+import static org.junit.Assert.fail;
+
 import android.car.Car;
 import android.car.hardware.CarPropertyConfig;
 import android.car.hardware.cabin.CarCabinManager;
 import android.test.suitebuilder.annotation.MediumTest;
 import android.util.Log;
+
+import org.junit.Before;
+import org.junit.Test;
 
 import java.util.Arrays;
 import java.util.HashSet;
@@ -32,13 +39,13 @@ public class CarCabinManagerTest extends CarApiTestBase {
 
     private CarCabinManager mCabinManager;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setUp() throws Exception {
         mCabinManager = (CarCabinManager) getCar().getCarManager(Car.CABIN_SERVICE);
-        assertNotNull(mCabinManager);
+        assertThat(mCabinManager).isNotNull();
     }
 
+    @Test
     public void testAllCabinProperties() throws Exception {
         List<CarPropertyConfig> properties = mCabinManager.getPropertyList();
         Set<Class> supportedTypes = new HashSet<>(Arrays.asList(
@@ -62,8 +69,8 @@ public class CarCabinManagerTest extends CarApiTestBase {
             case CarCabinManager.ID_MIRROR_FOLD:
             case CarCabinManager.ID_SEAT_BELT_BUCKLED:
             case CarCabinManager.ID_WINDOW_LOCK:
-                assertEquals(Boolean.class, property.getPropertyType());
-                assertFalse(property.isGlobalProperty());
+                assertThat(property.getPropertyType()).isAssignableTo(Boolean.class);
+                assertThat(property.isGlobalProperty()).isFalse();
                 break;
 
             // Zoned integer properties
@@ -101,13 +108,13 @@ public class CarCabinManagerTest extends CarApiTestBase {
             case CarCabinManager.ID_SEAT_HEADREST_FORE_AFT_MOVE:
             case CarCabinManager.ID_WINDOW_POS:
             case CarCabinManager.ID_WINDOW_MOVE:
-                assertEquals(Integer.class, property.getPropertyType());
-                assertFalse(property.isGlobalProperty());
+                assertThat(property.getPropertyType()).isAssignableTo(Integer.class);
+                assertThat(property.isGlobalProperty()).isFalse();
                 checkIntMinMax(property);
                 break;
             default:
                 Log.e(TAG, "Property ID not handled: " + propId);
-                assertTrue(false);
+                assertThat(false).isTrue();
                 break;
         }
     }
@@ -116,23 +123,23 @@ public class CarCabinManagerTest extends CarApiTestBase {
         Log.i(TAG, "checkIntMinMax property:" + property);
         if (!property.isGlobalProperty()) {
             int[] areaIds = property.getAreaIds();
-            assertTrue(areaIds.length > 0);
-            assertEquals(areaIds.length, property.getAreaCount());
+            assertThat(areaIds.length).isGreaterThan(0);
+            assertThat(property.getAreaCount()).isEqualTo(areaIds.length);
 
             for (int areId : areaIds) {
-                assertTrue(property.hasArea(areId));
+                assertThat(property.hasArea(areId)).isTrue();
                 int min = property.getMinValue(areId);
                 int max = property.getMaxValue(areId);
-                assertTrue(min <= max);
+                assertThat(min).isAtMost(max);
             }
         } else {
             int min = property.getMinValue();
             int max = property.getMaxValue();
-            assertTrue(min <= max);
+            assertThat(min).isAtMost(max);
             for (int i = 0; i < 32; i++) {
-                assertFalse(property.hasArea(0x1 << i));
-                assertNull(property.getMinValue(0x1 << i));
-                assertNull(property.getMaxValue(0x1 << i));
+                assertThat(property.hasArea(0x1 << i)).isFalse();
+                assertThat(property.getMinValue(0x1 << i)).isNull();
+                assertThat(property.getMaxValue(0x1 << i)).isNull();
             }
         }
     }

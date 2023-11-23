@@ -16,9 +16,9 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_label" msgid="6006277287245076524">"Онцгой байдлын сэрэмжлүүлэг"</string>
-    <string name="sms_cb_settings" msgid="3795852619005211509">"Гамшгийн аюулын дохио"</string>
-    <string name="cell_broadcast_settings_not_available" msgid="2612364350745967915">"Энэ хэрэглэгчид Үүрэн нэвтрүүлгийн тохиргоог ашиглах боломжгүй"</string>
+    <string name="app_label" msgid="2008319089248760277">"Утасгүй сүлжээгээр дамжуулах гамшгийн аюулын дохио"</string>
+    <string name="sms_cb_settings" msgid="9021266457863671070">"Утасгүй сүлжээгээр дамжуулах гамшгийн аюулын дохио"</string>
+    <string name="cell_broadcast_settings_not_available" msgid="3908142962162375221">"Энэ хэрэглэгчийн хувьд утасгүй сүлжээгээр дамжуулах гамшгийн аюулын дохионы тохиргоо боломжгүй байна"</string>
     <string name="button_dismiss" msgid="1234221657930516287">"OK"</string>
     <string name="no_cell_broadcasts" msgid="7554779730107421769">"Өмнөх сэрэмжлүүлэг алга"</string>
     <string name="menu_delete_all" msgid="3940997343921149800">"Нэвтрүүлгүүдийг устгах"</string>
@@ -26,6 +26,7 @@
     <string name="menu_view_details" msgid="1040989019045280975">"Дэлгэрэнгүй үзэх"</string>
     <string name="menu_delete" msgid="128380070910799366">"Нэвтрүүлгийг устгах"</string>
     <string name="view_details_title" msgid="1780427629491781473">"Сэрэмжлүүлгийн мэдээлэл"</string>
+    <string name="view_details_debugging_title" msgid="5699927030805114173">"Алдаа засах сэрэмжлүүлгийн дэлгэрэнгүй"</string>
     <string name="confirm_delete_broadcast" msgid="2540199303730232322">"Энэ нэвтрүүлгийг устгах уу?"</string>
     <string name="confirm_delete_all_broadcasts" msgid="2924444089047280871">"Хүлээн авсан бүх нэвтрүүлгийн зурвасуудыг устгах уу?"</string>
     <string name="button_delete" msgid="4672451757925194350">"Устгах"</string>
@@ -51,11 +52,11 @@
     <string name="emergency_alerts_title" msgid="6605036374197485429">"Дохио"</string>
     <string name="notification_channel_broadcast_messages" msgid="880704362482824524">"Зурвас дамжуулах"</string>
     <string name="notification_channel_emergency_alerts" msgid="5008287980979183617">"Гамшгийн аюулын дохио"</string>
+    <string name="notification_channel_broadcast_messages_in_voicecall" msgid="3291001780110813190">"Дуут дуудлагын үеэр ирэх гамшгийн аюулын дохио"</string>
     <string name="enable_alerts_master_toggle_title" msgid="1457904343636699446">"Дохиоллыг зөвшөөрөх"</string>
-    <string name="enable_alerts_master_toggle_summary" msgid="699552922381916044">"Гамшгийн аюулын дохио хүлээн авах"</string>
-    <string name="alert_reminder_interval_title" msgid="7466642011937564868">"Сануулах дохионы ая"</string>
-    <string name="enable_alert_speech_title" msgid="8052104771053526941">"Сэрэмжлүүлгийн зурвасыг унших"</string>
-    <string name="enable_alert_speech_summary" msgid="356086178962268831">"Онцгой байдлын сэрэмжлүүлгийн зурвасуудыг уншихын тулд текст-яриаг ашиглана уу"</string>
+    <string name="enable_alerts_master_toggle_summary" msgid="5583168548073938617">"Утасгүй сүлжээгээр гамшгийн аюулын дохионы мэдэгдэл авах"</string>
+    <string name="alert_reminder_interval_title" msgid="3283595202268218149">"Сэрэмжлүүлгийн сануулагч"</string>
+    <string name="alert_reminder_dialog_title" msgid="2299010977651377315">"Сануулагчийн аяыг дууны энгийн түвшинд тоглуулна"</string>
     <string name="emergency_alert_history_title" msgid="8310173569237268431">"Гамшгийн аюулын дохионы түүх"</string>
     <string name="alert_preferences_title" msgid="6001469026393248468">"Дохионы тохиргоо"</string>
     <string name="enable_etws_test_alerts_title" msgid="3593533226735441539">"ГХЦАС тест дамжуулалт"</string>
@@ -68,20 +69,19 @@
     <string name="enable_cmas_amber_alerts_summary" msgid="4495233280416889667">"Хүүхэд хулгайлсан тохиолдлын яаралтай мэдээлэл"</string>
     <string name="enable_alert_message_title" msgid="2939830587633599352">"Зурвасаар анхааруулах"</string>
     <string name="enable_alert_message_summary" msgid="6525664541696985610">"Аюулгүй байдалд учирч болзошгүй арга хэмжээний талаар сэрэмжлүүлэх"</string>
-    <string name="enable_public_safety_messages_title" msgid="5576770949182656524">"Нийтийн аюулгүй зурвас"</string>
+    <string name="enable_public_safety_messages_title" msgid="5576770949182656524">"Нийтийн аюулгүй байдлын зурвас"</string>
     <string name="enable_public_safety_messages_summary" msgid="7868069748857851521">"Амьдрал эсвэл хөрөнгийг хэмнэх боломжтой санал болгосон үйлдэл"</string>
     <string name="enable_state_local_test_alerts_title" msgid="1012930918171302720">"Муж ба орон нутгийн туршилтууд"</string>
     <string name="enable_state_local_test_alerts_summary" msgid="780298327377950187">"Муж ба орон нутгийн захиргаанаас туршилтын мессежүүдийг хүлээн авах"</string>
     <string name="enable_emergency_alerts_message_title" msgid="661894007489847468">"Гамшгийн аюулын дохио"</string>
     <string name="enable_emergency_alerts_message_summary" msgid="7574617515441602546">"Сүрдүүлгийн арга хэмжээний талаар сэрэмжлүүлэх"</string>
-    <string name="enable_cmas_test_alerts_title" msgid="1319231576046146463">"Сар тутмын туршилт шаардлагатай"</string>
-    <string name="enable_cmas_test_alerts_summary" msgid="588517403520088484">"Аюулгүй байдлын сэрэмжлүүлгийн системийн туршилтын зурвас авах"</string>
+    <string name="enable_cmas_test_alerts_title" msgid="7194966927004755266">"Туршилтын сэрэмжлүүлэг"</string>
+    <string name="enable_cmas_test_alerts_summary" msgid="2083089933271720217">"Оператор компанийн болон аюулгүй байдлын сэрэмжлүүлгийн системийн сар тутмын туршилтын зурвас авах"</string>
     <string name="enable_alert_vibrate_title" msgid="5421032189422312508">"Чичиргээ"</string>
-    <string name="use_full_volume_title" msgid="8581439612945182255">"Хамгийн чангаар тохируулах"</string>
-    <string name="use_full_volume_summary" msgid="3560764277281704697">"Бусад дууны түвшин, Бүү саад бол тохиргоог үл хэрэгсэх"</string>
+    <string name="override_dnd_title" msgid="5120805993144214421">"Сэрэмжлүүлгийг үргэлж хамгийн чанга дээр тоглуулах"</string>
+    <string name="override_dnd_summary" msgid="9026675822792800258">"Бүү саад бол горимыг үл хэрэгсэх болон дууны түвшний бусад тохиргоо"</string>
     <string name="enable_area_update_info_alerts_title" msgid="3442042268424617226">"Газрын шинэчлэлтийн дамжуулалт"</string>
     <string name="enable_area_update_info_alerts_summary" msgid="6437816607144264910">"Шинэчлэлтийн мэдээллийг SIM-н төлөвт харуулах"</string>
-    <string name="category_dev_settings_title" msgid="6194393458398329994">"Хөгжүүлэгчийн тохиргоо"</string>
     <string name="cmas_category_heading" msgid="3923503130776640717">"Сэрэмжлүүлгийн Ангилал:"</string>
     <string name="cmas_category_geo" msgid="4979494217069688527">"Геофизик"</string>
     <string name="cmas_category_met" msgid="7563732573851773537">"Цаг уурын"</string>
@@ -118,7 +118,7 @@
     <string name="notification_multiple_title" msgid="1523638925739947855">"Шинэ сэрэмжлүүлэг"</string>
     <string name="show_cmas_opt_out_summary" msgid="6926059266585295440">"Эхний сэрэмжлүүлгийг (Ерөнхийлөгчийн сэрэмжлүүлгээс бусад) харуулсны дараa татгалзах диалогийг харуулах."</string>
     <string name="show_cmas_opt_out_title" msgid="9182104842820171132">"Бүртгэлээс хасуулах диалогийг харуулах"</string>
-    <string name="cmas_opt_out_dialog_text" msgid="7529010670998259128">"Та одоо Гамшгийн аюулын дохио хүлээн авч байна. Үргэлжлүүлэн хүлээн авах уу?"</string>
+    <string name="cmas_opt_out_dialog_text" msgid="4820577535626084938">"Та одоогоор утасгүй сүлжээгээр дамжуулах гамшгийн аюулын дохиог хүлээн авч байна. Та утасгүй сүлжээгээр дамжуулах гамшгийн аюулын дохиог үргэлжлүүлэн авах уу?"</string>
     <string name="cmas_opt_out_button_yes" msgid="7248930667195432936">"Тийм"</string>
     <string name="cmas_opt_out_button_no" msgid="3110484064328538553">"Үгүй"</string>
     <string name="cb_list_activity_title" msgid="1433502151877791724">"Гамшгийн аюулын дохионы түүх"</string>
@@ -127,7 +127,26 @@
     <item msgid="9097229303902157183">"2 минут тутамд"</item>
     <item msgid="5718214950343391480">"5 минут тутамд"</item>
     <item msgid="3863339891188103437">"15 минут тутамд"</item>
-    <item msgid="6868848414437854609">"Унтраалттай"</item>
+    <item msgid="7388573183644474611">"Хэзээ ч үгүй"</item>
   </string-array>
     <string name="emergency_alert_settings_title_watches" msgid="4477073412799894883">"Утасгүй сүлжээгээр дамжуулах гамшгийн аюулын дохио"</string>
+    <string name="enable_cmas_presidential_alerts_title" msgid="7293800023375154256">"Ерөнхийлөгчийн сэрэмжлүүлэг"</string>
+    <string name="enable_cmas_presidential_alerts_summary" msgid="7900094335808247024">"Ерөнхийлөгчийн гаргасан Үндэсний сэрэмжлүүлэг зурвас. Унтраах боломжгүй."</string>
+    <string name="receive_cmas_in_second_language_title" msgid="1223260365527361964"></string>
+    <string name="receive_cmas_in_second_language_summary" msgid="7704105502782770718"></string>
+    <string name="alerts_header_summary" msgid="4700985191868591788"></string>
+    <string name="testing_mode_enabled" msgid="8296556666392297467">"Гар утсанд масс мессеж түгээх туршилтын горимыг идэвхжүүлсэн байна."</string>
+    <string name="testing_mode_disabled" msgid="8381408377958182661">"Гар утсанд масс мессеж түгээх туршилтын горимыг идэвхгүй болгосон байна."</string>
+    <string name="show_all_messages" msgid="3780970968167139836">"Бүх зурвасыг харуулах"</string>
+    <string name="show_regular_messages" msgid="7376885150513522515">"Энгийн зурвасыг харуулах"</string>
+    <string name="message_identifier" msgid="5558338496219327850">"Таниулбар:"</string>
+    <string name="message_serial_number" msgid="3386553658712978964">"Серийн дугаар:"</string>
+    <string name="data_coding_scheme" msgid="4628901196730870577">"Өгөгдөл кодчлох схем:"</string>
+    <string name="message_content" msgid="6204502929879474632">"Зурвасын контент:"</string>
+    <string name="location_check_time" msgid="4105326161240531207">"Байршлыг шалгах хугацаа:"</string>
+    <string name="message_displayed" msgid="5091678195925617971">"Үзүүлсэн зурвас:"</string>
+    <string name="message_coordinates" msgid="356333576818059052">"Солбилцол:"</string>
+    <string name="maximum_waiting_time" msgid="3504809124079381356">"Хамгийн дээд хүлээх хугацаа:"</string>
+    <string name="seconds" msgid="141450721520515025">"секунд"</string>
+    <string name="message_copied" msgid="6922953753733166675">"Зурвасыг хуулсан"</string>
 </resources>

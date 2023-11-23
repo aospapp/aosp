@@ -85,8 +85,7 @@
     <string name="font_size_summary" msgid="9120023206321191067">"Sumažinkite arba padidinkite ekrane rodomą tekstą."</string>
     <string name="font_size_make_smaller_desc" msgid="5780829318985556969">"Padaryti mažesnius"</string>
     <string name="font_size_make_larger_desc" msgid="2907824418252785875">"Padaryti didesnius"</string>
-    <!-- no translation found for font_size_preview_text (360019784926073822) -->
-    <skip />
+    <string name="font_size_preview_text" msgid="360019784926073822">"Servez à ce monsieur une bière et des kiwis."</string>
     <string name="font_size_preview_text_headline" msgid="8038650525913995091">"Pavyzdinis tekstas"</string>
     <string name="font_size_preview_text_title" msgid="2593520249400910305">"Nuostabusis Ozo šalies burtininkas"</string>
     <string name="font_size_preview_text_subtitle" msgid="6106782964143379331">"11 skyrius. Nuostabusis Smaragdo miestas"</string>
@@ -384,7 +383,7 @@
     <string name="location_settings_loading_app_permission_stats" msgid="7818169326621327628">"Įkeliama…"</string>
     <string name="account_settings_title" msgid="7870321267198486578">"Paskyros"</string>
     <string name="security_settings_title" msgid="8228075165942416425">"Sauga"</string>
-    <string name="encryption_and_credential_settings_title" msgid="6911729638397745353">"Šifruotė ir prisijungimo duomenys"</string>
+    <string name="encryption_and_credential_settings_title" msgid="6911729638397745353">"Šifruotė ir prisi. duom."</string>
     <string name="encryption_and_credential_settings_summary" product="default" msgid="468749700109808546">"Telefonas užšifruotas"</string>
     <string name="decryption_settings_summary" product="default" msgid="7401802133199522441">"Telefonas nešifruotas"</string>
     <string name="encryption_and_credential_settings_summary" product="tablet" msgid="8170667308598998791">"Įrenginys šifruotas"</string>
@@ -489,8 +488,7 @@
     <string name="face_lock_screen_setup_skip_dialog_text" product="tablet" msgid="2998863111689476550">"Pasirinkę ekrano užrakto parinktį apsaugokite planšetinį kompiuterį, kad jo niekas negalėtų naudoti, jei pamestumėte ar jis būtų pavogtas. Ekrano užrakto taip pat reikia norint nustatyti veido autentifikavimą. Palieskite „Atšaukti“, tada nustatykite PIN kodą arba pasirinkite kitą ekrano užrakto parinktį."</string>
     <string name="face_lock_screen_setup_skip_dialog_text" product="device" msgid="6780557259734235952">"Pasirinkę ekrano užrakto parinktį apsaugokite įrenginį, kad jo niekas negalėtų naudoti, jei pamestumėte ar jis būtų pavogtas. Ekrano užrakto taip pat reikia norint nustatyti veido autentifikavimą. Palieskite „Atšaukti“, tada nustatykite PIN kodą arba pasirinkite kitą ekrano užrakto parinktį."</string>
     <string name="face_lock_screen_setup_skip_dialog_text" product="default" msgid="8541640018478926775">"Pasirinkę ekrano užrakto parinktį apsaugokite telefoną, kad jo niekas negalėtų naudoti, jei pamestumėte ar jis būtų pavogtas. Ekrano užrakto taip pat reikia norint nustatyti veido autentifikavimą. Palieskite „Atšaukti“, tada nustatykite PIN kodą arba pasirinkite kitą ekrano užrakto parinktį."</string>
-    <!-- no translation found for lock_screen_pin_skip_title (8217519439213393785) -->
-    <skip />
+    <string name="lock_screen_pin_skip_title" msgid="8217519439213393785">"Praleisti PIN kodo sąranką?"</string>
     <string name="lock_screen_password_skip_title" msgid="3725788215672959827">"Praleisti slaptažod. sąranką?"</string>
     <string name="lock_screen_pattern_skip_title" msgid="4237030500353932005">"Praleisti atr. pieš. sąranką?"</string>
     <string name="security_settings_fingerprint_enroll_setup_screen_lock" msgid="9036983528330627756">"Nustatyti ekrano užraktą"</string>
@@ -685,7 +683,6 @@
       <item quantity="many">Turi būti mažiau nei <xliff:g id="NUMBER_1">%d</xliff:g> skaitmens</item>
       <item quantity="other">Turi būti mažiau nei <xliff:g id="NUMBER_1">%d</xliff:g> skaitmenų</item>
     </plurals>
-    <string name="lockpassword_pin_contains_non_digits" msgid="1501729742023195556">"Turi būti sudarytas tik iš skaitmenų (0–9)"</string>
     <string name="lockpassword_pin_recently_used" msgid="5556148774911741103">"Įrenginio administratorius neleidžia naudoti pastarojo PIN kodo"</string>
     <string name="lockpassword_pin_blacklisted_by_admin" msgid="2752037810571200697">"Dažnai naudojamus PIN kodus užblokavo IT administratorius. Bandykite naudoti kitą PIN kodą."</string>
     <string name="lockpassword_illegal_character" msgid="3577712947676261351">"Negali būti netinkamų simbolių"</string>
@@ -727,6 +724,12 @@
       <item quantity="few">Turi būti bent <xliff:g id="COUNT">%d</xliff:g> neraidiniai simboliai</item>
       <item quantity="many">Turi būti bent <xliff:g id="COUNT">%d</xliff:g> neraidinio simbolio</item>
       <item quantity="other">Turi būti bent <xliff:g id="COUNT">%d</xliff:g> neraidinių simbolių</item>
+    </plurals>
+    <plurals name="lockpassword_password_requires_nonnumerical" formatted="false" msgid="6943707011152180150">
+      <item quantity="one">Turi būti bent <xliff:g id="COUNT">%d</xliff:g> neskaitinis simbolis</item>
+      <item quantity="few">Turi būti bent <xliff:g id="COUNT">%d</xliff:g> neskaitiniai simboliai</item>
+      <item quantity="many">Turi būti bent <xliff:g id="COUNT">%d</xliff:g> neskaitinio simbolio</item>
+      <item quantity="other">Turi būti bent <xliff:g id="COUNT">%d</xliff:g> neskaitinių simbolių</item>
     </plurals>
     <string name="lockpassword_password_recently_used" msgid="6944729699375087431">"Įrenginio administratorius neleidžia naudoti pastarojo slaptažodžio"</string>
     <string name="lockpassword_password_blacklisted_by_admin" msgid="4988166770148440755">"Dažnai naudojamus slaptažodžius užblokavo IT administratorius. Bandykite naudoti kitą slaptažodį."</string>
@@ -1126,13 +1129,19 @@
     <item msgid="2552412793005571845">"@*android:string/wfc_mode_cellular_preferred_summary"</item>
     <item msgid="742811521969300868">"@*android:string/wfc_mode_wifi_only_summary"</item>
   </string-array>
-    <!-- no translation found for wifi_calling_mode_choices_v2:0 (9149346657812979257) -->
-    <!-- no translation found for wifi_calling_mode_choices_v2:2 (6007360612667098926) -->
+  <string-array name="wifi_calling_mode_choices_v2">
+    <item msgid="9149346657812979257">"„Wi-Fi“ ryšys"</item>
+    <item msgid="4421333712484542489">"Mobiliojo ryšio tinklas"</item>
+    <item msgid="6007360612667098926">"Tik „Wi-Fi“ ryšys"</item>
+  </string-array>
   <string-array name="wifi_calling_mode_choices_without_wifi_only">
     <item msgid="3658897985297386665">"@*android:string/wfc_mode_wifi_preferred_summary"</item>
     <item msgid="4191802193352447215">"@*android:string/wfc_mode_cellular_preferred_summary"</item>
   </string-array>
-    <!-- no translation found for wifi_calling_mode_choices_v2_without_wifi_only:0 (6452246499629557266) -->
+  <string-array name="wifi_calling_mode_choices_v2_without_wifi_only">
+    <item msgid="6452246499629557266">"Wi-Fi"</item>
+    <item msgid="2271962426654621656">"Mobiliojo ryšio tinklas"</item>
+  </string-array>
     <string name="wifi_calling_mode_wifi_preferred_summary" msgid="8298294808362169798">"Jei „Wi‑Fi“ nepasiekiamas, naudokite mobiliojo ryšio tinklą"</string>
     <string name="wifi_calling_mode_cellular_preferred_summary" msgid="4906499810156794061">"Jei mobiliojo ryšio tinklas nepasiekiamas, naudoti „Wi‑Fi“"</string>
     <string name="wifi_calling_mode_wifi_only_summary" msgid="6928556021002500522">"Skambinimas naudojant „Wi-Fi“. Nutrūkus „Wi‑Fi“ skambutis bus baigtas."</string>
@@ -2639,7 +2648,7 @@
     <string name="sms_access_restriction_enabled" msgid="3006320256764718303">"Apriboti SMS ir skambučių žurnalo prieigą"</string>
     <string name="sms_access_restriction_enabled_summary" msgid="9011946580977780063">"Tik numatytosios telefono ir susirašinėjimo programos turi SMS ir skambučių žurnalo leidimus"</string>
     <string name="no_trust_agents" msgid="5757792915019113084">"Nėra jokių galimų „trust agents“"</string>
-    <string name="add_device_admin_msg" msgid="3573765823476931173">"Suaktyvinti įrenginio administravimo programą?"</string>
+    <string name="add_device_admin_msg" msgid="3573765823476931173">"Suaktyvinti įren. administravimo progr.?"</string>
     <string name="add_device_admin" msgid="1621152410207260584">"Suaktyvinti šio įrenginio administravimo programą"</string>
     <string name="device_admin_add_title" msgid="6097881332139146897">"Įrenginio administratorius"</string>
     <string name="device_admin_warning" msgid="4421817419326480449">"Suaktyvinus šią administravimo programą programai <xliff:g id="APP_NAME">%1$s</xliff:g> bus leidžiama vykdyti toliau nurodytas operacijas."</string>
@@ -4262,7 +4271,7 @@
     <string name="ambient_display_pickup_summary" product="default" msgid="8798915340594367449">"Norėdami sužinoti laiką, peržiūrėti pranešimus ir kitą informaciją, paimkite telefoną."</string>
     <string name="ambient_display_pickup_summary" product="tablet" msgid="1077745287100012928">"Norėdami sužinoti laiką, peržiūrėti pranešimus ir kitą informaciją, paimkite planšetinį kompiuterį."</string>
     <string name="ambient_display_pickup_summary" product="device" msgid="404199660076598026">"Norėdami sužinoti laiką, peržiūrėti pranešimus ir kitą informaciją, paimkite įrenginį."</string>
-    <string name="ambient_display_tap_screen_title" product="default" msgid="2784322628239960695">"Palieskite, kad patikrintumėte telefoną"</string>
+    <string name="ambient_display_tap_screen_title" product="default" msgid="2784322628239960695">"Telefono tikrinimas palietus"</string>
     <string name="ambient_display_tap_screen_title" product="tablet" msgid="6434521782016864148">"Palieskite, kad patikrintumėte planšetinį kompiuterį"</string>
     <string name="ambient_display_tap_screen_title" product="device" msgid="4396793721852647356">"Palieskite, kad patikrintumėte įrenginį"</string>
     <string name="ambient_display_tap_screen_summary" msgid="7869039870571925213">"Norėdami sužinoti laiką, peržiūrėti pranešimus ir kitą informaciją, palieskite ekraną."</string>
@@ -4424,6 +4433,8 @@
     <string name="disabled_feature_reason_slow_down_phone" msgid="1819157849156814583">"Ją įjungus telefonas veiks lėčiau"</string>
     <string name="enable_gnss_raw_meas_full_tracking" msgid="3397182995626655581">"Priversti vykdyti visus GNSS matavimus"</string>
     <string name="enable_gnss_raw_meas_full_tracking_summary" msgid="2469305990718976105">"Stebėti visas GNSS konferencijas ir visus dažnius netaikant darbo ciklų"</string>
+    <string name="enable_user_switch_message" msgid="8613014373053051092">"Derinti naudotojų perjungimą"</string>
+    <string name="enable_user_switch_message_summary" msgid="3354160264601132060">"Rodyti išsamią informaciją perjungiant naudotojus"</string>
     <string name="allow_background_activity_starts" msgid="6754016668813082728">"Leisti pradėti veiklą fone"</string>
     <string name="allow_background_activity_starts_summary" msgid="8170749270869606692">"Leidžiama pradėti bet kokią veiklą fone"</string>
     <string name="show_first_crash_dialog" msgid="3682063068903692710">"Visada rodyti strigčių dialogo langą"</string>

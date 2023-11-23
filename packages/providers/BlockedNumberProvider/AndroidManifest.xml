@@ -25,6 +25,7 @@
         android:defaultToDeviceProtectedStorage="true"
         android:directBootAware="true"
         android:allowBackup="true"
+        android:forceQueryable="true"
         android:backupAgent=".BlockedNumberBackupAgent"
         android:killAfterRestore="false">
 

@@ -15,8 +15,12 @@
  */
 package com.android.bluetooth.pan;
 
+import static org.mockito.Mockito.when;
+
 import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
 import android.content.Context;
+import android.os.UserManager;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.MediumTest;
@@ -47,6 +51,7 @@ public class PanServiceTest {
     @Rule public final ServiceTestRule mServiceRule = new ServiceTestRule();
 
     @Mock private AdapterService mAdapterService;
+    @Mock private UserManager mMockUserManager;
 
     @Before
     public void setUp() throws Exception {
@@ -61,6 +66,7 @@ public class PanServiceTest {
         // Try getting the Bluetooth adapter
         mAdapter = BluetoothAdapter.getDefaultAdapter();
         Assert.assertNotNull(mAdapter);
+        mService.mUserManager = mMockUserManager;
     }
 
     @After
@@ -77,5 +83,12 @@ public class PanServiceTest {
     @Test
     public void testInitialize() {
         Assert.assertNotNull(PanService.getPanService());
+    }
+
+    @Test
+    public void testGuestUserConnect() {
+        BluetoothDevice device = TestUtils.getTestDevice(mAdapter, 0);
+        when(mMockUserManager.isGuestUser()).thenReturn(true);
+        Assert.assertFalse(mService.connect(device));
     }
 }

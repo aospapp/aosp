@@ -50,7 +50,7 @@
     <string name="roaming_title" msgid="6218635014519017734">"Itinérance"</string>
     <string name="roaming_summary" msgid="7476127740259728901">"Se connecter aux services de données lors de l\'itinérance"</string>
     <string name="roaming_alert_title" msgid="4433901635766775763">"Voulez-vous autoriser les données en itinérance?"</string>
-    <string name="roaming_warning" msgid="5313281900566657209">"Des frais importants peuvent s\'appliquer."</string>
+    <string name="roaming_warning" msgid="4908184914868720704">"Des frais d\'itinérance peuvent s\'appliquer."</string>
     <string name="data_usage_settings" msgid="7877132994777987848">"Utilisation de données"</string>
     <string name="data_usage_title" msgid="2923515974389203812">"Données principales"</string>
     <string name="data_used_formatted" msgid="6684557577780068339">"<xliff:g id="ID_1">^1</xliff:g> <xliff:g id="ID_2">^2</xliff:g> utilisés"</string>
@@ -199,6 +199,8 @@
     <string name="bluetooth_device_picker" msgid="673238198452345475">"Sélectionner un appareil Bluetooth"</string>
     <string name="language_settings" msgid="2079258598337245546">"Langues"</string>
     <string name="languages_and_input_settings" msgid="3672322610529408248">"Langues et modes d\'entrée"</string>
+    <string name="language_picker_list_suggested_header" msgid="7593893806003415948">"Suggérées"</string>
+    <string name="language_picker_list_all_header" msgid="1577387973934368428">"Toutes les langues"</string>
     <string name="keyboard_settings" msgid="1959697870618278081">"Clavier"</string>
     <string name="manage_keyboard" msgid="4045394766282200132">"Gérer les claviers"</string>
     <string name="text_to_speech_settings" msgid="811985746199507343">"Sortie de synthèse vocale"</string>
@@ -283,9 +285,11 @@
     <string name="not_installed" msgid="4218816013370552746">"Non installée pour cet utilisateur"</string>
     <string name="permissions_label" msgid="2701446753515612685">"Autorisations"</string>
     <string name="notifications_label" msgid="6586089149665170731">"Notifications"</string>
+    <string name="storage_application_label" msgid="5911779903670978586">"Stockage et mise en cache"</string>
     <string name="application_version_label" msgid="8556889839783311649">"Version : %1$s"</string>
     <string name="runtime_permissions_summary_no_permissions_granted" msgid="6001439205270250021">"Aucune autorisation accordée"</string>
     <string name="runtime_permissions_summary_no_permissions_requested" msgid="4074220596273432442">"Aucune autorisation demandée"</string>
+    <string name="storage_type_internal" msgid="8918688427078709570">"%s de mémoire de stockage interne"</string>
     <string name="data_usage_summary_title" msgid="4368024763485916986">"Utilisation des données"</string>
     <string name="data_usage_app_summary_title" msgid="5012851696585421420">"Util. données applications"</string>
     <string name="computing_size" msgid="5791407621793083965">"Traitement en cours…"</string>
@@ -324,13 +328,13 @@
     <string name="app_launch_supported_domain_urls_title" msgid="7345116365785981158">"Liens compatibles"</string>
     <string name="special_access" msgid="5730278220917123811">"Accès spécial pour applications"</string>
     <string name="show_system" msgid="4401355756969485287">"Afficher le système"</string>
-    <string name="hide_system" msgid="8845453295584638040">"Masquer le système"</string>
+    <string name="hide_system" msgid="8845453295584638040">"Masquer les processus système"</string>
     <string name="modify_system_settings_title" msgid="4596320571562433972">"Modifier paramètres système"</string>
     <string name="modify_system_settings_description" msgid="5295023124419592452">"Cette autorisation permet à une application de modifier les paramètres du système."</string>
     <string name="notification_access_title" msgid="1467340098885813473">"Accès aux notifications"</string>
     <string name="notification_listener_security_warning_title" msgid="2893273335175140895">"Autoriser <xliff:g id="SERVICE">%1$s</xliff:g> à accéder aux notifications?"</string>
-    <string name="notification_listener_security_warning_summary" msgid="7280197998063498125">"<xliff:g id="NOTIFICATION_LISTENER_NAME">%1$s</xliff:g> pourra lire toutes les notifications, y compris des données personnelles, telles que le nom de contacts et le texte des messages que vous recevez. Ce service d\'écoute pourra également ignorer des notifications ou déclencher des boutons d\'action que celles-ci contiennent.\n\nCe déclenchement permettra également à l\'application d\'activer et de désactiver la fonction Ne pas déranger ainsi que de modifier les paramètres connexes."</string>
-    <string name="notification_listener_revoke_warning_summary" msgid="4904973394539125407">"Si vous désactivez l\'accès aux notifications pour <xliff:g id="NOTIFICATION_LISTENER_NAME">%1$s</xliff:g>, l\'accès à la fonction Ne pas déranger peut également être désactivé."</string>
+    <string name="notification_listener_security_warning_summary" msgid="7280197998063498125">"<xliff:g id="NOTIFICATION_LISTENER_NAME">%1$s</xliff:g> pourra lire toutes les notifications, y compris des données personnelles, telles que le nom de contacts et le texte des messages que vous recevez. Ce service d\'écoute pourra également ignorer des notifications ou déclencher des boutons d\'action que celles-ci contiennent.\n\nCe déclenchement permettra également à l\'application d\'activer et de désactiver le mode Ne pas déranger ainsi que de modifier les paramètres connexes."</string>
+    <string name="notification_listener_revoke_warning_summary" msgid="4904973394539125407">"Si vous désactivez l\'accès aux notifications pour <xliff:g id="NOTIFICATION_LISTENER_NAME">%1$s</xliff:g>, l\'accès au mode Ne pas déranger peut également être désactivé."</string>
     <string name="notification_listener_revoke_warning_confirm" msgid="2759583507454984812">"Désactiver"</string>
     <string name="notification_listener_revoke_warning_cancel" msgid="4399941651358241154">"Annuler"</string>
     <string name="premium_sms_access_title" msgid="1409118461646148686">"Accès aux messages texte payants"</string>
@@ -343,18 +347,14 @@
     <string name="location_settings_title" msgid="901334356682423679">"Lieu"</string>
     <string name="location_settings_recent_requests_title" msgid="6345634382240930628">"Récentes demandes de localisation"</string>
     <string name="location_settings_recent_requests_empty_message" msgid="7789667070033674910">"Aucune demande de localisation récente"</string>
-    <string name="location_settings_app_permissions_title" msgid="6446735313354321564">"Autorisations à l\'échelle des applications"</string>
-    <string name="location_settings_scanning_title" msgid="4253945869911300740">"Recherche"</string>
+    <string name="location_settings_app_permissions_title" msgid="6446735313354321564">"Autorisations à l\'échelle des applis"</string>
     <string name="location_settings_services_title" msgid="1186133632690970468">"Services de localisation"</string>
-    <string name="location_settings_wifi_scanning_title" msgid="8021558840074023719">"Recherche de réseaux Wi-Fi"</string>
-    <string name="location_settings_wifi_scanning_summary" msgid="2116283960258671324">"Autorisez les applications et les services à rechercher les réseaux Wi-Fi en tout temps, même lorsque le Wi-Fi est désactivé. Cette option peut, par exemple, être utilisée pour améliorer les fonctionnalités et les services qui utilisent la localisation."</string>
-    <string name="location_settings_bluetooth_scanning_title" msgid="2969682902241932059">"Recherche d\'appareils Bluetooth"</string>
-    <string name="location_settings_bluetooth_scanning_summary" msgid="9158101751700727062">"Autorisez les applications et les services à rechercher les appareils à proximité en tout temps, même lorsque le Bluetooth est désactivé. Cette option peut, par exemple, être utilisée pour améliorer les fonctionnalités et les services qui utilisent la localisation."</string>
     <string name="system_setting_title" msgid="6864599341809463440">"Système"</string>
     <string name="system_update_settings_title" msgid="8448588267784138855">"Mises à jour système"</string>
     <string name="firmware_version" msgid="8491753744549309333">"Version d\'Android"</string>
     <string name="security_patch" msgid="4794276590178386903">"Niveau du correctif de sécurité Android"</string>
-    <string name="model_info" msgid="4966408071657934452">"Modèle"</string>
+    <string name="hardware_info" msgid="3973165746261507658">"Modèle et matériel"</string>
+    <string name="hardware_info_summary" msgid="8262576443254075921">"Modèle : <xliff:g id="MODEL">%1$s</xliff:g>"</string>
     <string name="baseband_version" msgid="2370088062235041897">"Version de bande de base"</string>
     <string name="kernel_version" msgid="7327212934187011508">"Version du noyau"</string>
     <string name="build_number" msgid="3997326631001009102">"Numéro de version"</string>
@@ -378,6 +378,9 @@
     <string name="webview_license_title" msgid="6442372337052056463">"Licences système WebView"</string>
     <string name="wallpaper_attributions" msgid="9201272150014500697">"Fonds d\'écran"</string>
     <string name="wallpaper_attributions_values" msgid="4292446851583307603">"Fournisseurs d\'images satellites :\n© 2014 CNES/Astrium, DigitalGlobe, Bluesky"</string>
+    <string name="model_info" msgid="4966408071657934452">"Modèle"</string>
+    <string name="status_serial_number" msgid="9158889113131907656">"Numéro de série"</string>
+    <string name="hardware_revision" msgid="5713759927934872874">"Version du matériel"</string>
     <string name="regulatory_info_text" msgid="8890339124198005428"></string>
     <string name="settings_license_activity_title" msgid="8499293744313077709">"Licences tierces"</string>
     <string name="settings_license_activity_unavailable" msgid="6104592821991010350">"Problème lors du chargement des licences."</string>
@@ -405,7 +408,7 @@
     <string name="reset_network_confirm_desc" msgid="7721698076856330212">"Réinitialiser tous les paramètres réseau? Cette action est irréversible."</string>
     <string name="reset_network_confirm_button_text" msgid="5246859685069024851">"Réinitialiser les paramètres"</string>
     <string name="reset_network_complete_toast" msgid="3804108209431416865">"Les paramètres réseau ont été réinitialisés"</string>
-    <string name="reset_app_pref_title" msgid="5855420038951743992">"Réinitial. préférences des applications"</string>
+    <string name="reset_app_pref_title" msgid="5855420038951743992">"Réinitial. préférences des applis"</string>
     <string name="reset_app_pref_desc" msgid="579392665146962149">"Cette opération réinitialise toutes les préférences relatives aux éléments suivants :\n\n"<li>"Applications désactivées"</li>\n<li>"Notifications associées aux applications désactivées"</li>\n<li>"Applications par défaut pour les actions"</li>\n<li>"Restrictions de données en arrière-plan pour les applications"</li>\n<li>"Toutes les restrictions d\'autorisations"</li>\n\n"Vous ne perdrez aucune donnée liée aux applications."</string>
     <string name="reset_app_pref_button_text" msgid="6270820447321231609">"Réinitialiser les applications"</string>
     <string name="reset_app_pref_complete_toast" msgid="8709072932243594166">"Les préférences des applications ont été réinitialisées"</string>
@@ -414,7 +417,7 @@
     <string name="master_clear_accounts" msgid="7797522012993567494">"Vous êtes actuellement connecté aux comptes suivants :"</string>
     <string name="master_clear_other_users_present" msgid="8383376863095743337">"D\'autres personnes utilisent ce véhicule."</string>
     <string name="master_clear_button_text" msgid="8010754220392741160">"Réinitialiser le véhicule"</string>
-    <string name="master_clear_confirm_title" msgid="8646455623132887370">"Effectuez la réinitialisation?"</string>
+    <string name="master_clear_confirm_title" msgid="8646455623132887370">"Réinitialiser?"</string>
     <string name="master_clear_confirm_desc" msgid="8920446291698038558">"Voulez-vous effacer toutes vos données personnelles et les applications que vous avez téléchargées? Cette action est irréversible!"</string>
     <string name="master_clear_confirm_button_text" msgid="7981254968588121786">"Tout effacer"</string>
     <string name="master_clear_progress_title" msgid="7087480656932674774">"Suppression en cours…"</string>
@@ -478,6 +481,8 @@
     <string name="user_name_label" msgid="3210832645046206845">"Nom"</string>
     <string name="user_summary_not_set_up" msgid="1473688119241224145">"Non configuré"</string>
     <string name="edit_user_name_title" msgid="6890782937520262478">"Modifier le nom d\'utilisateur"</string>
+    <string name="name_input_blank_error" msgid="2088850865880984123">"Champ obligatoire."</string>
+    <string name="name_input_invalid_error" msgid="3523545780580744273">"Le nom d\'utilisateur entré n\'est pas valide."</string>
     <string name="users_list_title" msgid="770764290290240909">"Utilisateurs"</string>
     <string name="user_details_admin_title" msgid="3530292857178371891">"Autorisations accordées à %1$s"</string>
     <string name="storage_settings_title" msgid="8957054192781341797">"Stockage"</string>
@@ -497,6 +502,8 @@
     <string name="storage_clear_data_dlg_title" msgid="5863775997588969879">"Supprimer les données de l\'appli?"</string>
     <string name="storage_clear_data_dlg_text" msgid="795055288575727801">"Toutes les données de cette application seront supprimées définitivement, y compris l\'intégralité des fichiers, des paramètres, des comptes, des bases de données, etc."</string>
     <string name="storage_clear_failed_dlg_text" msgid="6710485971686866306">"Impossible de vider le stockage de l\'application."</string>
+    <string name="storage_unmount_success" msgid="1553591517580407021">"<xliff:g id="NAME">%1$s</xliff:g> a été éjecté en toute sécurité"</string>
+    <string name="storage_unmount_failure" msgid="4591934911541762883">"Impossible d\'éjecter <xliff:g id="NAME">%1$s</xliff:g> en toute sécurité"</string>
     <string name="accounts_settings_title" msgid="436190037084293471">"Comptes"</string>
     <string name="user_add_account_menu" msgid="6625351983590713721">"Ajouter un compte"</string>
     <string name="no_accounts_added" msgid="5148163140691096055">"Aucun compte ajouté"</string>
@@ -528,13 +535,14 @@
     <string name="sync_button_sync_now" msgid="5767643057970371315">"Synchroniser maintenant"</string>
     <string name="sync_button_sync_cancel" msgid="7739510554513641393">"Annuler la synchronisation"</string>
     <string name="sync_is_failing" msgid="5766255460901806206">"La synchronisation rencontre actuellement des problèmes. Elle sera rétablie sous peu."</string>
+    <string name="privacy_settings_title" msgid="3150145262029229572">"Confidentialité"</string>
     <string name="security_settings_title" msgid="6955331714774709746">"Sécurité"</string>
     <string name="security_settings_subtitle" msgid="2244635550239273229">"Verrouill. de l\'écran"</string>
     <string name="security_lock_none" msgid="1054645093754839638">"Aucun"</string>
     <string name="security_lock_pattern" msgid="1174352995619563104">"Schéma"</string>
     <string name="security_lock_pin" msgid="4891899974369503200">"NIP"</string>
     <string name="security_lock_password" msgid="4420203740048322494">"Mot de passe"</string>
-    <string name="lock_settings_picker_title" msgid="6590330165050361632">"Choisissez un type de verrouillage"</string>
+    <string name="lock_settings_picker_title" msgid="6590330165050361632">"Choisir un type de verrouillage"</string>
     <string name="screen_lock_options" msgid="8531177937577168185">"Options de verrouillage"</string>
     <string name="lock_settings_enter_pattern" msgid="4826034565853171624">"Entrez votre schéma"</string>
     <string name="lockpattern_confirm_button_text" msgid="7784925958324484965">"Confirmer"</string>
@@ -618,26 +626,11 @@
     <string name="lockpassword_pin_no_sequential_digits" msgid="38813552228809240">"Les suites croissantes, décroissantes ou répétitives de chiffres ne sont pas autorisées."</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"Options de verrouillage de l\'écran"</string>
     <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g> : il y a <xliff:g id="NUM_DAYS">%3$s</xliff:g> jours"</string>
-    <string name="add_device_title" msgid="8452168024017866232">"Ajouter un appareil de confiance"</string>
-    <string name="add_device_summary" msgid="5368217520710573302">"Bluetooth s\'activera pour ajout. app. confiance"</string>
-    <string name="trusted_device" msgid="5637378361866787603">"Appareils fiables"</string>
-    <plurals name="trusted_device_subtitle" formatted="false" msgid="462041049834264945">
-      <item quantity="one"><xliff:g id="COUNT_1">%d</xliff:g> appareil</item>
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> appareils</item>
-    </plurals>
-    <string name="remove_device_message" msgid="6447820559674148349">"Votre <xliff:g id="CONNECTED_DEVICE_NAME_0">%1$s</xliff:g> déverrouillera votre voiture lorsqu\'il sera connecté. Si une personne prend votre <xliff:g id="CONNECTED_DEVICE_NAME_1">%1$s</xliff:g>, elle pourrait être en mesure d\'accéder à cet appareil."</string>
-    <string name="trusted_device_confirm_button" msgid="102354635014627996">"Confirmer"</string>
-    <string name="trusted_device_remove_button" msgid="6140476996063415420">"Supprimer l\'appareil de confiance"</string>
-    <string name="trusted_device_done_button" msgid="8481956533222625296">"OK"</string>
-    <string name="add_trusted_device_instruction" msgid="2280382609884918033">"Utilisez l\'application compagnon pour configurer un appareil de confiance. Une fois configuré, votre profil utilisateur se déverrouillera automatiquement si votre téléphone est détecté à proximité de la voiture."</string>
-    <string name="trusted_device_download_app" msgid="6971096140154499983">"1. Téléchargez l\'application compagnon sur votre téléphone"</string>
-    <string name="trusted_device_select_device" msgid="198902765179270739">"2. Sélectionnez <xliff:g id="CAR_NAME">%1$s</xliff:g> sur votre téléphone pour associer les appareils"</string>
-    <string name="trusted_device_safety_alert" msgid="3834898922112046769">"Au moment du démarrage du véhicule, un appareil de confiance à proximité de celui-ci déverrouillera le profil de l\'utilisateur, même si une autre personne le tient dans sa main."</string>
-    <string name="trusted_device_pairing_code_dialog_title" msgid="8173792468216796873">"Veuillez confirmer que les codes d\'association correspondent"</string>
-    <string name="trusted_device_success_enrollment_toast" msgid="1238468775285575827">"Le téléphone a été inscrit"</string>
-    <string name="trusted_device_fail_enrollment_toast" msgid="6801324174861209092">"Échec de l\'inscription de l\'appareil <xliff:g id="DEVICE_NAME">%1$s</xliff:g>"</string>
-    <string name="trusted_device_set_authentication_reminder" msgid="5947077589994822305">"L\'ajout d\'un appareil de confiance nécessite ensuite la configuration d\'une méthode d\'authentification. Si vous n\'avez pas votre appareil de confiance avec vous, un processus d\'authentification sera nécessaire pour accéder à votre profil."</string>
-    <string name="trusted_device_disconnected_toast" msgid="2541862946536880255">"Appareil déconnecté."</string>
+    <string name="credentials_reset" msgid="873900550885788639">"Effacer les authentifiants"</string>
+    <string name="credentials_reset_summary" msgid="6067911547500459637">"Supprimer tous les certificats"</string>
+    <string name="credentials_reset_hint" msgid="3459271621754137661">"Voulez-vous supprimer l\'intégralité du contenu?"</string>
+    <string name="credentials_erased" msgid="2515915439705550379">"Le stockage des authentifiants est effacé."</string>
+    <string name="credentials_not_erased" msgid="6118567459076742720">"Impossible d\'effacer le stockage des authentifiants."</string>
     <string name="forget" msgid="3971143908183848527">"Oublier"</string>
     <string name="connect" msgid="5861699594602380150">"Connexion"</string>
     <string name="disconnect" msgid="6140789953324820336">"Déconnexion"</string>
@@ -653,6 +646,7 @@
     <string name="exit_retail_mode_dialog_body" msgid="8314316171782527301">"Cette action supprimera le compte de démonstration et réinitialisera le système. Toutes les données de l\'utilisateur seront perdues."</string>
     <string name="exit_retail_mode_dialog_confirmation_button_text" msgid="3147249675355968649">"Quitter le mode démo"</string>
     <string name="suggestion_dismiss_button" msgid="4539412646977050641">"IGNORER"</string>
-    <string name="restricted_while_driving" msgid="6217369093121968299">"Cette fonction n\'est pas accessible durant la conduite."</string>
-    <string name="add_user_restricted_while_driving" msgid="6384004350628271556">"Impossible d\'ajouter un utilisateur pendant la conduite."</string>
+    <string name="restricted_while_driving" msgid="6587569249519274524">"Cette fonctionnalité n\'est pas accessible durant la conduite"</string>
+    <string name="add_user_restricted_while_driving" msgid="4754946754222453656">"Impossible d\'ajouter un utilisateur durant la conduite"</string>
+    <string name="default_search_query" msgid="3137420627428857068">"Recherche"</string>
 </resources>

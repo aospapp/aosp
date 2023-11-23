@@ -22,4 +22,17 @@
     <item name="android:clickable">true</item>
     <item name="android:background">@drawable/item_background</item>
   </style>
+
+  <style name="Widget.BugReportUi.InfoActionButton" parent="android:Widget.DeviceDefault.Button">
+    <item name="android:textSize">@dimen/bug_report_button_text_size</item>
+  </style>
+
+  <style name="TextAppearance.BugReportUi.Title" parent="android:TextAppearance.DeviceDefault">
+    <item name="android:textSize">@dimen/bug_report_default_text_size</item>
+  </style>
+
+  <style name="TextAppearance.BugReportUi.Body" parent="android:TextAppearance.DeviceDefault">
+    <item name="android:textColor">@*android:color/car_body1</item>
+    <item name="android:textSize">@dimen/bug_report_small_text_size</item>
+  </style>
 </resources>

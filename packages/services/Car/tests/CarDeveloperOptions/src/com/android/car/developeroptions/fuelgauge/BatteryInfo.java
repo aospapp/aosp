@@ -30,9 +30,9 @@ import android.util.SparseIntArray;
 import androidx.annotation.WorkerThread;
 
 import com.android.internal.os.BatteryStatsHelper;
-import com.android.car.developeroptions.Utils;
 import com.android.car.developeroptions.overlay.FeatureFactory;
 import com.android.car.developeroptions.widget.UsageView;
+import com.android.car.developeroptions.Utils;
 import com.android.settingslib.R;
 import com.android.settingslib.utils.PowerUtil;
 import com.android.settingslib.utils.StringUtil;
@@ -229,9 +229,8 @@ public class BatteryInfo {
         info.batteryPercentString = Utils.formatPercentage(info.batteryLevel);
         info.mCharging = batteryBroadcast.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) != 0;
         info.averageTimeToDischarge = estimate.averageDischargeTime;
-        final Resources resources = context.getResources();
 
-        info.statusLabel = Utils.getBatteryStatus(resources, batteryBroadcast);
+        info.statusLabel = Utils.getBatteryStatus(context, batteryBroadcast);
         if (!info.mCharging) {
             updateBatteryInfoDischarging(context, shortString, estimate, info);
         } else {
@@ -258,8 +257,7 @@ public class BatteryInfo {
                     R.string.power_remaining_charging_duration_only, timeString);
             info.chargeLabel = context.getString(resId, info.batteryPercentString, timeString);
         } else {
-            final String chargeStatusLabel = resources.getString(
-                    R.string.battery_info_status_charging_lower);
+            final String chargeStatusLabel = Utils.getBatteryStatus(context, batteryBroadcast);
             info.remainingLabel = null;
             info.chargeLabel = info.batteryLevel == 100 ? info.batteryPercentString :
                     resources.getString(R.string.power_charging, info.batteryPercentString,

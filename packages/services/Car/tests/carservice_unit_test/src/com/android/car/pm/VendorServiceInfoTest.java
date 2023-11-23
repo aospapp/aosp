@@ -20,14 +20,13 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.content.ComponentName;
 
-import androidx.test.runner.AndroidJUnit4;
-
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
-@RunWith(AndroidJUnit4.class)
+@RunWith(JUnit4.class)
 public class VendorServiceInfoTest {
     private static final String SERVICE_NAME = "com.andorid.car/.MyService";
 

@@ -22,13 +22,12 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.UserHandle;
 import android.os.UserManager;
-import android.telecom.DefaultDialerManager;
 import android.telecom.Log;
 import android.telecom.PhoneAccount;
 import android.telecom.TelecomManager;
 import android.telecom.VideoProfile;
 import android.telephony.PhoneNumberUtils;
-import android.text.TextUtils;
+import android.telephony.TelephonyManager;
 
 import com.android.server.telecom.CallIntentProcessor;
 import com.android.server.telecom.R;
@@ -153,29 +152,10 @@ public class UserCallIntentProcessor {
                 VideoProfile.STATE_AUDIO_ONLY);
         Log.d(this, "processOutgoingCallIntent videoState = " + videoState);
 
-        intent.putExtra(CallIntentProcessor.KEY_IS_PRIVILEGED_DIALER,
-                isDefaultOrSystemDialer(callingPackageName));
-
         // Save the user handle of current user before forwarding the intent to primary user.
         intent.putExtra(CallIntentProcessor.KEY_INITIATING_USER, mUserHandle);
 
         sendIntentToDestination(intent, isLocalInvocation, callingPackageName);
-    }
-
-    private boolean isDefaultOrSystemDialer(String callingPackageName) {
-        if (TextUtils.isEmpty(callingPackageName)) {
-            return false;
-        }
-
-        final String defaultDialer = DefaultDialerManager.getDefaultDialerApplication(mContext,
-                mUserHandle.getIdentifier());
-        if (TextUtils.equals(defaultDialer, callingPackageName)) {
-            return true;
-        }
-
-        final TelecomManager telecomManager =
-                (TelecomManager) mContext.getSystemService(Context.TELECOM_SERVICE);
-        return TextUtils.equals(telecomManager.getSystemDialerPackage(), callingPackageName);
     }
 
     /**
@@ -184,8 +164,8 @@ public class UserCallIntentProcessor {
      * @return {@code True} if the device is voice-capable.
      */
     private boolean isVoiceCapable() {
-        return mContext.getApplicationContext().getResources().getBoolean(
-                com.android.internal.R.bool.config_voice_capable);
+        return ((TelephonyManager) mContext.getSystemService(Context.TELEPHONY_SERVICE))
+                .isVoiceCapable();
     }
 
     /**
@@ -211,7 +191,7 @@ public class UserCallIntentProcessor {
             // process; we need to trampoline to TelecomSystem in the system server process.
             Log.i(this, "sendIntentToDestination: trampoline to Telecom.");
             TelecomManager tm = (TelecomManager) mContext.getSystemService(Context.TELECOM_SERVICE);
-            tm.handleCallIntent(intent);
+            tm.handleCallIntent(intent, callingPackage);
         }
         return true;
     }

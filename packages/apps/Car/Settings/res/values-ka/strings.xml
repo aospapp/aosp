@@ -50,7 +50,7 @@
     <string name="roaming_title" msgid="6218635014519017734">"როუმინგი"</string>
     <string name="roaming_summary" msgid="7476127740259728901">"როუმინგის დროს მონაცემთა სერვისებთან დაკავშირება"</string>
     <string name="roaming_alert_title" msgid="4433901635766775763">"გსურთ, ჩაირთოს მობილური ინტერნეტის როუმინგი?"</string>
-    <string name="roaming_warning" msgid="5313281900566657209">"ეს შეიძლება დიდ ხარჯებთან იყოს დაკავშირებული."</string>
+    <string name="roaming_warning" msgid="4908184914868720704">"შეიძლება მოგიწიოთ როუმინგის საფასურის გადახდა."</string>
     <string name="data_usage_settings" msgid="7877132994777987848">"მონაცემთა მოხმარება"</string>
     <string name="data_usage_title" msgid="2923515974389203812">"ძირითადი მონაცემები"</string>
     <string name="data_used_formatted" msgid="6684557577780068339">"გამოყენებულია <xliff:g id="ID_1">^1</xliff:g> <xliff:g id="ID_2">^2</xliff:g>"</string>
@@ -71,7 +71,7 @@
     <string name="app_data_usage" msgid="3878609885080232877">"აპის მონაცემთა გამოყენება"</string>
     <string name="data_usage_app_restricted" msgid="4570970078120010951">"შეზღუდულია"</string>
     <string name="cycle_reset_day_of_month_picker_title" msgid="1374568502823735361">"გამოყენების ციკლის გადაყენების თარიღი"</string>
-    <string name="cycle_reset_day_of_month_picker_subtitle" msgid="5361061448258189846">"თითოეული თვის თარიღი:"</string>
+    <string name="cycle_reset_day_of_month_picker_subtitle" msgid="5361061448258189846">"თვის შემდეგ რიცხვში:"</string>
     <string name="cycle_reset_day_of_month_picker_positive_button" msgid="6919858010423269305">"დაყენება"</string>
     <string name="data_warning_limit_title" msgid="4950868241810828601">"მოხმარების შესახებ გაფრთხილება და ლიმიტი"</string>
     <string name="app_usage_cycle" msgid="8445927080245880296">"აპების მიერ ტრაფიკის მოხმარების ციკლი"</string>
@@ -147,7 +147,7 @@
     <string name="wifi_ap_choose_auto" msgid="3779526909841604566">"ავტომატური"</string>
     <string name="wifi_ap_choose_2G" msgid="6356913773766753502">"2,4 გჰც დიაპაზონი"</string>
     <string name="wifi_ap_choose_5G" msgid="8561440488455528673">"5 გჰც დიაპაზონი"</string>
-    <string name="wifi_ap_prefer_5G" msgid="8252845223773871750">"სასურველია 5-გიგაჰერციანი დიაპაზონი"</string>
+    <string name="wifi_ap_prefer_5G" msgid="8252845223773871750">"სასურველია 5 გჰც დიაპაზონი"</string>
     <string name="wifi_ap_2G" msgid="5364135697314262014">"2,4 გჰც"</string>
     <string name="wifi_ap_5G" msgid="4945574428537860279">"5,0 გჰც"</string>
     <string name="wifi_ap_band_select_one" msgid="615578175244067396">"აირჩიეთ 1 დიაპ. Wi‑Fi ქსელისთვის:"</string>
@@ -199,6 +199,8 @@
     <string name="bluetooth_device_picker" msgid="673238198452345475">"აირჩიეთ Bluetooth მოწყობილობა"</string>
     <string name="language_settings" msgid="2079258598337245546">"ენები"</string>
     <string name="languages_and_input_settings" msgid="3672322610529408248">"ენები და შეყვანა"</string>
+    <string name="language_picker_list_suggested_header" msgid="7593893806003415948">"შემოთავაზებული"</string>
+    <string name="language_picker_list_all_header" msgid="1577387973934368428">"ყველა ენა"</string>
     <string name="keyboard_settings" msgid="1959697870618278081">"კლავიატურა"</string>
     <string name="manage_keyboard" msgid="4045394766282200132">"კლავიატურების მართვა"</string>
     <string name="text_to_speech_settings" msgid="811985746199507343">"გახმოვანებული ტექსტის გამოტანა"</string>
@@ -217,7 +219,7 @@
     <string name="alarm_volume_title" msgid="840384014895796587">"მაღვიძარა"</string>
     <string name="ringtone_title" msgid="8370531086214517972">"ტელეფონის ზარი"</string>
     <string name="notification_ringtone_title" msgid="8661716239594010288">"შეტყობინების ნაგულისხმევი ხმა"</string>
-    <string name="alarm_ringtone_title" msgid="3257364170646440908">"მაღვიძარას ნაგულისხმევი ხმა"</string>
+    <string name="alarm_ringtone_title" msgid="3257364170646440908">"მაღვიძარას ნაგულ. ხმა"</string>
     <string name="units_settings" msgid="402325305096925886">"ერთეულები"</string>
     <string name="units_speed_title" msgid="7115143916747108160">"სიჩქარე"</string>
     <string name="units_distance_title" msgid="6257691565990474635">"მანძილი"</string>
@@ -283,9 +285,11 @@
     <string name="not_installed" msgid="4218816013370552746">"ამ მომხმარებლისთვის დაყენებული არ არის"</string>
     <string name="permissions_label" msgid="2701446753515612685">"ნებართვები"</string>
     <string name="notifications_label" msgid="6586089149665170731">"შეტყობინებები"</string>
+    <string name="storage_application_label" msgid="5911779903670978586">"მეხსიერება და ქეში"</string>
     <string name="application_version_label" msgid="8556889839783311649">"ვერსია: %1$s"</string>
     <string name="runtime_permissions_summary_no_permissions_granted" msgid="6001439205270250021">"ნებართვები არ არის გაცემული"</string>
     <string name="runtime_permissions_summary_no_permissions_requested" msgid="4074220596273432442">"ნებართვებზე მოთხოვნები არ არის"</string>
+    <string name="storage_type_internal" msgid="8918688427078709570">"%s შიდა მეხსიერებაში"</string>
     <string name="data_usage_summary_title" msgid="4368024763485916986">"მონაცემთა მოხმარება"</string>
     <string name="data_usage_app_summary_title" msgid="5012851696585421420">"აპის მონაცემთა გამოყენება"</string>
     <string name="computing_size" msgid="5791407621793083965">"გამოთვლა…"</string>
@@ -344,17 +348,13 @@
     <string name="location_settings_recent_requests_title" msgid="6345634382240930628">"მდებარეობის ბოლოდროინდელი მოთხოვნები"</string>
     <string name="location_settings_recent_requests_empty_message" msgid="7789667070033674910">"მდებარეობის ბოლოდროინდელი მოთხოვნები არ არის"</string>
     <string name="location_settings_app_permissions_title" msgid="6446735313354321564">"ნებართვები აპის დონეზე"</string>
-    <string name="location_settings_scanning_title" msgid="4253945869911300740">"სკანირება"</string>
     <string name="location_settings_services_title" msgid="1186133632690970468">"მდებარეობის სერვისები"</string>
-    <string name="location_settings_wifi_scanning_title" msgid="8021558840074023719">"Wi-Fi სკანირება"</string>
-    <string name="location_settings_wifi_scanning_summary" msgid="2116283960258671324">"აპებისა და სერვისებისთვის Wi‑Fi ქსელების ნებისმიერ დროს სკანირების დაშვება, მაშინაც კი, როცა Wi‑Fi გამორთულია. მაგალითად, აღნიშნული გამოიყენება მდებარეობაზე დაფუძნებული ფუნქციებისა და სერვისების გასაუმჯობესებლად."</string>
-    <string name="location_settings_bluetooth_scanning_title" msgid="2969682902241932059">"Bluetooth სკანირება"</string>
-    <string name="location_settings_bluetooth_scanning_summary" msgid="9158101751700727062">"აპებისა და სერვისებისთვის ახლომდებარე მოწყობილობების ნებისმიერ დროს სკანირების დაშვება, მაშინაც კი, როცა Bluetooth გამორთულია. მაგალითად, აღნიშნული გამოიყენება მდებარეობაზე დაფუძნებული ფუნქციებისა და სერვისების გასაუმჯობესებლად."</string>
     <string name="system_setting_title" msgid="6864599341809463440">"სისტემა"</string>
     <string name="system_update_settings_title" msgid="8448588267784138855">"სისტემის განახლებები"</string>
     <string name="firmware_version" msgid="8491753744549309333">"Android-ის ვერსია"</string>
     <string name="security_patch" msgid="4794276590178386903">"Android-ის უსაფრთხოების ნაწილაკის დონე"</string>
-    <string name="model_info" msgid="4966408071657934452">"მოდელი"</string>
+    <string name="hardware_info" msgid="3973165746261507658">"მოდელი და აპარატურა"</string>
+    <string name="hardware_info_summary" msgid="8262576443254075921">"მოდელი: <xliff:g id="MODEL">%1$s</xliff:g>"</string>
     <string name="baseband_version" msgid="2370088062235041897">"Baseband-ის ვერსია"</string>
     <string name="kernel_version" msgid="7327212934187011508">"kernel-ის ვერსია"</string>
     <string name="build_number" msgid="3997326631001009102">"ანაწყობის ნომერი"</string>
@@ -378,6 +378,9 @@
     <string name="webview_license_title" msgid="6442372337052056463">"System WebView ლიცენზიები"</string>
     <string name="wallpaper_attributions" msgid="9201272150014500697">"ფონები"</string>
     <string name="wallpaper_attributions_values" msgid="4292446851583307603">"სატელიტური სურათების პროვაიდერები:\n©2014 CNES / Astrium, DigitalGlobe, Bluesky"</string>
+    <string name="model_info" msgid="4966408071657934452">"მოდელი"</string>
+    <string name="status_serial_number" msgid="9158889113131907656">"სერიული ნომერი"</string>
+    <string name="hardware_revision" msgid="5713759927934872874">"აპარატურის ვერსია"</string>
     <string name="regulatory_info_text" msgid="8890339124198005428"></string>
     <string name="settings_license_activity_title" msgid="8499293744313077709">"მესამე მხარის ლიცენზიები"</string>
     <string name="settings_license_activity_unavailable" msgid="6104592821991010350">"ლიცენზიის ჩამოტვირთვასთან პრობლემაა."</string>
@@ -478,6 +481,8 @@
     <string name="user_name_label" msgid="3210832645046206845">"სახელი"</string>
     <string name="user_summary_not_set_up" msgid="1473688119241224145">"არ არის დარეგულირებული"</string>
     <string name="edit_user_name_title" msgid="6890782937520262478">"მომხმარებლის სახელის რედაქტირება"</string>
+    <string name="name_input_blank_error" msgid="2088850865880984123">"ველი არ უნდა იყოს ცარიელი."</string>
+    <string name="name_input_invalid_error" msgid="3523545780580744273">"მომხმარებლის სახელი შეყვანილია არასწორად."</string>
     <string name="users_list_title" msgid="770764290290240909">"მომხმარებლები"</string>
     <string name="user_details_admin_title" msgid="3530292857178371891">"%1$s-ის ნებართვები"</string>
     <string name="storage_settings_title" msgid="8957054192781341797">"მეხსიერება"</string>
@@ -497,6 +502,8 @@
     <string name="storage_clear_data_dlg_title" msgid="5863775997588969879">"წაიშალოს აპის მონაცემები?"</string>
     <string name="storage_clear_data_dlg_text" msgid="795055288575727801">"აპის მთელი მონაცემები, მათ შორის, ყველა ფაილი, პარამეტრი, ანგარიში, მონაცემთა ბაზა და ა.შ. სამუდამოდ წაიშლება."</string>
     <string name="storage_clear_failed_dlg_text" msgid="6710485971686866306">"აპის მეხსიერების გასუფთავება ვერ მოხერხდა."</string>
+    <string name="storage_unmount_success" msgid="1553591517580407021">"<xliff:g id="NAME">%1$s</xliff:g> ამოღებულია უსაფრთხოდ"</string>
+    <string name="storage_unmount_failure" msgid="4591934911541762883">"<xliff:g id="NAME">%1$s</xliff:g>-ის უსაფრთხოდ ამოღება ვერ მოხერხდა"</string>
     <string name="accounts_settings_title" msgid="436190037084293471">"ანგარიშები"</string>
     <string name="user_add_account_menu" msgid="6625351983590713721">"ანგარიშის დამატება"</string>
     <string name="no_accounts_added" msgid="5148163140691096055">"ანგარიშები დამატებული არ არის"</string>
@@ -528,6 +535,7 @@
     <string name="sync_button_sync_now" msgid="5767643057970371315">"ახლავე სინქრონიზაცია"</string>
     <string name="sync_button_sync_cancel" msgid="7739510554513641393">"სინქრონიზაციის გაუქმება"</string>
     <string name="sync_is_failing" msgid="5766255460901806206">"ამჟამად სინქრონიზაცია ვერ ხერხდება პრობლემის გამო. ეს ფუნქცია მალე აღდგება."</string>
+    <string name="privacy_settings_title" msgid="3150145262029229572">"კონფიდენციალურობა"</string>
     <string name="security_settings_title" msgid="6955331714774709746">"უსაფრთხოება"</string>
     <string name="security_settings_subtitle" msgid="2244635550239273229">"ეკრანის დაბლოკვა"</string>
     <string name="security_lock_none" msgid="1054645093754839638">"არცერთი"</string>
@@ -618,26 +626,11 @@
     <string name="lockpassword_pin_no_sequential_digits" msgid="38813552228809240">"ციფრების ზრდადი, კლებადი ან გამეორებადი მიმდევრობის გამოყენება ნებადართული არ არის."</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"ეკრანის დაბლოკვის ვარიანტები"</string>
     <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g> : <xliff:g id="NUM_DAYS">%3$s</xliff:g> დღის წინ"</string>
-    <string name="add_device_title" msgid="8452168024017866232">"სანდო მოწყობილობის დამატება"</string>
-    <string name="add_device_summary" msgid="5368217520710573302">"სანდო მოწყობილ. დასამატებლად Bluetooth ჩაირთვება"</string>
-    <string name="trusted_device" msgid="5637378361866787603">"სანდო მოწყობილობები"</string>
-    <plurals name="trusted_device_subtitle" formatted="false" msgid="462041049834264945">
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> მოწყობილობა</item>
-      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> მოწყობილობა</item>
-    </plurals>
-    <string name="remove_device_message" msgid="6447820559674148349">"თქვენი <xliff:g id="CONNECTED_DEVICE_NAME_0">%1$s</xliff:g> განბლოკავს ამ მანქანას, როცა ის დაკავშირებული იქნება. თუ თქვენი <xliff:g id="CONNECTED_DEVICE_NAME_1">%1$s</xliff:g> სხვის ხელში აღმოჩნდება, ის შეძლებს ამ მოწყობილობაზე წვდომას."</string>
-    <string name="trusted_device_confirm_button" msgid="102354635014627996">"დადასტურება"</string>
-    <string name="trusted_device_remove_button" msgid="6140476996063415420">"სანდო მოწყობილობის ამოშლა"</string>
-    <string name="trusted_device_done_button" msgid="8481956533222625296">"მზადაა"</string>
-    <string name="add_trusted_device_instruction" msgid="2280382609884918033">"სანდო მოწყობილობის დასაყენებლად გამოიყენეთ კომპანიონი აპი. დაყენების შემდეგ თქვენი მომხმარებლის პროფილი ავტომატურად განიბლოკება, როცა თქვენ ტელეფონი ავტომობილთან ახლოს დაფიქსირდება."</string>
-    <string name="trusted_device_download_app" msgid="6971096140154499983">"1. ჩამოტვირთეთ კომპანიონი აპი თქვენს ტელეფონზე"</string>
-    <string name="trusted_device_select_device" msgid="198902765179270739">"2. თქვენს ტელეფონზე აირჩიეთ <xliff:g id="CAR_NAME">%1$s</xliff:g> მოწყობილობების დასაწყვილებლად"</string>
-    <string name="trusted_device_safety_alert" msgid="3834898922112046769">"თქვენს ავტომობილთან ახლოს მდებარე სანდო მოწყობილობა განბლოკავს მომხმარებლის პროფილს აალებისას, მაშინაც კი, თუ მოწყობილობა სხვას უკავია."</string>
-    <string name="trusted_device_pairing_code_dialog_title" msgid="8173792468216796873">"გთხოვთ, დაადასტუროთ, რომ დაკავშირების კოდები ემთხვევა"</string>
-    <string name="trusted_device_success_enrollment_toast" msgid="1238468775285575827">"ტელეფონი წარმატებით დარეგისტრირდა"</string>
-    <string name="trusted_device_fail_enrollment_toast" msgid="6801324174861209092">"<xliff:g id="DEVICE_NAME">%1$s</xliff:g>-ის რეგისტრაცია ვერ მოხერხდა"</string>
-    <string name="trusted_device_set_authentication_reminder" msgid="5947077589994822305">"სანდო მოწყობილობის დასამატებლად მომდევნო ეტაპზე საჭირო იქნება ავტორიზაციის მეთოდის დაყენება. ავტორიზაცია საჭირო იქნება თქვენს პროფილზე წვდომისთვის, როცა სანდო მოწყობილობა თან არ გექნებათ."</string>
-    <string name="trusted_device_disconnected_toast" msgid="2541862946536880255">"მოწყობილობის კავშირი გათიშულია."</string>
+    <string name="credentials_reset" msgid="873900550885788639">"ავტორიზაციის მონაცემების გასუფთავება"</string>
+    <string name="credentials_reset_summary" msgid="6067911547500459637">"ყველა სერტიფიკატის ამოშლა"</string>
+    <string name="credentials_reset_hint" msgid="3459271621754137661">"გსურთ სრული კონტენტის წაშლა?"</string>
+    <string name="credentials_erased" msgid="2515915439705550379">"ავტორიზაციის მონაცემთა საცავი წაშლილია."</string>
+    <string name="credentials_not_erased" msgid="6118567459076742720">"ავტორიზაციის მონაცემების საცავის წაშლა შეუძლებელია."</string>
     <string name="forget" msgid="3971143908183848527">"დავიწყება"</string>
     <string name="connect" msgid="5861699594602380150">"დაკავშირება"</string>
     <string name="disconnect" msgid="6140789953324820336">"კავშირის გაწყვეტა"</string>
@@ -653,6 +646,7 @@
     <string name="exit_retail_mode_dialog_body" msgid="8314316171782527301">"ეს ქმედება წაშლის დემო-ანგარიშს და სისტემის ქარხნულ მონაცემებს აღადგენს. სამომხმარებლო მონაცემები მთლიანად წაიშლება."</string>
     <string name="exit_retail_mode_dialog_confirmation_button_text" msgid="3147249675355968649">"დემოს დატოვება"</string>
     <string name="suggestion_dismiss_button" msgid="4539412646977050641">"დახურვა"</string>
-    <string name="restricted_while_driving" msgid="6217369093121968299">"ფუნქცია მიუწვდომელია მანქანის მართვისას."</string>
-    <string name="add_user_restricted_while_driving" msgid="6384004350628271556">"მანქანის მართვისას მომხმარებლის დამატება ვერ მოხერხდება."</string>
+    <string name="restricted_while_driving" msgid="6587569249519274524">"ფუნქცია მიუწვდომელია მანქანის მართვისას"</string>
+    <string name="add_user_restricted_while_driving" msgid="4754946754222453656">"მანქანის მართვისას მომხმარებლის დამატება ვერ მოხერხდება"</string>
+    <string name="default_search_query" msgid="3137420627428857068">"ძიება"</string>
 </resources>

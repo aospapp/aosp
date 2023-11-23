@@ -32,6 +32,7 @@
     <string name="button_gsm_cmas_severe_alert" translatable="false">Send GSM CMAS Severe Alert</string>
     <string name="button_gsm_cmas_amber_alert" translatable="false">Send GSM CMAS AMBER Alert</string>
     <string name="button_gsm_cmas_monthly_test" translatable="false">Send GSM CMAS Monthly Test Alert</string>
+    <string name="button_gsm_cmas_exercise_test" translatable="false">Send GSM CMAS Exercise Test Alert</string>
     <string name="button_gsm_public_safety_message" translatable="false">Send GSM Public Safety Message</string>
     <string name="button_gsm_state_local_test_alert" translatable="false">Send State/Local Test Alert</string>
     <string name="button_gsm_7bit_type" translatable="false">Send GSM 7 Bit Test Broadcast</string>
@@ -49,6 +50,7 @@
     <string name="button_gsm_ucs2_with_language_type" translatable="false">Send GSM UCS-2 With Language</string>
     <string name="button_gsm_ucs2_with_language_umts_type" translatable="false">Send UMTS UCS-2 With Language</string>
     <string name="button_delay_broadcast" translatable="false">Delay 5 seconds before sending</string>
+    <string name="button_additional_lang_broadcast" translatable="false">Set Additional lang alerts for GSM CMAS</string>
     <string name="message_id_label" translatable="false">Message ID:</string>
     <string name="category_id_label" translatable="false">Category:</string>
 </resources>

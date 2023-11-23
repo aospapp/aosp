@@ -19,6 +19,7 @@ package com.android.keychain;
 import static android.app.admin.SecurityLog.TAG_CERT_AUTHORITY_INSTALLED;
 import static android.app.admin.SecurityLog.TAG_CERT_AUTHORITY_REMOVED;
 
+import android.annotation.Nullable;
 import android.app.BroadcastOptions;
 import android.app.IntentService;
 import android.app.admin.SecurityLog;
@@ -43,6 +44,7 @@ import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.ParcelableKeyGenParameterSpec;
 import android.security.keystore.StrongBoxUnavailableException;
 import android.text.TextUtils;
+import android.util.Base64;
 import android.util.Log;
 
 import com.android.internal.annotations.VisibleForTesting;
@@ -64,8 +66,11 @@ import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import javax.security.auth.x500.X500Principal;
 
@@ -73,6 +78,8 @@ public class KeyChainService extends IntentService {
 
     private static final String TAG = "KeyChain";
     private static final String CERT_INSTALLER_PACKAGE = "com.android.certinstaller";
+    private final Set<Integer> ALLOWED_UIDS = Collections.unmodifiableSet(
+            new HashSet(Arrays.asList(KeyStore.UID_SELF, Process.WIFI_UID)));
 
     /** created in onCreate(), closed in onDestroy() */
     private GrantsDatabase mGrantsDb;
@@ -135,6 +142,7 @@ public class KeyChainService extends IntentService {
 
             final String keystoreAlias = Credentials.USER_PRIVATE_KEY + alias;
             final int uid = mInjector.getCallingUid();
+            Log.i(TAG, String.format("UID %d will be granted access to %s", uid, keystoreAlias));
             return mKeyStore.grant(keystoreAlias, uid);
         }
 
@@ -160,6 +168,8 @@ public class KeyChainService extends IntentService {
         @Override public void setUserSelectable(String alias, boolean isUserSelectable) {
             validateAlias(alias);
             checkSystemCaller();
+            Log.i(TAG, String.format("Marking certificate %s as user-selectable: %b", alias,
+                    isUserSelectable));
             mGrantsDb.setIsUserSelectable(alias, isUserSelectable);
         }
 
@@ -168,6 +178,14 @@ public class KeyChainService extends IntentService {
             checkSystemCaller();
             final KeyGenParameterSpec spec = parcelableSpec.getSpec();
             final String alias = spec.getKeystoreAlias();
+
+            Log.i(TAG, String.format("About to generate key with alias %s, algorithm %s",
+                    alias, algorithm));
+
+            if (KeyChain.KEY_ALIAS_SELECTION_DENIED.equals(alias)) {
+                throw new IllegalArgumentException("The alias specified for the key denotes "
+                        + "a reserved value and cannot be used to name a key");
+            }
             // Validate the alias here to avoid relying on KeyGenParameterSpec c'tor preventing
             // the creation of a KeyGenParameterSpec instance with a non-empty alias.
             if (TextUtils.isEmpty(alias) || spec.getUid() != KeyStore.UID_SELF) {
@@ -225,6 +243,12 @@ public class KeyChainService extends IntentService {
             if (attestationChallenge == null) {
                 Log.e(TAG, String.format("Missing attestation challenge for alias %s", alias));
                 return KeyChain.KEY_ATTESTATION_MISSING_CHALLENGE;
+            }
+
+            if (Log.isLoggable(TAG, Log.DEBUG)) {
+                Log.d(TAG, String.format("About to attest key alias %s, challenge %s, flags %s",
+                        alias, Base64.encodeToString(attestationChallenge, Base64.NO_WRAP),
+                        Arrays.toString(idAttestationFlags)));
             }
 
             KeymasterArguments attestArgs;
@@ -299,6 +323,12 @@ public class KeyChainService extends IntentService {
                     Log.e(TAG, "Failed to remove CA certificate chain for alias " + alias);
                 }
             }
+
+            if (Log.isLoggable(TAG, Log.DEBUG)) {
+                Log.d(TAG, String.format("Set certificate for key alias %s : user %s CA chain: %s",
+                        alias, emptyOrBase64Encoded(userCertificate),
+                        emptyOrBase64Encoded(userCertificateChain)));
+            }
             broadcastKeychainChange();
             broadcastLegacyStorageChange();
             return true;
@@ -330,24 +360,35 @@ public class KeyChainService extends IntentService {
             String subjectForAudit = null;
             try {
                 final X509Certificate cert = parseCertificate(caCertificate);
-                if (mInjector.isSecurityLoggingEnabled()) {
-                    subjectForAudit =
+                final boolean isSecurityLoggingEnabled = mInjector.isSecurityLoggingEnabled();
+                final boolean isDebugLoggable = Log.isLoggable(TAG, Log.DEBUG);
+                if (isSecurityLoggingEnabled || isDebugLoggable) {
+                    final String subject =
                             cert.getSubjectX500Principal().getName(X500Principal.CANONICAL);
+                    if (isDebugLoggable) {
+                        Log.d(TAG, String.format("Installing CA certificate: %s", subject));
+                    }
+                    if (isSecurityLoggingEnabled) {
+                        subjectForAudit = subject;
+                    }
                 }
                 synchronized (mTrustedCertificateStore) {
                     mTrustedCertificateStore.installCertificate(cert);
                     alias = mTrustedCertificateStore.getCertificateAlias(cert);
                 }
             } catch (IOException | CertificateException e) {
+                Log.w(TAG, "Failed installing CA certificate", e);
                 if (subjectForAudit != null) {
                     mInjector.writeSecurityEvent(
-                            TAG_CERT_AUTHORITY_INSTALLED, 0 /*result*/, subjectForAudit);
+                            TAG_CERT_AUTHORITY_INSTALLED, 0 /*result*/, subjectForAudit,
+                            UserHandle.myUserId());
                 }
                 throw new IllegalStateException(e);
             }
             if (subjectForAudit != null) {
                 mInjector.writeSecurityEvent(
-                        TAG_CERT_AUTHORITY_INSTALLED, 1 /*result*/, subjectForAudit);
+                        TAG_CERT_AUTHORITY_INSTALLED, 1 /*result*/, subjectForAudit,
+                        UserHandle.myUserId());
             }
             broadcastLegacyStorageChange();
             broadcastTrustStoreChange();
@@ -360,22 +401,60 @@ public class KeyChainService extends IntentService {
          * @param privateKey The private key associated with the client certificate
          * @param userCertificate The client certificate to be installed
          * @param userCertificateChain The rest of the chain for the client certificate
-         * @param alias The alias under which the key pair is installed
+         * @param alias The alias under which the key pair is installed. It is invalid to pass
+         *              {@code KeyChain.KEY_ALIAS_SELECTION_DENIED}.
+         * @param uid Can be only one of two values: Either {@code KeyStore.UID_SELF} to indicate
+         *            installation into the current user's system Keystore instance, or
+         *            {@code Process.WIFI_UID} to indicate installation into the main user's
+         *            WiFi Keystore instance. It is only valid to pass {@code Process.WIFI_UID} to
+         *            the KeyChain service on user 0.
          * @return Whether the operation succeeded or not.
          */
-        @Override public boolean installKeyPair(byte[] privateKey, byte[] userCertificate,
-                byte[] userCertificateChain, String alias) {
+        @Override public boolean installKeyPair(@Nullable byte[] privateKey,
+                @Nullable byte[] userCertificate, @Nullable byte[] userCertificateChain,
+                String alias, int uid) {
             checkCertInstallerOrSystemCaller();
+            if (KeyChain.KEY_ALIAS_SELECTION_DENIED.equals(alias)) {
+                throw new IllegalArgumentException("The alias specified for the key denotes "
+                        + "a reserved value and cannot be used to name a key");
+            }
+            if (!ALLOWED_UIDS.contains(uid)) {
+                Log.e(TAG,
+                        String.format("Installing alias %s as UID %d is now allowed.", alias, uid));
+                return false;
+            }
+
+            if (privateKey == null && userCertificate == null && userCertificateChain == null) {
+                Log.e(TAG, String.format("Nothing to install for alias %s", alias));
+                return false;
+            }
+
+            if (uid == Process.WIFI_UID && UserHandle.myUserId() != UserHandle.USER_SYSTEM) {
+                Log.e(TAG, String.format(
+                        "Installation into the WiFi Keystore should be called from the primary "
+                                + "user, not user %d",
+                        UserHandle.myUserId()));
+                return false;
+            }
+
+            if (Log.isLoggable(TAG, Log.DEBUG)) {
+                Log.d(TAG, String.format("Installing certificate and key to alias %s to uid %d: "
+                                + "user cert %s CA chain: %s", alias, uid,
+                                emptyOrBase64Encoded(userCertificate),
+                                emptyOrBase64Encoded(userCertificateChain)));
+            }
+
             if (!removeKeyPair(alias)) {
                 return false;
             }
-            if (!mKeyStore.importKey(Credentials.USER_PRIVATE_KEY + alias, privateKey, -1,
-                    KeyStore.FLAG_NONE)) {
+            if (privateKey != null && !mKeyStore.importKey(
+                    Credentials.USER_PRIVATE_KEY + alias, privateKey, uid, KeyStore.FLAG_NONE)) {
                 Log.e(TAG, "Failed to import private key " + alias);
                 return false;
             }
-            if (!mKeyStore.put(Credentials.USER_CERTIFICATE + alias, userCertificate, -1,
-                    KeyStore.FLAG_NONE)) {
+            if (userCertificate != null &&
+                    !mKeyStore.put(Credentials.USER_CERTIFICATE + alias, userCertificate,
+                        uid, KeyStore.FLAG_NONE)) {
                 Log.e(TAG, "Failed to import user certificate " + userCertificate);
                 if (!mKeyStore.delete(Credentials.USER_PRIVATE_KEY + alias)) {
                     Log.e(TAG, "Failed to delete private key after certificate importing failed");
@@ -383,7 +462,7 @@ public class KeyChainService extends IntentService {
                 return false;
             }
             if (userCertificateChain != null && userCertificateChain.length > 0) {
-                if (!mKeyStore.put(Credentials.CA_CERTIFICATE + alias, userCertificateChain, -1,
+                if (!mKeyStore.put(Credentials.CA_CERTIFICATE + alias, userCertificateChain, uid,
                         KeyStore.FLAG_NONE)) {
                     Log.e(TAG, "Failed to import certificate chain" + userCertificateChain);
                     if (!removeKeyPair(alias)) {
@@ -441,6 +520,7 @@ public class KeyChainService extends IntentService {
             // only Settings should be able to delete
             checkSystemCaller();
             boolean ok = true;
+            Log.i(TAG, String.format("Deleting CA certificate %s", alias));
             synchronized (mTrustedCertificateStore) {
                 ok = deleteCertificateEntry(alias);
             }
@@ -463,14 +543,16 @@ public class KeyChainService extends IntentService {
                 mTrustedCertificateStore.deleteCertificateEntry(alias);
                 if (subjectForAudit != null) {
                     mInjector.writeSecurityEvent(
-                            TAG_CERT_AUTHORITY_REMOVED, 1 /*result*/, subjectForAudit);
+                            TAG_CERT_AUTHORITY_REMOVED, 1 /*result*/, subjectForAudit,
+                            UserHandle.myUserId());
                 }
                 return true;
             } catch (IOException | CertificateException e) {
                 Log.w(TAG, "Problem removing CA certificate " + alias, e);
                 if (subjectForAudit != null) {
                     mInjector.writeSecurityEvent(
-                            TAG_CERT_AUTHORITY_REMOVED, 0 /*result*/, subjectForAudit);
+                            TAG_CERT_AUTHORITY_REMOVED, 0 /*result*/, subjectForAudit,
+                            UserHandle.myUserId());
                 }
                 return false;
             }
@@ -490,7 +572,7 @@ public class KeyChainService extends IntentService {
         }
 
         private boolean isCallerWithSystemUid() {
-            return UserHandle.isSameApp(Binder.getCallingUid(), Process.SYSTEM_UID);
+            return UserHandle.isSameApp(mInjector.getCallingUid(), Process.SYSTEM_UID);
         }
 
         private String callingPackage() {
@@ -620,6 +702,13 @@ public class KeyChainService extends IntentService {
             intent.setPackage(pckg);
             sendBroadcastAsUser(intent, UserHandle.of(UserHandle.myUserId()));
         }
+    }
+
+    private static String emptyOrBase64Encoded(byte[] cert) {
+        if (cert == null) {
+            return "";
+        }
+        return Base64.encodeToString(cert, Base64.NO_WRAP);
     }
 
     @VisibleForTesting

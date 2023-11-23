@@ -54,7 +54,6 @@ import com.android.car.developeroptions.Utils;
 import com.android.car.developeroptions.core.PreferenceControllerMixin;
 import com.android.car.developeroptions.core.SubSettingLauncher;
 import com.android.car.developeroptions.overlay.FeatureFactory;
-import com.android.car.developeroptions.search.SearchIndexableRaw;
 import com.android.settingslib.RestrictedPreference;
 import com.android.settingslib.accounts.AuthenticatorHelper;
 import com.android.settingslib.core.AbstractPreferenceController;
@@ -62,6 +61,7 @@ import com.android.settingslib.core.instrumentation.MetricsFeatureProvider;
 import com.android.settingslib.core.lifecycle.LifecycleObserver;
 import com.android.settingslib.core.lifecycle.events.OnPause;
 import com.android.settingslib.core.lifecycle.events.OnResume;
+import com.android.settingslib.search.SearchIndexableRaw;
 
 import java.util.ArrayList;
 import java.util.Collections;

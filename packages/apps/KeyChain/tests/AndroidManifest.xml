@@ -15,7 +15,8 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="com.android.keychain.tests">
+    package="com.android.keychain.tests"
+    android:sharedUserId="android.uid.system">
 
     <uses-permission android:name="android.permission.INTERNET"/>
 
@@ -38,11 +39,7 @@
         adb shell am start -n com.android.keychain.tests/com.android.keychain.tests.KeyChainTestActivity
     -->
     <application>
-        <service android:name="com.android.keychain.tests.KeyChainServiceTest">
-            <intent-filter>
-                <action android:name="com.android.keychain.tests.KeyChainServiceTest"/>
-            </intent-filter>
-        </service>
+        <uses-library android:name="android.test.runner" />
         <activity android:name="com.android.keychain.tests.KeyChainTestActivity">
             <intent-filter>
                 <action android:name="com.android.keychain.tests.KeyChainTestActivity"/>
@@ -54,4 +51,10 @@
             </intent-filter>
         </activity>
     </application>
+
+    <instrumentation
+        android:name="androidx.test.runner.AndroidJUnitRunner"
+        android:targetPackage="com.android.keychain"
+        android:label="KeyChain Service Tests"
+        android:sharedUserId="android.uid.system"/>
 </manifest>

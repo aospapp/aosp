@@ -16,8 +16,8 @@
 
 package com.android.tv.tuner.data;
 
-import com.android.tv.tuner.data.nano.Track.AtscAudioTrack;
-import com.android.tv.tuner.data.nano.Track.AtscCaptionTrack;
+import com.android.tv.tuner.data.Track.AtscAudioTrack;
+import com.android.tv.tuner.data.Track.AtscCaptionTrack;
 import java.util.List;
 
 /** Collection of MPEG PSI table items. */

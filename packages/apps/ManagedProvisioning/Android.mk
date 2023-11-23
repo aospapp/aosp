@@ -15,7 +15,7 @@ LOCAL_JAVA_LIBRARIES += android.car
 
 LOCAL_STATIC_ANDROID_LIBRARIES += \
         androidx.legacy_legacy-support-v4 \
-        androidx.car_car \
+        car-ui-lib \
         setupcompat \
         setupdesign
 
@@ -23,6 +23,7 @@ LOCAL_STATIC_LIBRARIES := devicepolicyprotosnano
 LOCAL_STATIC_JAVA_LIBRARIES := managedprovisioning_protoslite
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
+LOCAL_SRC_FILES += $(call all-Iaidl-files-under, src)
 
 LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/res
 

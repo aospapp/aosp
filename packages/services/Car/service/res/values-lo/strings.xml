@@ -22,6 +22,8 @@
     <string name="car_permission_desc_camera" msgid="917024932164501426">"ເຂົ້າເຖິງກ້ອງຂອງລົດທ່ານ."</string>
     <string name="car_permission_label_energy" msgid="7409144323527821558">"ເຂົ້າເຖິງຂໍ້ມູນພະລັງງານຂອງລົດ"</string>
     <string name="car_permission_desc_energy" msgid="3392963810053235407">"ເຂົ້າເຖິງຂໍ້ມູນພະລັງງານຂອງລົດທ່ານ."</string>
+    <string name="car_permission_label_adjust_range_remaining" msgid="839033553999920138">"ປັບໄລຍະແລ່ນທີ່ເຫຼືອຢູ່ຂອງລົດ"</string>
+    <string name="car_permission_desc_adjust_range_remaining" msgid="2369321650437370673">"ປັບຄ່າໄລຍະແລ່ນທີ່ເຫຼືອຢູ່ຂອງລົດ"</string>
     <string name="car_permission_label_hvac" msgid="1499454192558727843">"ເຂົ້າເຖິງ HVAC ຂອງລົດ"</string>
     <string name="car_permission_desc_hvac" msgid="3754229695589774195">"ເຂົ້າເຖິງ HVAC ຂອງລົດທ່ານ."</string>
     <string name="car_permission_label_mileage" msgid="4661317074631150551">"ເຂົ້າເຖິງຂໍ້ມູນໄລຍະໄມລ໌ຂອງລົດ"</string>
@@ -62,13 +64,19 @@
     <string name="car_permission_desc_car_ux_restrictions_configuration" msgid="5711926927484813777">"ກຳນົດຄ່າຂໍ້ຈຳກັດ UX"</string>
     <string name="car_permission_label_car_handle_usb_aoap_device" msgid="72783989504378036">"ສື່ສານກັບອຸປະກອນ USB ໃນໂໝດ AOAP"</string>
     <string name="car_permission_desc_car_handle_usb_aoap_device" msgid="273505990971317034">"ອະນຸຍາດໃຫ້ແອັບສື່ສານກັບອຸປະກອນໃນໂໝດ AOAP"</string>
+    <string name="car_permission_label_read_car_occupant_awareness_state" msgid="125517953575032758">"ສິດເຂົ້າເຖິງການອ່ານຂອງລະບົບການຮັບຮູ້ວ່າມີຄົນຢູ່"</string>
+    <string name="car_permission_desc_read_car_occupant_awareness_state" msgid="188865882598414986">"ອະນຸຍາດການອ່ານຂໍ້ມູນສະຖານະ ແລະ ການກວດຫາສຳລັບລະບົບການຮັບຮູ້ວ່າມີຄົນຢູ່"</string>
+    <string name="car_permission_label_control_car_occupant_awareness_system" msgid="7163330266691094542">"ຄວບຄຸມກຣາຟຂອງລະບົບການຮັບຮູ້ວ່າມີຄົນຢູ່"</string>
+    <string name="car_permission_desc_control_car_occupant_awareness_system" msgid="7123482622084531911">"ອະນຸຍາດການຄວບຄຸມການເລີ່ມ ແລະ ການຢຸດສຳລັບກຣາຟການກວດຫາຂອງລະບົບການຮັບຮູ້ວ່າມີຄົນຢູ່"</string>
     <string name="car_permission_label_bind_input_service" msgid="6698489034024273750">"ການບໍລິການປ້ອນຂໍ້ມູນຂອງລົດ"</string>
     <string name="car_permission_desc_bind_input_service" msgid="1670323419931890170">"ຈັດການເຫດການປ້ອນຂໍ້ມູນ"</string>
     <string name="car_can_bus_failure" msgid="2334035748788283914">"CAN bus ບໍ່ສຳເລັດ"</string>
     <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"CAN bus ບໍ່ຕອບສະໜອງ. ຖອດປລັກກ່ອງເຄື່ອງຫຼິ້ນວິທະຍຸ (Headunit) ແລ້ວສຽບເຂົ້າຄືນໃໝ່ ແລະ ຣິສະຕາດລົດ"</string>
-    <string name="activity_blocked_text" msgid="5342114426610711378">"ເພື່ອຄວາມປອດໄພຂອງທ່ານ, ກິດຈະກຳນີ້ບໍ່ມີໃຫ້ນໍາໃຊ້ໃນຂະນະທີ່ທ່ານກຳລັງຂັບລົດຢູ່. \nເພື່ອສືບຕໍ່, ກະລຸນາລໍຖ້າຈົນກວ່າວ່າທ່ານຈອດລົດ."</string>
+    <string name="activity_blocked_text" msgid="8088902789540147995">"ທ່ານບໍ່ສາມາດໃຊ້ຄຸນສົມບັດນີ້ໃນຂະນະທີ່ຂັບລົດໄດ້"</string>
     <string name="exit_button_message" msgid="8554690915924055685">"ເພື່ອເລີ່ມຕົ້ນຄືນໃໝ່ດ້ວຍຄຸນສົມບັດແອັບທີ່ປອດໄພ,​ ກະລຸນາເລືອກ <xliff:g id="EXIT_BUTTON">%s</xliff:g>."</string>
     <string name="exit_button" msgid="5829638404777671253">"ກັບຄືນ"</string>
+    <string name="exit_button_close_application" msgid="8824289547809332460">"ປິດແອັບ"</string>
+    <string name="exit_button_go_back" msgid="3469083862100560326">"ກັບຄືນ"</string>
     <string name="car_permission_label_diag_read" msgid="7248894224877702604">"ອ່ານຂໍ້ມູນການວິເຄາະ"</string>
     <string name="car_permission_desc_diag_read" msgid="1121426363040966178">"ອ່ານຂໍ້ມູນການວິເຄາະຈາກລົດ."</string>
     <string name="car_permission_label_diag_clear" msgid="4783070510879698157">"ລຶບລ້າງຂໍ້ມູນການວິເຄາະ"</string>
@@ -87,6 +95,8 @@
     <string name="car_permission_desc_car_engine_detailed" msgid="1746863362811347700">"ເຂົ້າເຖິງຂໍ້ມູນເຄື່ອງຈັກລະອຽດຂອງລົດທ່ານ."</string>
     <string name="car_permission_label_car_energy_ports" msgid="8548990315169219454">"ເຂົ້າເຖິງຂໍ້ມູນຝານໍ້າມັນ ແລະ ຮູສາກໄຟຂອງລົດ"</string>
     <string name="car_permission_desc_car_energy_ports" msgid="7771185999828794949">"ເຂົ້າເຖິງຂໍ້ມູນຝານໍ້າມັນ ແລະ ຮູສາກໄຟຂອງລົດ."</string>
+    <string name="car_permission_label_control_car_energy_ports" msgid="4375137311026313475">"ຄວບຄຸມຂໍ້ມູນຝານໍ້າມັນ ແລະ ຮູສາກຂອງລົດ"</string>
+    <string name="car_permission_desc_control_car_energy_ports" msgid="7364633710492525387">"ຄວບຄຸມຂໍ້ມູນຝານໍ້າມັນ ແລະ ຮູສາກຂອງລົດ."</string>
     <string name="car_permission_label_car_identification" msgid="5896712510164020478">"ອ່ານການລະບຸຕົວລົດ"</string>
     <string name="car_permission_desc_car_identification" msgid="4132040867171275059">"ເຂົ້າເຖິງການລະບຸຕົວລົດ."</string>
     <string name="car_permission_label_control_car_doors" msgid="3032058819250195700">"ຄວບຄຸມປະຕູລົດ"</string>
@@ -99,6 +109,8 @@
     <string name="car_permission_desc_control_car_seats" msgid="2407536601226470563">"ຄວບຄຸມບ່ອນນັ່ງໃນລົດ."</string>
     <string name="car_permission_label_car_info" msgid="4707513570676492315">"ເຂົ້າເຖິງຂໍ້ມູນພື້ນຖານຂອງລົດ"</string>
     <string name="car_permission_desc_car_info" msgid="2118081474543537653">"ເຂົ້າເຖິງຂໍ້ມູນພື້ນຖານຂອງລົດ."</string>
+    <string name="car_permission_label_vendor_permission_info" msgid="4471260460536888654">"ເຂົ້າເຖິງຂໍ້ມູນການອະນຸຍາດຂອງຜູ້ຂາຍລົດ"</string>
+    <string name="car_permission_desc_vendor_permission_info" msgid="8152113853528488398">"ເຂົ້າເຖິງຂໍ້ມູນການອະນຸຍາດຂອງຜູ້ຂາຍລົດ."</string>
     <string name="car_permission_label_car_exterior_lights" msgid="541304469604902110">"ອ່ານສະຖານະໄຟພາຍນອກຂອງລົດ"</string>
     <string name="car_permission_desc_car_exterior_lights" msgid="4038037584100849318">"ເຂົ້າເຖິງສະຖານະໄພພາຍນອກຂອງລົດ."</string>
     <string name="car_permission_label_control_car_exterior_lights" msgid="101357531386232141">"ອ່ານສະຖານໄຟພາຍນອກລົດ"</string>
@@ -123,5 +135,12 @@
     <string name="car_permission_desc_car_power" msgid="9202079903668652864">"ເຂົ້າເຖິງສະຖານະພະລັງງານຂອງລົດ."</string>
     <string name="car_permission_label_enroll_trust" msgid="3512907900486690218">"ລົງທະບຽນອຸປະກອນທີ່ເຊື່ອຖືໄດ້"</string>
     <string name="car_permission_desc_enroll_trust" msgid="4148649994602185130">"ອະນຸຍາດການລົງທະບຽນອຸປະກອນທີ່ເຊື່ອຖືໄດ້"</string>
+    <string name="car_permission_label_car_test_service" msgid="9159328930558208708">"ຄວບຄຸມໂໝດທົດສອບຂອງລົດ"</string>
+    <string name="car_permission_desc_car_test_service" msgid="7426844534110145843">"ຄວບຄຸມໂໝດທົດສອບຂອງລົດ"</string>
+    <string name="car_permission_label_control_car_features" msgid="3905791560378888286">"ເປີດນຳໃຊ້ ຫຼື ປິດການນຳໃຊ້ຄຸນສົມບັດຂອງລົດ"</string>
+    <string name="car_permission_desc_control_car_features" msgid="7646711104530599901">"ເປີດນຳໃຊ້ ຫຼື ປິດການນຳໃຊ້ຄຸນສົມບັດຂອງລົດ."</string>
+    <string name="car_permission_label_use_car_watchdog" msgid="6973938293170413475">"ໃຊ້ Watchdog ໃນລົດ"</string>
+    <string name="car_permission_desc_use_car_watchdog" msgid="8244592601805516086">"ໃຊ້ Watchdog ໃນລົດ."</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"ອຸປະກອນຂອງຂ້ອຍ"</string>
+    <string name="default_guest_name" msgid="2912812799433131476">"ແຂກ"</string>
 </resources>

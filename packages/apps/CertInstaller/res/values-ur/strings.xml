@@ -21,8 +21,8 @@
     <string name="pkcs12_password_dialog_title" msgid="5997624645207427161">"سرٹیفیکیٹ نکالیں"</string>
     <string name="extracting_pkcs12" msgid="1881267738821799771">"اخذ کر رہا ہے…"</string>
     <string name="pkcs12_file_password_dialog_title" msgid="8102721384767269510">"‏‎%s سے نکالیں"</string>
-    <string name="name_credential_dialog_title" msgid="277729846491554437">"سرٹیفیکیٹ کو نام دیں"</string>
-    <string name="credential_name" msgid="1974979771369744378">"سرٹیفیکیٹ کا نام:"</string>
+    <string name="name_credential_dialog_title" msgid="1481964824549786927">"اس سرٹیفکیٹ کا نام رکھیں"</string>
+    <string name="certificate_name" msgid="8415893401368824792">"سرٹیفیکیٹ کا نام"</string>
     <string name="credential_password" msgid="3520176519550993326">"سرٹیفکیٹس اخذ کرنے کیلئے پاس ورڈ ٹائپ کریں۔"</string>
     <string name="credential_info" msgid="2436768402308470397">"پیکیج کے مشمولات:"</string>
     <string name="p12_description" msgid="4128352087331630024">"‏PKCS12 کی اسٹور میں سرٹیفیکیٹس۔"</string>
@@ -41,10 +41,24 @@
     <string name="invalid_cert" msgid="7704228670980743590">"سرٹیفیکیٹ غلط ہے۔"</string>
     <string name="action_missing_private_key" msgid="7543470057312920042">"ایک سرٹیفکیٹ انسٹال کرنے کیلئے نجی کلید درکار ہے"</string>
     <string name="action_missing_user_cert" msgid="3727411730202316771">"ایک نجی کلید انسٹال کرنے کیلئے سرٹیفکیٹ درکار ہے"</string>
-    <string name="cert_is_added" msgid="6996557598167000500">"<xliff:g id="CREDENTIAL">%s</xliff:g> انسٹال ہے۔"</string>
+    <string name="select_certificate_usage_title" msgid="8853023485944920851">"سرٹیفکیٹ کی قسم منتخب کریں"</string>
+    <string name="redirect_ca_certificate_title" msgid="3457516863949244510">"‏ترتیبات میں CA سرٹیفکیٹس انسٹال کریں"</string>
+    <string name="redirect_ca_certificate_with_app_info_message" msgid="934477720755323579">"‏<xliff:g id="REQUESTING_APP">%1$s</xliff:g> سے ترتیبات میں یہ سرٹیفکیٹ انسٹال ہونی چاہیے۔ صرف ان تنظیموں سے CA سرٹیفکیٹس انسٹال کریں جن پر آپ کو اعتماد ہے۔"</string>
+    <string name="redirect_ca_certificate_close_button" msgid="4291301659747279488">"بند کریں"</string>
+    <string name="invalid_certificate_title" msgid="6500315398016809635">"اس فائل کو استعمال نہیں کر سکتے"</string>
+    <string name="invalid_certificate_close_button" msgid="350986774973653102">"بند کریں"</string>
+    <string name="invalid_certificate_message" msgid="3508065546083182733">"اس فائل کو بطور <xliff:g id="CERTIFICATE_USAGE">%1$s</xliff:g> استعمال نہیں کیا جا سکتا"</string>
+    <string name="certificate" msgid="8790577925509962529">"سرٹیفکیٹ"</string>
+    <string name="ca_certificate" msgid="7397198551290322945">"‏CA سرٹیفکیٹ"</string>
+    <string name="user_certificate" msgid="514888069820553128">"‏VPN اور ایپ صارف کا سرٹیفکیٹ"</string>
+    <string name="wifi_certificate" msgid="5356595832360140989">"‏Wi-Fi سرٹیفکیٹ"</string>
+    <string name="ca_cert_is_added" msgid="2847081843756291802">"‏CA سرٹیفکیٹ انسٹال کیا گیا"</string>
+    <string name="user_cert_is_added" msgid="3088794616560630823">"صارف کا سرٹیفیکیٹ انسٹال کیا گیا"</string>
+    <string name="wifi_cert_is_added" msgid="333220613655140428">"‏Wi-Fi کا سرٹیفکیٹ انسٹال کیا گیا"</string>
     <string name="cert_too_large_error" msgid="8715414972725646285">"انسٹال نہیں کیا جا سکا کیونکہ سرٹیفکیٹ کا سائز کافی بڑا ہے۔"</string>
     <string name="cert_missing_error" msgid="7040527352278728220">"انسٹال نہیں کیا جا سکا کیونکہ سرٹیفکیٹ فائل تلاش نہیں کی جا سکی۔"</string>
     <string name="cert_read_error" msgid="7353463360652419796">"انسٹال نہیں کیا جا سکا کیونکہ سرٹیفکیٹ فائل پڑھی نہیں جاسکی۔"</string>
+    <string name="cert_temp_error" msgid="617276803992714550">"عارضی ناکامی۔ براہ کرم بعد میں دوبارہ کوشش کریں۔"</string>
     <string name="only_primary_user_allowed" msgid="4005084935023047716">"صرف اس آلہ کا مالک ہی سرٹیفکیٹس انسٹال کر سکتا ہے۔"</string>
     <string name="credential_usage_label" msgid="1513892208033156805">"اسناد کا استعمال:"</string>
   <string-array name="credential_usage">

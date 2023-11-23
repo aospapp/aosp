@@ -25,16 +25,18 @@ import static org.mockito.Mockito.when;
 import android.content.ContentResolver;
 import android.content.Context;
 
+import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SmallTest;
-import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
 
 import java.io.PrintWriter;
 import java.util.List;
@@ -42,6 +44,7 @@ import java.util.List;
 @RunWith(AndroidJUnit4.class)
 @SmallTest
 public class GarageModeServiceTest {
+    @Rule public final MockitoRule rule = MockitoJUnit.rule();
     @Mock private Context mMockContext;
     @Mock private Controller mMockController;
     @Mock private ContentResolver mMockContentResolver;
@@ -52,7 +55,6 @@ public class GarageModeServiceTest {
 
     @Before
     public void setUp() {
-        MockitoAnnotations.initMocks(this);
         when(mMockContext.getContentResolver()).thenReturn(mMockContentResolver);
         mService = new GarageModeService(mMockContext, mMockController);
     }

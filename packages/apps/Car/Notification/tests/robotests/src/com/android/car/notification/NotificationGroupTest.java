@@ -60,8 +60,8 @@ public class NotificationGroupTest {
 
     private Notification.Builder mNotificationBuilder;
     private NotificationGroup mNotificationGroup;
-    private StatusBarNotification mNOTIFICATION1;
-    private StatusBarNotification mNotification2;
+    private AlertEntry mNotification1;
+    private AlertEntry mNotification2;
 
     @Before
     public void setup() {
@@ -72,12 +72,12 @@ public class NotificationGroupTest {
                 CHANNEL_ID)
                 .setContentTitle(CONTENT_TITLE)
                 .setSmallIcon(android.R.drawable.sym_def_app_icon);
-        mNOTIFICATION1 = new StatusBarNotification(PKG_1, OP_PKG,
+        mNotification1 = new AlertEntry(new StatusBarNotification(PKG_1, OP_PKG,
                 ID, TAG, UID, INITIAL_PID, mNotificationBuilder.build(), USER_HANDLE,
-                OVERRIDE_GROUP_KEY, POST_TIME);
-        mNotification2 = new StatusBarNotification(PKG_2, OP_PKG,
+                OVERRIDE_GROUP_KEY, POST_TIME));
+        mNotification2 = new AlertEntry(new StatusBarNotification(PKG_2, OP_PKG,
                 ID, TAG, UID, INITIAL_PID, mNotificationBuilder.build(), USER_HANDLE,
-                OVERRIDE_GROUP_KEY, POST_TIME);
+                OVERRIDE_GROUP_KEY, POST_TIME));
     }
 
     /**
@@ -85,8 +85,8 @@ public class NotificationGroupTest {
      */
     @Test
     public void addNotification_shouldAdd() {
-        mNotificationGroup.addNotification(mNOTIFICATION1);
-        mNotificationGroup.addNotification(mNOTIFICATION1);
+        mNotificationGroup.addNotification(mNotification1);
+        mNotificationGroup.addNotification(mNotification1);
         assertThat(mNotificationGroup.getChildCount()).isEqualTo(2);
     }
 
@@ -96,7 +96,7 @@ public class NotificationGroupTest {
      */
     @Test
     public void addNotification_shouldThrowError() {
-        mNotificationGroup.addNotification(mNOTIFICATION1);
+        mNotificationGroup.addNotification(mNotification1);
         assertThrows(IllegalStateException.class,
                 () -> mNotificationGroup.addNotification(mNotification2));
     }
@@ -106,7 +106,7 @@ public class NotificationGroupTest {
      */
     @Test
     public void setGroupSummaryNotification_shouldReturnFalse() {
-        mNotificationGroup.setGroupSummaryNotification(mNOTIFICATION1);
+        mNotificationGroup.setGroupSummaryNotification(mNotification1);
         assertThat(mNotificationGroup.isGroup()).isFalse();
     }
 
@@ -115,27 +115,28 @@ public class NotificationGroupTest {
      */
     @Test
     public void setGroupSummaryNotification_shouldReturnTrue() {
-        mNotificationGroup.setGroupSummaryNotification(mNOTIFICATION1);
-        mNotificationGroup.addNotification(mNOTIFICATION1);
-        mNotificationGroup.addNotification(mNOTIFICATION1);
+        mNotificationGroup.setGroupSummaryNotification(mNotification1);
+        mNotificationGroup.addNotification(mNotification1);
+        mNotificationGroup.addNotification(mNotification1);
         assertThat(mNotificationGroup.getChildCount()).isEqualTo(2);
-        assertThat(mNotificationGroup.getGroupSummaryNotification()).isEqualTo(mNOTIFICATION1);
+        assertThat(mNotificationGroup.getGroupSummaryNotification()).isEqualTo(mNotification1);
         assertThat(mNotificationGroup.isGroup()).isTrue();
     }
 
     @Test
     public void setGroupKey_shouldSetGroupKey() {
-        mNotificationGroup.setGroupKey(mNOTIFICATION1.getGroupKey());
-        assertThat(mNotificationGroup.getGroupKey()).isEqualTo(mNOTIFICATION1.getGroupKey());
+        mNotificationGroup.setGroupKey(mNotification1.getStatusBarNotification().getGroupKey());
+        assertThat(mNotificationGroup.getGroupKey()).isEqualTo(
+                mNotification1.getStatusBarNotification().getGroupKey());
     }
 
     @Test
     public void getChildNotifications_shouldReturnListOfAddedNotifications() {
-        mNotificationGroup.addNotification(mNOTIFICATION1);
-        mNotificationGroup.addNotification(mNOTIFICATION1);
+        mNotificationGroup.addNotification(mNotification1);
+        mNotificationGroup.addNotification(mNotification1);
         assertThat(mNotificationGroup.getChildCount()).isEqualTo(2);
-        assertThat(mNotificationGroup.getChildNotifications().get(0)).isEqualTo(mNOTIFICATION1);
-        assertThat(mNotificationGroup.getChildNotifications().get(1)).isEqualTo(mNOTIFICATION1);
+        assertThat(mNotificationGroup.getChildNotifications().get(0)).isEqualTo(mNotification1);
+        assertThat(mNotificationGroup.getChildNotifications().get(1)).isEqualTo(mNotification1);
     }
 
     @Test
@@ -149,16 +150,16 @@ public class NotificationGroupTest {
 
     @Test
     public void generateChildTitles_shouldReturnListOfStringWithChildTiles() {
-        mNotificationGroup.addNotification(mNOTIFICATION1);
-        mNotificationGroup.addNotification(mNOTIFICATION1);
+        mNotificationGroup.addNotification(mNotification1);
+        mNotificationGroup.addNotification(mNotification1);
         assertThat(mNotificationGroup.generateChildTitles().get(0)).isEqualTo(CONTENT_TITLE);
         assertThat(mNotificationGroup.generateChildTitles().get(1)).isEqualTo(CONTENT_TITLE);
     }
 
     @Test
     public void getSingleNotification_returnTheOnlyNotificationInNotificationList() {
-        mNotificationGroup.addNotification(mNOTIFICATION1);
-        assertThat(mNotificationGroup.getSingleNotification()).isEqualTo(mNOTIFICATION1);
+        mNotificationGroup.addNotification(mNotification1);
+        assertThat(mNotificationGroup.getSingleNotification()).isEqualTo(mNotification1);
     }
 
     @Test
@@ -168,13 +169,54 @@ public class NotificationGroupTest {
 
     @Test
     public void getNotificationForSorting_shouldReturnGroupSummaryNotification() {
-        mNotificationGroup.setGroupSummaryNotification(mNOTIFICATION1);
-        assertThat(mNotificationGroup.getNotificationForSorting()).isEqualTo(mNOTIFICATION1);
+        mNotificationGroup.setGroupSummaryNotification(mNotification1);
+        assertThat(mNotificationGroup.getNotificationForSorting()).isEqualTo(mNotification1);
     }
 
     @Test
     public void getNotificationForSorting_shouldReturnNull() {
         assertThat(mNotificationGroup.getSingleNotification()).isNull();
+    }
+
+    @Test
+    public void isDismissible_containsOngoingNotification_returnsFalse() {
+        mNotification1.getNotification().flags =
+                mNotification1.getNotification().flags | Notification.FLAG_ONGOING_EVENT;
+
+        mNotificationGroup.addNotification(mNotification1);
+
+        assertThat(mNotificationGroup.isDismissible()).isFalse();
+    }
+
+    @Test
+    public void isDismissible_containsForegroundService_returnsFalse() {
+        mNotification1.getNotification().flags =
+                mNotification1.getNotification().flags | Notification.FLAG_FOREGROUND_SERVICE;
+
+        mNotificationGroup.addNotification(mNotification1);
+
+        assertThat(mNotificationGroup.isDismissible()).isFalse();
+    }
+
+    @Test
+    public void isDismissible_isHeader_returnsFalse() {
+        mNotificationGroup.setHeader(true);
+
+        assertThat(mNotificationGroup.isDismissible()).isFalse();
+    }
+
+    @Test
+    public void isDismissible_isFooter_returnsFalse() {
+        mNotificationGroup.setFooter(true);
+
+        assertThat(mNotificationGroup.isDismissible()).isFalse();
+    }
+
+    @Test
+    public void isDismissible_onlyContainsDismissibleNotification_returnsTrue() {
+        mNotificationGroup.addNotification(mNotification1);
+
+        assertThat(mNotificationGroup.isDismissible()).isTrue();
     }
 
 }

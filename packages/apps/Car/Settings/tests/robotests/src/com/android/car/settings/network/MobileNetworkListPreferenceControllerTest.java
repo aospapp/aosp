@@ -28,7 +28,6 @@ import androidx.lifecycle.Lifecycle;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceGroup;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.common.LogicalPreferenceGroup;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
 import com.android.car.settings.testutils.ShadowSubscriptionManager;
@@ -37,16 +36,19 @@ import com.google.android.collect.Lists;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadow.api.Shadow;
 
 import java.util.List;
 
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@Ignore
+@RunWith(RobolectricTestRunner.class)
 @Config(shadows = {ShadowSubscriptionManager.class})
 public class MobileNetworkListPreferenceControllerTest {
 

@@ -27,24 +27,23 @@
 
     <androidx.preference.internal.PreferenceImageView
         android:id="@android:id/icon"
-        android:layout_width="@*android:dimen/car_primary_icon_size"
-        android:layout_height="@*android:dimen/car_primary_icon_size"
-        android:layout_marginBottom="@*android:dimen/car_padding_2"
+        android:layout_width="@*android:dimen/car_preference_icon_size"
+        android:layout_height="@*android:dimen/car_preference_icon_size"
+        android:layout_marginBottom="@*android:dimen/car_preference_row_vertical_margin"
         android:layout_marginEnd="?android:attr/listPreferredItemPaddingEnd"
-        android:layout_marginTop="@*android:dimen/car_padding_2"/>
+        android:layout_marginTop="@*android:dimen/car_preference_row_vertical_margin"/>
 
     <RelativeLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="@*android:dimen/car_padding_2"
-        android:layout_marginTop="@*android:dimen/car_padding_2"
+        android:layout_marginBottom="@*android:dimen/car_preference_row_vertical_margin"
+        android:layout_marginTop="@*android:dimen/car_preference_row_vertical_margin"
         android:layout_weight="1">
 
         <TextView
             android:id="@android:id/title"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:ellipsize="end"
             android:singleLine="true"
             android:textAppearance="?android:attr/textAppearanceListItem"/>
 

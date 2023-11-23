@@ -16,9 +16,18 @@
  * limitations under the License.
  */
 -->
-<FrameLayout
+<TextView
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content">
-    <include layout="@*android:layout/car_resolver_different_item_header"/>
-</FrameLayout>
+    android:layout_height="wrap_content"
+    android:text="@*android:string/use_a_different_app"
+    android:minHeight="56dp"
+    android:textAppearance="?android:attr/textAppearanceLarge"
+    android:textSize="@*android:dimen/car_body2_size"
+    android:gravity="start|center_vertical"
+    android:paddingStart="16dp"
+    android:paddingEnd="16dp"
+    android:paddingTop="8dp"
+    android:paddingBottom="8dp"
+    android:elevation="8dp"
+/>

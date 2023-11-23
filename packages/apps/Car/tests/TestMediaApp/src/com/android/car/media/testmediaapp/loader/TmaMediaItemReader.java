@@ -24,6 +24,7 @@ import static com.android.car.media.testmediaapp.loader.TmaLoaderUtils.enumNames
 import static com.android.car.media.testmediaapp.loader.TmaLoaderUtils.getArray;
 import static com.android.car.media.testmediaapp.loader.TmaLoaderUtils.getEnum;
 import static com.android.car.media.testmediaapp.loader.TmaLoaderUtils.getEnumArray;
+import static com.android.car.media.testmediaapp.loader.TmaLoaderUtils.getInt;
 import static com.android.car.media.testmediaapp.loader.TmaLoaderUtils.getString;
 
 import android.util.Log;
@@ -55,6 +56,7 @@ class TmaMediaItemReader {
         PLAYABLE_HINT,
         BROWSABLE_HINT,
         METADATA,
+        SELF_UPDATE_MS,
         CHILDREN,
         INCLUDE,
         CUSTOM_ACTIONS,
@@ -114,6 +116,7 @@ class TmaMediaItemReader {
                     getEnum(json, Keys.PLAYABLE_HINT, mContentStyles, ContentStyle.NONE),
                     getEnum(json, Keys.BROWSABLE_HINT, mContentStyles, ContentStyle.NONE),
                     mMediaMetadataReader.fromJson(json.getJSONObject(Keys.METADATA.name())),
+                    getInt(json, Keys.SELF_UPDATE_MS),
                     getEnumArray(json, Keys.CUSTOM_ACTIONS, mCustomActions),
                     mediaEvents, mediaItems, getString(json, Keys.INCLUDE));
         } catch (JSONException e) {

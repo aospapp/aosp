@@ -21,7 +21,6 @@ import android.util.AttributeSet;
 import android.view.SurfaceView;
 import android.view.View;
 import com.android.tv.common.compat.TvViewCompat;
-import com.android.tv.common.util.CommonUtils;
 import com.android.tv.common.util.Debug;
 
 /**
@@ -29,9 +28,14 @@ import com.android.tv.common.util.Debug;
  *
  * <p>Once an app starts using additional window like SubPanel and it gets window focus, the {@link
  * android.media.tv.TvView#setMain()} does not work because its implementation assumes that the app
- * uses only application layer. TODO: remove this class once the TvView.setMain() is revisited.
+ * uses only application layer.
+ *
+ * <p>TODO: remove this class once the TvView.setMain() is revisited.
  */
 public class AppLayerTvView extends TvViewCompat {
+
+    boolean mUseSecureSurface = true;
+
     public AppLayerTvView(Context context) {
         super(context);
     }
@@ -44,6 +48,11 @@ public class AppLayerTvView extends TvViewCompat {
         super(context, attrs, defStyleAttr);
     }
 
+    /** Set the security of children {@link SurfaceView}s to {@code secure} */
+    public void setUseSecureSurface(boolean secure) {
+        mUseSecureSurface = secure;
+    }
+
     @Override
     public boolean hasWindowFocus() {
         return true;
@@ -53,7 +62,7 @@ public class AppLayerTvView extends TvViewCompat {
     public void onViewAdded(View child) {
         if (child instanceof SurfaceView) {
             // Note: See b/29118070 for detail.
-            ((SurfaceView) child).setSecure(!CommonUtils.isDeveloper());
+            ((SurfaceView) child).setSecure(mUseSecureSurface);
         }
         super.onViewAdded(child);
     }

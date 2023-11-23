@@ -60,6 +60,11 @@
     <string name="forget" msgid="892068061425802502">"Xóa"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"Kết nối qua Wi-Fi Direct"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"Kết nối qua mạng hiện tại tại <xliff:g id="IP_ADDRESS">%1$s</xliff:g>"</string>
+    <string name="recommendation_summary" msgid="2979700524954307566">"Dịch vụ in mặc định có các tùy chọn cơ bản. Bạn có thể sử dụng các tùy chọn khác của một dịch vụ in khác cho máy in này."</string>
+    <string name="recommendations_heading" msgid="5086762263560605249">"Dịch vụ đề xuất"</string>
+    <string name="recommendation_install_summary" msgid="374785283809791669">"Chọn để cài đặt"</string>
+    <string name="recommendation_enable_summary" msgid="3500907868251326224">"Chọn để bật"</string>
+    <string name="recommendation_manage" msgid="4683640588502866284">"Quản lý dịch vụ"</string>
     <string name="security" msgid="2279008326210305401">"Bảo mật"</string>
     <string name="certificate_update_request" msgid="1314796413107139475">"Máy in này đã cung cấp một chứng chỉ bảo mật mới hoặc một thiết bị khác đang mạo danh máy in này. Chấp nhận chứng chỉ mới?"</string>
     <string name="not_encrypted_request" msgid="4871472176807381642">"Máy in này không còn chấp nhận các lệnh in đã mã hóa. Bạn muốn tiếp tục in?"</string>
@@ -68,4 +73,5 @@
     <string name="connections" msgid="8895413761760117180">"Kết nối"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Dịch vụ in mặc định cần có quyền truy cập vào vị trí để tìm các thiết bị lân cận."</string>
     <string name="fix" msgid="7784394272611365393">"Xem lại quyền"</string>
+    <string name="print" msgid="7851318072404916362">"In"</string>
 </resources>

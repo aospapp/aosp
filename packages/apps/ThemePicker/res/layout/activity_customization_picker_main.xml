@@ -36,4 +36,6 @@
         app:labelVisibilityMode="labeled"
         app:menu="@menu/bottom_navigation_menu"/>
 
+    <include layout="@layout/bottom_action_bar" />
+
 </FrameLayout>

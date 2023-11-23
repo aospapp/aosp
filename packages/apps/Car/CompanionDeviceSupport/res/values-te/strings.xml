@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 
+  ~ Copyright (C) 2019 The Android Open Source Project
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~
+  ~      http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+   -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="default_device_name" msgid="405493967512651629">"అనుబంధించబడిన పరికరం"</string>
+    <string name="add_device_title" msgid="6166003577845888151">"సహచర పరికరాన్ని జోడించండి"</string>
+    <string name="add_associated_device_title" msgid="3275596124326477381">"సహచర పరికరాన్ని కనెక్ట్ చేయండి"</string>
+    <string name="add_associated_device_instruction" msgid="1015406964657139291">"మీ డ్రైవింగ్ అనుభవాన్ని మేనేజ్ చేయడంలో సహాయపడటానికి మీ ఫోన్‌ను మీరు సహచర పరికరంగా ఉపయోగించవచ్చు"</string>
+    <string name="associated_device_install_app" msgid="981663561198924864">"మీ ఫోన్‌లో "<b>"సహచర యాప్"</b>" ఇన్‌స్టాల్ చేయబడిందని నిర్ధారించుకోండి"</string>
+    <string name="associated_device_pairing_code_title" msgid="5118861901337336309">"ఫోన్‌లో కోడ్‌ను నిర్ధారించండి"</string>
+    <string name="associated_device_pairing_message" msgid="7319249426394299109">"ఇది మీ ఫోన్‌లో చూపించిన కోడ్‌తో మ్యాచ్ అవుతున్నట్లు నిర్ధారించండి"</string>
+    <string name="associated_device_success" msgid="584760065696870256">"పరికరం విజయవంతంగా అనుబంధించబడింది"</string>
+    <string name="associated_device_select_device" msgid="1931869046289060602">"యాప్‌ తెరిచి, &lt;b&gt;<xliff:g id="CAR_NAME">%1$s</xliff:g>&lt;b&gt;కు కనెక్ట్ చేయండి"</string>
+    <string name="remove_associated_device_title" msgid="4060806982019423895">"&lt;b&gt;<xliff:g id="CAR_NAME">%1$s</xliff:g>&lt;/b&gt;ను విస్మరించాలా?"</string>
+    <string name="remove_associated_device_message" msgid="3991333597951462900">"ఇకపై ఈ కారు ఈ పరికరంతో పెయిర్ చేయబడదు. అంతే కాదు, మీరు ఈ కారును సహచర యాప్ నుండి తీసివేయాలి."</string>
+    <string name="device_removed_success_toast_text" msgid="3242832156490823936">"<xliff:g id="PHONE_NAME">%1$s</xliff:g> విస్మరించబడింది"</string>
+    <string name="device_removed_failure_toast_text" msgid="3756625943664982395">"<xliff:g id="PHONE_NAME">%1$s</xliff:g>ను విస్మరించడం విఫలమైంది"</string>
+    <string name="continue_setup_toast_text" msgid="8487187853051037413">"సెటప్‌ను మీ ఫోన్‌లో కొనసాగించండి"</string>
+    <string name="error_screen_title" msgid="3977744142045194903">"ఏదో తప్పు జరిగింది"</string>
+    <string name="error_screen_message" msgid="1217200461704367056">"దురదృష్టవశాత్తు, ఈ స్క్రీన్ సరిగ్గా డిస్‌ప్లే కాలేదు. దయచేసి మళ్ళీ ట్రై చేయండి."</string>
+    <string name="turn_on_bluetooth_title" msgid="2877749869113938263">"బ్లూటూత్‌ను ఆన్ చేయండి"</string>
+    <string name="turn_on_bluetooth_message" msgid="5087006108685547788">"మీ ఫోన్‌ను మీ సహచర పరికరంగా సెట్ చేయడానికి, మీ కారుకు బ్లూటూత్ అవసరం."</string>
+    <string name="turn_on_bluetooth_dialog_title" msgid="8693712073791430461">"బ్లూటూత్‌ను ఆన్ చేయాలా?"</string>
+    <string name="turn_on_bluetooth_dialog_message" msgid="5347157597209022072">"మీ సహచర పరికరానికి కనెక్ట్ చేయడానికి, మీ కారుకు బ్లూటూత్ అవసరం."</string>
+    <string name="accept" msgid="1454710793329618813">"ఆమోదించు"</string>
+    <string name="reject" msgid="4315432282758892890">"తిరస్కరించు"</string>
+    <string name="confirm" msgid="3748997214719276945">"నిర్ధారించు"</string>
+    <string name="cancel" msgid="4306609731174629323">"రద్దు చేయి"</string>
+    <string name="remove" msgid="5513398257088729188">"తీసివేయి"</string>
+    <string name="ok" msgid="2825038997730899083">"సరే"</string>
+    <string name="connection" msgid="2798490936433656846">"కనెక్షన్"</string>
+    <string name="forget_title" msgid="3027608547243824729">"ఈ పరికరాన్ని విస్మరించు"</string>
+    <string name="forget" msgid="2069897665699141222">"విస్మరించు"</string>
+    <string name="disable" msgid="4619854429066283970">"డిజేబుల్ చేయి"</string>
+    <string name="enable" msgid="7656386199154111316">"ఎనేబుల్ చేయి"</string>
+    <string name="continue_button" msgid="2748318968566159950">"కొనసాగించు"</string>
+    <string name="retry" msgid="3783419451480721367">"మళ్ళీ ట్రై చేయి"</string>
+    <string name="turn_on" msgid="4288754850470994812">"ఆన్ చేయి"</string>
+    <string name="not_now" msgid="8764692269093707622">"ఇప్పుడు కాదు"</string>
+    <string name="connected" msgid="8051190714042020471">"కనెక్ట్ అయ్యింది"</string>
+    <string name="notDetected" msgid="4115229772085594506">"గుర్తించబడలేదు"</string>
+    <string name="disconnected" msgid="8526513868622591894">"డిస్‌కనెక్ట్ అయింది"</string>
+    <string name="unknown" msgid="555736316465118024">"తెలియదు"</string>
+    <string name="app_running_msg_channel_name" msgid="87011783084544733">"ఫోన్ టెక్ట్స్ మెసేజ్ సర్వీస్ రన్ అవుతోంది"</string>
+    <string name="app_running_msg_notification_title" msgid="388907180286994900">"ఫోన్ టెక్ట్స్ మెసేజింగ్ సర్వీస్ యాక్టివ్‌గా ఉంది"</string>
+    <string name="app_running_msg_notification_content" msgid="4602261901969140233">"సహచర పరికరం ద్వారా టెక్ట్స్ మెసేజ్‌లను స్వీకరిస్తోంది"</string>
+    <string name="trusted_device_feature_title" msgid="2690568414493283969">"ఫోన్‌తో ప్రొఫైల్‌ను అన్‌లాక్ చేయండి"</string>
+    <string name="trusted_device_feature_instruction" msgid="2546439818978826962">"అన్‌లాక్ చేసే ఆప్షన్‌లను సెట్ చేయడానికి మీ సహచర యాప్‌ను చెక్ చేయండి"</string>
+    <string name="trusted_device_item_title" msgid="4390572381407233745">"నా ప్రొఫైల్‌ను అన్‌లాక్ చేయడానికి &lt;b&gt;<xliff:g id="PHONE_NAME">%1$s</xliff:g>&lt;/b&gt;ను అనుమతించు"</string>
+    <string name="device_not_connected_dialog_title" msgid="1157155922752758658">"మీ ఫోన్ యాక్టివ్‌గా కనెక్ట్ అయి ఉండాలి"</string>
+    <string name="device_not_connected_dialog_message" msgid="4987412656697205324">"ఈ ఫీచర్‌ను ఆన్ చేయడానికి, మీ కారు, అలాగే మీ ఫోన్‌లో బ్లూటూత్ ఆన్‌లో ఉందని, అవి రెండు ఒకదానికొకటి సమీపంలో ఉన్నాయని నిర్ధారించుకోండి"</string>
+    <string name="trusted_device_enrollment_success_message" msgid="2080578779942302923">"ఇప్పుడు &lt;b&gt;<xliff:g id="PHONE_NAME">%1$s</xliff:g>&lt;/b&gt; మీ ప్రొఫైల్‌ను అన్‌లాక్ చేయగలదు"</string>
+    <string name="create_profile_lock_dialog_title" msgid="7865225698595414341">"ప్రాధమిక ప్రొఫైల్ లాక్‌ను రూపొందించండి"</string>
+    <string name="create_profile_lock_dialog_message" msgid="5078929325894045416">"మీ ప్రొఫైల్‌ను అన్‌లాక్ చేయడానికి మీ ఫోన్‌ను ఉపయోగించేందుకు, మీకు బ్యాకప్‌గా ఒక ప్రాథ‌మిక ప్రొఫైల్ లాక్ అవసరం"</string>
+    <string name="unlock_profile_to_finish_title" msgid="6542028315996392302">"పూర్తి చేయడానికి మీ ప్రొఫైల్‌ను అన్‌లాక్ చేయండి"</string>
+    <string name="unlock_profile_to_finish_message" msgid="8616094218201557262">"మీరు కొత్త ప్రొఫైల్ లాక్‌ను రూపొందించారు. తర్వాత, మీ ఫోన్ ఆటోమేటిక్‌గా మీ ప్రొఫైల్‌ను అన్‌లాక్ చేయగలదని నిర్ధారించడానికి దాన్ని మళ్లీ ఎంటర్ చేయండి"</string>
+    <string name="disable_device_connection_text" msgid="4361795552013963732">"ఈ పరికరాన్ని డిస్‌కనెక్ట్ చేయండి"</string>
+    <string name="enable_device_connection_text" msgid="7742550392552935783">"ఈ పరికరాన్ని మళ్లీ కనెక్ట్ చేయండి"</string>
+    <string name="trusted_device_notification_channel_name" msgid="6717174570621750321">"ఫోన్‌తో అన్‌లాక్ చేయండి"</string>
+    <string name="trusted_device_notification_title" msgid="249913439061543209">"మీ ప్రొఫైల్‌ను అన్‌లాక్ చేయడానికి మీ ఫోన్‌ను అనుమతించండి"</string>
+    <string name="trusted_device_notification_content" msgid="7536321078698712456">"ఈ ఫీచర్‌ను అనుమతించడానికి ఇక్కడ ట్యాప్ చేయండి"</string>
+    <string name="trusted_device_enrollment_error_dialog_title" msgid="8120284275374458606">"ఏదో తప్పు జరిగింది"</string>
+    <string name="trusted_device_enrollment_error_dialog_message" msgid="7205036748277720461">"దురదృష్టవశాత్తూ, ప్రస్తుతం ఈ ఫీచర్‌ను ఆన్ చేయడం సాధ్యపడలేదు. దయచేసి మళ్ళీ ట్రై చేయండి."</string>
+    <string name="create_phone_lock_dialog_title" msgid="9160142569534569820">"మీ ఫోన్‌లో స్క్రీన్ లాక్‌ను రూపొందించండి"</string>
+    <string name="create_phone_lock_dialog_message" msgid="8209460622086922427">"మీ ఫోన్‌కు స్క్రీన్ లాక్ సెట్ చేయలేదు. మీ ఫోన్ ద్వారా మీ కారు ప్రొఫైల్‌ను అన్‌లాక్ చేయడానికి, ముందుగా మీ ఫోన్ సెట్టింగ్‌లలో స్క్రీన్ లాక్‌ను (దీనిని పాస్‌కోడ్ అని కూడా అంటారు) రూపొందించండి."</string>
+</resources>

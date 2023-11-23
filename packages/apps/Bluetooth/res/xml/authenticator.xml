@@ -17,5 +17,4 @@
         xmlns:android="http://schemas.android.com/apk/res/android"
         android:icon="@mipmap/bt_share"
         android:smallIcon="@mipmap/bt_share"
-        android:accountType="@string/pbap_account_type"
-        android:label="@string/pbap_account_type" />
+        android:accountType="@string/pbap_account_type" />

@@ -61,21 +61,21 @@ public class SettingsIntelligenceLogWriter implements LogWriter {
     }
 
     @Override
-    public void visible(Context context, int attribution, int pageId) {
-        action(attribution /* attribution */,
+    public void visible(Context context, int attribution, int pageId, int latency) {
+        action(attribution /* from pageId */,
                 SettingsEnums.PAGE_VISIBLE /* action */,
-                pageId /* pageId */,
+                pageId /* target pageId */,
                 "" /* changedPreferenceKey */,
-                0 /* changedPreferenceIntValue */);
+                latency /* changedPreferenceIntValue */);
     }
 
     @Override
-    public void hidden(Context context, int pageId) {
+    public void hidden(Context context, int pageId, int visibleTime) {
         action(SettingsEnums.PAGE_UNKNOWN /* attribution */,
                 SettingsEnums.PAGE_HIDE /* action */,
                 pageId /* pageId */,
                 "" /* changedPreferenceKey */,
-                0 /* changedPreferenceIntValue */);
+                visibleTime /* changedPreferenceIntValue */);
     }
 
     @Override

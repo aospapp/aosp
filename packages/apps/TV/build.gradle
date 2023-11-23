@@ -18,37 +18,32 @@
 /*
  * Experimental gradle configuration.  This file may not be up to date.
  */
+apply plugin: 'com.android.application'
 
 buildscript {
     repositories {
-        mavenCentral()
         google()
+        jcenter()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:3.1.4'
-        classpath 'com.google.protobuf:protobuf-gradle-plugin:0.8.6'
+        classpath 'com.android.tools.build:gradle:3.5.2'
+        classpath 'com.google.protobuf:protobuf-gradle-plugin:0.8.10'
     }
 }
-apply plugin: 'com.android.application'
+
 android {
-    compileSdkVersion 28
-    buildToolsVersion '28.0.3'
-    dexOptions {
-        preDexLibraries = false
-        additionalParameters=['--core-library']
-        javaMaxHeapSize "6g"
+    compileSdkVersion 29
+    buildToolsVersion '29.0.2'
+
+    compileOptions() {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
     }
-    android {
-        defaultConfig {
-            resConfigs "en"
-        }
+
+    lintOptions {
+        abortOnError false
     }
-    defaultConfig {
-        minSdkVersion 23
-        targetSdkVersion 28
-        versionCode 1
-        versionName "1.0"
-    }
+
     buildTypes {
         debug {
             minifyEnabled false
@@ -57,43 +52,50 @@ android {
             minifyEnabled true
         }
     }
-    compileOptions() {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+
+    defaultConfig {
+        minSdkVersion 23
+        resConfigs "en"
+        targetSdkVersion 29
+        versionCode 1
+        versionName "1.0"
     }
+
     sourceSets {
         main {
-            res.srcDirs = ['res', 'material_res']
+            res.srcDirs = ['res', 'material_res', 'ratings/res']
             java.srcDirs = ['src', 'partner_support/src']
             manifest.srcFile 'AndroidManifest.xml'
         }
     }
 }
 
-repositories {
-    mavenCentral()
-    jcenter()
-    google()
+allprojects {
+    repositories {
+        google()
+        jcenter()
+    }
 }
 
 dependencies {
-    implementation 'androidx.appcompat:appcompat:1.0.2'
-    implementation 'androidx.palette:palette:1.0.0'
-    implementation 'androidx.leanback:leanback:1.0.0'
-    implementation "androidx.tvprovider:tvprovider:1.0.0"
-    implementation "androidx.recyclerview:recyclerview:1.0.0"
-    implementation "androidx.recyclerview:recyclerview-selection:1.0.0"
-    implementation "androidx.palette:palette:1.0.0"
+    implementation      'androidx.appcompat:appcompat:1.1.0'
+    implementation      'androidx.core:core:1.1.0'
+    implementation      'androidx.palette:palette:1.0.0'
+    implementation      'androidx.leanback:leanback:1.1.0-alpha02'
+    implementation      'androidx.recyclerview:recyclerview:1.1.0'
+    implementation      'androidx.recyclerview:recyclerview-selection:1.0.0'
+    implementation      'androidx.tvprovider:tvprovider:1.0.0'
 
-    implementation 'com.google.dagger:dagger:2.18'
-    implementation 'com.google.dagger:dagger-android:2.18'
-    annotationProcessor 'com.google.dagger:dagger-compiler:2.18'
-    annotationProcessor 'com.google.dagger:dagger-android-processor:2.18'
+    annotationProcessor 'com.google.auto.factory:auto-factory:1.0-beta7'
+    implementation      'com.google.auto.factory:auto-factory:1.0-beta7'
+    annotationProcessor 'com.google.auto.value:auto-value:1.5.3'
+    implementation      'com.google.auto.value:auto-value:1.5.3'
+    implementation      'com.google.dagger:dagger:2.23'
+    implementation      'com.google.dagger:dagger-android:2.23'
+    annotationProcessor 'com.google.dagger:dagger-android-processor:2.23'
+    annotationProcessor 'com.google.dagger:dagger-compiler:2.23'
+    implementation      'com.google.guava:guava:28.1-jre'
+    implementation      'com.google.protobuf:protobuf-javalite:3.11.0'
 
-    /*Not building with  latest one (1.6.3)*/
-    annotationProcessor 'com.google.auto.value:auto-value:1.5.4'
-    implementation 'com.google.auto.value:auto-value:1.5.4'
-    implementation 'javax.inject:javax.inject:1'
-    implementation 'com.google.guava:guava:26.0-android'
-    implementation project(':common')
+    implementation      project(':common')
 }

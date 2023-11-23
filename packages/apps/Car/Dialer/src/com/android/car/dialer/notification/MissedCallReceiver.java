@@ -23,9 +23,9 @@ import static android.telecom.TelecomManager.EXTRA_NOTIFICATION_PHONE_NUMBER;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.telecom.Log;
 
 import com.android.car.dialer.log.L;
+import com.android.car.telephony.common.TelecomUtils;
 
 /**
  * A {@link BroadcastReceiver} that is used to inform telecom manager that we are showing the
@@ -47,6 +47,6 @@ public class MissedCallReceiver extends BroadcastReceiver {
         int count = intent.getIntExtra(EXTRA_NOTIFICATION_COUNT, 0);
         String phoneNumber = intent.getStringExtra(EXTRA_NOTIFICATION_PHONE_NUMBER);
 
-        L.d(TAG, "Count: %d PhoneNumber: %s", count, Log.pii(phoneNumber));
+        L.d(TAG, "Count: %d PhoneNumber: %s", count, TelecomUtils.piiLog(phoneNumber));
     }
 }

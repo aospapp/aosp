@@ -39,7 +39,10 @@ import android.util.Pair;
 import android.util.SparseArray;
 import android.view.Display;
 
+import com.android.internal.annotations.GuardedBy;
+
 import java.io.PrintWriter;
+import java.lang.ref.WeakReference;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
@@ -103,24 +106,31 @@ public class SystemActivityMonitoringService implements CarServiceBase {
     private final ProcessObserver mProcessObserver;
     private final TaskListener mTaskListener;
 
-    private final HandlerThread mMonitorHandlerThread;
-    private final ActivityMonitorHandler mHandler;
+    private final HandlerThread mMonitorHandlerThread = CarServiceUtils.getHandlerThread(
+            getClass().getSimpleName());
+    private final ActivityMonitorHandler mHandler = new ActivityMonitorHandler(
+            mMonitorHandlerThread.getLooper(), this);
+
+    private final Object mLock = new Object();
 
     /** K: display id, V: top task */
+    @GuardedBy("mLock")
     private final SparseArray<TopTaskInfoContainer> mTopTasks = new SparseArray<>();
     /** K: uid, V : list of pid */
+    @GuardedBy("mLock")
     private final Map<Integer, Set<Integer>> mForegroundUidPids = new ArrayMap<>();
-    private int mFocusedStackId = INVALID_STACK_ID;
+    @GuardedBy("mLock")
     private ActivityLaunchListener mActivityLaunchListener;
 
     public SystemActivityMonitoringService(Context context) {
         mContext = context;
-        mMonitorHandlerThread = new HandlerThread(CarLog.TAG_AM);
-        mMonitorHandlerThread.start();
-        mHandler = new ActivityMonitorHandler(mMonitorHandlerThread.getLooper());
         mProcessObserver = new ProcessObserver();
         mTaskListener = new TaskListener();
         mAm = ActivityManager.getService();
+    }
+
+    @Override
+    public void init() {
         // Monitoring both listeners are necessary as there are cases where one listener cannot
         // monitor activity change.
         try {
@@ -134,18 +144,20 @@ public class SystemActivityMonitoringService implements CarServiceBase {
     }
 
     @Override
-    public void init() {
-    }
-
-    @Override
     public void release() {
+        try {
+            mAm.unregisterProcessObserver(mProcessObserver);
+            mAm.unregisterTaskStackListener(mTaskListener);
+        } catch (RemoteException e) {
+            Log.e(CarLog.TAG_AM, "Failed to unregister listeners", e);
+        }
     }
 
     @Override
     public void dump(PrintWriter writer) {
         writer.println("*SystemActivityMonitoringService*");
         writer.println(" Top Tasks per display:");
-        synchronized (this) {
+        synchronized (mLock) {
             for (int i = 0; i < mTopTasks.size(); i++) {
                 int displayId = mTopTasks.keyAt(i);
                 TopTaskInfoContainer info = mTopTasks.valueAt(i);
@@ -161,7 +173,6 @@ public class SystemActivityMonitoringService implements CarServiceBase {
                 }
                 writer.println("uid:" + key + ", pids:" + Arrays.toString(pids.toArray()));
             }
-            writer.println(" focused stack:" + mFocusedStackId);
         }
     }
 
@@ -176,7 +187,7 @@ public class SystemActivityMonitoringService implements CarServiceBase {
 
     public List<TopTaskInfoContainer> getTopTasks() {
         LinkedList<TopTaskInfoContainer> tasks = new LinkedList<>();
-        synchronized (this) {
+        synchronized (mLock) {
             for (int i = 0; i < mTopTasks.size(); i++) {
                 TopTaskInfoContainer topTask = mTopTasks.valueAt(i);
                 if (topTask == null) {
@@ -191,7 +202,7 @@ public class SystemActivityMonitoringService implements CarServiceBase {
     }
 
     public boolean isInForeground(int pid, int uid) {
-        synchronized (this) {
+        synchronized (mLock) {
             Set<Integer> pids = mForegroundUidPids.get(uid);
             if (pids == null) {
                 return false;
@@ -255,7 +266,7 @@ public class SystemActivityMonitoringService implements CarServiceBase {
     }
 
     public void registerActivityLaunchListener(ActivityLaunchListener listener) {
-        synchronized (this) {
+        synchronized (mLock) {
             mActivityLaunchListener = listener;
         }
     }
@@ -268,6 +279,11 @@ public class SystemActivityMonitoringService implements CarServiceBase {
             Log.e(CarLog.TAG_AM, "cannot getTasks", e);
             return;
         }
+
+        if (infos == null) {
+            return;
+        }
+
         int focusedStackId = INVALID_STACK_ID;
         try {
             // TODO(b/66955160): Someone on the Auto-team should probably re-work the code in the
@@ -283,7 +299,8 @@ public class SystemActivityMonitoringService implements CarServiceBase {
 
         SparseArray<TopTaskInfoContainer> topTasks = new SparseArray<>();
         ActivityLaunchListener listener;
-        synchronized (this) {
+        synchronized (mLock) {
+            mTopTasks.clear();
             listener = mActivityLaunchListener;
 
             for (StackInfo info : infos) {
@@ -345,7 +362,7 @@ public class SystemActivityMonitoringService implements CarServiceBase {
     }
 
     private void handleForegroundActivitiesChanged(int pid, int uid, boolean foregroundActivities) {
-        synchronized (this) {
+        synchronized (mLock) {
             if (foregroundActivities) {
                 Set<Integer> pids = mForegroundUidPids.get(uid);
                 if (pids == null) {
@@ -360,7 +377,7 @@ public class SystemActivityMonitoringService implements CarServiceBase {
     }
 
     private void handleProcessDied(int pid, int uid) {
-        synchronized (this) {
+        synchronized (mLock) {
             doHandlePidGoneLocked(pid, uid);
         }
     }
@@ -450,14 +467,19 @@ public class SystemActivityMonitoringService implements CarServiceBase {
         }
     }
 
-    private class ActivityMonitorHandler extends Handler {
+    private static final class ActivityMonitorHandler extends Handler {
+        private  static final String TAG = ActivityMonitorHandler.class.getSimpleName();
+
         private static final int MSG_UPDATE_TASKS = 0;
         private static final int MSG_FOREGROUND_ACTIVITIES_CHANGED = 1;
         private static final int MSG_PROCESS_DIED = 2;
         private static final int MSG_BLOCK_ACTIVITY = 3;
 
-        private ActivityMonitorHandler(Looper looper) {
+        private final WeakReference<SystemActivityMonitoringService> mService;
+
+        private ActivityMonitorHandler(Looper looper, SystemActivityMonitoringService service) {
             super(looper);
+            mService = new WeakReference<SystemActivityMonitoringService>(service);
         }
 
         private void requestUpdatingTask() {
@@ -486,21 +508,27 @@ public class SystemActivityMonitoringService implements CarServiceBase {
 
         @Override
         public void handleMessage(Message msg) {
+            SystemActivityMonitoringService service = mService.get();
+            if (service == null) {
+                Log.i(TAG, "handleMessage null service");
+                return;
+            }
             switch (msg.what) {
                 case MSG_UPDATE_TASKS:
-                    updateTasks();
+                    service.updateTasks();
                     break;
                 case MSG_FOREGROUND_ACTIVITIES_CHANGED:
-                    handleForegroundActivitiesChanged(msg.arg1, msg.arg2, (Boolean) msg.obj);
-                    updateTasks();
+                    service.handleForegroundActivitiesChanged(msg.arg1, msg.arg2,
+                            (Boolean) msg.obj);
+                    service.updateTasks();
                     break;
                 case MSG_PROCESS_DIED:
-                    handleProcessDied(msg.arg1, msg.arg2);
+                    service.handleProcessDied(msg.arg1, msg.arg2);
                     break;
                 case MSG_BLOCK_ACTIVITY:
                     Pair<TopTaskInfoContainer, Intent> pair =
                         (Pair<TopTaskInfoContainer, Intent>) msg.obj;
-                    handleBlockActivity(pair.first, pair.second);
+                    service.handleBlockActivity(pair.first, pair.second);
                     break;
             }
         }

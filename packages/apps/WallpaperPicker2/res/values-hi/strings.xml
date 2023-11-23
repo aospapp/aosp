@@ -37,9 +37,9 @@
     <string name="set_wallpaper_lock_screen_destination" msgid="6224685559375417945">"लॉक स्‍क्रीन"</string>
     <string name="set_wallpaper_both_destination" msgid="6967226064958263939">"होम स्क्रीन और लॉक स्क्रीन"</string>
     <string name="no_backup_image_wallpaper_label" msgid="6316627676107284851">"तय समय के बाद बदलने वाला इमेज वॉलपेपर"</string>
-    <string name="permission_needed_explanation" msgid="139166837541426823">"यहां पर मौजूदा वॉलपेपर दिखाने के लिए, <xliff:g id="APP_NAME">%1$s</xliff:g> को आपके डिवाइस की मेमोरी का एक्सेस चाहिए."</string>
-    <string name="permission_needed_explanation_go_to_settings" msgid="3923551582092599609">"यहां पर मौजूदा वॉलपेपर दिखाने के लिए, वॉलपेपर को आपके डिवाइस की मेमोरी का एक्सेस चाहिए. \n\nवॉलपेपर ऐप्लिकेशन की जानकारी के मंज़ूरी वाले विकल्प पर जाकर आप यह सेटिंग बदल सकते हैं."</string>
-    <string name="permission_needed_allow_access_button_label" msgid="1943133660612924306">"एक्सेस दें"</string>
+    <string name="permission_needed_explanation" msgid="139166837541426823">"यहां पर मौजूदा वॉलपेपर दिखाने के लिए, <xliff:g id="APP_NAME">%1$s</xliff:g> को आपके डिवाइस की मेमोरी का ऐक्सेस चाहिए."</string>
+    <string name="permission_needed_explanation_go_to_settings" msgid="3923551582092599609">"यहां पर मौजूदा वॉलपेपर दिखाने के लिए, वॉलपेपर को आपके डिवाइस की मेमोरी का ऐक्सेस चाहिए. \n\nवॉलपेपर ऐप्लिकेशन की जानकारी के मंज़ूरी वाले विकल्प पर जाकर आप यह सेटिंग बदल सकते हैं."</string>
+    <string name="permission_needed_allow_access_button_label" msgid="1943133660612924306">"ऐक्सेस दें"</string>
     <string name="no_backup_image_wallpaper_description" msgid="8303268619408738057">"तय समय के बाद बदलने वाले वॉलपेपर के लिए लाइव वॉलपेपर सेवा"</string>
     <string name="daily_refresh_tile_title" msgid="3270456074558525091">"रोज़ वॉलपेपर बदलने की सुविधा"</string>
     <string name="daily_refresh_tile_subtitle" msgid="3976682014885446443">"चालू करने के लिए टैप करें"</string>

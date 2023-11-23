@@ -49,7 +49,7 @@
     <string name="printer_not_supported" msgid="281955849350938408">"Imprimanta nu este acceptată"</string>
     <string name="wifi_direct" msgid="4629404342852294985">"Wi-Fi Direct"</string>
     <string name="find_wifi_direct" msgid="5270504288829123954">"Căutați imprimate cu Wi-Fi Direct"</string>
-    <string name="wifi_direct_printing" msgid="8423811041563144048">"Imprimare prin Wi-Fi Direct"</string>
+    <string name="wifi_direct_printing" msgid="8423811041563144048">"Printare prin Wi-Fi Direct"</string>
     <string name="wifi_direct_printers" msgid="541168032444693191">"Imprimante cu Wi-Fi Direct"</string>
     <string name="searching" msgid="2114018057619514587">"Se caută…"</string>
     <string name="connect_hint_text" msgid="587112503851044234">"Poate fi necesar să aprobați această conexiune pe panoul frontal al imprimantei"</string>
@@ -60,6 +60,11 @@
     <string name="forget" msgid="892068061425802502">"Eliminați"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"Se conectează prin Wi-Fi Direct"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"Se conectează prin rețeaua curentă la <xliff:g id="IP_ADDRESS">%1$s</xliff:g>"</string>
+    <string name="recommendation_summary" msgid="2979700524954307566">"Serviciul de printare prestabilit oferă opțiuni de bază. Alte opțiuni pentru această imprimantă pot fi disponibile din alt serviciu de printare."</string>
+    <string name="recommendations_heading" msgid="5086762263560605249">"Servicii recomandate"</string>
+    <string name="recommendation_install_summary" msgid="374785283809791669">"Selectați pentru a instala"</string>
+    <string name="recommendation_enable_summary" msgid="3500907868251326224">"Selectați pentru a activa"</string>
+    <string name="recommendation_manage" msgid="4683640588502866284">"Gestionați serviciile"</string>
     <string name="security" msgid="2279008326210305401">"Securitate"</string>
     <string name="certificate_update_request" msgid="1314796413107139475">"Imprimanta a oferit un nou certificat de securitate sau un alt dispozitiv îi folosește identitatea. Acceptați noul certificat?"</string>
     <string name="not_encrypted_request" msgid="4871472176807381642">"Această imprimantă nu mai acceptă sarcini criptate. Continuați printarea?"</string>
@@ -68,4 +73,5 @@
     <string name="connections" msgid="8895413761760117180">"Conexiuni"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Pentru a găsi dispozitive în apropiere, serviciul de imprimare prestabilită necesită permisiuni pentru locație."</string>
     <string name="fix" msgid="7784394272611365393">"Examinați permisiunea"</string>
+    <string name="print" msgid="7851318072404916362">"Printați"</string>
 </resources>

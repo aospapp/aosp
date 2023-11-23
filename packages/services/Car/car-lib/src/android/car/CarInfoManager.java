@@ -29,7 +29,7 @@ import android.os.IBinder;
  * Utility to retrieve various static information from car. Each data are grouped as {@link Bundle}
  * and relevant data can be checked from {@link Bundle} using pre-specified keys.
  */
-public final class CarInfoManager implements CarManagerBase{
+public final class CarInfoManager extends CarManagerBase {
 
     private final CarPropertyManager mCarPropertyMgr;
     /**
@@ -61,7 +61,6 @@ public final class CarInfoManager implements CarManagerBase{
     public static final String BASIC_INFO_KEY_VEHICLE_ID = "android.car.vehicle-id";
     /**
      * Key for product configuration info.
-     * @FutureFeature Cannot drop due to usage in non-flag protected place.
      * @hide
      */
     @ValueTypeDef(type = String.class)
@@ -203,7 +202,7 @@ public final class CarInfoManager implements CarManagerBase{
                     connectorTypes[i] = EvConnectorType.MENNEKES;
                     break;
                 case 3: // IEC_TYPE_3_AC
-                    connectorTypes[i] = 11;
+                    connectorTypes[i] = EvConnectorType.SCAME;
                     break;
                 case 4: // IEC_TYPE_4_DC
                     connectorTypes[i] = EvConnectorType.CHADEMO;
@@ -227,7 +226,7 @@ public final class CarInfoManager implements CarManagerBase{
                     connectorTypes[i] = EvConnectorType.GBT;
                     break;
                 case 11: // GBT_DC
-                    connectorTypes[i] = 10;
+                    connectorTypes[i] = EvConnectorType.GBT_DC;
                     break;
                 case 101: // OTHER
                     connectorTypes[i] = EvConnectorType.OTHER;
@@ -261,15 +260,14 @@ public final class CarInfoManager implements CarManagerBase{
     }
 
     /** @hide */
-    CarInfoManager(IBinder service) {
+    public CarInfoManager(Car car, IBinder service) {
+        super(car);
         ICarProperty mCarPropertyService = ICarProperty.Stub.asInterface(service);
-        mCarPropertyMgr = new CarPropertyManager(mCarPropertyService, null);
+        mCarPropertyMgr = new CarPropertyManager(car, mCarPropertyService);
     }
 
     /** @hide */
     public void onCarDisconnected() {
         mCarPropertyMgr.onCarDisconnected();
     }
-
-
 }

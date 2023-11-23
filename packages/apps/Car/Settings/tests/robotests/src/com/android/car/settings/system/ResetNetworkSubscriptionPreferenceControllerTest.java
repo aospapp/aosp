@@ -34,12 +34,12 @@ import android.telephony.SubscriptionManager;
 import androidx.lifecycle.Lifecycle;
 import androidx.preference.ListPreference;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.Shadows;
 import org.robolectric.shadow.api.Shadow;
@@ -50,7 +50,7 @@ import java.util.Arrays;
 import java.util.Collections;
 
 /** Unit test for {@link ResetNetworkSubscriptionPreferenceController}. */
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 public class ResetNetworkSubscriptionPreferenceControllerTest {
 
     private static final int SUBID_1 = MIN_SUBSCRIPTION_ID_VALUE;

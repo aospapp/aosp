@@ -50,7 +50,7 @@
     <string name="roaming_title" msgid="6218635014519017734">"로밍"</string>
     <string name="roaming_summary" msgid="7476127740259728901">"로밍 시 데이터 서비스에 연결"</string>
     <string name="roaming_alert_title" msgid="4433901635766775763">"데이터 로밍을 허용하시겠습니까?"</string>
-    <string name="roaming_warning" msgid="5313281900566657209">"요금이 많이 부과될 수 있습니다."</string>
+    <string name="roaming_warning" msgid="4908184914868720704">"로밍 요금이 부과될 수 있습니다."</string>
     <string name="data_usage_settings" msgid="7877132994777987848">"데이터 사용량"</string>
     <string name="data_usage_title" msgid="2923515974389203812">"기본 데이터"</string>
     <string name="data_used_formatted" msgid="6684557577780068339">"<xliff:g id="ID_1">^1</xliff:g><xliff:g id="ID_2">^2</xliff:g> 사용됨"</string>
@@ -199,6 +199,8 @@
     <string name="bluetooth_device_picker" msgid="673238198452345475">"블루투스 기기 선택"</string>
     <string name="language_settings" msgid="2079258598337245546">"언어"</string>
     <string name="languages_and_input_settings" msgid="3672322610529408248">"언어 및 입력"</string>
+    <string name="language_picker_list_suggested_header" msgid="7593893806003415948">"추천"</string>
+    <string name="language_picker_list_all_header" msgid="1577387973934368428">"모든 언어"</string>
     <string name="keyboard_settings" msgid="1959697870618278081">"키보드"</string>
     <string name="manage_keyboard" msgid="4045394766282200132">"키보드 관리"</string>
     <string name="text_to_speech_settings" msgid="811985746199507343">"TTS(텍스트 음성 변환) 출력"</string>
@@ -283,9 +285,11 @@
     <string name="not_installed" msgid="4218816013370552746">"이 사용자에게 설치되지 않음"</string>
     <string name="permissions_label" msgid="2701446753515612685">"권한"</string>
     <string name="notifications_label" msgid="6586089149665170731">"알림"</string>
+    <string name="storage_application_label" msgid="5911779903670978586">"저장용량 및 캐시"</string>
     <string name="application_version_label" msgid="8556889839783311649">"버전: %1$s"</string>
     <string name="runtime_permissions_summary_no_permissions_granted" msgid="6001439205270250021">"부여된 권한이 없습니다."</string>
     <string name="runtime_permissions_summary_no_permissions_requested" msgid="4074220596273432442">"요청한 권한이 없습니다."</string>
+    <string name="storage_type_internal" msgid="8918688427078709570">"내부 저장소의 %s"</string>
     <string name="data_usage_summary_title" msgid="4368024763485916986">"데이터 사용량"</string>
     <string name="data_usage_app_summary_title" msgid="5012851696585421420">"앱 데이터 사용량"</string>
     <string name="computing_size" msgid="5791407621793083965">"계산 중..."</string>
@@ -344,17 +348,13 @@
     <string name="location_settings_recent_requests_title" msgid="6345634382240930628">"최근 위치 요청"</string>
     <string name="location_settings_recent_requests_empty_message" msgid="7789667070033674910">"최근 위치 요청 없음"</string>
     <string name="location_settings_app_permissions_title" msgid="6446735313354321564">"앱 수준 권한"</string>
-    <string name="location_settings_scanning_title" msgid="4253945869911300740">"검색 중"</string>
     <string name="location_settings_services_title" msgid="1186133632690970468">"위치 서비스"</string>
-    <string name="location_settings_wifi_scanning_title" msgid="8021558840074023719">"Wi‑Fi 검색"</string>
-    <string name="location_settings_wifi_scanning_summary" msgid="2116283960258671324">"Wi‑Fi가 꺼져 있을 때도 항상 앱과 서비스에서 Wi-Fi 네트워크를 검색하도록 허용합니다. 이 설정은 예를 들면 위치 기반 기능 및 서비스를 개선하는 데 사용될 수 있습니다."</string>
-    <string name="location_settings_bluetooth_scanning_title" msgid="2969682902241932059">"블루투스 검색"</string>
-    <string name="location_settings_bluetooth_scanning_summary" msgid="9158101751700727062">"블루투스가 꺼져 있을 때도 항상 앱과 서비스에서 주변 기기를 검색하도록 허용합니다. 이 설정은 예를 들면 위치 기반 기능 및 서비스를 개선하는 데 사용될 수 있습니다."</string>
     <string name="system_setting_title" msgid="6864599341809463440">"시스템"</string>
     <string name="system_update_settings_title" msgid="8448588267784138855">"시스템 업데이트"</string>
     <string name="firmware_version" msgid="8491753744549309333">"Android 버전"</string>
     <string name="security_patch" msgid="4794276590178386903">"Android 보안 패치 수준"</string>
-    <string name="model_info" msgid="4966408071657934452">"모델"</string>
+    <string name="hardware_info" msgid="3973165746261507658">"모델 및 하드웨어"</string>
+    <string name="hardware_info_summary" msgid="8262576443254075921">"모델: <xliff:g id="MODEL">%1$s</xliff:g>"</string>
     <string name="baseband_version" msgid="2370088062235041897">"베이스밴드 버전"</string>
     <string name="kernel_version" msgid="7327212934187011508">"커널 버전"</string>
     <string name="build_number" msgid="3997326631001009102">"빌드 번호"</string>
@@ -378,6 +378,9 @@
     <string name="webview_license_title" msgid="6442372337052056463">"시스템 WebView 라이선스"</string>
     <string name="wallpaper_attributions" msgid="9201272150014500697">"배경화면"</string>
     <string name="wallpaper_attributions_values" msgid="4292446851583307603">"위성 이미지 제공업체:\n©2014 CNES / Astrium, DigitalGlobe, Bluesky"</string>
+    <string name="model_info" msgid="4966408071657934452">"모델"</string>
+    <string name="status_serial_number" msgid="9158889113131907656">"일련번호"</string>
+    <string name="hardware_revision" msgid="5713759927934872874">"하드웨어 버전"</string>
     <string name="regulatory_info_text" msgid="8890339124198005428"></string>
     <string name="settings_license_activity_title" msgid="8499293744313077709">"타사 라이선스"</string>
     <string name="settings_license_activity_unavailable" msgid="6104592821991010350">"라이선스를 로드하는 동안 문제가 발생했습니다."</string>
@@ -478,6 +481,8 @@
     <string name="user_name_label" msgid="3210832645046206845">"이름"</string>
     <string name="user_summary_not_set_up" msgid="1473688119241224145">"설정되지 않음"</string>
     <string name="edit_user_name_title" msgid="6890782937520262478">"사용자 이름 수정"</string>
+    <string name="name_input_blank_error" msgid="2088850865880984123">"입력란을 비워 둘 수 없습니다."</string>
+    <string name="name_input_invalid_error" msgid="3523545780580744273">"입력한 사용자 이름이 올바르지 않습니다."</string>
     <string name="users_list_title" msgid="770764290290240909">"사용자"</string>
     <string name="user_details_admin_title" msgid="3530292857178371891">"%1$s에 부여된 권한"</string>
     <string name="storage_settings_title" msgid="8957054192781341797">"저장용량"</string>
@@ -497,6 +502,8 @@
     <string name="storage_clear_data_dlg_title" msgid="5863775997588969879">"앱 데이터를 삭제하시겠습니까?"</string>
     <string name="storage_clear_data_dlg_text" msgid="795055288575727801">"앱의 전체 데이터가 영구적으로 삭제됩니다. 여기에는 모든 파일, 설정, 계정, 데이터베이스 등이 포함됩니다."</string>
     <string name="storage_clear_failed_dlg_text" msgid="6710485971686866306">"앱 저장용량을 비우지 못했습니다."</string>
+    <string name="storage_unmount_success" msgid="1553591517580407021">"<xliff:g id="NAME">%1$s</xliff:g>이(가) 안전하게 제거되었습니다."</string>
+    <string name="storage_unmount_failure" msgid="4591934911541762883">"<xliff:g id="NAME">%1$s</xliff:g>을(를) 안전하게 제거하지 못했습니다."</string>
     <string name="accounts_settings_title" msgid="436190037084293471">"계정"</string>
     <string name="user_add_account_menu" msgid="6625351983590713721">"계정 추가"</string>
     <string name="no_accounts_added" msgid="5148163140691096055">"추가된 계정이 없습니다."</string>
@@ -528,6 +535,7 @@
     <string name="sync_button_sync_now" msgid="5767643057970371315">"지금 동기화"</string>
     <string name="sync_button_sync_cancel" msgid="7739510554513641393">"동기화 취소"</string>
     <string name="sync_is_failing" msgid="5766255460901806206">"동기화에 현재 문제가 발생했습니다. 곧 다시 동기화됩니다."</string>
+    <string name="privacy_settings_title" msgid="3150145262029229572">"개인정보 보호"</string>
     <string name="security_settings_title" msgid="6955331714774709746">"보안"</string>
     <string name="security_settings_subtitle" msgid="2244635550239273229">"화면 잠금"</string>
     <string name="security_lock_none" msgid="1054645093754839638">"없음"</string>
@@ -618,26 +626,11 @@
     <string name="lockpassword_pin_no_sequential_digits" msgid="38813552228809240">"연속으로 올라가거나 내려가는 숫자 또는 반복되는 숫자의 배열은 허용되지 않습니다."</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"화면 잠금 옵션"</string>
     <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g>: <xliff:g id="NUM_DAYS">%3$s</xliff:g>일 전"</string>
-    <string name="add_device_title" msgid="8452168024017866232">"신뢰할 수 있는 기기 추가"</string>
-    <string name="add_device_summary" msgid="5368217520710573302">"신뢰할 수 있는 기기를 추가하기 위해 블루투스가 사용 설정됩니다."</string>
-    <string name="trusted_device" msgid="5637378361866787603">"신뢰할 수 있는 기기"</string>
-    <plurals name="trusted_device_subtitle" formatted="false" msgid="462041049834264945">
-      <item quantity="other">기기 <xliff:g id="COUNT_1">%d</xliff:g>대</item>
-      <item quantity="one">기기 <xliff:g id="COUNT_0">%d</xliff:g>대</item>
-    </plurals>
-    <string name="remove_device_message" msgid="6447820559674148349">"<xliff:g id="CONNECTED_DEVICE_NAME_0">%1$s</xliff:g>이(가) 연결되면 차량을 잠금 해제합니다. 누군가 <xliff:g id="CONNECTED_DEVICE_NAME_1">%1$s</xliff:g>을(를) 가져가면 이 차량에 액세스할 수도 있습니다."</string>
-    <string name="trusted_device_confirm_button" msgid="102354635014627996">"확인"</string>
-    <string name="trusted_device_remove_button" msgid="6140476996063415420">"신뢰할 수 있는 기기 삭제"</string>
-    <string name="trusted_device_done_button" msgid="8481956533222625296">"완료"</string>
-    <string name="add_trusted_device_instruction" msgid="2280382609884918033">"호환 앱을 사용해 신뢰할 수 있는 기기를 설정하세요. 설정이 완료되면 차량 근처에서 휴대전화가 감지된 경우 사용자 프로필이 자동으로 잠금 해제됩니다."</string>
-    <string name="trusted_device_download_app" msgid="6971096140154499983">"1. 휴대전화에 호환 앱을 다운로드합니다."</string>
-    <string name="trusted_device_select_device" msgid="198902765179270739">"2. 휴대전화에서 <xliff:g id="CAR_NAME">%1$s</xliff:g>을(를) 선택하여 기기를 페어링합니다."</string>
-    <string name="trusted_device_safety_alert" msgid="3834898922112046769">"차량 근처에 신뢰할 수 있는 기기가 있는 경우 다른 사람이 기기를 들고 있어도 시동을 걸면 사용자 프로필이 잠금 해제됩니다."</string>
-    <string name="trusted_device_pairing_code_dialog_title" msgid="8173792468216796873">"페어링 코드가 일치하는지 확인하세요."</string>
-    <string name="trusted_device_success_enrollment_toast" msgid="1238468775285575827">"휴대전화를 등록했습니다."</string>
-    <string name="trusted_device_fail_enrollment_toast" msgid="6801324174861209092">"<xliff:g id="DEVICE_NAME">%1$s</xliff:g>을(를) 등록하는 데 실패했습니다."</string>
-    <string name="trusted_device_set_authentication_reminder" msgid="5947077589994822305">"신뢰할 수 있는 기기를 추가하면 다음번에 인증 수단을 설정해야 합니다. 신뢰할 수 있는 기기가 없으면 인증 과정을 거쳐야 내 프로필에 액세스할 수 있습니다."</string>
-    <string name="trusted_device_disconnected_toast" msgid="2541862946536880255">"기기 연결이 끊어졌습니다."</string>
+    <string name="credentials_reset" msgid="873900550885788639">"사용자 인증 정보 삭제"</string>
+    <string name="credentials_reset_summary" msgid="6067911547500459637">"모든 인증서 삭제"</string>
+    <string name="credentials_reset_hint" msgid="3459271621754137661">"콘텐츠를 모두 삭제하시겠습니까?"</string>
+    <string name="credentials_erased" msgid="2515915439705550379">"사용자 인증 정보 저장소가 삭제되었습니다."</string>
+    <string name="credentials_not_erased" msgid="6118567459076742720">"사용자 인증 정보 저장소를 삭제하지 못했습니다."</string>
     <string name="forget" msgid="3971143908183848527">"삭제"</string>
     <string name="connect" msgid="5861699594602380150">"연결"</string>
     <string name="disconnect" msgid="6140789953324820336">"연결 해제"</string>
@@ -653,6 +646,7 @@
     <string name="exit_retail_mode_dialog_body" msgid="8314316171782527301">"데모 계정을 삭제하고 시스템을 초기화합니다. 사용자 데이터는 모두 사라집니다."</string>
     <string name="exit_retail_mode_dialog_confirmation_button_text" msgid="3147249675355968649">"데모 종료"</string>
     <string name="suggestion_dismiss_button" msgid="4539412646977050641">"닫기"</string>
-    <string name="restricted_while_driving" msgid="6217369093121968299">"운전 중 기능 사용 불가"</string>
-    <string name="add_user_restricted_while_driving" msgid="6384004350628271556">"운전 중에는 사용자를 추가할 수 없습니다."</string>
+    <string name="restricted_while_driving" msgid="6587569249519274524">"운전 중에 사용할 수 없는 기능입니다."</string>
+    <string name="add_user_restricted_while_driving" msgid="4754946754222453656">"운전 중에는 사용자를 추가할 수 없습니다."</string>
+    <string name="default_search_query" msgid="3137420627428857068">"검색"</string>
 </resources>

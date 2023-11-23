@@ -23,9 +23,12 @@ import android.os.Bundle;
 import android.view.MenuItem;
 
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.appcompat.widget.Toolbar;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+
+import com.android.car.ui.core.CarUi;
+import com.android.car.ui.toolbar.Toolbar;
+import com.android.car.ui.toolbar.ToolbarController;
 
 import java.io.File;
 
@@ -54,8 +57,10 @@ public class SystemUpdaterActivity extends AppCompatActivity
         }
 
         setContentView(R.layout.activity_main);
-        Toolbar toolbar = findViewById(R.id.toolbar);
-        setSupportActionBar(toolbar);
+
+        ToolbarController toolbar = CarUi.requireToolbar(this);
+        toolbar.setTitle(getString(R.string.title));
+        toolbar.setState(Toolbar.State.SUBPAGE);
 
         if (savedInstanceState == null) {
             Bundle intentExtras = getIntent().getExtras();

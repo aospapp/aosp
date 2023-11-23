@@ -40,6 +40,7 @@ import com.android.server.telecom.Ringer;
 import com.android.server.telecom.RingtoneFactory;
 import com.android.server.telecom.SystemSettingsUtil;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -145,6 +146,12 @@ public class RingerTest extends TelecomTestCase {
         when(mockCall1.getState()).thenReturn(CallState.RINGING);
         when(mockCall2.getState()).thenReturn(CallState.RINGING);
         mRingerUnderTest.setBlockOnRingingFuture(mRingCompletionFuture);
+    }
+
+    @Override
+    @After
+    public void tearDown() throws Exception {
+        super.tearDown();
     }
 
     @SmallTest
@@ -367,7 +374,6 @@ public class RingerTest extends TelecomTestCase {
         mRingerUnderTest.startCallWaiting(mockCall1);
         ensureRingerIsAudible();
         enableRampingRinger();
-        enableRampingRingerFromDeviceConfig();
         mFuture.complete(false); // not using audio coupled haptics
         enableVibrationWhenRinging();
         assertTrue(mRingerUnderTest.startRinging(mockCall2, false));
@@ -434,9 +440,5 @@ public class RingerTest extends TelecomTestCase {
 
     private void enableRampingRinger() {
         when(mockSystemSettingsUtil.applyRampingRinger(any(Context.class))).thenReturn(true);
-    }
-
-    private void enableRampingRingerFromDeviceConfig() {
-        when(mockSystemSettingsUtil.enableRampingRingerFromDeviceConfig()).thenReturn(true);
     }
 }

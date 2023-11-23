@@ -17,6 +17,7 @@
 package com.android.car.audio;
 
 import android.annotation.NonNull;
+import android.annotation.UserIdInt;
 import android.car.media.CarAudioManager;
 import android.content.pm.PackageManager;
 import android.media.AudioAttributes;
@@ -33,36 +34,48 @@ import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Implements {@link AudioPolicy.AudioPolicyFocusListener}
  *
- * @note Manages audio focus on a per zone basis.
+ * <p><b>Note:</b> Manages audio focus on a per zone basis.
  */
 class CarZonesAudioFocus extends AudioPolicy.AudioPolicyFocusListener {
 
+    private final boolean mDelayedFocusEnabled;
     private CarAudioService mCarAudioService; // Dynamically assigned just after construction
     private AudioPolicy mAudioPolicy; // Dynamically assigned just after construction
 
     private final Map<Integer, CarAudioFocus> mFocusZones = new HashMap<>();
 
-    CarZonesAudioFocus(AudioManager audioManager,
-            PackageManager packageManager,
-            @NonNull CarAudioZone[] carAudioZones) {
+    CarZonesAudioFocus(@NonNull AudioManager audioManager,
+            @NonNull PackageManager packageManager,
+            @NonNull CarAudioZone[] carAudioZones,
+            @NonNull CarAudioSettings carAudioSettings,
+            boolean enableDelayedAudioFocus) {
         //Create the zones here, the policy will be set setOwningPolicy,
         // which is called right after this constructor.
-
-        Preconditions.checkNotNull(carAudioZones);
+        Objects.requireNonNull(audioManager);
+        Objects.requireNonNull(packageManager);
+        Objects.requireNonNull(carAudioZones);
+        Objects.requireNonNull(carAudioSettings);
         Preconditions.checkArgument(carAudioZones.length != 0,
                 "There must be a minimum of one audio zone");
 
         //Create focus for all the zones
         for (CarAudioZone audioZone : carAudioZones) {
-            Log.d(CarLog.TAG_AUDIO,
-                    "CarZonesAudioFocus adding new zone " + audioZone.getId());
-            CarAudioFocus zoneFocusListener = new CarAudioFocus(audioManager, packageManager);
-            mFocusZones.put(audioZone.getId(), zoneFocusListener);
+            int audioZoneId = audioZone.getId();
+            if (Log.isLoggable(CarLog.TAG_AUDIO, Log.DEBUG)) {
+                Log.d(CarLog.TAG_AUDIO,
+                        "CarZonesAudioFocus adding new zone " + audioZoneId);
+            }
+            CarAudioFocus zoneFocusListener =
+                    new CarAudioFocus(audioManager, packageManager,
+                            new FocusInteraction(carAudioSettings), enableDelayedAudioFocus);
+            mFocusZones.put(audioZoneId, zoneFocusListener);
         }
+        mDelayedFocusEnabled = enableDelayedAudioFocus;
     }
 
 
@@ -111,17 +124,18 @@ class CarZonesAudioFocus extends AudioPolicy.AudioPolicyFocusListener {
     /**
      * Sets the owning policy of the audio focus
      *
-     * @param audioService owning car audio service
-     * @param parentPolicy owning parent car audio policy
-     * @Note This has to happen after the construction to avoid a chicken and egg
+     * <p><b>Note:</b> This has to happen after the construction to avoid a chicken and egg
      * problem when setting up the AudioPolicy which must depend on this object.
+
+     * @param carAudioService owning car audio service
+     * @param parentPolicy owning parent car audio policy
      */
-    void setOwningPolicy(CarAudioService audioService, AudioPolicy parentPolicy) {
-        mCarAudioService = audioService;
+    void setOwningPolicy(CarAudioService carAudioService, AudioPolicy parentPolicy) {
         mAudioPolicy = parentPolicy;
+        mCarAudioService = carAudioService;
 
         for (int zoneId : mFocusZones.keySet()) {
-            mFocusZones.get(zoneId).setOwningPolicy(mCarAudioService, mAudioPolicy);
+            mFocusZones.get(zoneId).setOwningPolicy(mAudioPolicy);
         }
     }
 
@@ -157,9 +171,18 @@ class CarZonesAudioFocus extends AudioPolicy.AudioPolicyFocusListener {
                     bundle.getInt(CarAudioManager.AUDIOFOCUS_EXTRA_REQUEST_ZONE_ID,
                             -1);
             // check if the zone id is within current zones bounds
-            if ((bundleZoneId >= 0)
-                    && (bundleZoneId < mCarAudioService.getAudioZoneIds().length)) {
+            if (mCarAudioService.isAudioZoneIdValid(bundleZoneId)) {
+                if (Log.isLoggable(CarLog.TAG_AUDIO, Log.DEBUG)) {
+                    Log.d(CarLog.TAG_AUDIO,
+                            "getFocusForAudioFocusInfo valid zoneId " + bundleZoneId
+                                    + " with bundle request for client " + afi.getClientId());
+                }
                 zoneId = bundleZoneId;
+            } else {
+                Log.w(CarLog.TAG_AUDIO,
+                        "getFocusForAudioFocusInfo invalid zoneId " + bundleZoneId
+                                + " with bundle request for client " + afi.getClientId()
+                                + ", dispatching focus request to zoneId " + zoneId);
             }
         }
 
@@ -173,14 +196,20 @@ class CarZonesAudioFocus extends AudioPolicy.AudioPolicyFocusListener {
      * @param indent indent to append to each new line
      * @param writer stream to write current state
      */
-    synchronized void dump(String indent, PrintWriter writer) {
+    void dump(String indent, PrintWriter writer) {
         writer.printf("%s*CarZonesAudioFocus*\n", indent);
-
+        writer.printf("%s\tDelayed Focus Enabled: %b\n", indent, mDelayedFocusEnabled);
         writer.printf("%s\tCar Zones Audio Focus Listeners:\n", indent);
         Integer[] keys = mFocusZones.keySet().stream().sorted().toArray(Integer[]::new);
         for (Integer zoneId : keys) {
-            writer.printf("%s\tZone Id: %s", indent, zoneId.toString());
+            writer.printf("%s\tZone Id: %s\n", indent, zoneId.toString());
             mFocusZones.get(zoneId).dump(indent + "\t", writer);
         }
+    }
+
+    public void updateUserForZoneId(int audioZoneId, @UserIdInt int userId) {
+        Preconditions.checkArgument(mCarAudioService.isAudioZoneIdValid(audioZoneId),
+                "Invalid zoneId %d", audioZoneId);
+        mFocusZones.get(audioZoneId).getFocusInteraction().setUserIdForSettings(userId);
     }
 }

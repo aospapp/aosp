@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 The Android Open Source Project
+ * Copyright (C) 2019 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -11,322 +11,299 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
- * limitations under the License
+ * limitations under the License.
  */
 
 package com.android.server.telecom.callfiltering;
 
+import android.Manifest;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.ServiceConnection;
+import android.content.pm.PackageManager;
 import android.os.Binder;
 import android.os.IBinder;
-import android.os.PersistableBundle;
 import android.os.RemoteException;
-import android.os.UserHandle;
 import android.provider.CallLog;
-import android.provider.Settings;
 import android.telecom.Log;
 import android.telecom.TelecomManager;
-import android.telephony.CarrierConfigManager;
-import android.text.TextUtils;
 
 import com.android.internal.telecom.ICallScreeningAdapter;
 import com.android.internal.telecom.ICallScreeningService;
+import com.android.server.telecom.AppLabelProxy;
 import com.android.server.telecom.Call;
 import com.android.server.telecom.CallScreeningServiceHelper;
 import com.android.server.telecom.CallsManager;
 import com.android.server.telecom.LogUtils;
 import com.android.server.telecom.ParcelableCallUtils;
-import com.android.server.telecom.PhoneAccountRegistrar;
-import com.android.server.telecom.TelecomServiceImpl.SettingsSecureAdapter;
-import com.android.server.telecom.TelecomSystem;
 
-/**
- * Binds to {@link ICallScreeningService} to allow call blocking. A single instance of this class
- * handles a single call.
- */
-public class CallScreeningServiceFilter {
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 
-    public static final int CALL_SCREENING_FILTER_TYPE_USER_SELECTED = 1;
-    public static final int CALL_SCREENING_FILTER_TYPE_DEFAULT_DIALER = 2;
-    public static final int CALL_SCREENING_FILTER_TYPE_SYSTEM_DIALER = 3;
-    public static final int CALL_SCREENING_FILTER_TYPE_CARRIER = 4;
+public class CallScreeningServiceFilter extends CallFilter {
+    public static final int PACKAGE_TYPE_CARRIER = 0;
+    public static final int PACKAGE_TYPE_DEFAULT_DIALER = 1;
+    public static final int PACKAGE_TYPE_USER_CHOSEN = 2;
+    public static final long CALL_SCREENING_FILTER_TIMEOUT = 5000;
 
-    public interface CallScreeningFilterResultCallback {
-        void onCallScreeningFilterComplete(Call call, CallFilteringResult result, String
-                packageName);
-    }
-
-    private class CallScreeningServiceConnection implements ServiceConnection {
-        @Override
-        public void onServiceConnected(ComponentName componentName, IBinder service) {
-            Log.startSession("CSCR.oSC");
-            try {
-                synchronized (mTelecomLock) {
-                    Log.addEvent(mCall, LogUtils.Events.SCREENING_BOUND, componentName);
-                    if (!mHasFinished) {
-                        onServiceBound(ICallScreeningService.Stub.asInterface(service));
-                    }
-                }
-            } finally {
-                Log.endSession();
-            }
-        }
-
-        @Override
-        public void onServiceDisconnected(ComponentName componentName) {
-            Log.startSession("CSCR.oSD");
-            try {
-                synchronized (mTelecomLock) {
-                    finishCallScreening();
-                }
-            } finally {
-                Log.endSession();
-            }
-        }
-    }
+    private final Call mCall;
+    private final String mPackageName;
+    private final int mPackagetype;
+    private PackageManager mPackageManager;
+    private Context mContext;
+    private CallScreeningServiceConnection mConnection;
+    private final CallsManager mCallsManager;
+    private CharSequence mAppName;
+    private final ParcelableCallUtils.Converter mParcelableCallUtilsConverter;
 
     private class CallScreeningAdapter extends ICallScreeningAdapter.Stub {
+        private CompletableFuture<CallFilteringResult> mResultFuture;
+
+        public CallScreeningAdapter(CompletableFuture<CallFilteringResult> resultFuture) {
+            mResultFuture = resultFuture;
+        }
+
         @Override
         public void allowCall(String callId) {
-            Log.startSession("CSCR.aC");
-            long token = Binder.clearCallingIdentity();
+            Long token = Binder.clearCallingIdentity();
+            Log.startSession("NCSSF.aC");
             try {
-                synchronized (mTelecomLock) {
-                    Log.d(this, "allowCall(%s)", callId);
-                    if (mCall != null && mCall.getId().equals(callId)) {
-                        mResult = new CallFilteringResult(
-                                true, // shouldAllowCall
-                                false, //shouldReject
-                                false, //shouldSilence
-                                true, //shouldAddToCallLog
-                                true // shouldShowNotification
-                        );
-                    } else {
-                        Log.w(this, "allowCall, unknown call id: %s", callId);
-                    }
-                    finishCallScreening();
+                if (mCall == null || (!mCall.getId().equals(callId))) {
+                    Log.w(this, "allowCall, unknown call id: %s", callId);
                 }
+                Log.addEvent(mCall, LogUtils.Events.SCREENING_COMPLETED, mPriorStageResult);
+                mResultFuture.complete(mPriorStageResult);
             } finally {
+                unbindCallScreeningService();
                 Binder.restoreCallingIdentity(token);
                 Log.endSession();
             }
         }
 
         @Override
-        public void disallowCall(
-                String callId,
-                boolean shouldReject,
-                boolean shouldAddToCallLog,
-                boolean shouldShowNotification,
+        public void disallowCall(String callId, boolean shouldReject,
+                boolean shouldAddToCallLog, boolean shouldShowNotification,
                 ComponentName componentName) {
-            Log.startSession("CSCR.dC");
             long token = Binder.clearCallingIdentity();
+            Log.startSession("NCSSF.dC");
             try {
-                synchronized (mTelecomLock) {
-                    boolean isServiceRequestingLogging = isLoggable(componentName,
-                            shouldAddToCallLog);
-                    Log.i(this, "disallowCall(%s), shouldReject: %b, shouldAddToCallLog: %b, "
-                                    + "shouldShowNotification: %b", callId, shouldReject,
-                            isServiceRequestingLogging, shouldShowNotification);
-                    if (mCall != null && mCall.getId().equals(callId)) {
-                        mResult = new CallFilteringResult(
-                                false, // shouldAllowCall
-                                shouldReject, //shouldReject
-                                false, // shouldSilenceCall
-                                isServiceRequestingLogging, //shouldAddToCallLog
-                                shouldShowNotification, // shouldShowNotification
-                                CallLog.Calls.BLOCK_REASON_CALL_SCREENING_SERVICE, //callBlockReason
-                                mAppName, //callScreeningAppName
-                                componentName.flattenToString() //callScreeningComponentName
-                        );
-                    } else {
-                        Log.w(this, "disallowCall, unknown call id: %s", callId);
-                    }
-                    finishCallScreening();
+                if (mCall != null && mCall.getId().equals(callId)) {
+                    CallFilteringResult result = new CallFilteringResult.Builder()
+                            .setShouldAllowCall(false)
+                            .setShouldReject(shouldReject)
+                            .setShouldSilence(false)
+                            .setShouldAddToCallLog(shouldAddToCallLog
+                                    || packageTypeShouldAdd(mPackagetype))
+                            .setShouldShowNotification(shouldShowNotification)
+                            .setCallBlockReason(CallLog.Calls.BLOCK_REASON_CALL_SCREENING_SERVICE)
+                            .setCallScreeningAppName(mAppName)
+                            .setCallScreeningComponentName(componentName.flattenToString())
+                            .setContactExists(mPriorStageResult.contactExists)
+                            .build();
+                    Log.addEvent(mCall, LogUtils.Events.SCREENING_COMPLETED, result);
+                    mResultFuture.complete(result);
+                } else {
+                    Log.w(this, "disallowCall, unknown call id: %s", callId);
+                    mResultFuture.complete(mPriorStageResult);
                 }
             } finally {
-                Binder.restoreCallingIdentity(token);
+                unbindCallScreeningService();
                 Log.endSession();
+                Binder.restoreCallingIdentity(token);
             }
         }
 
         @Override
         public void silenceCall(String callId) {
-            Log.startSession("CSCR.sC");
             long token = Binder.clearCallingIdentity();
+            Log.startSession("NCSSF.sC");
             try {
-                synchronized (mTelecomLock) {
-                    Log.d(this, "silenceCall(%s)", callId);
-                    if (mCall != null && mCall.getId().equals(callId)) {
-                        mResult = new CallFilteringResult(
-                                true, // shouldAllowCall
-                                false, //shouldReject
-                                true, //shouldSilence
-                                true, //shouldAddToCallLog
-                                true // shouldShowNotification
-                        );
-                    } else {
-                        Log.w(this, "silenceCall, unknown call id: %s", callId);
-                    }
-                    finishCallScreening();
+                if (mCall != null && mCall.getId().equals(callId)) {
+                    CallFilteringResult result = new CallFilteringResult.Builder()
+                            .setShouldAllowCall(true)
+                            .setShouldReject(false)
+                            .setShouldSilence(true)
+                            .setShouldAddToCallLog(true)
+                            .setShouldShowNotification(true)
+                            .setContactExists(mPriorStageResult.contactExists)
+                            .build();
+                    Log.addEvent(mCall, LogUtils.Events.SCREENING_COMPLETED, result);
+                    mResultFuture.complete(result);
+                } else {
+                    Log.w(this, "silenceCall, unknown call id: %s", callId);
+                    mResultFuture.complete(mPriorStageResult);
                 }
             } finally {
-                Binder.restoreCallingIdentity(token);
+                unbindCallScreeningService();
                 Log.endSession();
+                Binder.restoreCallingIdentity(token);
+            }
+        }
+
+        @Override
+        public void screenCallFurther(String callId) {
+            if (mPackagetype != PACKAGE_TYPE_DEFAULT_DIALER) {
+                throw new SecurityException("Only the default/system dialer may request screen via"
+                    + "background call audio");
+            }
+            // TODO: add permission check for the additional role-based permission
+            long token = Binder.clearCallingIdentity();
+            Log.startSession("NCSSF.sCF");
+
+            try {
+                if (mCall != null && mCall.getId().equals(callId)) {
+                    CallFilteringResult result = new CallFilteringResult.Builder()
+                            .setShouldAllowCall(true)
+                            .setShouldReject(false)
+                            .setShouldSilence(false)
+                            .setShouldScreenViaAudio(true)
+                            .setCallScreeningAppName(mAppName)
+                            .setContactExists(mPriorStageResult.contactExists)
+                            .build();
+                    Log.addEvent(mCall, LogUtils.Events.SCREENING_COMPLETED, result);
+                    mResultFuture.complete(result);
+                } else {
+                    Log.w(this, "screenCallFurther, unknown call id: %s", callId);
+                    mResultFuture.complete(mPriorStageResult);
+                }
+            } finally {
+                unbindCallScreeningService();
+                Log.endSession();
+                Binder.restoreCallingIdentity(token);
             }
         }
     }
 
-    private final Context mContext;
-    private final CallsManager mCallsManager;
-    private final ParcelableCallUtils.Converter mParcelableCallUtilsConverter;
-    private final TelecomSystem.SyncRoot mTelecomLock;
-    private final SettingsSecureAdapter mSettingsSecureAdapter;
+    private class CallScreeningServiceConnection implements ServiceConnection {
+        private CompletableFuture<CallFilteringResult> mResultFuture;
 
-    private Call mCall;
-    private CallScreeningFilterResultCallback mCallback;
-    private ICallScreeningService mService;
-    private ServiceConnection mConnection;
-    private String mPackageName;
-    private CharSequence mAppName;
-    private boolean mHasFinished = false;
-    private int mCallScreeningServiceType;
+        public CallScreeningServiceConnection(CompletableFuture<CallFilteringResult> resultFuture) {
+            mResultFuture = resultFuture;
+        }
 
-    private CallFilteringResult mResult = new CallFilteringResult(
-            true, // shouldAllowCall
-            false, //shouldReject
-            true, //shouldAddToCallLog
-            true // shouldShowNotification
-    );
+        @Override
+        public void onServiceConnected(ComponentName componentName, IBinder service) {
+            ICallScreeningService callScreeningService =
+                    ICallScreeningService.Stub.asInterface(service);
+            try {
+                callScreeningService.screenCall(new CallScreeningAdapter(mResultFuture),
+                        mParcelableCallUtilsConverter.
+                                toParcelableCallForScreening(mCall, isSystemDialer()));
+            } catch (RemoteException e) {
+                Log.e(this, e, "Failed to set the call screening adapter");
+                mResultFuture.complete(mPriorStageResult);
+            }
+            Log.addEvent(mCall, LogUtils.Events.SCREENING_BOUND, componentName);
+            Log.i(this, "Binding completed.");
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName componentName) {
+            mResultFuture.complete(mPriorStageResult);
+            Log.i(this, "Service disconnected.");
+        }
+
+        @Override
+        public void onBindingDied(ComponentName name) {
+            mResultFuture.complete(mPriorStageResult);
+            Log.i(this, "Binding died.");
+        }
+
+        @Override
+        public void onNullBinding(ComponentName name) {
+            mResultFuture.complete(mPriorStageResult);
+            Log.i(this, "Null binding.");
+            unbindCallScreeningService();
+        }
+    }
 
     public CallScreeningServiceFilter(
+            Call call,
+            String packageName,
+            int packageType,
             Context context,
             CallsManager callsManager,
-            PhoneAccountRegistrar phoneAccountRegistrar,
-            ParcelableCallUtils.Converter parcelableCallUtilsConverter,
-            TelecomSystem.SyncRoot lock,
-            SettingsSecureAdapter settingsSecureAdapter) {
-        mContext = context;
-        mCallsManager = callsManager;
-        mParcelableCallUtilsConverter = parcelableCallUtilsConverter;
-        mTelecomLock = lock;
-        mSettingsSecureAdapter = settingsSecureAdapter;
-    }
-
-    public void startCallScreeningFilter(Call call,
-            CallScreeningFilterResultCallback callback,
-            String packageName,
-            CharSequence appName,
-            int callScreeningServiceType) {
-        if (mHasFinished) {
-            Log.w(this, "Attempting to reuse CallScreeningServiceFilter. Ignoring.");
-            return;
-        }
-        Log.addEvent(call, LogUtils.Events.SCREENING_SENT, packageName);
+            AppLabelProxy appLabelProxy,
+            ParcelableCallUtils.Converter parcelableCallUtilsConverter) {
+        super();
         mCall = call;
-        mCallback = callback;
         mPackageName = packageName;
-        mAppName = appName;
-        mCallScreeningServiceType = callScreeningServiceType;
+        mPackagetype = packageType;
+        mContext = context;
+        mPackageManager = mContext.getPackageManager();
+        mCallsManager = callsManager;
+        mAppName = appLabelProxy.getAppLabel(mPackageName);
+        mParcelableCallUtilsConverter = parcelableCallUtilsConverter;
+    }
 
-        mConnection = new CallScreeningServiceConnection();
+    @Override
+    public CompletionStage<CallFilteringResult> startFilterLookup(
+            CallFilteringResult priorStageResult) {
+        mPriorStageResult = priorStageResult;
+        if (mPackageName == null) {
+            return CompletableFuture.completedFuture(priorStageResult);
+        }
+
+        if (!priorStageResult.shouldAllowCall) {
+            // Call already blocked by other filters, no need to bind to call screening service.
+            return CompletableFuture.completedFuture(priorStageResult);
+        }
+
+        if (priorStageResult.contactExists && (!hasReadContactsPermission())) {
+            // Binding to the call screening service will be skipped if it does NOT hold
+            // READ_CONTACTS permission and the number is in the user’s contacts
+            return CompletableFuture.completedFuture(priorStageResult);
+        }
+
+        CompletableFuture<CallFilteringResult> resultFuture = new CompletableFuture<>();
+
+        bindCallScreeningService(resultFuture);
+        return resultFuture;
+    }
+
+    @Override
+    public String toString() {
+        return super.toString() + ": " + mPackageName;
+    }
+
+    private boolean hasReadContactsPermission() {
+        int permission = PackageManager.PERMISSION_DENIED;
+        if (mPackagetype == PACKAGE_TYPE_CARRIER || mPackagetype == PACKAGE_TYPE_DEFAULT_DIALER) {
+            permission = PackageManager.PERMISSION_GRANTED;
+        } else if (mPackageManager != null) {
+            permission = mPackageManager.checkPermission(Manifest.permission.READ_CONTACTS,
+                    mPackageName);
+        }
+        return permission == PackageManager.PERMISSION_GRANTED;
+    }
+
+    private void bindCallScreeningService(
+            CompletableFuture<CallFilteringResult> resultFuture) {
+        mConnection = new CallScreeningServiceConnection(resultFuture);
         if (!CallScreeningServiceHelper.bindCallScreeningService(mContext,
-                mCallsManager.getCurrentUserHandle(),
-                mPackageName,
-                mConnection)) {
-            Log.i(this, "Could not bind to call screening service");
-            finishCallScreening();
+                mCallsManager.getCurrentUserHandle(), mPackageName, mConnection)) {
+            Log.i(this, "Call screening service binding failed.");
+            resultFuture.complete(mPriorStageResult);
         }
     }
 
-    private void finishCallScreening() {
-        if (!mHasFinished) {
-            Log.addEvent(mCall, LogUtils.Events.SCREENING_COMPLETED, mResult);
-            mCallback.onCallScreeningFilterComplete(mCall, mResult, mPackageName);
+    public void unbindCallScreeningService() {
+        if (mConnection != null) {
+            mContext.unbindService(mConnection);
+        }
+        mConnection = null;
+    }
 
-            if (mConnection != null) {
-                // We still need to call unbind even if the service disconnected.
-                try {
-                    mContext.unbindService(mConnection);
-                } catch (IllegalArgumentException ie) {
-                    Log.e(this, ie, "Unbind error");
-                }
-                mConnection = null;
-            }
-            mService = null;
-            mHasFinished = true;
+    private boolean isSystemDialer() {
+        if (mPackagetype != PACKAGE_TYPE_DEFAULT_DIALER) {
+            return false;
+        } else {
+            return mPackageName.equals(
+                    mContext.getSystemService(TelecomManager.class).getSystemDialerPackage());
         }
     }
 
-    private void onServiceBound(ICallScreeningService service) {
-        mService = service;
-        try {
-            boolean isSystemDialer =
-                    mCallScreeningServiceType
-                            == CallScreeningServiceFilter.CALL_SCREENING_FILTER_TYPE_SYSTEM_DIALER;
-            // Important: Only send a minimal subset of the call to the screening service.
-            // We will send some of the call extras to the call screening service which the system
-            // dialer implements.
-            mService.screenCall(new CallScreeningAdapter(),
-                    mParcelableCallUtilsConverter.toParcelableCallForScreening(mCall,
-                            isSystemDialer));
-        } catch (RemoteException e) {
-            Log.e(this, e, "Failed to set the call screening adapter.");
-            finishCallScreening();
-        }
-    }
-
-    private boolean isLoggable(ComponentName componentName, boolean shouldAddToCallLog) {
-        if (isCarrierCallScreeningApp(componentName)) {
-            return shouldAddToCallLog;
-        } else if (isDefaultDialer(componentName) || isUserChosenCallScreeningApp(componentName)) {
-            return true;
-        }
-
-        return shouldAddToCallLog;
-    }
-
-    private boolean isCarrierCallScreeningApp(ComponentName componentName) {
-        String carrierCallScreeningApp = null;
-        CarrierConfigManager configManager = (CarrierConfigManager) mContext
-                .getSystemService(Context.CARRIER_CONFIG_SERVICE);
-        PersistableBundle configBundle = configManager.getConfig();
-        if (configBundle != null) {
-            carrierCallScreeningApp = configBundle
-                    .getString(CarrierConfigManager.KEY_CARRIER_CALL_SCREENING_APP_STRING);
-        }
-
-        if (!TextUtils.isEmpty(carrierCallScreeningApp) && carrierCallScreeningApp
-                .equals(componentName.flattenToString())) {
-            return true;
-        }
-
-        return false;
-    }
-
-    private boolean isDefaultDialer(ComponentName componentName) {
-        String defaultDialer = TelecomManager.from(mContext).getDefaultDialerPackage();
-
-        if (!TextUtils.isEmpty(defaultDialer) && defaultDialer
-                .equals(componentName.getPackageName())) {
-            return true;
-        }
-
-        return false;
-    }
-
-    private boolean isUserChosenCallScreeningApp(ComponentName componentName) {
-        String defaultCallScreeningApplication = mSettingsSecureAdapter
-                .getStringForUser(mContext.getContentResolver(),
-                        Settings.Secure.CALL_SCREENING_DEFAULT_COMPONENT, UserHandle.USER_CURRENT);
-
-        if (!TextUtils.isEmpty(defaultCallScreeningApplication) && defaultCallScreeningApplication
-                .equals(componentName.flattenToString())) {
-            return true;
-        }
-
-        return false;
+    private boolean packageTypeShouldAdd(int packageType) {
+        return packageType != PACKAGE_TYPE_CARRIER;
     }
 }

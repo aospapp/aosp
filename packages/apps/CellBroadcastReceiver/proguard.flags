@@ -1,6 +1,12 @@
 # This is a configuration file for ProGuard.
 # http://proguard.sourceforge.net/index.html#manual/usage.html
 
+# Keep classes and methods that have the @VisibleForTesting annotation
+-keep @com.android.internal.annotations.VisibleForTesting class *
+-keepclassmembers class * {
+    @com.android.internal.annotations.VisibleForTesting *;
+}
+
 # We want to keep methods in Activity that could be used in the XML attribute onClick.
 -keepclassmembers class * extends android.app.Activity {
     public void *(android.view.View);

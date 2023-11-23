@@ -27,15 +27,18 @@ import android.os.Build;
 import android.support.annotation.RequiresApi;
 import android.text.TextUtils;
 import android.util.Log;
+
 import androidx.tvprovider.media.tv.TvContractCompat;
+
 import com.android.tv.Starter;
 import com.android.tv.TvSingletons;
 import com.android.tv.data.PreviewDataManager;
 import com.android.tv.data.PreviewProgramContent;
-import com.android.tv.data.Program;
 import com.android.tv.data.api.Channel;
+import com.android.tv.data.api.Program;
 import com.android.tv.parental.ParentalControlSettings;
 import com.android.tv.util.Utils;
+
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;

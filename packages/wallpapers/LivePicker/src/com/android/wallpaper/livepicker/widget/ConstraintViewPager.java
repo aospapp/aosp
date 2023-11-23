@@ -50,6 +50,8 @@ public class ConstraintViewPager extends ViewPager {
      */
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+
         int maxChildHeight = 0;
         int infoChildHeight = 0;
         int infoTopPadding = 0;
@@ -81,9 +83,6 @@ public class ConstraintViewPager extends ViewPager {
             }
         }
 
-        if (maxChildHeight != 0) {
-            heightMeasureSpec = MeasureSpec.makeMeasureSpec(maxChildHeight, MeasureSpec.EXACTLY);
-        }
-        super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+        setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec), maxChildHeight);
     }
 }

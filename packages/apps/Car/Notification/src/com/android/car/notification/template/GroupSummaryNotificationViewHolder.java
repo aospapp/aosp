@@ -18,14 +18,14 @@ package com.android.car.notification.template;
 
 import android.annotation.ColorInt;
 import android.content.Context;
-import android.service.notification.StatusBarNotification;
 import android.view.View;
 import android.widget.TextView;
 
+import com.android.car.notification.AlertEntry;
 import com.android.car.notification.NotificationClickHandlerFactory;
 import com.android.car.notification.NotificationGroup;
+import com.android.car.notification.NotificationUtils;
 import com.android.car.notification.R;
-import com.android.car.notification.ThemesUtil;
 
 import java.util.List;
 
@@ -52,8 +52,8 @@ public class GroupSummaryNotificationViewHolder extends CarNotificationBaseViewH
             View view, NotificationClickHandlerFactory clickHandlerFactory) {
         super(view, clickHandlerFactory);
         mContext = view.getContext();
-        mCardBackgroundColor = ThemesUtil.getAttrColor(mContext, android.R.attr.colorPrimary);
-        mDefaultTextColor = ThemesUtil.getAttrColor(mContext, android.R.attr.textColorPrimary);
+        mCardBackgroundColor = NotificationUtils.getAttrColor(mContext, android.R.attr.colorPrimary);
+        mDefaultTextColor = NotificationUtils.getAttrColor(mContext, android.R.attr.textColorPrimary);
         mTitle1View = view.findViewById(R.id.child_notification_title_1);
         mTitle2View = view.findViewById(R.id.child_notification_title_2);
     }
@@ -62,8 +62,8 @@ public class GroupSummaryNotificationViewHolder extends CarNotificationBaseViewH
      * Binds a {@link NotificationGroup} to a group summary notification template.
      *
      * <p> Group summary notification view holder is special in that it binds a
-     * {@link NotificationGroup} instead of a {@link StatusBarNotification}, therefore the standard
-     * bind() method is no used. Still calling super.bind() because the touch events/animations
+     * {@link NotificationGroup} instead of a {@link AlertEntry}, therefore the standard
+     * bind() method is not used. Still calling super.bind() because the touch events/animations
      * need to work.
      */
     public void bind(NotificationGroup notificationGroup) {

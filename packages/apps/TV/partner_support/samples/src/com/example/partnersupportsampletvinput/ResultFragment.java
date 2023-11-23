@@ -21,10 +21,10 @@ import android.content.Intent;
 import android.media.tv.TvInputInfo;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
-import android.support.v17.leanback.app.GuidedStepFragment;
-import android.support.v17.leanback.widget.GuidanceStylist;
-import android.support.v17.leanback.widget.GuidanceStylist.Guidance;
-import android.support.v17.leanback.widget.GuidedAction;
+import androidx.leanback.app.GuidedStepFragment;
+import androidx.leanback.widget.GuidanceStylist;
+import androidx.leanback.widget.GuidanceStylist.Guidance;
+import androidx.leanback.widget.GuidedAction;
 import com.google.android.tv.partner.support.EpgContract;
 import java.util.List;
 

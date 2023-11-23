@@ -17,6 +17,8 @@ package com.android.wallpaper.module;
 
 import android.content.Context;
 
+import androidx.fragment.app.Fragment;
+
 import com.android.wallpaper.compat.WallpaperManagerCompat;
 import com.android.wallpaper.model.CategoryProvider;
 import com.android.wallpaper.model.WallpaperInfo;
@@ -24,8 +26,6 @@ import com.android.wallpaper.monitor.PerformanceMonitor;
 import com.android.wallpaper.network.Requester;
 import com.android.wallpaper.picker.PreviewFragment.PreviewMode;
 import com.android.wallpaper.picker.individual.IndividualPickerFragment;
-
-import androidx.fragment.app.Fragment;
 
 /**
  * Interface for a provider of "injected dependencies." (NOTE: The term "injector" is somewhat of a
@@ -44,8 +44,6 @@ public interface Injector {
 
     FormFactorChecker getFormFactorChecker(Context context);
 
-    LiveWallpaperStatusChecker getLiveWallpaperStatusChecker(Context context);
-
     LoggingOptInStatusProvider getLoggingOptInStatusProvider(Context context);
 
     NetworkStatusNotifier getNetworkStatusNotifier(Context context);
@@ -55,8 +53,6 @@ public interface Injector {
     PerformanceMonitor getPerformanceMonitor();
 
     Requester getRequester(Context context);
-
-    RotatingWallpaperComponentChecker getRotatingWallpaperComponentChecker();
 
     SystemFeatureChecker getSystemFeatureChecker();
 
@@ -83,4 +79,6 @@ public interface Injector {
     IndividualPickerFragment getIndividualPickerFragment(String collectionId);
 
     LiveWallpaperInfoFactory getLiveWallpaperInfoFactory(Context context);
+
+    DrawableLayerResolver getDrawableLayerResolver();
 }

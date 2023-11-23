@@ -35,12 +35,12 @@ import com.android.car.developeroptions.core.BasePreferenceController;
 import com.android.car.developeroptions.core.PreferenceControllerListHelper;
 import com.android.car.developeroptions.core.SettingsBaseActivity;
 import com.android.car.developeroptions.overlay.FeatureFactory;
-import com.android.car.developeroptions.search.Indexable;
 import com.android.settingslib.core.AbstractPreferenceController;
 import com.android.settingslib.core.lifecycle.Lifecycle;
 import com.android.settingslib.core.lifecycle.LifecycleObserver;
 import com.android.settingslib.drawer.DashboardCategory;
 import com.android.settingslib.drawer.Tile;
+import com.android.settingslib.search.Indexable;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -197,8 +197,7 @@ public abstract class DashboardFragment extends SettingsPreferenceFragment
         Collection<List<AbstractPreferenceController>> controllers =
                 mPreferenceControllers.values();
         // If preference contains intent, log it before handling.
-        mMetricsFeatureProvider.logDashboardStartIntent(
-                getContext(), preference.getIntent(), getMetricsCategory());
+        mMetricsFeatureProvider.logStartedIntent(preference.getIntent(), getMetricsCategory());
         // Give all controllers a chance to handle click.
         for (List<AbstractPreferenceController> controllerList : controllers) {
             for (AbstractPreferenceController controller : controllerList) {

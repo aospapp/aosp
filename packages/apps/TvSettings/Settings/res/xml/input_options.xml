@@ -23,8 +23,7 @@
         android:title="@string/inputs_show" />
     <PreferenceCategory
         android:key="names"
-        android:title="@string/input_header_names"
-        android:layout="@layout/preference_category_compact_layout">
+        android:title="@string/input_header_names">
         <com.android.tv.settings.RadioPreference
             android:key="name_default"
             android:persistent="true"

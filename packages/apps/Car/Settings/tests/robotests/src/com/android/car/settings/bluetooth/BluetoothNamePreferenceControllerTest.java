@@ -24,44 +24,40 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 import android.bluetooth.BluetoothAdapter;
-import android.car.userlib.CarUserManagerHelper;
 import android.content.Context;
 import android.content.Intent;
+import android.os.UserHandle;
+import android.os.UserManager;
 
 import androidx.lifecycle.Lifecycle;
 import androidx.preference.Preference;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
 import com.android.car.settings.testutils.ShadowBluetoothAdapter;
 import com.android.car.settings.testutils.ShadowBluetoothPan;
-import com.android.car.settings.testutils.ShadowCarUserManagerHelper;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.Shadows;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadow.api.Shadow;
+import org.robolectric.shadows.ShadowUserManager;
 
 /** Unit test for {@link BluetoothNamePreferenceController}. */
-@RunWith(CarSettingsRobolectricTestRunner.class)
-@Config(shadows = {ShadowCarUserManagerHelper.class, ShadowBluetoothAdapter.class,
-        ShadowBluetoothPan.class})
+@RunWith(RobolectricTestRunner.class)
+@Config(shadows = {ShadowBluetoothAdapter.class, ShadowBluetoothPan.class})
 public class BluetoothNamePreferenceControllerTest {
 
     private static final String NAME = "name";
     private static final String NAME_UPDATED = "name updated";
 
-    @Mock
-    private CarUserManagerHelper mCarUserManagerHelper;
     private Preference mPreference;
     private PreferenceControllerTestHelper<BluetoothNamePreferenceController> mControllerHelper;
     private BluetoothNamePreferenceController mController;
@@ -69,7 +65,6 @@ public class BluetoothNamePreferenceControllerTest {
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
-        ShadowCarUserManagerHelper.setMockInstance(mCarUserManagerHelper);
         Context context = RuntimeEnvironment.application;
 
         // Make sure controller is available.
@@ -87,7 +82,6 @@ public class BluetoothNamePreferenceControllerTest {
 
     @After
     public void tearDown() {
-        ShadowCarUserManagerHelper.reset();
         ShadowBluetoothAdapter.reset();
     }
 
@@ -109,8 +103,8 @@ public class BluetoothNamePreferenceControllerTest {
 
     @Test
     public void refreshUi_userHasConfigRestriction_setsNotSelectable() {
-        when(mCarUserManagerHelper.isCurrentProcessUserHasRestriction(
-                DISALLOW_CONFIG_BLUETOOTH)).thenReturn(true);
+        getShadowUserManager().setUserRestriction(
+                UserHandle.of(UserHandle.myUserId()), DISALLOW_CONFIG_BLUETOOTH, true);
 
         mController.refreshUi();
 
@@ -164,5 +158,9 @@ public class BluetoothNamePreferenceControllerTest {
 
     private ShadowBluetoothAdapter getShadowBluetoothAdapter() {
         return (ShadowBluetoothAdapter) Shadow.extract(BluetoothAdapter.getDefaultAdapter());
+    }
+
+    private ShadowUserManager getShadowUserManager() {
+        return Shadow.extract(UserManager.get(RuntimeEnvironment.application));
     }
 }

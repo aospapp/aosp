@@ -26,7 +26,6 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import android.annotation.Nullable;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.car.CarProjectionManager;
@@ -40,6 +39,8 @@ import android.telecom.Call;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
+
+import androidx.annotation.Nullable;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -90,7 +91,8 @@ public class ProjectionCallHandlerTest {
         mTelecomManager.registerPhoneAccount(mNonHfpAccount);
         mTelecomManager.registerPhoneAccount(mAccountWithNoAddress);
 
-        mProjectionCallHandler = new ProjectionCallHandler(mTelecomManager, mCarProjectionManager);
+        mProjectionCallHandler = new ProjectionCallHandler(mContext, mTelecomManager,
+                car -> mCarProjectionManager);
     }
 
     @Test

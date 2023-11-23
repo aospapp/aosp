@@ -2,7 +2,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.android.documentsui.tests">
 
-    <uses-permission android:name="android.permission.INTERNET" />
+  <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="29"/>
+
+  <uses-permission android:name="android.permission.INTERNET" />
 
     <application android:label="DocumentsUI Tests">
         <uses-library android:name="android.test.runner" />
@@ -34,6 +36,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+
 
         <provider
             android:name="com.android.documentsui.StubProvider"

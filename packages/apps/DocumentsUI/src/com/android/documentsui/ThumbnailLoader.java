@@ -33,7 +33,10 @@ import android.provider.DocumentsContract;
 import android.util.Log;
 import android.view.View;
 import android.widget.ImageView;
+
 import com.android.documentsui.ProviderExecutor.Preemptable;
+import com.android.documentsui.base.UserId;
+
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
@@ -59,6 +62,7 @@ public final class ThumbnailLoader extends AsyncTask<Uri, Void, Bitmap> implemen
     private final ImageView mIconThumb;
     private final Point mThumbSize;
     private final Uri mUri;
+    private final UserId mUserId;
     private final long mLastModified;
     private final Consumer<Bitmap> mCallback;
     private final boolean mAddToCache;
@@ -66,15 +70,17 @@ public final class ThumbnailLoader extends AsyncTask<Uri, Void, Bitmap> implemen
 
     /**
      * @param uri - to a thumbnail.
+     * @param userId - user of the uri.
      * @param iconThumb - ImageView to display the thumbnail.
      * @param thumbSize - size of the thumbnail.
      * @param lastModified - used for updating thumbnail caches.
      * @param addToCache - flag that determines if the loader saves the thumbnail to the cache.
      */
-    public ThumbnailLoader(Uri uri, ImageView iconThumb, Point thumbSize, long lastModified,
-        Consumer<Bitmap> callback, boolean addToCache) {
+    public ThumbnailLoader(Uri uri, UserId userId, ImageView iconThumb, Point thumbSize,
+            long lastModified, Consumer<Bitmap> callback, boolean addToCache) {
 
         mUri = uri;
+        mUserId = userId;
         mIconThumb = iconThumb;
         mThumbSize = thumbSize;
         mLastModified = lastModified;
@@ -100,7 +106,7 @@ public final class ThumbnailLoader extends AsyncTask<Uri, Void, Bitmap> implemen
         }
 
         final Context context = mIconThumb.getContext();
-        final ContentResolver resolver = context.getContentResolver();
+        final ContentResolver resolver = mUserId.getContentResolver(context);
 
         ContentProviderClient client = null;
         Bitmap result = null;
@@ -111,7 +117,7 @@ public final class ThumbnailLoader extends AsyncTask<Uri, Void, Bitmap> implemen
                     mUri, mThumbSize, mSignal);
             if (result != null && mAddToCache) {
                 final ThumbnailCache cache = DocumentsApplication.getThumbnailCache(context);
-                cache.putThumbnail(mUri, mThumbSize, result, mLastModified);
+                cache.putThumbnail(mUri, mUserId, mThumbSize, result, mLastModified);
             }
         } catch (Exception e) {
             if (!(e instanceof OperationCanceledException)) {

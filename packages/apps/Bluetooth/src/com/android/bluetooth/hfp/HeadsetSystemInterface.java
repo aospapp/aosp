@@ -16,6 +16,8 @@
 
 package com.android.bluetooth.hfp;
 
+import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothHeadset;
 import android.bluetooth.IBluetoothHeadsetPhone;
@@ -24,6 +26,9 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.media.AudioManager;
 import android.os.IBinder;
 import android.os.PowerManager;
@@ -31,6 +36,8 @@ import android.os.RemoteException;
 import android.util.Log;
 
 import com.android.internal.annotations.VisibleForTesting;
+
+import java.util.List;
 
 /**
  * Defines system calls that is used by state machine/service to either send or receive
@@ -70,7 +77,7 @@ public class HeadsetSystemInterface {
 
     HeadsetSystemInterface(HeadsetService headsetService) {
         if (headsetService == null) {
-            Log.wtfStack(TAG, "HeadsetService parameter is null");
+            Log.wtf(TAG, "HeadsetService parameter is null");
         }
         mHeadsetService = headsetService;
         mAudioManager = (AudioManager) mHeadsetService.getSystemService(Context.AUDIO_SERVICE);
@@ -88,12 +95,45 @@ public class HeadsetSystemInterface {
     public synchronized void init() {
         // Bind to Telecom phone proxy service
         Intent intent = new Intent(IBluetoothHeadsetPhone.class.getName());
-        intent.setComponent(intent.resolveSystemService(mHeadsetService.getPackageManager(), 0));
+        intent.setComponent(resolveSystemService(mHeadsetService.getPackageManager(), 0, intent));
         if (intent.getComponent() == null || !mHeadsetService.bindService(intent,
                 mPhoneProxyConnection, 0)) {
             // Crash the stack if cannot bind to Telecom
-            Log.wtfStack(TAG, "Could not bind to IBluetoothHeadsetPhone Service, intent=" + intent);
+            Log.wtf(TAG, "Could not bind to IBluetoothHeadsetPhone Service, intent=" + intent);
         }
+    }
+
+    /**
+     * Special function for use by the system to resolve service
+     * intents to system apps.  Throws an exception if there are
+     * multiple potential matches to the Intent.  Returns null if
+     * there are no matches.
+     */
+    private @Nullable ComponentName resolveSystemService(@NonNull PackageManager pm,
+            @PackageManager.ComponentInfoFlags int flags, Intent intent) {
+        if (intent.getComponent() != null) {
+            return intent.getComponent();
+        }
+
+        List<ResolveInfo> results = pm.queryIntentServices(intent, flags);
+        if (results == null) {
+            return null;
+        }
+        ComponentName comp = null;
+        for (int i = 0; i < results.size(); i++) {
+            ResolveInfo ri = results.get(i);
+            if ((ri.serviceInfo.applicationInfo.flags& ApplicationInfo.FLAG_SYSTEM) == 0) {
+                continue;
+            }
+            ComponentName foundComp = new ComponentName(ri.serviceInfo.applicationInfo.packageName,
+                    ri.serviceInfo.name);
+            if (comp != null) {
+                throw new IllegalStateException("Multiple system services handle " + this
+                        + ": " + comp + ", " + foundComp);
+            }
+            comp = foundComp;
+        }
+        return comp;
     }
 
     /**

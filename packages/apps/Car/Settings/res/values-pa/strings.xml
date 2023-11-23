@@ -50,7 +50,7 @@
     <string name="roaming_title" msgid="6218635014519017734">"ਰੋਮਿੰਗ"</string>
     <string name="roaming_summary" msgid="7476127740259728901">"ਰੋਮਿੰਗ ਵੇਲੇ ਡਾਟਾ ਸੇਵਾਵਾਂ ਨਾਲ ਕਨੈਕਟ ਕਰੋ"</string>
     <string name="roaming_alert_title" msgid="4433901635766775763">"ਕੀ ਡਾਟਾ ਰੋਮਿੰਗ ਵਿਕਲਪ ਵਰਤਣ ਦੇਣਾ ਹੈ?"</string>
-    <string name="roaming_warning" msgid="5313281900566657209">"ਤੁਹਾਨੂੰ ਵਾਧੂ ਖਰਚਾ ਦੇਣਾ ਪੈ ਸਕਦਾ ਹੈ।"</string>
+    <string name="roaming_warning" msgid="4908184914868720704">"ਰੋਮਿੰਗ ਖਰਚੇ ਲਾਗੂ ਹੋ ਸਕਦੇ ਹਨ।"</string>
     <string name="data_usage_settings" msgid="7877132994777987848">"ਡਾਟਾ ਵਰਤੋਂ"</string>
     <string name="data_usage_title" msgid="2923515974389203812">"ਮੁੱਖ ਡਾਟਾ"</string>
     <string name="data_used_formatted" msgid="6684557577780068339">"<xliff:g id="ID_1">^1</xliff:g> <xliff:g id="ID_2">^2</xliff:g> ਡਾਟਾ ਵਰਤਿਆ ਗਿਆ"</string>
@@ -102,7 +102,7 @@
     <string name="wifi_signal_strength" msgid="8507318230553042817">"ਸਿਗਨਲ ਦੀ ਤੀਬਰਤਾ"</string>
     <string name="wifi_status" msgid="5688013206066543952">"ਸਥਿਤੀ"</string>
     <string name="wifi_speed" msgid="1650692446731850781">"ਲਿੰਕ ਸਪੀਡ"</string>
-    <string name="wifi_frequency" msgid="8951455949682864922">"ਬਾਰੰਬਾਰਤਾ"</string>
+    <string name="wifi_frequency" msgid="8951455949682864922">"ਵਾਰਵਾਰਤਾ"</string>
     <string name="wifi_ip_address" msgid="3128140627890954061">"IP ਪਤਾ"</string>
     <string name="show_password" msgid="2074628020371139240">"ਪਾਸਵਰਡ ਦਿਖਾਓ"</string>
     <string name="default_network_name_summary" msgid="8148402439232464276">"ਨੈੱਟਵਰਕ ਦਾ ਨਾਮ ਦਾਖਲ ਕਰੋ"</string>
@@ -199,6 +199,8 @@
     <string name="bluetooth_device_picker" msgid="673238198452345475">"ਬਲੂਟੁੱਥ ਡੀਵਾਈਸ ਚੁਣੋ"</string>
     <string name="language_settings" msgid="2079258598337245546">"ਭਾਸ਼ਾਵਾਂ"</string>
     <string name="languages_and_input_settings" msgid="3672322610529408248">"ਭਾਸ਼ਾਵਾਂ ਅਤੇ ਇਨਪੁੱਟ"</string>
+    <string name="language_picker_list_suggested_header" msgid="7593893806003415948">"ਸੁਝਾਇਆ ਗਿਆ"</string>
+    <string name="language_picker_list_all_header" msgid="1577387973934368428">"ਸਾਰੀਆਂ ਭਾਸ਼ਾਵਾਂ"</string>
     <string name="keyboard_settings" msgid="1959697870618278081">"ਕੀ-ਬੋਰਡ"</string>
     <string name="manage_keyboard" msgid="4045394766282200132">"ਕੀ-ਬੋਰਡਾਂ ਦਾ ਪ੍ਰਬੰਧਨ ਕਰੋ"</string>
     <string name="text_to_speech_settings" msgid="811985746199507343">"ਲਿਖਤ ਤੋਂ ਬੋਲੀ ਆਊਟਪੁੱਟ"</string>
@@ -283,9 +285,11 @@
     <string name="not_installed" msgid="4218816013370552746">"ਇਸ ਵਰਤੋਂਕਾਰ ਲਈ ਸਥਾਪਤ ਨਹੀਂ ਕੀਤਾ ਗਿਆ"</string>
     <string name="permissions_label" msgid="2701446753515612685">"ਇਜਾਜ਼ਤਾਂ"</string>
     <string name="notifications_label" msgid="6586089149665170731">"ਸੂਚਨਾਵਾਂ"</string>
+    <string name="storage_application_label" msgid="5911779903670978586">"ਸਟੋਰੇਜ ਅਤੇ ਕੈਸ਼ੇ"</string>
     <string name="application_version_label" msgid="8556889839783311649">"ਵਰਜਨ: %1$s"</string>
     <string name="runtime_permissions_summary_no_permissions_granted" msgid="6001439205270250021">"ਕੋਈ ਇਜਾਜ਼ਤਾਂ ਨਹੀਂ ਦਿੱਤੀਆਂ ਗਈਆਂ"</string>
     <string name="runtime_permissions_summary_no_permissions_requested" msgid="4074220596273432442">"ਕਿਸੇ ਇਜਾਜ਼ਤਾਂ ਦੀ ਬੇਨਤੀ ਨਹੀਂ ਕੀਤੀ ਗਈ"</string>
+    <string name="storage_type_internal" msgid="8918688427078709570">"ਅੰਦਰੂਨੀ ਸਟੋਰੇਜ ਵਿੱਚ %s"</string>
     <string name="data_usage_summary_title" msgid="4368024763485916986">"ਡਾਟਾ ਵਰਤੋਂ"</string>
     <string name="data_usage_app_summary_title" msgid="5012851696585421420">"ਐਪ ਡਾਟਾ ਵਰਤੋਂ"</string>
     <string name="computing_size" msgid="5791407621793083965">"ਗਣਨਾ ਕੀਤੀ ਜਾ ਰਹੀ ਹੈ…"</string>
@@ -344,17 +348,13 @@
     <string name="location_settings_recent_requests_title" msgid="6345634382240930628">"ਹਾਲੀਆ ਟਿਕਾਣਾ ਬੇਨਤੀਆਂ"</string>
     <string name="location_settings_recent_requests_empty_message" msgid="7789667070033674910">"ਕੋਈ ਹਾਲੀਆ ਟਿਕਾਣਾ ਬੇਨਤੀਆਂ ਨਹੀਂ"</string>
     <string name="location_settings_app_permissions_title" msgid="6446735313354321564">"ਐਪ-ਪੱਧਰ ਇਜਾਜ਼ਤਾਂ"</string>
-    <string name="location_settings_scanning_title" msgid="4253945869911300740">"ਸਕੈਨ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ"</string>
     <string name="location_settings_services_title" msgid="1186133632690970468">"ਟਿਕਾਣਾ ਸੇਵਾਵਾਂ"</string>
-    <string name="location_settings_wifi_scanning_title" msgid="8021558840074023719">"ਵਾਈ‑ਫਾਈ ਸਕੈਨਿੰਗ"</string>
-    <string name="location_settings_wifi_scanning_summary" msgid="2116283960258671324">"ਵਾਈ-ਫਾਈ ਬੰਦ ਹੋਣ \'ਤੇ ਵੀ ਐਪਾਂ ਅਤੇ ਸੇਵਾਵਾਂ ਨੂੰ ਕਿਸੇ ਵੀ ਵੇਲੇ ਵਾਈ-ਫਾਈ ਨੈੱਟਵਰਕਾਂ ਲਈ ਸਕੈਨ ਕਰਨ ਦਿਓ। ਇਸਦੀ ਵਰਤੋਂ ਕਰਕੇ ਟਿਕਾਣਾ-ਆਧਾਰਿਤ ਵਿਸ਼ੇਸ਼ਤਾਵਾਂ ਅਤੇ ਸੇਵਾਵਾਂ ਵਰਗੀਆਂ ਚੀਜ਼ਾਂ ਨੂੰ ਬਿਹਤਰ ਬਣਾਇਆ ਜਾ ਸਕਦਾ ਹੈ।"</string>
-    <string name="location_settings_bluetooth_scanning_title" msgid="2969682902241932059">"ਬਲੂਟੁੱਥ ਸਕੈਨਿੰਗ"</string>
-    <string name="location_settings_bluetooth_scanning_summary" msgid="9158101751700727062">"ਬਲੂਟੁੱਥ ਬੰਦ ਹੋਣ \'ਤੇ ਵੀ ਐਪਾਂ ਅਤੇ ਸੇਵਾਵਾਂ ਨੂੰ ਕਿਸੇ ਵੀ ਵੇਲੇ ਨਜ਼ਦੀਕੀ ਡੀਵਾਈਸਾਂ ਲਈ ਸਕੈਨ ਕਰਨ ਦਿਓ। ਇਸਦੀ ਵਰਤੋਂ ਕਰਕੇ ਟਿਕਾਣਾ-ਆਧਾਰਿਤ ਵਿਸ਼ੇਸ਼ਤਾਵਾਂ ਅਤੇ ਸੇਵਾਵਾਂ ਵਰਗੀਆਂ ਚੀਜ਼ਾਂ ਨੂੰ ਬਿਹਤਰ ਬਣਾਇਆ ਜਾ ਸਕਦਾ ਹੈ।"</string>
     <string name="system_setting_title" msgid="6864599341809463440">"ਸਿਸਟਮ"</string>
     <string name="system_update_settings_title" msgid="8448588267784138855">"ਸਿਸਟਮ ਅੱਪਡੇਟ"</string>
     <string name="firmware_version" msgid="8491753744549309333">"Android ਵਰਜਨ"</string>
     <string name="security_patch" msgid="4794276590178386903">"Android ਸੁਰੱਖਿਆ ਪੈਚ ਪੱਧਰ"</string>
-    <string name="model_info" msgid="4966408071657934452">"ਮਾਡਲ"</string>
+    <string name="hardware_info" msgid="3973165746261507658">"ਮਾਡਲ ਅਤੇ ਹਾਰਡਵੇਅਰ"</string>
+    <string name="hardware_info_summary" msgid="8262576443254075921">"ਮਾਡਲ: <xliff:g id="MODEL">%1$s</xliff:g>"</string>
     <string name="baseband_version" msgid="2370088062235041897">"ਬੇਸਬੈਂਡ ਵਰਜਨ"</string>
     <string name="kernel_version" msgid="7327212934187011508">"ਕਰਨਲ ਵਰਜਨ"</string>
     <string name="build_number" msgid="3997326631001009102">"ਬਿਲਡ ਨੰਬਰ"</string>
@@ -377,7 +377,10 @@
     <string name="terms_title" msgid="5201471373602628765">"ਨਿਯਮ ਅਤੇ ਸ਼ਰਤਾਂ"</string>
     <string name="webview_license_title" msgid="6442372337052056463">"ਸਿਸਟਮ WebView ਲਾਇਸੰਸ"</string>
     <string name="wallpaper_attributions" msgid="9201272150014500697">"ਵਾਲਪੇਪਰ"</string>
-    <string name="wallpaper_attributions_values" msgid="4292446851583307603">"ਸੈਟੇਲਾਈਟ ਇਮੇਜਰੀ ਪ੍ਰਦਾਨਕ:\n©2014 CNES / Astrium, DigitalGlobe, Bluesky"</string>
+    <string name="wallpaper_attributions_values" msgid="4292446851583307603">"ਉਪਗ੍ਰਹਿ ਇਮੇਜਰੀ ਪ੍ਰਦਾਨਕ:\n©2014 CNES / Astrium, DigitalGlobe, Bluesky"</string>
+    <string name="model_info" msgid="4966408071657934452">"ਮਾਡਲ"</string>
+    <string name="status_serial_number" msgid="9158889113131907656">"ਸੀਰੀਅਲ ਨੰਬਰ"</string>
+    <string name="hardware_revision" msgid="5713759927934872874">"ਹਾਰਡਵੇਅਰ ਵਰਜਨ"</string>
     <string name="regulatory_info_text" msgid="8890339124198005428"></string>
     <string name="settings_license_activity_title" msgid="8499293744313077709">"ਤੀਜੀ-ਧਿਰ ਦੇ ਲਾਇਸੰਸ"</string>
     <string name="settings_license_activity_unavailable" msgid="6104592821991010350">"ਲਾਇਸੰਸ ਲੋਡ ਕਰਨ ਵਿੱਚ ਇੱਕ ਸਮੱਸਿਆ ਹੈ।"</string>
@@ -478,12 +481,14 @@
     <string name="user_name_label" msgid="3210832645046206845">"ਨਾਮ"</string>
     <string name="user_summary_not_set_up" msgid="1473688119241224145">"ਸੈੱਟਅੱਪ ਨਹੀਂ ਕੀਤਾ ਹੈ"</string>
     <string name="edit_user_name_title" msgid="6890782937520262478">"ਵਰਤੋਂਕਾਰ ਨਾਮ ਦਾ ਸੰਪਾਦਨ ਕਰੋ"</string>
+    <string name="name_input_blank_error" msgid="2088850865880984123">"ਖੇਤਰ ਭਰਨਾ ਲਾਜ਼ਮੀ ਹੈ।"</string>
+    <string name="name_input_invalid_error" msgid="3523545780580744273">"ਦਾਖਲ ਕੀਤਾ ਵਰਤੋਂਕਾਰ ਨਾਮ ਅਵੈਧ ਹੈ।"</string>
     <string name="users_list_title" msgid="770764290290240909">"ਵਰਤੋਂਕਾਰ"</string>
     <string name="user_details_admin_title" msgid="3530292857178371891">"%1$s ਨੂੰ ਇਜਾਜ਼ਤਾਂ ਦਿੱਤੀਆਂ ਗਈਆਂ"</string>
     <string name="storage_settings_title" msgid="8957054192781341797">"ਸਟੋਰੇਜ"</string>
     <string name="storage_music_audio" msgid="7827147379976134040">"ਸੰਗੀਤ ਅਤੇ ਆਡੀਓ"</string>
     <string name="storage_other_apps" msgid="945509804756782640">"ਹੋਰ ਐਪਾਂ"</string>
-    <string name="storage_files" msgid="6382081694781340364">"ਫ਼ਾਈਲਾਂ"</string>
+    <string name="storage_files" msgid="6382081694781340364">"Files"</string>
     <string name="storage_system" msgid="1271345630248014010">"ਸਿਸਟਮ"</string>
     <string name="storage_detail_dialog_system" msgid="796365720531622361">"ਸਿਸਟਮ ਵਿੱਚ ਅਜਿਹੀਆਂ ਫ਼ਾਈਲਾਂ ਸ਼ਾਮਲ ਹਨ ਜੋ Android ਵਰਜਨ <xliff:g id="VERSION">%s</xliff:g> ਨੂੰ ਚਲਾਉਣ ਲਈ ਵਰਤੀਆਂ ਜਾਂਦੀਆਂ ਹਨ"</string>
     <string name="storage_audio_files_title" msgid="5183170457027181700">"ਆਡੀਓ ਫ਼ਾਈਲਾਂ"</string>
@@ -493,10 +498,12 @@
     <string name="storage_cache_size_label" msgid="6361308766707419555">"ਕੈਸ਼ੇ"</string>
     <string name="storage_total_size_label" msgid="3892138268243791912">"ਕੁੱਲ"</string>
     <string name="storage_clear_user_data_text" msgid="8787615136779130680">"ਸਟੋਰੇਜ ਕਲੀਅਰ ਕਰੋ"</string>
-    <string name="storage_clear_cache_btn_text" msgid="8449547925966775612">"ਕੈਸ਼ੇ ਹਟਾਓ"</string>
+    <string name="storage_clear_cache_btn_text" msgid="8449547925966775612">"ਕੈਸ਼ੇ ਕਲੀਅਰ ਕਰੋ"</string>
     <string name="storage_clear_data_dlg_title" msgid="5863775997588969879">"ਕੀ ਐਪ ਡਾਟਾ ਮਿਟਾਉਣਾ ਹੈ?"</string>
     <string name="storage_clear_data_dlg_text" msgid="795055288575727801">"ਇਸ ਐਪ ਦਾ ਸਾਰਾ ਡਾਟਾ ਸਥਾਈ ਤੌਰ ਤੇ ਮਿਟਾਇਆ ਜਾਏਗਾ। ਇਸ ਵਿੱਚ ਸਾਰੀਆਂ ਫ਼ਾਈਲਾਂ, ਸੈਟਿੰਗਾਂ, ਖਾਤੇ, ਡਾਟਾਬੇਸ ਆਦਿ ਸ਼ਾਮਲ ਹਨ।"</string>
     <string name="storage_clear_failed_dlg_text" msgid="6710485971686866306">"ਐਪ ਦੀ ਸਟੋਰੇਜ ਕਲੀਅਰ ਨਹੀਂ ਕੀਤੀ ਜਾ ਸਕੀ।"</string>
+    <string name="storage_unmount_success" msgid="1553591517580407021">"<xliff:g id="NAME">%1$s</xliff:g> ਸੁਰੱਖਿਅਤ ਰੂਪ ਨਾਲ ਕੱਢੀ ਗਈ ਹੈ"</string>
+    <string name="storage_unmount_failure" msgid="4591934911541762883">"<xliff:g id="NAME">%1$s</xliff:g> ਨੂੰ ਸੁਰੱਖਿਅਤ ਰੂਪ ਨਾਲ ਨਹੀਂ ਕੱਢ ਸਕਿਆ"</string>
     <string name="accounts_settings_title" msgid="436190037084293471">"ਖਾਤੇ"</string>
     <string name="user_add_account_menu" msgid="6625351983590713721">"ਖਾਤਾ ਸ਼ਾਮਲ ਕਰੋ"</string>
     <string name="no_accounts_added" msgid="5148163140691096055">"ਕੋਈ ਖਾਤੇ ਸ਼ਾਮਲ ਨਹੀਂ ਕੀਤੇ ਗਏ"</string>
@@ -528,6 +535,7 @@
     <string name="sync_button_sync_now" msgid="5767643057970371315">"ਹੁਣ ਸਮਕਾਲੀਕਰਨ ਕਰੋ"</string>
     <string name="sync_button_sync_cancel" msgid="7739510554513641393">"ਸਮਕਾਲੀਕਰਨ ਰੱਦ ਕਰੋ"</string>
     <string name="sync_is_failing" msgid="5766255460901806206">"ਇਸ ਵੇਲੇ ਸਮਕਾਲੀਕਰਨ ਵਿੱਚ ਸਮੱਸਿਆਵਾਂ ਆ ਰਹੀਆਂ ਹਨ। ਇਹ ਜਲਦੀ ਹੀ ਠੀਕ ਹੋ ਜਾਣਗੀਆਂ।"</string>
+    <string name="privacy_settings_title" msgid="3150145262029229572">"ਪਰਦੇਦਾਰੀ"</string>
     <string name="security_settings_title" msgid="6955331714774709746">"ਸੁਰੱਖਿਆ"</string>
     <string name="security_settings_subtitle" msgid="2244635550239273229">"ਸਕ੍ਰੀਨ ਲਾਕ"</string>
     <string name="security_lock_none" msgid="1054645093754839638">"ਕੋਈ ਨਹੀਂ"</string>
@@ -618,26 +626,11 @@
     <string name="lockpassword_pin_no_sequential_digits" msgid="38813552228809240">"ਅੰਕਾਂ ਦਾ ਵਧਦਾ ਕ੍ਰਮ, ਘਟਦਾ ਕ੍ਰਮ, ਜਾਂ ਦੁਹਰਾਈ ਗਈ ਲੜੀ ਦੀ ਇਜਾਜ਼ਤ ਨਹੀਂ ਹੈ।"</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"ਸਕ੍ਰੀਨ ਲਾਕ ਦੇ ਵਿਕਲਪ"</string>
     <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g> : <xliff:g id="NUM_DAYS">%3$s</xliff:g> ਦਿਨ ਪਹਿਲਾਂ"</string>
-    <string name="add_device_title" msgid="8452168024017866232">"ਭਰੋਸੇਯੋਗ ਡੀਵਾਈਸ ਸ਼ਾਮਲ ਕਰੋ"</string>
-    <string name="add_device_summary" msgid="5368217520710573302">"ਭਰੋਸੇਯੋਗ ਡੀਵਾਈਸ ਸ਼ਾਮਲ ਕਰਨ ਲਈ ਬਲੂਟੁੱਥ ਚਾਲੂ ਹੋਵੇਗਾ"</string>
-    <string name="trusted_device" msgid="5637378361866787603">"ਭਰੋਸੇਯੋਗ ਡੀਵਾਈਸਾਂ"</string>
-    <plurals name="trusted_device_subtitle" formatted="false" msgid="462041049834264945">
-      <item quantity="one"><xliff:g id="COUNT_1">%d</xliff:g> ਡੀਵਾਈਸ</item>
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> ਡੀਵਾਈਸਾਂ</item>
-    </plurals>
-    <string name="remove_device_message" msgid="6447820559674148349">"ਤੁਹਾਡਾ <xliff:g id="CONNECTED_DEVICE_NAME_0">%1$s</xliff:g> ਇਸ ਕਾਰ ਨੂੰ ਅਣਲਾਕ ਕਰ ਦੇਵੇਗਾ, ਜਦੋਂ ਇਹ ਕਨੈਕਟ ਕੀਤਾ ਹੋਇਆ ਹੋਵੇਗਾ। ਜੇਕਰ ਕੋਈ ਤੁਹਾਡਾ <xliff:g id="CONNECTED_DEVICE_NAME_1">%1$s</xliff:g> ਲੈ ਲੈਂਦਾ ਹੈ, ਤਾਂ ਹੋ ਸਕਦਾ ਹੈ ਕਿ ਉਹ ਇਸ ਡੀਵਾਈਸ \'ਤੇ ਪਹੁੰਚ ਕਰਨ ਦੇ ਯੋਗ ਹੋ ਜਾਵੇ।"</string>
-    <string name="trusted_device_confirm_button" msgid="102354635014627996">"ਪੁਸ਼ਟੀ ਕਰੋ"</string>
-    <string name="trusted_device_remove_button" msgid="6140476996063415420">"ਭਰੋਸੇਯੋਗ ਡੀਵਾਈਸ ਹਟਾਓ"</string>
-    <string name="trusted_device_done_button" msgid="8481956533222625296">"ਹੋ ਗਿਆ"</string>
-    <string name="add_trusted_device_instruction" msgid="2280382609884918033">"ਕਿਸੇ ਭਰੋਸੇਯੋਗ ਡੀਵਾਈਸ ਨੂੰ ਸੈੱਟਅੱਪ ਕਰਨ ਲਈ ਸੰਬੰਧੀ ਐਪ ਵਰਤੋ। ਤੁਹਾਡਾ ਫ਼ੋਨ ਵਾਹਨ ਦੇ ਨੇੜੇ ਹੋਣ \'ਤੇ ਇੱਕ ਵਾਰ ਸੈੱਟਅੱਪ ਕਰਨ ਤੋਂ ਬਾਅਦ, ਤੁਹਾਡੀ ਵਰਤੋਂਕਾਰ ਪ੍ਰੋਫਾਈਲ ਸਵੈਚਲਿਤ ਤੌਰ \'ਤੇ ਅਣਲਾਕ ਹੋ ਜਾਵੇਗੀ।"</string>
-    <string name="trusted_device_download_app" msgid="6971096140154499983">"1. ਆਪਣੇ ਫ਼ੋਨ \'ਤੇ ਸੰਬੰਧੀ ਐਪ ਡਾਊਨਲੋਡ ਕਰੋ"</string>
-    <string name="trusted_device_select_device" msgid="198902765179270739">"2. ਡੀਵਾਈਸਾਂ ਨੂੰ ਜੋੜਾਬੱਧ ਕਰਨ ਲਈ ਆਪਣੇ ਫ਼ੋਨ \'ਤੇ <xliff:g id="CAR_NAME">%1$s</xliff:g> ਚੁਣੋ"</string>
-    <string name="trusted_device_safety_alert" msgid="3834898922112046769">"ਕਿਸੇ ਭਰੋਸੇਯੋਗ ਡੀਵਾਈਸ ਦਾ ਤੁਹਾਡੀ ਕਾਰ ਦੇ ਨਜ਼ਦੀਕ ਹੋਣਾ ਵਰਤੋਂਕਾਰ ਪ੍ਰੋਫਾਈਲ ਨੂੰ ਬਲਨ ਵੇਲੇ ਅਣਲਾਕ ਰੱਖੇਗਾ, ਭਾਵੇਂ ਡੀਵਾਈਸ ਨੂੰ ਕਿਸੇ ਹੋਰ ਨੇ ਫੜਿਆ ਹੋਵੇ।"</string>
-    <string name="trusted_device_pairing_code_dialog_title" msgid="8173792468216796873">"ਕਿਰਪਾ ਕਰਕੇ ਜੋੜਾਬੱਧਕਰਨ ਕੋਡਾਂ ਦੇ ਮੇਲ ਖਾਣ ਦੀ ਪੁਸ਼ਟੀ ਕਰੋ"</string>
-    <string name="trusted_device_success_enrollment_toast" msgid="1238468775285575827">"ਫ਼ੋਨ ਨੂੰ ਸਫਲਤਾਪੂਰਵਕ ਦਰਜ ਕੀਤਾ ਗਿਆ"</string>
-    <string name="trusted_device_fail_enrollment_toast" msgid="6801324174861209092">"<xliff:g id="DEVICE_NAME">%1$s</xliff:g> ਨੂੰ ਦਰਜ ਕਰਨਾ ਅਸਫਲ ਰਿਹਾ"</string>
-    <string name="trusted_device_set_authentication_reminder" msgid="5947077589994822305">"ਭਰੋਸੇਯੋਗ ਡੀਵਾਈਸ ਨੂੰ ਸ਼ਾਮਲ ਕਰਨ ਲਈ ਅੱਗੇ ਤੁਹਾਨੂੰ ਪ੍ਰਮਾਣੀਕਰਨ ਵਿਧੀ ਸੈੱਟ ਕਰਨ ਦੀ ਲੋੜ ਹੋਵੇਗੀ। ਜੇ ਤੁਹਾਡੇ ਕੋਲ ਤੁਹਾਡਾ ਭਰੋਸੇਯੋਗ ਡੀਵਾਈਸ ਨਹੀਂ ਹੈ, ਤਾਂ ਤੁਹਾਨੂੰ ਆਪਣੇ ਪ੍ਰੋਫ਼ਾਈਲ ਤੱਕ ਪਹੁੰਚ ਕਰਨ ਲਈ ਪ੍ਰਮਾਣੀਕਰਨ ਦੀ ਲੋੜ ਹੋਵੇਗੀ।"</string>
-    <string name="trusted_device_disconnected_toast" msgid="2541862946536880255">"ਡੀਵਾਈਸ ਡਿਸਕਨੈਕਟ ਕੀਤਾ ਗਿਆ।"</string>
+    <string name="credentials_reset" msgid="873900550885788639">"ਕ੍ਰੀਡੈਂਸ਼ੀਅਲ ਕਲੀਅਰ ਕਰੋ"</string>
+    <string name="credentials_reset_summary" msgid="6067911547500459637">"ਸਾਰੇ ਪ੍ਰਮਾਣ-ਪੱਤਰ ਹਟਾਓ"</string>
+    <string name="credentials_reset_hint" msgid="3459271621754137661">"ਕੀ ਸਾਰੀਆਂ ਸਮੱਗਰੀਆਂ ਹਟਾਉਣੀਆਂ ਹਨ?"</string>
+    <string name="credentials_erased" msgid="2515915439705550379">"ਕ੍ਰੀਡੈਂਸ਼ੀਅਲ ਸਟੋਰੇਜ ਮਿਟਾਈ ਗਈ।"</string>
+    <string name="credentials_not_erased" msgid="6118567459076742720">"ਕ੍ਰੈਡੈਂਸ਼ੀਅਲ ਸਟੋਰੇਜ ਨਹੀਂ ਮਿਟਾਈ ਜਾ ਸਕੀ।"</string>
     <string name="forget" msgid="3971143908183848527">"ਛੱਡੋ"</string>
     <string name="connect" msgid="5861699594602380150">"ਕਨੈਕਟ ਕਰੋ"</string>
     <string name="disconnect" msgid="6140789953324820336">"ਡਿਸਕਨੈਕਟ ਕਰੋ"</string>
@@ -653,6 +646,7 @@
     <string name="exit_retail_mode_dialog_body" msgid="8314316171782527301">"ਇਹ ਡੈਮੋ ਖਾਤੇ ਨੂੰ ਮਿਟਾ ਦੇਵੇਗਾ ਅਤੇ ਸਿਸਟਮ ਦਾ ਫੈਕਟਰੀ ਡਾਟਾ ਰੀਸੈੱਟ ਹੋ ਜਾਵੇਗਾ। ਸਾਰਾ ਵਰਤੋਂਕਾਰ ਡਾਟਾ ਗੁੰਮ ਹੋ ਜਾਵੇਗਾ।"</string>
     <string name="exit_retail_mode_dialog_confirmation_button_text" msgid="3147249675355968649">"ਡੈਮੋ ਮੋਡ ਤੋ ਬਾਹਰ ਜਾਓ"</string>
     <string name="suggestion_dismiss_button" msgid="4539412646977050641">"ਖਾਰਜ ਕਰੋ"</string>
-    <string name="restricted_while_driving" msgid="6217369093121968299">"ਗੱਡੀ ਚਲਾਉਣ ਵੇਲੇ ਵਿਸ਼ੇਸ਼ਤਾ ਉਪਲਬਧ ਨਹੀਂ ਹੈ।"</string>
-    <string name="add_user_restricted_while_driving" msgid="6384004350628271556">"ਗੱਡੀ ਚਲਾਉਣ ਦੌਰਾਨ ਵਰਤੋਂਕਾਰ ਸ਼ਾਮਲ ਨਹੀਂ ਕੀਤਾ ਜਾ ਸਕਦਾ।"</string>
+    <string name="restricted_while_driving" msgid="6587569249519274524">"ਚਲਦੀ ਗੱਡੀ ਵਿੱਚ ਇਹ ਵਿਸ਼ੇਸ਼ਤਾ ਉਪਲਬਧ ਨਹੀਂ ਹੈ"</string>
+    <string name="add_user_restricted_while_driving" msgid="4754946754222453656">"ਚਲਦੀ ਗੱਡੀ ਵਿੱਚ ਵਰਤੋਂਕਾਰ ਸ਼ਾਮਲ ਨਹੀਂ ਕੀਤਾ ਜਾ ਸਕਦਾ"</string>
+    <string name="default_search_query" msgid="3137420627428857068">"ਖੋਜ"</string>
 </resources>

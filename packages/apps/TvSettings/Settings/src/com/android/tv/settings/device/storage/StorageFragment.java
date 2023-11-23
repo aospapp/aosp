@@ -16,7 +16,10 @@
 
 package com.android.tv.settings.device.storage;
 
+import static com.android.tv.settings.util.InstrumentationUtils.logEntrySelected;
+
 import android.app.ActivityManager;
+import android.app.tvsettings.TvSettingsEnums;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Environment;
@@ -135,6 +138,19 @@ public class StorageFragment extends SettingsPreferenceFragment {
         mCacheUsagePref = (StoragePreference) findPreference(KEY_CACHE_USAGE);
         mMiscUsagePref = (StoragePreference) findPreference(KEY_MISC_USAGE);
         mAvailablePref = (StoragePreference) findPreference(KEY_AVAILABLE);
+    }
+
+    @Override
+    public boolean onPreferenceTreeClick(Preference preference) {
+        switch (preference.getKey()) {
+            case KEY_APPS_USAGE:
+                logEntrySelected(TvSettingsEnums.SYSTEM_STORAGE_INTERNAL_STORAGE_APPS);
+                break;
+            case KEY_CACHE_USAGE:
+                logEntrySelected(TvSettingsEnums.SYSTEM_STORAGE_INTERNAL_STORAGE_CACHED);
+                break;
+        }
+        return super.onPreferenceTreeClick(preference);
     }
 
     private void refresh() {
@@ -266,5 +282,10 @@ public class StorageFragment extends SettingsPreferenceFragment {
     @Override
     public int getMetricsCategory() {
         return MetricsProto.MetricsEvent.SETTINGS_STORAGE_CATEGORY;
+    }
+
+    @Override
+    protected int getPageId() {
+        return TvSettingsEnums.SYSTEM_STORAGE_INTERNAL_STORAGE;
     }
 }

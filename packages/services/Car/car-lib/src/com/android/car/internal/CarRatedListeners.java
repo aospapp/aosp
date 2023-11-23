@@ -23,6 +23,8 @@ import java.util.Map;
 
 /**
  * Represent listeners for a sensor grouped by their rate.
+ *
+ * @param <EventListenerType> type of event listener
  * @hide
  */
 public class CarRatedListeners<EventListenerType> {
@@ -36,6 +38,7 @@ public class CarRatedListeners<EventListenerType> {
         mUpdateRate = rate;
     }
 
+    /** Returns true if it contains the listener passed as parameter. */
     public boolean contains(EventListenerType listener) {
         return mListenersToRate.containsKey(listener);
     }

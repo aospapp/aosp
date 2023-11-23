@@ -16,9 +16,9 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_label" msgid="6006277287245076524">"Nujna opozorila"</string>
-    <string name="sms_cb_settings" msgid="3795852619005211509">"Nujna opozorila"</string>
-    <string name="cell_broadcast_settings_not_available" msgid="2612364350745967915">"Nastavitve sporočil o trenutni lokaciji niso na voljo za tega uporabnika"</string>
+    <string name="app_label" msgid="2008319089248760277">"Brezžična nujna opozorila"</string>
+    <string name="sms_cb_settings" msgid="9021266457863671070">"Brezžična nujna opozorila"</string>
+    <string name="cell_broadcast_settings_not_available" msgid="3908142962162375221">"Nastavitve brezžičnih nujnih opozoril niso na voljo za tega uporabnika"</string>
     <string name="button_dismiss" msgid="1234221657930516287">"V redu"</string>
     <string name="no_cell_broadcasts" msgid="7554779730107421769">"Ni prejšnjih opozoril"</string>
     <string name="menu_delete_all" msgid="3940997343921149800">"Izbriši oddaje"</string>
@@ -26,6 +26,7 @@
     <string name="menu_view_details" msgid="1040989019045280975">"Ogled podrobnosti"</string>
     <string name="menu_delete" msgid="128380070910799366">"Izbriši oddajo"</string>
     <string name="view_details_title" msgid="1780427629491781473">"Podrobnosti opozorila"</string>
+    <string name="view_details_debugging_title" msgid="5699927030805114173">"Podrobnosti opozorila za odpravljanje napak"</string>
     <string name="confirm_delete_broadcast" msgid="2540199303730232322">"Želite izbrisati to oddajo?"</string>
     <string name="confirm_delete_all_broadcasts" msgid="2924444089047280871">"Želite izbrisati vsa prejeta sporočila oddaje?"</string>
     <string name="button_delete" msgid="4672451757925194350">"Izbriši"</string>
@@ -51,11 +52,11 @@
     <string name="emergency_alerts_title" msgid="6605036374197485429">"Opozorila"</string>
     <string name="notification_channel_broadcast_messages" msgid="880704362482824524">"Sporočila mobilnega operaterja"</string>
     <string name="notification_channel_emergency_alerts" msgid="5008287980979183617">"Nujna opozorila"</string>
+    <string name="notification_channel_broadcast_messages_in_voicecall" msgid="3291001780110813190">"Opozorila v sili med glasovnim klicem"</string>
     <string name="enable_alerts_master_toggle_title" msgid="1457904343636699446">"Dovoli opozorila"</string>
-    <string name="enable_alerts_master_toggle_summary" msgid="699552922381916044">"Prejemanje obvestil v sili"</string>
-    <string name="alert_reminder_interval_title" msgid="7466642011937564868">"Zvok opomnika za opozorilo"</string>
-    <string name="enable_alert_speech_title" msgid="8052104771053526941">"Izgovori opozorilno sporočilo"</string>
-    <string name="enable_alert_speech_summary" msgid="356086178962268831">"Za izgovorjavo nujnih opozoril uporabi pretvorbo besedila v govor"</string>
+    <string name="enable_alerts_master_toggle_summary" msgid="5583168548073938617">"Prejemanje obvestil o brezžičnih nujnih opozorilih"</string>
+    <string name="alert_reminder_interval_title" msgid="3283595202268218149">"Opomnik za opozorilo"</string>
+    <string name="alert_reminder_dialog_title" msgid="2299010977651377315">"Zvok opomnika bo predvajan pri običajni glasnosti"</string>
     <string name="emergency_alert_history_title" msgid="8310173569237268431">"Zgodovina nujnih opozoril"</string>
     <string name="alert_preferences_title" msgid="6001469026393248468">"Nastavitve opozoril"</string>
     <string name="enable_etws_test_alerts_title" msgid="3593533226735441539">"Preskusne oddaje ETWS"</string>
@@ -70,18 +71,17 @@
     <string name="enable_alert_message_summary" msgid="6525664541696985610">"Opozarjanje na neposredne varnostne grožnje"</string>
     <string name="enable_public_safety_messages_title" msgid="5576770949182656524">"Sporočila za javno varnost"</string>
     <string name="enable_public_safety_messages_summary" msgid="7868069748857851521">"Priporočena dejanja, ki lahko rešijo življenja ali premoženje"</string>
-    <string name="enable_state_local_test_alerts_title" msgid="1012930918171302720">"Državni in lokalni preskusi"</string>
-    <string name="enable_state_local_test_alerts_summary" msgid="780298327377950187">"Prejemanje preskusih sporočil državne in lokalne oblasti"</string>
+    <string name="enable_state_local_test_alerts_title" msgid="1012930918171302720">"Državni in lokalni preizkusi"</string>
+    <string name="enable_state_local_test_alerts_summary" msgid="780298327377950187">"Prejemanje preizkusnih sporočil državne in lokalne oblasti"</string>
     <string name="enable_emergency_alerts_message_title" msgid="661894007489847468">"Nujna opozorila"</string>
     <string name="enable_emergency_alerts_message_summary" msgid="7574617515441602546">"Opozarjanje na smrtno nevarne dogodke"</string>
-    <string name="enable_cmas_test_alerts_title" msgid="1319231576046146463">"Obvezen mesečni preizkus"</string>
-    <string name="enable_cmas_test_alerts_summary" msgid="588517403520088484">"Prejemanje preizkusnih sporočil za sistem varnostnih opozoril"</string>
+    <string name="enable_cmas_test_alerts_title" msgid="7194966927004755266">"Preizkusna opozorila"</string>
+    <string name="enable_cmas_test_alerts_summary" msgid="2083089933271720217">"Prejemanje preizkusov operaterja in mesečnih preizkusov iz sistema varnostnih opozoril"</string>
     <string name="enable_alert_vibrate_title" msgid="5421032189422312508">"Vibriranje"</string>
-    <string name="use_full_volume_title" msgid="8581439612945182255">"Uporabi največjo glasnost"</string>
-    <string name="use_full_volume_summary" msgid="3560764277281704697">"Prezri druge nastavitve glasnosti in načina »ne moti«"</string>
+    <string name="override_dnd_title" msgid="5120805993144214421">"Opozarjanje vedno pri polni glasnosti"</string>
+    <string name="override_dnd_summary" msgid="9026675822792800258">"Prezrtje načina »ne moti« in drugih nastavitev glasnosti"</string>
     <string name="enable_area_update_info_alerts_title" msgid="3442042268424617226">"Oddaje z najnovejšimi območnimi informacijami"</string>
     <string name="enable_area_update_info_alerts_summary" msgid="6437816607144264910">"Prikaz najnovejših informacij pri stanju kartice SIM"</string>
-    <string name="category_dev_settings_title" msgid="6194393458398329994">"Možnosti za razvijalce"</string>
     <string name="cmas_category_heading" msgid="3923503130776640717">"Kategorija opozorila:"</string>
     <string name="cmas_category_geo" msgid="4979494217069688527">"Geofizična"</string>
     <string name="cmas_category_met" msgid="7563732573851773537">"Meteorološka"</string>
@@ -118,7 +118,7 @@
     <string name="notification_multiple_title" msgid="1523638925739947855">"Nova opozorila"</string>
     <string name="show_cmas_opt_out_summary" msgid="6926059266585295440">"Po prikazu prvega opozorila (ki ni predsedniško opozorilo) pokaži pogovorno okno za onemogočenje."</string>
     <string name="show_cmas_opt_out_title" msgid="9182104842820171132">"Pokaži pogovorno okno za onemogočenje"</string>
-    <string name="cmas_opt_out_dialog_text" msgid="7529010670998259128">"Trenutno prejemate opozorila v sili. Ali jih želite prejemati še naprej?"</string>
+    <string name="cmas_opt_out_dialog_text" msgid="4820577535626084938">"Trenutno prejemate brezžična nujna opozorila. Ali želite brezžična nujna opozorila prejemati še naprej?"</string>
     <string name="cmas_opt_out_button_yes" msgid="7248930667195432936">"Da"</string>
     <string name="cmas_opt_out_button_no" msgid="3110484064328538553">"Ne"</string>
     <string name="cb_list_activity_title" msgid="1433502151877791724">"Zgodovina opozoril v sili"</string>
@@ -127,7 +127,26 @@
     <item msgid="9097229303902157183">"Vsaki 2 minuti"</item>
     <item msgid="5718214950343391480">"Vsakih 5 minut"</item>
     <item msgid="3863339891188103437">"Vsakih 15 minut"</item>
-    <item msgid="6868848414437854609">"Izklopljeno"</item>
+    <item msgid="7388573183644474611">"Nikoli"</item>
   </string-array>
     <string name="emergency_alert_settings_title_watches" msgid="4477073412799894883">"Brezžična nujna opozorila"</string>
+    <string name="enable_cmas_presidential_alerts_title" msgid="7293800023375154256">"Predsedniška opozorila"</string>
+    <string name="enable_cmas_presidential_alerts_summary" msgid="7900094335808247024">"Nacionalna opozorilna sporočila, ki jih objavi predsednik države. Teh ni mogoče izklopiti."</string>
+    <string name="receive_cmas_in_second_language_title" msgid="1223260365527361964"></string>
+    <string name="receive_cmas_in_second_language_summary" msgid="7704105502782770718"></string>
+    <string name="alerts_header_summary" msgid="4700985191868591788"></string>
+    <string name="testing_mode_enabled" msgid="8296556666392297467">"Preizkusni način oddaj v celici je omogočen."</string>
+    <string name="testing_mode_disabled" msgid="8381408377958182661">"Preizkusni način oddaj v celici je onemogočen."</string>
+    <string name="show_all_messages" msgid="3780970968167139836">"Prikaži vsa sporočila"</string>
+    <string name="show_regular_messages" msgid="7376885150513522515">"Prikaži redna sporočila"</string>
+    <string name="message_identifier" msgid="5558338496219327850">"Identifikator:"</string>
+    <string name="message_serial_number" msgid="3386553658712978964">"Serijska številka:"</string>
+    <string name="data_coding_scheme" msgid="4628901196730870577">"Shema za kodiranje podatkov:"</string>
+    <string name="message_content" msgid="6204502929879474632">"Vsebina sporočila:"</string>
+    <string name="location_check_time" msgid="4105326161240531207">"Čas preverjanja lokacije:"</string>
+    <string name="message_displayed" msgid="5091678195925617971">"Sporočilo je bilo prikazano:"</string>
+    <string name="message_coordinates" msgid="356333576818059052">"Koordinate:"</string>
+    <string name="maximum_waiting_time" msgid="3504809124079381356">"Najdaljši čas čakanja:"</string>
+    <string name="seconds" msgid="141450721520515025">"sekunde"</string>
+    <string name="message_copied" msgid="6922953753733166675">"Sporočilo je kopirano"</string>
 </resources>

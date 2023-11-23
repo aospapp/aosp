@@ -16,7 +16,7 @@
 
 package com.android.providers.telephony;
 
-import static android.provider.Telephony.RcsColumns.IS_RCS_TABLE_SCHEMA_CODE_COMPLETE;
+import static com.android.providers.telephony.SmsProvider.NO_ERROR_CODE;
 
 import android.content.BroadcastReceiver;
 import android.content.ContentValues;
@@ -46,10 +46,10 @@ import android.provider.Telephony.Sms.Intents;
 import android.provider.Telephony.Threads;
 import android.telephony.SubscriptionManager;
 import android.util.Log;
-import android.util.Slog;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.telephony.PhoneFactory;
+
 import com.google.android.mms.pdu.EncodedStringValue;
 import com.google.android.mms.pdu.PduHeaders;
 
@@ -266,7 +266,7 @@ public class MmsSmsDatabaseHelper extends SQLiteOpenHelper {
 
     /**
      * The primary purpose of this DatabaseErrorHandler is to broadcast an intent on corruption and
-     * print a Slog.wtf so database corruption can be caught earlier.
+     * print a Log.wtf so database corruption can be caught earlier.
      */
     private static class MmsSmsDatabaseErrorHandler implements DatabaseErrorHandler {
         private DefaultDatabaseErrorHandler mDefaultDatabaseErrorHandler
@@ -313,7 +313,7 @@ public class MmsSmsDatabaseHelper extends SQLiteOpenHelper {
         Intent intent = new Intent(Sms.Intents.ACTION_SMS_MMS_DB_LOST);
         intent.putExtra(Sms.Intents.EXTRA_IS_CORRUPTED, isCorrupted);
         intent.addFlags(Intent.FLAG_RECEIVER_INCLUDE_BACKGROUND);
-        context.sendBroadcast(intent, android.Manifest.permission.READ_PRIVILEGED_PHONE_STATE);
+        context.sendBroadcast(intent);
     }
     /**
      * Returns a singleton helper for the combined MMS and SMS database in device encrypted storage.
@@ -539,25 +539,16 @@ public class MmsSmsDatabaseHelper extends SQLiteOpenHelper {
                 // disappeared mysteriously?
                 localLogWtf("onCreate: was already called once earlier");
                 intent.putExtra(Intents.EXTRA_IS_INITIAL_CREATE, false);
-                sendDbLostIntent(mContext, false);
             } else {
                 setInitialCreateDone();
                 intent.putExtra(Intents.EXTRA_IS_INITIAL_CREATE, true);
             }
 
-            mContext.sendBroadcast(intent, android.Manifest.permission.READ_SMS);
+            mContext.sendBroadcast(intent);
         }
         createMmsTables(db);
         createSmsTables(db);
         createCommonTables(db);
-
-        if (IS_RCS_TABLE_SCHEMA_CODE_COMPLETE) {
-            RcsProviderThreadHelper.createThreadTables(db);
-            RcsProviderParticipantHelper.createParticipantTables(db);
-            RcsProviderMessageHelper.createRcsMessageTables(db);
-            RcsProviderEventHelper.createRcsEventTables(db);
-        }
-
         createCommonTriggers(db);
         createMmsTriggers(db);
         createWordsTables(db);
@@ -570,7 +561,7 @@ public class MmsSmsDatabaseHelper extends SQLiteOpenHelper {
     }
 
     private static void localLogWtf(String logMsg) {
-        Slog.wtf(TAG, logMsg);
+        Log.wtf(TAG, logMsg);
         PhoneFactory.localLog(TAG, logMsg);
     }
 
@@ -1012,7 +1003,7 @@ public class MmsSmsDatabaseHelper extends SQLiteOpenHelper {
             "service_center TEXT," +
             "locked INTEGER DEFAULT 0," +
             "sub_id INTEGER DEFAULT " + SubscriptionManager.INVALID_SUBSCRIPTION_ID + ", " +
-            "error_code INTEGER DEFAULT 0," +
+            "error_code INTEGER DEFAULT " + NO_ERROR_CODE + ", " +
             "creator TEXT," +
             "seen INTEGER DEFAULT 0" +
             ");";
@@ -1665,15 +1656,6 @@ public class MmsSmsDatabaseHelper extends SQLiteOpenHelper {
                 db.endTransaction();
             }
             // fall through
-        case 67:
-            if (currentVersion <= 67 || !IS_RCS_TABLE_SCHEMA_CODE_COMPLETE) {
-                return;
-            }
-            RcsProviderThreadHelper.createThreadTables(db);
-            RcsProviderParticipantHelper.createParticipantTables(db);
-            RcsProviderMessageHelper.createRcsMessageTables(db);
-            RcsProviderEventHelper.createRcsEventTables(db);
-            return;
         }
 
         Log.e(TAG, "Destroying all old data.");
@@ -1816,7 +1798,7 @@ public class MmsSmsDatabaseHelper extends SQLiteOpenHelper {
 
     private void upgradeDatabaseToVersion48(SQLiteDatabase db) {
         // Add 'error_code' column to sms table.
-        db.execSQL("ALTER TABLE sms ADD COLUMN error_code INTEGER DEFAULT 0");
+        db.execSQL("ALTER TABLE sms ADD COLUMN error_code INTEGER DEFAULT " + NO_ERROR_CODE);
     }
 
     private void upgradeDatabaseToVersion51(SQLiteDatabase db) {

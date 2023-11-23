@@ -50,7 +50,7 @@
     <string name="roaming_title" msgid="6218635014519017734">"Perayauan"</string>
     <string name="roaming_summary" msgid="7476127740259728901">"Sambung ke perkhidmatan data semasa perayauan"</string>
     <string name="roaming_alert_title" msgid="4433901635766775763">"Benarkan perayauan data?"</string>
-    <string name="roaming_warning" msgid="5313281900566657209">"Anda mungkin dikenakan caj yang tinggi."</string>
+    <string name="roaming_warning" msgid="4908184914868720704">"Caj perayauan mungkin dikenakan."</string>
     <string name="data_usage_settings" msgid="7877132994777987848">"Penggunaan data"</string>
     <string name="data_usage_title" msgid="2923515974389203812">"Data utama"</string>
     <string name="data_used_formatted" msgid="6684557577780068339">"<xliff:g id="ID_1">^1</xliff:g> <xliff:g id="ID_2">^2</xliff:g> digunakan"</string>
@@ -199,6 +199,8 @@
     <string name="bluetooth_device_picker" msgid="673238198452345475">"Pilih peranti Bluetooth"</string>
     <string name="language_settings" msgid="2079258598337245546">"Bahasa"</string>
     <string name="languages_and_input_settings" msgid="3672322610529408248">"Bahasa &amp; input"</string>
+    <string name="language_picker_list_suggested_header" msgid="7593893806003415948">"Dicadangkan"</string>
+    <string name="language_picker_list_all_header" msgid="1577387973934368428">"Semua bahasa"</string>
     <string name="keyboard_settings" msgid="1959697870618278081">"Papan kekunci"</string>
     <string name="manage_keyboard" msgid="4045394766282200132">"Urus papan kekunci"</string>
     <string name="text_to_speech_settings" msgid="811985746199507343">"Output teks ke pertuturan"</string>
@@ -283,9 +285,11 @@
     <string name="not_installed" msgid="4218816013370552746">"Tidak dipasang untuk pengguna ini"</string>
     <string name="permissions_label" msgid="2701446753515612685">"Kebenaran"</string>
     <string name="notifications_label" msgid="6586089149665170731">"Pemberitahuan"</string>
+    <string name="storage_application_label" msgid="5911779903670978586">"Storan &amp; cache"</string>
     <string name="application_version_label" msgid="8556889839783311649">"Versi: %1$s"</string>
     <string name="runtime_permissions_summary_no_permissions_granted" msgid="6001439205270250021">"Tiada kebenaran diberikan"</string>
     <string name="runtime_permissions_summary_no_permissions_requested" msgid="4074220596273432442">"Tiada kebenaran diminta"</string>
+    <string name="storage_type_internal" msgid="8918688427078709570">"%s dalam storan dalaman"</string>
     <string name="data_usage_summary_title" msgid="4368024763485916986">"Penggunaan data"</string>
     <string name="data_usage_app_summary_title" msgid="5012851696585421420">"Penggunaan data apl"</string>
     <string name="computing_size" msgid="5791407621793083965">"Mengira…"</string>
@@ -344,17 +348,13 @@
     <string name="location_settings_recent_requests_title" msgid="6345634382240930628">"Permintaan Lokasi Terbaharu"</string>
     <string name="location_settings_recent_requests_empty_message" msgid="7789667070033674910">"Tiada permintaan lokasi terbaharu"</string>
     <string name="location_settings_app_permissions_title" msgid="6446735313354321564">"Kebenaran tahap apl"</string>
-    <string name="location_settings_scanning_title" msgid="4253945869911300740">"Mengimbas"</string>
     <string name="location_settings_services_title" msgid="1186133632690970468">"Perkhidmatan Lokasi"</string>
-    <string name="location_settings_wifi_scanning_title" msgid="8021558840074023719">"Pengimbasan Wi‑Fi"</string>
-    <string name="location_settings_wifi_scanning_summary" msgid="2116283960258671324">"Benarkan apl dan perkhidmatan mengimbas untuk mengesan rangkaian Wi-Fi pada bila-bila masa, meskipun apabila Wi-Fi dimatikan. Ini dapat digunakan, contohnya, untuk meningkatkan ciri dan perkhidmatan berasaskan lokasi."</string>
-    <string name="location_settings_bluetooth_scanning_title" msgid="2969682902241932059">"Pengimbasan Bluetooth"</string>
-    <string name="location_settings_bluetooth_scanning_summary" msgid="9158101751700727062">"Benarkan apl dan perkhidmatan mengimbas untuk mengesan peranti berdekatan pada bila-bila masa, meskipun apabila Bluetooth dimatikan. Ini dapat digunakan, contohnya, untuk meningkatkan ciri dan perkhidmatan berasaskan lokasi."</string>
     <string name="system_setting_title" msgid="6864599341809463440">"Sistem"</string>
     <string name="system_update_settings_title" msgid="8448588267784138855">"Kemas kini sistem"</string>
     <string name="firmware_version" msgid="8491753744549309333">"Versi Android"</string>
     <string name="security_patch" msgid="4794276590178386903">"Tahap tampung keselamatan Android"</string>
-    <string name="model_info" msgid="4966408071657934452">"Model"</string>
+    <string name="hardware_info" msgid="3973165746261507658">"Model &amp; perkakasan"</string>
+    <string name="hardware_info_summary" msgid="8262576443254075921">"Model: <xliff:g id="MODEL">%1$s</xliff:g>"</string>
     <string name="baseband_version" msgid="2370088062235041897">"Versi jalur dasar"</string>
     <string name="kernel_version" msgid="7327212934187011508">"Versi inti"</string>
     <string name="build_number" msgid="3997326631001009102">"Nombor binaan"</string>
@@ -378,6 +378,9 @@
     <string name="webview_license_title" msgid="6442372337052056463">"Lesen Paparan Web Sistem"</string>
     <string name="wallpaper_attributions" msgid="9201272150014500697">"Kertas dinding"</string>
     <string name="wallpaper_attributions_values" msgid="4292446851583307603">"Pembekal imej satelit:\n©2014 CNES / Astrium, DigitalGlobe, Bluesky"</string>
+    <string name="model_info" msgid="4966408071657934452">"Model"</string>
+    <string name="status_serial_number" msgid="9158889113131907656">"Nombor siri"</string>
+    <string name="hardware_revision" msgid="5713759927934872874">"Versi perkakasan"</string>
     <string name="regulatory_info_text" msgid="8890339124198005428"></string>
     <string name="settings_license_activity_title" msgid="8499293744313077709">"Lesen pihak ketiga"</string>
     <string name="settings_license_activity_unavailable" msgid="6104592821991010350">"Terdapat masalah memuatkan lesen."</string>
@@ -478,6 +481,8 @@
     <string name="user_name_label" msgid="3210832645046206845">"Nama"</string>
     <string name="user_summary_not_set_up" msgid="1473688119241224145">"Tidak disediakan"</string>
     <string name="edit_user_name_title" msgid="6890782937520262478">"Edit nama pengguna"</string>
+    <string name="name_input_blank_error" msgid="2088850865880984123">"Medan tidak boleh kosong."</string>
+    <string name="name_input_invalid_error" msgid="3523545780580744273">"Nama pengguna yang dimasukkan tidak sah."</string>
     <string name="users_list_title" msgid="770764290290240909">"Pengguna"</string>
     <string name="user_details_admin_title" msgid="3530292857178371891">"Kebenaran diberikan kpd %1$s"</string>
     <string name="storage_settings_title" msgid="8957054192781341797">"Storan"</string>
@@ -497,6 +502,8 @@
     <string name="storage_clear_data_dlg_title" msgid="5863775997588969879">"Padamkan data apl?"</string>
     <string name="storage_clear_data_dlg_text" msgid="795055288575727801">"Semua data apl ini akan dipadamkan secara kekal. Ini termasuk semua fail, tetapan, akaun, pangkalan data, dll."</string>
     <string name="storage_clear_failed_dlg_text" msgid="6710485971686866306">"Tidak dapat mengosongkan storan untuk apl."</string>
+    <string name="storage_unmount_success" msgid="1553591517580407021">"<xliff:g id="NAME">%1$s</xliff:g> dikeluarkan dengan selamat"</string>
+    <string name="storage_unmount_failure" msgid="4591934911541762883">"Tidak dapat mengeluarkan <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="accounts_settings_title" msgid="436190037084293471">"Akaun"</string>
     <string name="user_add_account_menu" msgid="6625351983590713721">"Tambah akaun"</string>
     <string name="no_accounts_added" msgid="5148163140691096055">"Tiada akaun yang ditambahkan"</string>
@@ -528,6 +535,7 @@
     <string name="sync_button_sync_now" msgid="5767643057970371315">"Segerakkan sekarang"</string>
     <string name="sync_button_sync_cancel" msgid="7739510554513641393">"Batalkan penyegerakan"</string>
     <string name="sync_is_failing" msgid="5766255460901806206">"Penyegerakan sedang mengalami masalah. Ciri ini akan kembali sebentar lagi."</string>
+    <string name="privacy_settings_title" msgid="3150145262029229572">"Privasi"</string>
     <string name="security_settings_title" msgid="6955331714774709746">"Keselamatan"</string>
     <string name="security_settings_subtitle" msgid="2244635550239273229">"Kunci skrin"</string>
     <string name="security_lock_none" msgid="1054645093754839638">"Tiada"</string>
@@ -618,26 +626,11 @@
     <string name="lockpassword_pin_no_sequential_digits" msgid="38813552228809240">"Angka menaik, menurun atau jujukan berulang tidak dibenarkan."</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"Pilihan kunci skrin"</string>
     <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g> : <xliff:g id="NUM_DAYS">%3$s</xliff:g> hari lalu"</string>
-    <string name="add_device_title" msgid="8452168024017866232">"Tambah peranti dipercayai"</string>
-    <string name="add_device_summary" msgid="5368217520710573302">"Bluetooth akan dihidupkan untuk peranti dipercayai"</string>
-    <string name="trusted_device" msgid="5637378361866787603">"Peranti dipercayai"</string>
-    <plurals name="trusted_device_subtitle" formatted="false" msgid="462041049834264945">
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> peranti</item>
-      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> peranti</item>
-    </plurals>
-    <string name="remove_device_message" msgid="6447820559674148349">"<xliff:g id="CONNECTED_DEVICE_NAME_0">%1$s</xliff:g> anda akan membuka kunci kereta ini apabila disambungkan. Jika seseorang mengambil <xliff:g id="CONNECTED_DEVICE_NAME_1">%1$s</xliff:g> anda, orang itu mungkin dapat mengakses peranti ini"</string>
-    <string name="trusted_device_confirm_button" msgid="102354635014627996">"Sahkan"</string>
-    <string name="trusted_device_remove_button" msgid="6140476996063415420">"Alih keluar peranti yang dipercayai"</string>
-    <string name="trusted_device_done_button" msgid="8481956533222625296">"Selesai"</string>
-    <string name="add_trusted_device_instruction" msgid="2280382609884918033">"Gunakan apl rakan untuk menyediakan peranti yang dipercayai. Setelah peranti disediakan, profil pengguna anda akan dibuka kunci secara automatik apabila telefon anda dikesan berada berdekatan kenderaan."</string>
-    <string name="trusted_device_download_app" msgid="6971096140154499983">"1. Muat turun apl rakan pada telefon anda"</string>
-    <string name="trusted_device_select_device" msgid="198902765179270739">"2. Pilih <xliff:g id="CAR_NAME">%1$s</xliff:g> pada telefon anda untuk menggandingkan peranti tersebut"</string>
-    <string name="trusted_device_safety_alert" msgid="3834898922112046769">"Peranti yang dipercayai berdekatan kereta anda akan membuka kunci profil pengguna apabila kereta dihidupkan, walaupun orang lain yang memegang peranti itu."</string>
-    <string name="trusted_device_pairing_code_dialog_title" msgid="8173792468216796873">"Sila sahkan bahawa kod gandingan adalah sepadan"</string>
-    <string name="trusted_device_success_enrollment_toast" msgid="1238468775285575827">"Telefon telah berjaya didaftarkan"</string>
-    <string name="trusted_device_fail_enrollment_toast" msgid="6801324174861209092">"Pendaftaran <xliff:g id="DEVICE_NAME">%1$s</xliff:g> gagal"</string>
-    <string name="trusted_device_set_authentication_reminder" msgid="5947077589994822305">"Penambahan peranti yang dipercayai memerlukan anda menetapkan kaedah pengesahan selepas ini. Jika peranti yang dipercayai tiada dengan anda, pengesahan perlu mengakses profil anda."</string>
-    <string name="trusted_device_disconnected_toast" msgid="2541862946536880255">"Peranti diputuskan sambungan."</string>
+    <string name="credentials_reset" msgid="873900550885788639">"Kosongkan bukti kelayakan"</string>
+    <string name="credentials_reset_summary" msgid="6067911547500459637">"Alih keluar semua sijil"</string>
+    <string name="credentials_reset_hint" msgid="3459271621754137661">"Alih keluar semua kandungan?"</string>
+    <string name="credentials_erased" msgid="2515915439705550379">"Storan bukti kelayakan dipadamkan."</string>
+    <string name="credentials_not_erased" msgid="6118567459076742720">"Storan bukti kelayakan tidak dapat dipadamkan."</string>
     <string name="forget" msgid="3971143908183848527">"Lupakan"</string>
     <string name="connect" msgid="5861699594602380150">"Sambung"</string>
     <string name="disconnect" msgid="6140789953324820336">"Putuskan sambungan"</string>
@@ -653,6 +646,7 @@
     <string name="exit_retail_mode_dialog_body" msgid="8314316171782527301">"Tindakan ini akan memadamkan akaun tunjuk cara dan membuat tetapan semula data kilang pada sistem. Semua data pengguna akan hilang."</string>
     <string name="exit_retail_mode_dialog_confirmation_button_text" msgid="3147249675355968649">"Keluar drpd Tunjuk Cara"</string>
     <string name="suggestion_dismiss_button" msgid="4539412646977050641">"KETEPIKAN"</string>
-    <string name="restricted_while_driving" msgid="6217369093121968299">"Ciri tidak tersedia semasa anda memandu."</string>
-    <string name="add_user_restricted_while_driving" msgid="6384004350628271556">"Tidak dapat menambah pengguna semasa memandu."</string>
+    <string name="restricted_while_driving" msgid="6587569249519274524">"Ciri tidak tersedia semasa anda memandu"</string>
+    <string name="add_user_restricted_while_driving" msgid="4754946754222453656">"Tidak dapat menambah pengguna semasa memandu"</string>
+    <string name="default_search_query" msgid="3137420627428857068">"Cari"</string>
 </resources>

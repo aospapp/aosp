@@ -16,9 +16,9 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_label" msgid="6006277287245076524">"Екстрені сповіщення"</string>
-    <string name="sms_cb_settings" msgid="3795852619005211509">"Екстрені сповіщення"</string>
-    <string name="cell_broadcast_settings_not_available" msgid="2612364350745967915">"Налаштування широкомовних інформаційних повідомлень недоступні для цього користувача"</string>
+    <string name="app_label" msgid="2008319089248760277">"Бездротові екстрені сповіщення"</string>
+    <string name="sms_cb_settings" msgid="9021266457863671070">"Бездротові екстрені сповіщення"</string>
+    <string name="cell_broadcast_settings_not_available" msgid="3908142962162375221">"Налаштування бездротових екстрених сповіщень недоступні для цього користувача"</string>
     <string name="button_dismiss" msgid="1234221657930516287">"OK"</string>
     <string name="no_cell_broadcasts" msgid="7554779730107421769">"Немає попередніх сповіщень"</string>
     <string name="menu_delete_all" msgid="3940997343921149800">"Видалити широкомовні повідомл."</string>
@@ -26,6 +26,7 @@
     <string name="menu_view_details" msgid="1040989019045280975">"Переглянути деталі"</string>
     <string name="menu_delete" msgid="128380070910799366">"Видалити широкомовне повідомл."</string>
     <string name="view_details_title" msgid="1780427629491781473">"Деталі сповіщення"</string>
+    <string name="view_details_debugging_title" msgid="5699927030805114173">"Інформація про сповіщення для налагодження"</string>
     <string name="confirm_delete_broadcast" msgid="2540199303730232322">"Видалити це широкомовне повідомлення?"</string>
     <string name="confirm_delete_all_broadcasts" msgid="2924444089047280871">"Видалити всі отримані широкомовні повідомлення?"</string>
     <string name="button_delete" msgid="4672451757925194350">"Видалити"</string>
@@ -51,11 +52,11 @@
     <string name="emergency_alerts_title" msgid="6605036374197485429">"Сповіщення"</string>
     <string name="notification_channel_broadcast_messages" msgid="880704362482824524">"Широкомовні повідомлення"</string>
     <string name="notification_channel_emergency_alerts" msgid="5008287980979183617">"Екстрені сповіщення"</string>
+    <string name="notification_channel_broadcast_messages_in_voicecall" msgid="3291001780110813190">"Екстрені сповіщення, надіслані під час голосового виклику"</string>
     <string name="enable_alerts_master_toggle_title" msgid="1457904343636699446">"Дозволити сповіщення"</string>
-    <string name="enable_alerts_master_toggle_summary" msgid="699552922381916044">"Отримувати екстрені сповіщення"</string>
-    <string name="alert_reminder_interval_title" msgid="7466642011937564868">"Сигнал нагадування"</string>
-    <string name="enable_alert_speech_title" msgid="8052104771053526941">"Промовляти сповіщення"</string>
-    <string name="enable_alert_speech_summary" msgid="356086178962268831">"Використовувати синтез мовлення, щоб озвучувати текст сповіщень про надзвичайні ситуації"</string>
+    <string name="enable_alerts_master_toggle_summary" msgid="5583168548073938617">"Отримувати бездротові екстрені сповіщення"</string>
+    <string name="alert_reminder_interval_title" msgid="3283595202268218149">"Нагадування"</string>
+    <string name="alert_reminder_dialog_title" msgid="2299010977651377315">"Сигнал нагадування лунатиме зі звичайною гучністю"</string>
     <string name="emergency_alert_history_title" msgid="8310173569237268431">"Історія екстрених сповіщень"</string>
     <string name="alert_preferences_title" msgid="6001469026393248468">"Параметри сповіщень"</string>
     <string name="enable_etws_test_alerts_title" msgid="3593533226735441539">"Пробні сповіщення ETWS"</string>
@@ -74,14 +75,13 @@
     <string name="enable_state_local_test_alerts_summary" msgid="780298327377950187">"Отримувати тестові повідомлення від державних і місцевих органів влади"</string>
     <string name="enable_emergency_alerts_message_title" msgid="661894007489847468">"Екстрені сповіщення"</string>
     <string name="enable_emergency_alerts_message_summary" msgid="7574617515441602546">"Застерігати про небезпечні для життя події"</string>
-    <string name="enable_cmas_test_alerts_title" msgid="1319231576046146463">"Обов’язковий щомісячний тест"</string>
-    <string name="enable_cmas_test_alerts_summary" msgid="588517403520088484">"Отримувати тестові повідомлення для системи безпеки"</string>
+    <string name="enable_cmas_test_alerts_title" msgid="7194966927004755266">"Тестові сповіщення"</string>
+    <string name="enable_cmas_test_alerts_summary" msgid="2083089933271720217">"Отримувати щомісячні тестові сповіщення й тестові сповіщення від оператора для системи безпеки"</string>
     <string name="enable_alert_vibrate_title" msgid="5421032189422312508">"Вібрація"</string>
-    <string name="use_full_volume_title" msgid="8581439612945182255">"Використовувати повну гучність"</string>
-    <string name="use_full_volume_summary" msgid="3560764277281704697">"Ігнорувати інші параметри гучності й режиму \"Не турбувати\""</string>
+    <string name="override_dnd_title" msgid="5120805993144214421">"Відтворювати звук сповіщень на повній гучності"</string>
+    <string name="override_dnd_summary" msgid="9026675822792800258">"Ігнорувати режим \"Не турбувати\" та інші налаштування гучності"</string>
     <string name="enable_area_update_info_alerts_title" msgid="3442042268424617226">"Широкомовні сповіщення про регіональні оновлення"</string>
     <string name="enable_area_update_info_alerts_summary" msgid="6437816607144264910">"Показувати інформацію про оновлення в статусі SIM-карти"</string>
-    <string name="category_dev_settings_title" msgid="6194393458398329994">"Параметри розробника"</string>
     <string name="cmas_category_heading" msgid="3923503130776640717">"Категорія сповіщення:"</string>
     <string name="cmas_category_geo" msgid="4979494217069688527">"Геофізична небезпека"</string>
     <string name="cmas_category_met" msgid="7563732573851773537">"Метеорологія"</string>
@@ -118,7 +118,7 @@
     <string name="notification_multiple_title" msgid="1523638925739947855">"Нові сповіщення"</string>
     <string name="show_cmas_opt_out_summary" msgid="6926059266585295440">"Пропонувати вимкнути сповіщення (крім президентських) після першого показу."</string>
     <string name="show_cmas_opt_out_title" msgid="9182104842820171132">"Показувати діалогове вікно вимкнення"</string>
-    <string name="cmas_opt_out_dialog_text" msgid="7529010670998259128">"Ви отримуєте сповіщення про надзвичайні ситуації. Хочете й надалі отримувати сповіщення про надзвичайні ситуації?"</string>
+    <string name="cmas_opt_out_dialog_text" msgid="4820577535626084938">"Зараз ви отримуєте бездротові екстрені сповіщення. Отримувати їх і надалі?"</string>
     <string name="cmas_opt_out_button_yes" msgid="7248930667195432936">"Так"</string>
     <string name="cmas_opt_out_button_no" msgid="3110484064328538553">"Ні"</string>
     <string name="cb_list_activity_title" msgid="1433502151877791724">"Історія екстрених сповіщень"</string>
@@ -127,7 +127,26 @@
     <item msgid="9097229303902157183">"Кожні 2 хвилини"</item>
     <item msgid="5718214950343391480">"Кожні 5 хвилин"</item>
     <item msgid="3863339891188103437">"Кожні 15 хвилин"</item>
-    <item msgid="6868848414437854609">"Вимкнено"</item>
+    <item msgid="7388573183644474611">"Ніколи"</item>
   </string-array>
     <string name="emergency_alert_settings_title_watches" msgid="4477073412799894883">"Бездротові екстрені сповіщення"</string>
+    <string name="enable_cmas_presidential_alerts_title" msgid="7293800023375154256">"Президентські сповіщення"</string>
+    <string name="enable_cmas_presidential_alerts_summary" msgid="7900094335808247024">"Повідомлення з попередженнями для всіх громадян від Президента. Ці сповіщення не можна вимкнути."</string>
+    <string name="receive_cmas_in_second_language_title" msgid="1223260365527361964"></string>
+    <string name="receive_cmas_in_second_language_summary" msgid="7704105502782770718"></string>
+    <string name="alerts_header_summary" msgid="4700985191868591788"></string>
+    <string name="testing_mode_enabled" msgid="8296556666392297467">"Тестовий режим Cell Broadcast увімкнено."</string>
+    <string name="testing_mode_disabled" msgid="8381408377958182661">"Тестовий режим Cell Broadcast вимкнено."</string>
+    <string name="show_all_messages" msgid="3780970968167139836">"Показати всі повідомлення"</string>
+    <string name="show_regular_messages" msgid="7376885150513522515">"Показати звичайні повідомлення"</string>
+    <string name="message_identifier" msgid="5558338496219327850">"Ідентифікатор:"</string>
+    <string name="message_serial_number" msgid="3386553658712978964">"Серійний номер:"</string>
+    <string name="data_coding_scheme" msgid="4628901196730870577">"Схема кодування даних:"</string>
+    <string name="message_content" msgid="6204502929879474632">"Текст повідомлення:"</string>
+    <string name="location_check_time" msgid="4105326161240531207">"Час отримання геоданих:"</string>
+    <string name="message_displayed" msgid="5091678195925617971">"Показ повідомлення:"</string>
+    <string name="message_coordinates" msgid="356333576818059052">"Координати:"</string>
+    <string name="maximum_waiting_time" msgid="3504809124079381356">"Максимальний час очікування:"</string>
+    <string name="seconds" msgid="141450721520515025">"с"</string>
+    <string name="message_copied" msgid="6922953753733166675">"Повідомлення скопійовано"</string>
 </resources>

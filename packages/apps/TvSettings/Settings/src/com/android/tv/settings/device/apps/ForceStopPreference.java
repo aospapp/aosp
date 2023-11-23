@@ -16,9 +16,12 @@
 
 package com.android.tv.settings.device.apps;
 
+import static com.android.tv.settings.util.InstrumentationUtils.logEntrySelected;
+
 import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.admin.DevicePolicyManager;
+import android.app.tvsettings.TvSettingsEnums;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -68,6 +71,11 @@ public class ForceStopPreference extends AppActionPreference {
                 }
             }, null, Activity.RESULT_CANCELED, null, null);
         }
+        this.setOnPreferenceClickListener(
+                preference -> {
+                    logEntrySelected(TvSettingsEnums.APPS_ALL_APPS_APP_ENTRY_FORCE_STOP);
+                    return false;
+                });
     }
 
     @Override

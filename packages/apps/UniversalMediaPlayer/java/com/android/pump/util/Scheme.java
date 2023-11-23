@@ -26,9 +26,14 @@ import androidx.annotation.NonNull;
 public final class Scheme {
     private Scheme() { }
 
+    private final static String CONTENT = ContentResolver.SCHEME_CONTENT;
     private final static String FILE = ContentResolver.SCHEME_FILE;
     private final static String HTTP = "http";
     private final static String HTTPS = "https";
+
+    public static boolean isContent(@NonNull Uri uri) {
+        return CONTENT.equals(uri.getScheme());
+    }
 
     public static boolean isFile(@NonNull Uri uri) {
         return FILE.equals(uri.getScheme());

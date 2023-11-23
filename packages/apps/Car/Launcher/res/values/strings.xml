@@ -16,7 +16,9 @@
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_title">Car Launcher</string>
-    <string name="all_apps">All apps</string>
+
+    <string name="app_launcher_title_all_apps">All apps</string>
+    <string name="app_launcher_title_media_only">Media apps</string>
 
     <string name="driving_toast_text">
         <xliff:g id="app_name" example="Settings">%1$s</xliff:g> can\'t be used while driving.
@@ -35,6 +37,11 @@
         <item quantity="other"><xliff:g example="2" id="count">%d</xliff:g> devices</item>
     </plurals>
 
+    <!-- Toolbar MenuItem text for hiding debug apps, only visible on debug builds [CHAR_LIMIT=50] -->
+    <string name="hide_debug_apps">Hide debug apps</string>
+    <!-- Toolbar MenuItem text for showing debug apps, only visible on debug builds [CHAR_LIMIT=50] -->
+    <string name="show_debug_apps">Show debug apps</string>
+
     <!--
         A list of package names to exclude from the app selector when filtering is active.
         DO NOT TRANSLATE.
@@ -44,7 +51,7 @@
         <item>com.google.android.auto.welcome</item>
         <item>com.android.car.acast.source</item>
         <item>com.google.android.embedded.projection</item>
-        <item>com.google.android.car.bugreport</item>
+        <item>com.android.car.bugreport</item>
         <item>com.android.car.trust</item>
         <item>com.android.car.datacenter</item>
         <item>com.google.android.car.diagnosticrecorder</item>

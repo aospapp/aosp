@@ -35,8 +35,8 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 
-import com.android.internal.widget.LockPatternUtils;
 import com.android.car.developeroptions.core.InstrumentedFragment;
+import com.android.internal.widget.LockPatternUtils;
 
 import java.util.Arrays;
 import java.util.Locale;

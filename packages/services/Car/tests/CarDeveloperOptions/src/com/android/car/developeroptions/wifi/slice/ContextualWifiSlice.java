@@ -18,7 +18,7 @@ package com.android.car.developeroptions.wifi.slice;
 
 import android.content.Context;
 import android.net.Uri;
-import android.net.wifi.WifiSsid;
+import android.net.wifi.WifiManager;
 import android.text.TextUtils;
 import android.util.Log;
 
@@ -69,6 +69,6 @@ public class ContextualWifiSlice extends WifiSlice {
     }
 
     private boolean hasWorkingNetwork() {
-        return !TextUtils.equals(getActiveSSID(), WifiSsid.NONE) && !isCaptivePortal();
+        return !TextUtils.equals(getActiveSSID(), WifiManager.UNKNOWN_SSID) && !isCaptivePortal();
     }
 }

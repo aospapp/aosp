@@ -21,13 +21,17 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
+import androidx.annotation.DrawableRes;
 import androidx.annotation.LayoutRes;
 import androidx.annotation.NonNull;
+import androidx.annotation.StringRes;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.android.car.apps.common.widget.PagedRecyclerView;
 import com.android.car.dialer.R;
+import com.android.car.dialer.widget.LoadingFrameLayout;
+import com.android.car.ui.baselayout.Insets;
+import com.android.car.ui.recyclerview.CarUiRecyclerView;
 
 /**
  * Base fragment that inflates a {@link RecyclerView}. It handles the top offset for first row item
@@ -35,23 +39,25 @@ import com.android.car.dialer.R;
  */
 public class DialerListBaseFragment extends DialerBaseFragment {
 
-    private PagedRecyclerView mListView;
+    private LoadingFrameLayout mLoadingFrameLayout;
+    private CarUiRecyclerView mRecyclerView;
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
             Bundle savedInstanceState) {
         View view = inflater.inflate(getLayoutResource(), container, false);
-        mListView = view.findViewById(R.id.list_view);
-        mListView.setLayoutManager(createLayoutManager());
-        mListView.setPaddingRelative(mListView.getPaddingStart(), getTopOffset(),
-                mListView.getPaddingEnd(), mListView.getPaddingBottom());
+        mLoadingFrameLayout = view.findViewById(R.id.loading_frame_layout);
+        mRecyclerView = view.requireViewById(R.id.list_view);
+        mRecyclerView.setLayoutManager(createLayoutManager());
         return view;
     }
 
-    /** Layout resource for this fragment. It must contains a RecyclerView with id list_view. */
+    /**
+     * Layout resource for this fragment. It must contains a RecyclerView with id list_view.
+     */
     @LayoutRes
     protected int getLayoutResource() {
-        return R.layout.list_fragment;
+        return R.layout.loading_list_fragment;
     }
 
     /**
@@ -63,16 +69,53 @@ public class DialerListBaseFragment extends DialerBaseFragment {
         return new LinearLayoutManager(getContext());
     }
 
-    /** Returns the {@link RecyclerView} instance. */
+    /**
+     * Returns the {@link RecyclerView} instance.
+     */
     @NonNull
-    protected PagedRecyclerView getRecyclerView() {
-        return mListView;
+    protected CarUiRecyclerView getRecyclerView() {
+        return mRecyclerView;
     }
 
-    /** Gets the top padding for the list. By default it includes the action bar's height */
-    protected int getTopOffset() {
-        int listTopPadding = getContext().getResources().getDimensionPixelSize(
+    /**
+     * Shows loading spinner when the data is still loading.
+     */
+    protected void showLoading() {
+        mLoadingFrameLayout.showLoading();
+    }
+
+    /**
+     * Shows content when data is loaded and the content is not empty.
+     */
+    protected void showContent() {
+        mLoadingFrameLayout.showContent();
+    }
+
+    /**
+     * Shows the empty view with icon, message and secondary message.
+     */
+    protected void showEmpty(@DrawableRes int iconResId, @StringRes int messageResId,
+            @StringRes int secondaryMessageResId) {
+        mLoadingFrameLayout.showEmpty(iconResId, messageResId, secondaryMessageResId);
+    }
+
+    /**
+     * Shows the empty view with icon, message, secondary message and action button.
+     */
+    protected void showEmpty(@DrawableRes int iconResId, @StringRes int messageResId,
+            @StringRes int secondaryMessageResId,
+            @StringRes int actionButtonTextResId, View.OnClickListener actionButtonOnClickListener,
+            boolean showActionButton) {
+        mLoadingFrameLayout.showEmpty(iconResId, messageResId, secondaryMessageResId,
+                actionButtonTextResId, actionButtonOnClickListener, showActionButton);
+    }
+
+    @Override
+    public void onCarUiInsetsChanged(Insets insets) {
+        int listTopPadding = requireContext().getResources().getDimensionPixelSize(
                 R.dimen.list_top_padding);
-        return getTopBarHeight() + listTopPadding;
+        mRecyclerView.setPadding(0, insets.getTop() + listTopPadding, 0, insets.getBottom());
+        requireView().setPadding(insets.getLeft(), 0,
+                insets.getRight(), 0);
     }
 }

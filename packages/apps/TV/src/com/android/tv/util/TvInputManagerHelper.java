@@ -46,6 +46,8 @@ import com.android.tv.parental.ContentRatingsManager;
 import com.android.tv.parental.ParentalControlSettings;
 import com.android.tv.util.images.ImageCache;
 import com.android.tv.util.images.ImageLoader;
+import com.google.common.collect.Ordering;
+import com.android.tv.common.flags.LegacyFlags;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -127,6 +129,7 @@ public class TvInputManagerHelper {
     private static final String PERMISSION_ACCESS_ALL_EPG_DATA =
             "com.android.providers.tv.permission.ACCESS_ALL_EPG_DATA";
     private static final String[] mPhysicalTunerBlackList = {
+        "com.google.android.videos", // Play Movies
     };
     private static final String META_LABEL_SORT_KEY = "input_sort_key";
 
@@ -158,6 +161,10 @@ public class TvInputManagerHelper {
     }
 
     private static final String[] PARTNER_TUNER_INPUT_PREFIX_BLACKLIST = {
+        /* Begin_AOSP_Comment_Out
+        // Disabled partner's tuner input prefix list.
+        "com.mediatek.tvinput/.dtv"
+        End_AOSP_Comment_Out */
     };
 
     private static final String[] TESTABLE_INPUTS = {
@@ -292,8 +299,8 @@ public class TvInputManagerHelper {
     private boolean mAllow3rdPartyInputs;
 
     @Inject
-    public TvInputManagerHelper(@ApplicationContext Context context) {
-        this(context, createTvInputManagerWrapper(context));
+    public TvInputManagerHelper(@ApplicationContext Context context, LegacyFlags legacyFlags) {
+        this(context, createTvInputManagerWrapper(context), legacyFlags);
     }
 
     @Nullable
@@ -305,12 +312,14 @@ public class TvInputManagerHelper {
 
     @VisibleForTesting
     protected TvInputManagerHelper(
-            Context context, @Nullable TvInputManagerInterface tvInputManager) {
+            Context context,
+            @Nullable TvInputManagerInterface tvInputManager,
+            LegacyFlags legacyFlags) {
         mContext = context.getApplicationContext();
         mPackageManager = context.getPackageManager();
         mTvInputManager = tvInputManager;
         mContentRatingsManager = new ContentRatingsManager(context, tvInputManager);
-        mParentalControlSettings = new ParentalControlSettings(context);
+        mParentalControlSettings = new ParentalControlSettings(context, legacyFlags);
         mTvInputInfoComparator = new InputComparatorInternal(this);
         mContentObserver =
                 new ContentObserver(mHandler) {
@@ -348,7 +357,6 @@ public class TvInputManagerHelper {
         updateAllow3rdPartyInputs();
         mTvInputManager.registerCallback(mInternalCallback, mHandler);
         initInputMaps();
-        mContentRatingsManager.update();
     }
 
     public void stop() {
@@ -446,10 +454,12 @@ public class TvInputManagerHelper {
     }
 
     /** Loads label of {@code info}. */
+    @Nullable
     public String loadLabel(TvInputInfo info) {
         String label = mTvInputLabels.get(info.getId());
         if (label == null) {
-            label = info.loadLabel(mContext).toString();
+            CharSequence labelSequence = info.loadLabel(mContext);
+            label = labelSequence == null ? null : labelSequence.toString();
             mTvInputLabels.put(info.getId(), label);
         }
         return label;
@@ -703,6 +713,8 @@ public class TvInputManagerHelper {
     @VisibleForTesting
     static class InputComparatorInternal implements Comparator<TvInputInfo> {
         private final TvInputManagerHelper mInputManager;
+        private static final Ordering<Comparable> NULL_FIRST_STRING_ORDERING =
+                Ordering.natural().nullsFirst();
 
         public InputComparatorInternal(TvInputManagerHelper inputManager) {
             mInputManager = inputManager;
@@ -713,7 +725,8 @@ public class TvInputManagerHelper {
             if (mInputManager.isPartnerInput(lhs) != mInputManager.isPartnerInput(rhs)) {
                 return mInputManager.isPartnerInput(lhs) ? -1 : 1;
             }
-            return mInputManager.loadLabel(lhs).compareTo(mInputManager.loadLabel(rhs));
+            return NULL_FIRST_STRING_ORDERING.compare(
+                    mInputManager.loadLabel(lhs), mInputManager.loadLabel(rhs));
         }
     }
 
@@ -795,7 +808,7 @@ public class TvInputManagerHelper {
             if (TextUtils.isEmpty(label)) {
                 label = mTvInputManagerHelper.loadLabel(input);
             }
-            return label;
+            return label == null ? "" : label;
         }
 
         private int getPriority(TvInputInfo info) {

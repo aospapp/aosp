@@ -24,6 +24,11 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.database.Cursor;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.drawable.Icon;
+import android.location.Country;
+import android.location.CountryDetector;
 import android.net.Uri;
 import android.provider.CallLog;
 import android.provider.ContactsContract;
@@ -33,14 +38,18 @@ import android.provider.Settings;
 import android.telecom.Call;
 import android.telephony.PhoneNumberUtils;
 import android.telephony.TelephonyManager;
+import android.text.BidiFormatter;
+import android.text.TextDirectionHeuristics;
 import android.text.TextUtils;
-import android.util.Log;
 import android.widget.ImageView;
 
 import androidx.annotation.Nullable;
-import androidx.core.util.Pair;
+import androidx.core.content.ContextCompat;
+import androidx.core.graphics.drawable.RoundedBitmapDrawable;
+import androidx.core.graphics.drawable.RoundedBitmapDrawableFactory;
 
 import com.android.car.apps.common.LetterTileDrawable;
+import com.android.car.apps.common.log.L;
 
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.request.RequestOptions;
@@ -51,57 +60,18 @@ import com.google.i18n.phonenumbers.Phonenumber;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.CompletableFuture;
 
-/** Helper methods. */
+/**
+ * Helper methods.
+ */
 public class TelecomUtils {
     private static final String TAG = "CD.TelecomUtils";
-
-    private static final String[] CONTACT_ID_PROJECTION = new String[]{
-            PhoneLookup.DISPLAY_NAME,
-            PhoneLookup.TYPE,
-            PhoneLookup.LABEL,
-            PhoneLookup._ID
-    };
+    private static final int PII_STRING_LENGTH = 4;
+    private static final String COUNTRY_US = "US";
 
     private static String sVoicemailNumber;
     private static TelephonyManager sTelephonyManager;
-
-    /**
-     * Return the label for the given phone number.
-     *
-     * @param number Caller phone number
-     * @return the label if it is found, empty string otherwise.
-     */
-    public static CharSequence getTypeFromNumber(Context context, String number) {
-        if (Log.isLoggable(TAG, Log.DEBUG)) {
-            Log.d(TAG, "getTypeFromNumber, number: " + number);
-        }
-
-        String defaultLabel = "";
-        if (TextUtils.isEmpty(number)) {
-            return defaultLabel;
-        }
-
-        ContentResolver cr = context.getContentResolver();
-        Uri uri = Uri.withAppendedPath(PhoneLookup.CONTENT_FILTER_URI, Uri.encode(number));
-        Cursor cursor = cr.query(uri, CONTACT_ID_PROJECTION, null, null, null);
-
-        try {
-            if (cursor != null && cursor.moveToFirst()) {
-                int typeColumn = cursor.getColumnIndex(PhoneLookup.TYPE);
-                int type = cursor.getInt(typeColumn);
-                int labelColumn = cursor.getColumnIndex(PhoneLookup.LABEL);
-                String label = cursor.getString(labelColumn);
-                CharSequence typeLabel = Phone.getTypeLabel(context.getResources(), type, label);
-                return typeLabel;
-            }
-        } finally {
-            if (cursor != null) {
-                cursor.close();
-            }
-        }
-        return defaultLabel;
-    }
 
     /**
      * Get the voicemail number.
@@ -119,7 +89,16 @@ public class TelecomUtils {
      * @see TelephonyManager#getVoiceMailNumber()
      */
     public static boolean isVoicemailNumber(Context context, String number) {
-        return !TextUtils.isEmpty(number) && number.equals(getVoicemailNumber(context));
+        if (TextUtils.isEmpty(number)) {
+            return false;
+        }
+
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_STATE)
+                != PackageManager.PERMISSION_GRANTED) {
+            return false;
+        }
+
+        return number.equals(getVoicemailNumber(context));
     }
 
     /**
@@ -138,106 +117,230 @@ public class TelecomUtils {
      * Format a number as a phone number.
      */
     public static String getFormattedNumber(Context context, String number) {
-        if (Log.isLoggable(TAG, Log.DEBUG)) {
-            Log.d(TAG, "getFormattedNumber: " + number);
-        }
+        L.d(TAG, "getFormattedNumber: " + piiLog(number));
         if (number == null) {
             return "";
         }
 
-        String countryIso = getIsoDefaultCountryNumber(context);
-        if (Log.isLoggable(TAG, Log.DEBUG)) {
-            Log.d(TAG, "PhoneNumberUtils.formatNumberToE16, number: "
-                    + number + ", country: " + countryIso);
-        }
+        String countryIso = getCurrentCountryIsoFromLocale(context);
+        L.d(TAG, "PhoneNumberUtils.formatNumberToE16, number: "
+                    + piiLog(number) + ", country: " + countryIso);
+
         String e164 = PhoneNumberUtils.formatNumberToE164(number, countryIso);
         String formattedNumber = PhoneNumberUtils.formatNumber(number, e164, countryIso);
         formattedNumber = TextUtils.isEmpty(formattedNumber) ? number : formattedNumber;
-        if (Log.isLoggable(TAG, Log.DEBUG)) {
-            Log.d(TAG, "getFormattedNumber, result: " + formattedNumber);
-        }
+        L.d(TAG, "getFormattedNumber, result: " + piiLog(formattedNumber));
+
         return formattedNumber;
     }
 
-    private static String getIsoDefaultCountryNumber(Context context) {
-        String countryIso = getTelephonyManager(context).getSimCountryIso().toUpperCase(Locale.US);
-        if (countryIso.length() != 2) {
-            countryIso = Locale.getDefault().getCountry();
-            if (countryIso == null || countryIso.length() != 2) {
-                countryIso = "US";
+    /**
+     * @return The ISO 3166-1 two letters country code of the country the user is in.
+     */
+    private static String getCurrentCountryIso(Context context, Locale locale) {
+        String countryIso = null;
+        CountryDetector detector = (CountryDetector) context.getSystemService(
+                Context.COUNTRY_DETECTOR);
+        if (detector != null) {
+            Country country = detector.detectCountry();
+            if (country != null) {
+                countryIso = country.getCountryIso();
+            } else {
+                L.e(TAG, "CountryDetector.detectCountry() returned null.");
             }
+        }
+        if (countryIso == null) {
+            countryIso = locale.getCountry();
+            L.w(TAG, "No CountryDetector; falling back to countryIso based on locale: "
+                    + countryIso);
+        }
+        if (countryIso == null || countryIso.length() != 2) {
+            L.w(TAG, "Invalid locale, falling back to US");
+            countryIso = COUNTRY_US;
+        }
+        return countryIso;
+    }
+
+    private static String getCurrentCountryIso(Context context) {
+        return getCurrentCountryIso(context, Locale.getDefault());
+    }
+
+    private static String getCurrentCountryIsoFromLocale(Context context) {
+        String countryIso;
+        countryIso = context.getResources().getConfiguration().getLocales().get(0).getCountry();
+
+        if (countryIso == null) {
+            L.w(TAG, "Invalid locale, falling back to US");
+            countryIso = COUNTRY_US;
         }
 
         return countryIso;
     }
 
     /**
-     * Creates a new instance of {@link Phonenumber#Phonenumber} base on the given number and sim
+     * Creates a new instance of {@link Phonenumber.PhoneNumber} base on the given number and sim
      * card country code. Returns {@code null} if the number in an invalid number.
      */
     @Nullable
     public static Phonenumber.PhoneNumber createI18nPhoneNumber(Context context, String number) {
         try {
-            return PhoneNumberUtil.getInstance().parse(number, getIsoDefaultCountryNumber(context));
+            return PhoneNumberUtil.getInstance().parse(number, getCurrentCountryIso(context));
         } catch (NumberParseException e) {
             return null;
         }
     }
 
     /**
-     * Get the display name and photo uri of the given number (e.g. if it's the voicemail number,
-     * return a string and a uri that represents voicemail, if it's a contact, get the contact's
-     * name and its avatar uri, etc).
-     *
-     * @return Pair of display name and contact's photo uri if found. Voicemail number uses drawable
-     * resource uri and null uri for other cases.
+     * Contains all the info used to display a phone number on the screen. Returned by {@link
+     * #getPhoneNumberInfo(Context, String)}
      */
-    public static Pair<String, Uri> getDisplayNameAndAvatarUri(Context context, String number) {
-        if (Log.isLoggable(TAG, Log.DEBUG)) {
-            Log.d(TAG, "getDisplayNameAndAvatarUri: " + number);
+    public static final class PhoneNumberInfo {
+        private final String mPhoneNumber;
+        private final String mDisplayName;
+        private final String mInitials;
+        private final Uri mAvatarUri;
+        private final String mTypeLabel;
+
+        public PhoneNumberInfo(String phoneNumber, String displayName,
+                String initials, Uri avatarUri, String typeLabel) {
+            mPhoneNumber = phoneNumber;
+            mDisplayName = displayName;
+            mInitials = initials;
+            mAvatarUri = avatarUri;
+            mTypeLabel = typeLabel;
         }
 
+        public String getPhoneNumber() {
+            return mPhoneNumber;
+        }
+
+        public String getDisplayName() {
+            return mDisplayName;
+        }
+
+        /**
+         * Returns the initials of the contact related to the phone number. Returns null if there is
+         * no related contact.
+         */
+        @Nullable
+        public String getInitials() {
+            return mInitials;
+        }
+
+        @Nullable
+        public Uri getAvatarUri() {
+            return mAvatarUri;
+        }
+
+        public String getTypeLabel() {
+            return mTypeLabel;
+        }
+
+    }
+
+    /**
+     * Gets all the info needed to properly display a phone number to the UI. (e.g. if it's the
+     * voicemail number, return a string and a uri that represents voicemail, if it's a contact, get
+     * the contact's name, its avatar uri, the phone number's label, etc).
+     */
+    public static CompletableFuture<PhoneNumberInfo> getPhoneNumberInfo(
+            Context context, String number) {
+
         if (TextUtils.isEmpty(number)) {
-            return new Pair<>(context.getString(R.string.unknown), null);
+            return CompletableFuture.completedFuture(new PhoneNumberInfo(
+                    number,
+                    context.getString(R.string.unknown),
+                    null,
+                    null,
+                    ""));
         }
 
         if (isVoicemailNumber(context, number)) {
-            return new Pair<>(
+            return CompletableFuture.completedFuture(new PhoneNumberInfo(
+                    number,
                     context.getString(R.string.voicemail),
-                    makeResourceUri(context, R.drawable.ic_voicemail));
+                    null,
+                    makeResourceUri(context, R.drawable.ic_voicemail),
+                    ""));
         }
 
-        ContentResolver cr = context.getContentResolver();
-        Uri uri = Uri.withAppendedPath(PhoneLookup.CONTENT_FILTER_URI, Uri.encode(number));
+        if (InMemoryPhoneBook.isInitialized()) {
+            Contact contact = InMemoryPhoneBook.get().lookupContactEntry(number);
+            if (contact != null) {
+                String name = contact.getDisplayName();
+                if (name == null) {
+                    name = getFormattedNumber(context, number);
+                }
 
-        Cursor cursor = null;
-        String name = null;
-        String photoUriString = null;
-        try {
-            cursor = cr.query(uri, new String[]{PhoneLookup.DISPLAY_NAME, PhoneLookup.PHOTO_URI},
-                    null, null, null);
-            if (cursor != null && cursor.moveToFirst()) {
-                name = cursor.getString(0);
-                photoUriString = cursor.getString(1);
+                if (name == null) {
+                    name = context.getString(R.string.unknown);
+                }
+
+                PhoneNumber phoneNumber = contact.getPhoneNumber(context, number);
+                CharSequence typeLabel = "";
+                if (phoneNumber != null) {
+                    typeLabel = Phone.getTypeLabel(context.getResources(),
+                            phoneNumber.getType(),
+                            phoneNumber.getLabel());
+                }
+
+                return CompletableFuture.completedFuture(new PhoneNumberInfo(
+                        number,
+                        name,
+                        contact.getInitials(),
+                        contact.getAvatarUri(),
+                        typeLabel.toString()));
             }
-        } finally {
-            if (cursor != null) {
-                cursor.close();
+        }
+
+        return CompletableFuture.supplyAsync(() -> {
+            String name = null;
+            String nameAlt = null;
+            String photoUriString = null;
+            CharSequence typeLabel = "";
+            ContentResolver cr = context.getContentResolver();
+            String initials;
+            try (Cursor cursor = cr.query(
+                    Uri.withAppendedPath(PhoneLookup.CONTENT_FILTER_URI, Uri.encode(number)),
+                    new String[]{
+                            PhoneLookup.DISPLAY_NAME,
+                            PhoneLookup.DISPLAY_NAME_ALTERNATIVE,
+                            PhoneLookup.PHOTO_URI,
+                            PhoneLookup.TYPE,
+                            PhoneLookup.LABEL,
+                    },
+                    null, null, null)) {
+
+                if (cursor != null && cursor.moveToFirst()) {
+                    int nameColumn = cursor.getColumnIndex(PhoneLookup.DISPLAY_NAME);
+                    int altNameColumn = cursor.getColumnIndex(PhoneLookup.DISPLAY_NAME_ALTERNATIVE);
+                    int photoUriColumn = cursor.getColumnIndex(PhoneLookup.PHOTO_URI);
+                    int typeColumn = cursor.getColumnIndex(PhoneLookup.TYPE);
+                    int labelColumn = cursor.getColumnIndex(PhoneLookup.LABEL);
+
+                    name = cursor.getString(nameColumn);
+                    nameAlt = cursor.getString(altNameColumn);
+                    photoUriString = cursor.getString(photoUriColumn);
+                    int type = cursor.getInt(typeColumn);
+                    String label = cursor.getString(labelColumn);
+                    typeLabel = Phone.getTypeLabel(context.getResources(), type, label);
+                }
             }
-        }
 
-        if (name == null) {
-            name = getFormattedNumber(context, number);
-        }
+            initials = getInitials(name, nameAlt);
 
-        if (name == null) {
-            name = context.getString(R.string.unknown);
-        }
+            if (name == null) {
+                name = getFormattedNumber(context, number);
+            }
 
-        if (TextUtils.isEmpty(photoUriString)) {
-            return new Pair<>(name, null);
-        }
-        return new Pair<>(name, Uri.parse(photoUriString));
+            if (name == null) {
+                name = context.getString(R.string.unknown);
+            }
+
+            return new PhoneNumberInfo(number, name, initials,
+                    TextUtils.isEmpty(photoUriString) ? null : Uri.parse(photoUriString),
+                    typeLabel.toString());
+        });
     }
 
     /**
@@ -286,53 +389,80 @@ public class TelecomUtils {
     }
 
     /**
-     * Sets a Contact avatar onto the provided {@code icon}. The first letter of the contact's
-     * display name or {@code fallbackDisplayName} will be used as a fallback resource if avatar
-     * loading fails.
+     * Sets a Contact avatar onto the provided {@code icon}. The first letter or both letters of the
+     * contact's initials.
      */
     public static void setContactBitmapAsync(
             Context context,
-            final ImageView icon,
-            @Nullable final Contact contact,
-            @Nullable final String fallbackDisplayName) {
-        Uri avatarUri = contact != null ? contact.getAvatarUri() : null;
-        String displayName = contact != null ? contact.getDisplayName() : fallbackDisplayName;
-
-        setContactBitmapAsync(context, icon, avatarUri, displayName);
+            @Nullable final ImageView icon,
+            @Nullable final Contact contact) {
+        setContactBitmapAsync(context, icon, contact, null);
     }
 
     /**
-     * Sets a Contact avatar onto the provided {@code icon}. The first letter of the contact's
-     * display name will be used as a fallback resource if avatar loading fails.
+     * Sets a Contact avatar onto the provided {@code icon}. The first letter or both letters of the
+     * contact's initials or {@code fallbackDisplayName} will be used as a fallback resource if
+     * avatar loading fails.
      */
     public static void setContactBitmapAsync(
             Context context,
-            final ImageView icon,
-            final Uri avatarUri,
-            final String displayName) {
-        LetterTileDrawable letterTileDrawable = createLetterTile(context, displayName);
+            @Nullable final ImageView icon,
+            @Nullable final Contact contact,
+            @Nullable final String fallbackDisplayName) {
+        Uri avatarUri = contact != null ? contact.getAvatarUri() : null;
+        String initials = contact != null ? contact.getInitials()
+                : (fallbackDisplayName == null ? null : getInitials(fallbackDisplayName, null));
+        String identifier = contact == null ? fallbackDisplayName : contact.getDisplayName();
 
-        if (avatarUri != null) {
-            Glide.with(context)
-                    .load(avatarUri)
-                    .apply(new RequestOptions().centerCrop().error(letterTileDrawable))
-                    .into(icon);
+        setContactBitmapAsync(context, icon, avatarUri, initials, identifier);
+    }
+
+    /**
+     * Sets a Contact avatar onto the provided {@code icon}. A letter tile base on the contact's
+     * initials and identifier will be used as a fallback resource if avatar loading fails.
+     */
+    public static void setContactBitmapAsync(
+            Context context,
+            @Nullable final ImageView icon,
+            @Nullable final Uri avatarUri,
+            @Nullable final String initials,
+            @Nullable final String identifier) {
+        if (icon == null) {
             return;
         }
 
-        // Use the letter tile as avatar if there is no avatar available from content provider.
-        icon.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
-        icon.setImageDrawable(letterTileDrawable);
+        LetterTileDrawable letterTileDrawable = createLetterTile(context, initials, identifier);
+
+        Glide.with(context)
+                .load(avatarUri)
+                .apply(new RequestOptions().centerCrop().error(letterTileDrawable))
+                .into(icon);
     }
 
-    /** Create a {@link LetterTileDrawable} for the given display name. */
-    public static LetterTileDrawable createLetterTile(Context context, String displayName) {
-        LetterTileDrawable letterTileDrawable = new LetterTileDrawable(context.getResources());
-        letterTileDrawable.setContactDetails(displayName, displayName);
-        return  letterTileDrawable;
+    /**
+     * Create a {@link LetterTileDrawable} for the given initials.
+     *
+     * @param initials   is the letters that will be drawn on the canvas. If it is null, then an
+     *                   avatar anonymous icon will be drawn
+     * @param identifier will decide the color for the drawable. If null, a default color will be
+     *                   used.
+     */
+    public static LetterTileDrawable createLetterTile(
+            Context context,
+            @Nullable String initials,
+            @Nullable String identifier) {
+        int numberOfLetter = context.getResources().getInteger(
+                R.integer.config_number_of_letters_shown_for_avatar);
+        String letters = initials != null
+                ? initials.substring(0, Math.min(initials.length(), numberOfLetter)) : null;
+        LetterTileDrawable letterTileDrawable = new LetterTileDrawable(context.getResources(),
+                letters, identifier);
+        return letterTileDrawable;
     }
 
-    /** Set the given phone number as the primary phone number for its associated contact. */
+    /**
+     * Set the given phone number as the primary phone number for its associated contact.
+     */
     public static void setAsPrimaryPhoneNumber(Context context, PhoneNumber phoneNumber) {
         // Update the primary values in the data record.
         ContentValues values = new ContentValues(1);
@@ -344,7 +474,9 @@ public class TelecomUtils {
                 values, null, null);
     }
 
-    /** Add a contact to favorite or remove it from favorite. */
+    /**
+     * Add a contact to favorite or remove it from favorite.
+     */
     public static int setAsFavoriteContact(Context context, Contact contact, boolean isFavorite) {
         if (contact.isStarred() == isFavorite) {
             return 0;
@@ -366,7 +498,7 @@ public class TelecomUtils {
     public static void markCallLogAsRead(Context context, String phoneNumberString) {
         if (context.checkSelfPermission(Manifest.permission.WRITE_CALL_LOG)
                 != PackageManager.PERMISSION_GRANTED) {
-            Log.w(TAG, "Missing WRITE_CALL_LOG permission; not marking missed calls as read.");
+            L.w(TAG, "Missing WRITE_CALL_LOG permission; not marking missed calls as read.");
             return;
         }
         ContentValues contentValues = new ContentValues();
@@ -396,8 +528,62 @@ public class TelecomUtils {
                             where.toString(),
                             selectionArgs.toArray(selectionArgsArray));
         } catch (IllegalArgumentException e) {
-            Log.e(TAG, "markCallLogAsRead failed", e);
+            L.e(TAG, "markCallLogAsRead failed", e);
         }
+    }
+
+    /**
+     * Returns the initials based on the name and nameAlt.
+     *
+     * @param name    should be the display name of a contact.
+     * @param nameAlt should be alternative display name of a contact.
+     */
+    public static String getInitials(String name, String nameAlt) {
+        StringBuilder initials = new StringBuilder();
+        if (!TextUtils.isEmpty(name) && Character.isLetter(name.charAt(0))) {
+            initials.append(Character.toUpperCase(name.charAt(0)));
+        }
+        if (!TextUtils.isEmpty(nameAlt)
+                && !TextUtils.equals(name, nameAlt)
+                && Character.isLetter(nameAlt.charAt(0))) {
+            initials.append(Character.toUpperCase(nameAlt.charAt(0)));
+        }
+        return initials.toString();
+    }
+
+    /**
+     * Creates a Letter Tile Icon that will display the given initials. If the initials are null,
+     * then an avatar anonymous icon will be drawn.
+     **/
+    public static Icon createLetterTile(Context context, @Nullable String initials,
+            String identifier, int avatarSize, float cornerRadiusPercent) {
+        LetterTileDrawable letterTileDrawable = TelecomUtils.createLetterTile(context, initials,
+                identifier);
+        RoundedBitmapDrawable roundedBitmapDrawable = RoundedBitmapDrawableFactory.create(
+                context.getResources(), letterTileDrawable.toBitmap(avatarSize));
+        return createFromRoundedBitmapDrawable(roundedBitmapDrawable, avatarSize,
+                cornerRadiusPercent);
+    }
+
+    /** Creates an Icon based on the given roundedBitmapDrawable. **/
+    public static Icon createFromRoundedBitmapDrawable(RoundedBitmapDrawable roundedBitmapDrawable,
+            int avatarSize, float cornerRadiusPercent) {
+        float radius = avatarSize * cornerRadiusPercent;
+        roundedBitmapDrawable.setCornerRadius(radius);
+
+        final Bitmap result = Bitmap.createBitmap(avatarSize, avatarSize,
+                Bitmap.Config.ARGB_8888);
+        final Canvas canvas = new Canvas(result);
+        roundedBitmapDrawable.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
+        roundedBitmapDrawable.draw(canvas);
+        return Icon.createWithBitmap(result);
+    }
+
+    /**
+     * Sets the direction of a string, used for displaying phone numbers.
+     */
+    public static String getBidiWrappedNumber(String string) {
+        return BidiFormatter.getInstance().unicodeWrap(string, TextDirectionHeuristics.LTR);
     }
 
     private static Uri makeResourceUri(Context context, int resourceId) {
@@ -408,4 +594,13 @@ public class TelecomUtils {
                 .build();
     }
 
+    /**
+     * This is a workaround for Log.Pii(). It will only show the last {@link #PII_STRING_LENGTH}
+     * characters.
+     */
+    public static String piiLog(Object pii) {
+        String piiString = String.valueOf(pii);
+        return piiString.length() >= PII_STRING_LENGTH ? "*" + piiString.substring(
+                piiString.length() - PII_STRING_LENGTH) : piiString;
+    }
 }

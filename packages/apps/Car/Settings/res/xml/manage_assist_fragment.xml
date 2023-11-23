@@ -18,7 +18,8 @@
 <PreferenceScreen
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:settings="http://schemas.android.com/apk/res-auto"
-    android:title="@string/assist_and_voice_input_settings">
+    android:title="@string/assist_and_voice_input_settings"
+    android:key="@string/psk_manage_assist">
     <com.android.car.settings.common.ButtonPreference
         android:key="@string/pk_default_assist"
         android:title="@string/assist_app_settings"

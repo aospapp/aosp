@@ -173,7 +173,7 @@ public class Player extends MediaSession.Callback {
         }
         // Check permissions every time we try to play
         if (!Utils.hasRequiredPermissions(mContext)) {
-            Utils.startPermissionRequest(mContext);
+            setMissingPermissionError();
         } else {
             requestAudioFocus(() -> resumePlayback());
         }
@@ -231,6 +231,25 @@ public class Player extends MediaSession.Callback {
         editor.commit();
     }
 
+    private void setMissingPermissionError() {
+        Intent prefsIntent = new Intent();
+        prefsIntent.setClass(mContext, PermissionsActivity.class);
+        prefsIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        PendingIntent pendingIntent = PendingIntent.getActivity(mContext, 0, prefsIntent, 0);
+
+        Bundle extras = new Bundle();
+        extras.putString(Utils.ERROR_RESOLUTION_ACTION_LABEL,
+                mContext.getString(R.string.permission_error_resolve));
+        extras.putParcelable(Utils.ERROR_RESOLUTION_ACTION_INTENT, pendingIntent);
+
+        PlaybackState state = new PlaybackState.Builder()
+                .setState(PlaybackState.STATE_ERROR, 0, 0)
+                .setErrorMessage(mContext.getString(R.string.permission_error))
+                .setExtras(extras)
+                .build();
+        mSession.setPlaybackState(state);
+    }
+
     private boolean maybeRebuildQueue(Playlist playlist) {
         List<QueueItem> queue = new ArrayList<>();
         int foundIdx = 0;
@@ -269,6 +288,10 @@ public class Player extends MediaSession.Callback {
     }
 
     public boolean maybeRestoreState() {
+        if (!Utils.hasRequiredPermissions(mContext)) {
+            setMissingPermissionError();
+            return false;
+        }
         String serialized = mSharedPrefs.getString(CURRENT_PLAYLIST_KEY, null);
         if (serialized == null) {
             return false;
@@ -401,6 +424,7 @@ public class Player extends MediaSession.Callback {
                 .setState(PlaybackState.STATE_PAUSED, currentPosition, PLAYBACK_SPEED_STOPPED)
                 .setActions(PAUSED_ACTIONS)
                 .addCustomAction(mShuffle)
+                .setActiveQueueItemId(mQueue.get(mCurrentQueueIdx).getQueueId())
                 .build();
         mSession.setPlaybackState(state);
 

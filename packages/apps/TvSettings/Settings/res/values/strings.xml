@@ -63,7 +63,7 @@
     <!-- Main Fragment General Settings Preferences -->
     <skip />
     <!-- Title for main screen preference for accounts on device [CHAR LIMIT=50] -->
-    <string name="accounts_category_title">Accounts &amp; Sign In</string>
+    <string name="accounts_category_title">Accounts &amp; sign-in</string>
     <!-- Summary for main screen preference for accounts on device indicates no account is signed in[CHAR LIMIT=50] -->
     <string name="accounts_category_summary_no_account">No accounts</string>
     <!-- Summary for main screen preference for accounts on device indicates several accounts are signed in[CHAR LIMIT=50] -->
@@ -71,14 +71,18 @@
         <item quantity="one"><xliff:g id="accounts_number">%1$d</xliff:g> account</item>
         <item quantity="other"><xliff:g id="accounts_number">%1$d</xliff:g> accounts</item>
     </plurals>
+    <!-- Summary for main screen preference for accounts on device slice [CHAR LIMIT=75] -->
+    <string name="accounts_slice_summary">Media services, Assistant, Payments</string>
     <!-- Title for main screen preference for network and Internet [CHAR LIMIT=50] -->
     <string name="connectivity_network_category_title">Network &amp; Internet</string>
+    <!-- Title for main screen preference for sound [CHAR LIMIT=50] -->
+    <string name="sound_category_title">Sound</string>
     <!-- Title for main screen preference for applications [CHAR LIMIT=50] -->
     <string name="applications_category_title">Apps</string>
     <!-- Title for main screen preference for device [CHAR_LIMIT_50] -->
     <string name="device_pref_category_title">Device Preferences</string>
     <!-- Title for main screen preference for remote and accessories [CHAR_LIMIT_50] -->
-    <string name="remotes_and_accessories_category_title">Remotes &amp; Accessories</string>
+    <string name="remotes_and_accessories_category_title">Remotes &amp; accessories</string>
     <!-- Summary for main screen preference for remote and accessories indicates no bluetooth device is connected [CHAR LIMIT=50] -->
     <string name="remotes_and_accessories_category_summary_no_bluetooth_device">No connected Bluetooth devices</string>
     <!-- Summary for main screen preference for remote and accessories indicates more than one devices connected[CHAR LIMIT=50] -->
@@ -86,6 +90,18 @@
         <item quantity="one"><xliff:g id="accessories_number">%1$d</xliff:g> accessory</item>
         <item quantity="other"><xliff:g id="accessories_number">%1$d</xliff:g> accessories</item>
     </plurals>
+    <!-- Title for main screen preference for display & sound [CHAR LIMIT=50] -->
+    <string name="display_and_sound_category_title">Display &amp; Sound</string>
+    <!-- Title for main screen preference for help and feedback [CHAR LIMIT=50] -->
+    <string name="help_and_feedback_category_title">Help &amp; Feedback</string>
+    <!-- Title for main screen preference for privacy settings [CHAR LIMIT=50] -->
+    <string name="privacy_category_title">Privacy</string>
+    <!-- Title for device-related privacy settings category [CHAR LIMIT=50] -->
+    <string name="privacy_device_settings_category">Device Settings</string>
+    <!-- Title for application-related privacy settings category [CHAR LIMIT=50] -->
+    <string name="privacy_app_settings_category">App Settings</string>
+    <!-- Summary for main screen preference for privacy settings [CHAR LIMIT=75] -->
+    <string name="privacy_category_summary">Location, Usage &amp; Diagnostics, Ads</string>
 
     <!-- Account preferences -->
     <skip />
@@ -100,7 +116,7 @@
     <!-- Sync status: in progress [CHAR LIMIT=50]-->
     <string name="sync_in_progress">Syncing\u2026</string>
     <!-- Sync status: last synced [CHAR LIMIT=50]-->
-    <string name="last_synced">Last synced <xliff:g id="time">%1s</xliff:g></string>
+    <string name="last_synced">Last synced <xliff:g id="time">%1$s</xliff:g></string>
     <!-- Sync status: disabled [CHAR LIMIT=50] -->
     <string name="sync_disabled">Disabled</string>
     <!-- Remove account item label: remove the account [CHAR LIMIT=30] -->
@@ -164,6 +180,8 @@
     <string name="device_daydream">Screen saver</string>
     <!-- Preference which changes display settings. [CHAR LIMIT=50] -->
     <string name="device_display">Display</string>
+    <!-- Title for preference screen controlling display & sound settings. [CHAR LIMIT=50] -->
+    <string name="device_display_sound">Display &amp; Sound</string>
     <!-- Title for preference screen controlling sound settings [CHAR LIMIT=50] -->
     <string name="device_sound">Sound</string>
     <!-- Title for preference which controls surround sound passthrough function [CHAR LIMIT=50] -->
@@ -175,15 +193,17 @@
     <!-- Preference which shows storage status. [CHAR LIMIT=50] -->
     <string name="device_storage">Storage</string>
     <!-- Preference which shows reset settings. [CHAR LIMIT=50] -->
-    <string name="device_reset">Reset</string>
+    <string name="device_reset">Factory reset</string>
     <!-- Preference which manages backup settings. [CHAR LIMIT=50] -->
     <string name="device_backup_restore">Backup &amp; restore</string>
     <!-- Preference which shows reset options [CHAR LIMIT=50] -->
     <string name="device_factory_reset">Factory data reset</string>
     <!-- Preference which sets the device's display calibration. [CHAR LIMIT=50] -->
     <string name="device_calibration">Calibration</string>
+    <!-- Preference which changes energy saver settings. [CHAR LIMIT=50] -->
+    <string name="device_energy_saver">Energy saver</string>
 
-    <!-- Surround sound screen -->
+    <!-- Display and sound screen -->
     <skip />
     <!-- Title for preference which when clicked lets the user select surround sound formats. [CHAR LIMIT=50] -->
     <string name="surround_sound_select_formats">Select formats</string>
@@ -208,6 +228,16 @@
     <string name="surround_sound_none_summary">None: Never use surround sound</string>
     <!-- Text for a radio button that if selected will allow the user to manually select surround sound formats. [CHAR LIMIT=50] -->
     <string name="surround_sound_manual_summary">Manual: Select which formats to use</string>
+
+    <!-- A category title for the settings related to display. [CHAR LIMIT=50] -->
+    <string name="display_category_title">Display</string>
+    <!-- Title for preference which when clicked lets the user configure advanced display settings. [CHAR LIMIT=50] -->
+    <string name="advanced_display_settings_title">Advanced display settings</string>
+    <!-- Title for preference which when clicked lets the user configure advanced sound settings. [CHAR LIMIT=50] -->
+    <string name="advanced_sound_settings_title">Advanced sound settings</string>
+    <!-- Title for preference to allow game mode for display. [CHAR LIMIT=50] -->
+    <string name="game_mode_title">Allow game mode</string>
+
 
     <!-- Title of dialog asking user to confirm before clearing all caches. [CHAR LIMIT=48] -->
     <string name="device_storage_clear_cache_title">Clear cached data?</string>
@@ -274,6 +304,13 @@
     <!-- Action title for Cancelling the Bluetooth secure Pair action [CHAR LIMIT=50] -->
     <string name="bluetooth_cancel">Cancel</string>
 
+    <!-- Help and feedback preferences -->
+    <skip />
+    <!-- Preference which manages sending feedback about an issue. [CHAR LIMIT=50] -->
+    <string name="send_feedback">Send feedback</string>
+    <!-- Preference which manages launching the help center. [CHAR LIMIT=50] -->
+    <string name="launch_help">Help Center</string>
+
     <!-- System -->
     <skip />
     <!-- Preference which manages cast settings. [CHAR LIMIT=50] -->
@@ -285,7 +322,7 @@
     <!-- Preference which manages input method settings (without autofill), see also system_keyboard_autofill [CHAR LIMIT=50] -->
     <string name="system_keyboard">Keyboard</string>
     <!-- Preference which manages both input method settings and autofill settings. [CHAR LIMIT=50] -->
-    <string name="system_keyboard_autofill">Keyboard &amp; Autofill</string>
+    <string name="system_keyboard_autofill">Keyboard &amp; autofill</string>
     <!-- Preference which manages autofill Service. [CHAR LIMIT=50] -->
     <string name="system_autofill">Autofill</string>
     <!-- Preference which manages home screen settings. [CHAR LIMIT=50] -->
@@ -311,7 +348,7 @@
     <!-- Label for no accessibility color or opacity [CHAR LIMIT=50] -->
     <string name="accessibility_none">None</string>
     <!-- Preference which manages Diagnostic and Usage reporting -->
-    <string name="system_diagnostic">Usage &amp; Diagnostics</string>
+    <string name="system_diagnostic">Usage &amp; diagnostics</string>
 
     <!-- About -->
     <skip />
@@ -324,7 +361,7 @@
     <!-- Preference which shows name of device as it will appear when being accessed remotely [CHAR LIMIT=50] -->
     <string name="device_name">Device name</string>
     <!-- Button to reboot the device [CHAR LIMIT=40] -->
-    <string name="restart_button_label">Restart</string>
+    <string name="restart_button_label">Reboot</string>
     <!-- Preference which shows legal info. [CHAR LIMIT=50] -->
     <string name="about_legal_info">Legal information</string>
     <!-- Preference which shows open source licenses [CHAR LIMIT=50]-->
@@ -435,10 +472,28 @@
     </string-array>
 
     <!-- titles for connection status -->
-    <!-- label mac address [CHAR LIMIT=50] -->
-    <string name="title_mac_address">MAC address</string>
+    <!-- label device mac address [CHAR LIMIT=50] -->
+    <string name="title_mac_address">Device MAC address</string>
+    <!-- label randomized mac address [CHAR LIMIT=50] -->
+    <string name="title_randomized_mac_address">Randomized MAC address</string>
     <!-- label signal strength [CHAR LIMIT=50] -->
     <string name="title_signal_strength">Signal strength</string>
+    <!-- label privacy (randomized MAC address settings) [CHAR LIMIT=20] -->
+    <string name="title_random_mac_settings">Privacy</string>
+    <!-- Options for randomized MAC address settings [CHAR LIMIT=50] -->
+    <string-array name="random_mac_settings_entries">
+        <item>Use randomized MAC (default)</item>
+        <item>Use device MAC</item>
+    </string-array>
+    <!-- Values for randomized MAC address settings [DO NOT TRANSLATE] -->
+    <string-array name="random_mac_settings_entry_values" translatable="false">
+        <item>random</item>
+        <item>device</item>
+    </string-array>
+    <!-- Indicate that Mac address is not available [CHAR LIMIT=50] -->
+    <string name="mac_address_not_available">Not available</string>
+    <!-- Summary for Wifi MAC randomization option when it is ephemeral network [CHAR LIMIT=50] -->
+    <string name="mac_address_ephemeral_summary">Randomized MAC</string>
     <!-- label IP address [CHAR LIMIT=50] -->
     <string name="title_ip_address">IP address</string>
     <!-- label SSID [CHAR LIMIT=50] -->
@@ -698,7 +753,7 @@
     <string name="storage_wizard_format_as_private_description">This requires the USB drive to be formatted to make it secure. After securely formatting, this drive will only work with this device. Formatting erases all data currently stored on the drive. To avoid losing the data, consider backing it up.</string>
 
     <!-- Title for wizard screen for formatting storage as device [CHAR LIMIT=64] -->
-    <string name="storage_wizard_format_as_public_title">Erase &amp; Format</string>
+    <string name="storage_wizard_format_as_public_title">Erase &amp; format</string>
     <!-- Description for wizard screen for formatting storage as device [CHAR LIMIT=NONE] -->
     <string name="storage_wizard_format_as_public_description">After formatting, you can use this USB drive in other devices. All data will be erased. Consider backing up first by moving apps to other device storage.</string>
 
@@ -1016,7 +1071,7 @@
     <!-- Title for HDMI optimization in System Settings Developer options [CHAR LIMIT=50] -->
     <string name="system_hdmi_optimization">HDMI optimization</string>
     <!-- Title for reboot confirmation in System Settings Developer options [CHAR LIMIT=50] -->
-    <string name="system_reboot_confirm">Restart now?</string>
+    <string name="system_reboot_confirm">Reboot now?</string>
     <!-- Description for reboot confirmation in System Settings Developer options [CHAR LIMIT=150] -->
     <string name="system_desc_reboot_confirm">To update this setting, your device needs to be restarted</string>
     <!-- Title for HDCP checking option in System Settings Developer options [CHAR LIMIT=50] -->
@@ -1130,10 +1185,6 @@
     <string name="security_unknown_sources_confirm_title">Allow unknown sources</string>
     <!-- Description for confirmation to allow installation of applications from unknown sources [CHAR LIMIT=NONE]-->
     <string name="security_unknown_sources_confirm_desc">Your device and personal data are more vulnerable to attack by apps from unknown sources. You agree that you are solely responsible for any damage to your device or loss of data that may result from using these apps.</string>
-    <!-- Title for action to warn before installing applications that may cause harm [CHAR LIMIT=50]-->
-    <string name="security_verify_apps_title">Verify apps</string>
-    <!-- Description for action to warn before installing of applications that may cause harm [CHAR LIMIT=NONE]-->
-    <string name="security_verify_apps_desc">Disallow or warn before installation of apps that may cause harm</string>
 
     <!-- Summary for HDCP checking preference. [CHAR LIMIT=100]-->
     <string name="system_hdcp_checking_never">Never</string>
@@ -1455,6 +1506,8 @@
     <string name="device_apps_app_management_clear_cache">Clear cache</string>
     <!-- Application management choice for changing the application's notifications option [CHAR LIMIT=40] -->
     <string name="device_apps_app_management_notifications">Notifications</string>
+    <!-- Application management choice for displaying the application's open source licenses [CHAR LIMIT=40] -->
+    <string name="device_apps_app_management_licenses">Open source licenses</string>
     <!-- Application management choice for displaying the application's permissions [CHAR LIMIT=40] -->
     <string name="device_apps_app_management_permissions">Permissions</string>
     <!-- Application management toast message when an app cannot be launched [CHAR LIMIT=100]-->
@@ -1479,10 +1532,16 @@
     <string name="device_daydreams_sleep_description">Screen saver begins after this period of inactivity. If no screen saver is selected, the display turns off.</string>
     <!-- Screen saver summary for displaying the time before the device goes to sleep -->
     <string name="device_daydreams_sleep_summary">After <xliff:g id="sleep_description" example="3 minutes">%1$s</xliff:g> of inactivity</string>
-    <!-- Screen saver choice for configuring the time before the device's screen goes off after dreaming [CHAR LIMIT=30] -->
-    <string name="device_daydreams_screen_off">Put device to sleep</string>
-    <!-- Screen saver description for configuring the time before the device's screen goes off after dreaming [CHAR LIMIT=NONE] -->
-    <string name="device_daydreams_screen_off_description">Screen turns off after this period of inactivity.</string>
+    <!-- Energy saver choice for configuring the time before the device's screen goes off after dreaming [CHAR LIMIT=30] -->
+    <string name="device_energy_saver_screen_off">Turn off display</string>
+    <!-- Energy saver summary for configuring the time before the device's screen goes off after dreaming [CHAR LIMIT=NONE] -->
+    <string name="device_energy_saver_screen_off_description">After <xliff:g id="sleep_description" example="4 hours">%1$s</xliff:g></string>
+    <!-- Energy saver dialog title for configuring the time before the device's screen goes off after dreaming [CHAR LIMIT=30] -->
+    <string name="device_energy_saver_screen_off_dialog_title">Turn off display after</string>
+    <!-- Energy saver choice for allow turning screen off during media playback [CHAR LIMIT=NONE] -->
+    <string name="device_energy_saver_allow_turning_screen_off">Allow turning screen off</string>
+    <!-- Energy saver description for allow turning screen off during media playback [CHAR LIMIT=NONE] -->
+    <string name="device_energy_saver_allow_turning_screen_off_description">During media playback</string>
     <!-- Default summary text of the "Configure backup account" setting [CHAR LIMIT=80] -->
     <string name="backup_configure_account_default_summary">No account is currently storing backed up data</string>
     <!-- Dialog title for confirmation to erase backup data from server -->
@@ -1500,7 +1559,7 @@
     <!-- Factory reset description about what happens when you perform a factory reset [CHAR LIMIT=NONE] -->
     <string name="factory_reset_description">This will erase all data from your device\'s internal storage, including: your Google account, system and app data and settings, and downloaded apps</string>
     <!-- Factory reset screen, message on screen after user selects Reset phone button -->
-    <string name="confirm_factory_reset_description">Erase all your personal information and downloaded apps? You can\'t reverse this action!</string>
+    <string name="confirm_factory_reset_description">Erase all your personal information and downloaded apps on this device? You can\'t reverse this action!</string>
     <!-- Factory reset screen, button on screen after user selects Reset phone button -->
     <string name="confirm_factory_reset_device">Erase everything</string>
 
@@ -1644,5 +1703,88 @@
     <string name="special_access">Special app access</string>
 
     <!-- concat two strings, e.g. "Android Keyboard, My Pass" [CHAR LIMIT=NONE] -->
-    <string name="string_concat"><xliff:g id="part1">%1s</xliff:g>, <xliff:g id="part2">%2s</xliff:g></string>
+    <string name="string_concat"><xliff:g id="part1">%1$s</xliff:g>, <xliff:g id="part2">%2$s</xliff:g></string>
+
+    <!-- Group header for the audio category in developer options. [CHAR LIMIT=50] -->
+    <string name="audio_category">Audio</string>
+
+    <!-- Title for the preference to toggle audio recording. [CHAR LIMIT=40] -->
+    <string name="record_audio">Record audio</string>
+    <!-- Summary for the preference to toggle audio recording when enabled. [CHAR LIMIT=50] -->
+    <string name="record_audio_summary_on">Disable to stop recording audio</string>
+    <!-- Summary for the preference to toggle audio recording when disabled. [CHAR LIMIT=50] -->
+    <string name="record_audio_summary_off">Enable to immediately start recording audio</string>
+
+    <!-- Title of the preference for playing recorded audio. [CHAR LIMIT=50] -->
+    <string name="play_recorded_audio_title">Play recorded audio</string>
+
+    <!-- Title of the preference for saving recorded audio. [CHAR LIMIT=50] -->
+    <string name="save_recorded_audio_title">Save recorded audio</string>
+
+    <!-- Title of the preference displaying the amount of time before reading audio. [CHAR LIMIT=50] -->
+    <string name="time_to_start_read_title">Time to start reading</string>
+
+    <!-- Title of the preference displaying the amount of time before recording audio. [CHAR LIMIT=50] -->
+    <string name="time_to_valid_audio_title">Time to valid audio data</string>
+
+    <!-- Title of the preference displaying the duration of empty audio received. [CHAR LIMIT=50] -->
+    <string name="empty_audio_duration_title">Duration of empty audio</string>
+
+    <!-- Notification that audio recording failed to start. [CHAR LIMIT=100] -->
+    <string name="show_audio_recording_start_failed">Failed to start recording audio.</string>
+
+    <!-- Notification that audio recording failed. [CHAR LIMIT=100] -->
+    <string name="show_audio_recording_failed"> Audio recording failed.</string>
+
+    <!-- Title of the preference displaying data saver setting. [CHAR LIMIT=50] -->
+    <string name="title_data_saver">Data Saver</string>
+
+    <!-- Summary of the preference displaying data saver setting. [CHAR LIMIT=80] -->
+    <string name="summary_data_saver">Automatically adjust video quality to use less mobile data</string>
+
+    <!-- Title of the preference displaying data usages and alerts setting. [CHAR LIMIT=50] -->
+    <string name="title_data_alert">Data usage and alerts</string>
+
+    <!-- Slice uri for "Accounts & Sign in" -->
+    <string name="account_slice_uri" translatable="false"/>
+
+    <!-- Slice uri for "Connected devices" -->
+    <string name="connected_devices_slice_uri" translatable="false"/>
+    <!-- Slice uri for "hdr settings" -->
+    <string name="hdr_settings_slice_uri" translatable="false"/>
+
+    <string name="storage_summary_fragment_name" translatable="false"/>
+
+    <!-- Title for dialog displayed when user selects on a setting locked by an admin [CHAR LIMIT=30 BACKUP_MESSAGE_ID:4867639270211833535] -->
+    <string name="disabled_by_policy_title">Action not allowed</string>
+    <!-- Title for dialog displayed to tell user that changing volume was disallowed by an admin [CHAR LIMIT=50] -->
+    <string name="disabled_by_policy_title_adjust_volume">Can’t change volume</string>
+    <!-- Title for dialog displayed to tell user that outgoing calls were disabled by an admin [CHAR LIMIT=50] -->
+    <string name="disabled_by_policy_title_outgoing_calls">Calling not allowed</string>
+    <!-- Title for dialog displayed to tell user that sending SMS were disabled by an admin [CHAR LIMIT=50] -->
+    <string name="disabled_by_policy_title_sms">SMS not allowed</string>
+    <!-- Title for dialog displayed to tell user that the camera was disabled by an admin [CHAR LIMIT=50] -->
+    <string name="disabled_by_policy_title_camera">Camera not allowed</string>
+    <!-- Title for dialog displayed to tell user that screenshots are disabled by an admin [CHAR LIMIT=50] -->
+    <string name="disabled_by_policy_title_screen_capture">Screenshot not allowed</string>
+    <!-- Title for dialog displayed to tell user that the app was suspended by an admin [CHAR LIMIT=50] -->
+    <string name="disabled_by_policy_title_suspend_packages">Can’t open this app</string>
+
+    <string name="default_admin_support_msg">If you have questions, contact your IT admin</string>
+
+    <!-- Title for Network connection request Dialog [CHAR LIMIT=60] -->
+    <string name="network_connection_request_dialog_title">Device to use with <xliff:g id="appName" example="ThirdPartyAppName">%1$s</xliff:g></string>
+    <!-- Message for Network connection timeout Dialog [CHAR LIMIT=NONE] -->
+    <string name="network_connection_timeout_dialog_message">No devices found. Make sure devices are turned on and available to connect.</string>
+    <!-- OK button for Network connection timeout Dialog [CHAR LIMIT=30] -->
+    <string name="network_connection_timeout_dialog_ok">Try again</string>
+    <!-- Message for Network connection error state Dialog [CHAR LIMIT=NONE] -->
+    <string name="network_connection_errorstate_dialog_message">Something came up. The application has cancelled the request to choose a device.</string>
+    <!-- Toast message when connection is successful [CHAR LIMIT=30] -->
+    <string name="network_connection_connect_successful">Connection successful</string>
+    <!-- Neutral button for Network connection request Dialog [CHAR LIMIT=30] -->
+    <string name="network_connection_request_dialog_showall">Show all</string>
+    <!--Bluetooth settings screen, text that appears in heading bar when scanning for devices -->
+    <string name="progress_scanning">Searching</string>
+
 </resources>

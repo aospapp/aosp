@@ -47,11 +47,18 @@ public class SharedInputHandlerTest {
     private TestDrawerController mDrawer = TestDrawerController.create();
     private boolean mDirPopHappened;
     private boolean mCanceledSearch;
+    private boolean mSearchExecuted;
     private Procedure mDirPopper = new Procedure() {
         @Override
         public boolean run() {
             mDirPopHappened = true;
             return true;
+        }
+    };
+    private Runnable mSearchExecutor = new Runnable() {
+        @Override
+        public void run() {
+            mSearchExecuted = true;
         }
     };
 
@@ -61,12 +68,11 @@ public class SharedInputHandlerTest {
         mSharedInputHandler = new SharedInputHandler(
                 mFocusHandler,
                 mSelectionMgr,
-                () -> {
-                    return false;
-                },
+                () -> false,
                 mDirPopper,
                 mFeatures,
-                mDrawer);
+                mDrawer,
+                mSearchExecutor);
     }
 
     @Test
@@ -88,7 +94,8 @@ public class SharedInputHandlerTest {
                 },
                 mDirPopper,
                 new TestFeatures(),
-                mDrawer);
+                mDrawer,
+                mSearchExecutor);
         KeyEvent backEvent =
                 new KeyEvent(0, 0, MotionEvent.ACTION_DOWN, KeyEvent.KEYCODE_BACK, 0, 0);
         assertTrue(mSharedInputHandler.onKeyDown(backEvent.getKeyCode(), backEvent));
@@ -146,7 +153,8 @@ public class SharedInputHandlerTest {
                 },
                 mDirPopper,
                 new TestFeatures(),
-                mDrawer);
+                mDrawer,
+                mSearchExecutor);
         KeyEvent escapeEvent =
                 new KeyEvent(0, 0, MotionEvent.ACTION_DOWN, KeyEvent.KEYCODE_ESCAPE, 0, 0);
         assertTrue(mSharedInputHandler.onKeyDown(escapeEvent.getKeyCode(), escapeEvent));
@@ -207,5 +215,14 @@ public class SharedInputHandlerTest {
         assertTrue(mSharedInputHandler.onKeyDown(navEvent.getKeyCode(), navEvent));
 
         assertTrue(mFocusHandler.focusDirectoryCalled);
+    }
+
+    @Test
+    public void testSearchKey_LaunchSearchView() {
+        KeyEvent searchEvent =
+                new KeyEvent(0, 0, MotionEvent.ACTION_DOWN, KeyEvent.KEYCODE_SEARCH, 0, 0);
+        assertTrue(mSharedInputHandler.onKeyDown(searchEvent.getKeyCode(), searchEvent));
+
+        assertTrue(mSearchExecuted);
     }
 }

@@ -18,17 +18,18 @@ package com.android.car.settings.security;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.setupwizardlib.InitialLockSetupConstants.ValidateLockFlags;
+import com.android.internal.widget.LockscreenCredential;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestRunner;
 
 /**
  * Tests for PasswordHelper class.
  */
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 public class PasswordHelperTest {
 
     private PasswordHelper mPasswordHelper;
@@ -46,7 +47,7 @@ public class PasswordHelperTest {
      */
     @Test
     public void testValidatePasswordTooShort() {
-        byte[] password = "lov".getBytes();
+        LockscreenCredential password = LockscreenCredential.createPassword("lov");
         assertThat(mPasswordHelper.validate(password))
                 .isEqualTo(PasswordHelper.TOO_SHORT);
     }
@@ -56,7 +57,7 @@ public class PasswordHelperTest {
      */
     @Test
     public void testValidatePasswordWhiteSpace() {
-        byte[] password = "pass wd".getBytes();
+        LockscreenCredential password = LockscreenCredential.createPassword("pass wd");
         assertThat(mPasswordHelper.validate(password))
                 .isEqualTo(PasswordHelper.NO_ERROR);
     }
@@ -67,7 +68,7 @@ public class PasswordHelperTest {
      */
     @Test
     public void testValidatePasswordNonAscii() {
-        byte[] password = "1passwýd".getBytes();
+        LockscreenCredential password = LockscreenCredential.createPassword("1passwýd");
         assertThat(mPasswordHelper.validate(password))
                 .isEqualTo(PasswordHelper.CONTAINS_INVALID_CHARACTERS);
     }
@@ -77,7 +78,7 @@ public class PasswordHelperTest {
      */
     @Test
     public void testValidatePinContainingNonDigits() {
-        byte[] password = "1a34".getBytes();
+        LockscreenCredential password = LockscreenCredential.createPassword("1a34");
         assertThat(mPinHelper.validate(password))
                 .isEqualTo(PasswordHelper.CONTAINS_NON_DIGITS);
     }
@@ -87,7 +88,7 @@ public class PasswordHelperTest {
      */
     @Test
     public void testValidatePinWithTooFewDigits() {
-        byte[] password = "12".getBytes();
+        LockscreenCredential password = LockscreenCredential.createPassword("12");
         assertThat(mPinHelper.validate(password))
                 .isEqualTo(PasswordHelper.TOO_SHORT);
     }

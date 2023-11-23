@@ -20,4 +20,7 @@
     <dimen name="fab_outline_size">84dp</dimen>
 
     <dimen name="keypad_margin">@*android:dimen/car_padding_4</dimen>
+
+    <dimen name="dialpad_info_title_text_size_max">36sp</dimen>
+    <dimen name="dialpad_info_margin_start">154dp</dimen>
 </resources>

@@ -32,7 +32,6 @@ import android.os.Bundle;
 
 import androidx.loader.app.LoaderManager;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.testutils.ShadowINetworkStatsServiceStub;
 import com.android.car.settings.testutils.ShadowNetworkPolicyManager;
 
@@ -44,11 +43,12 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 
 /** Unit test for {@link AppsNetworkStatsManager}. */
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 @Config(shadows = {ShadowINetworkStatsServiceStub.class, ShadowNetworkPolicyManager.class})
 public class AppsNetworkStatsManagerTest {
 

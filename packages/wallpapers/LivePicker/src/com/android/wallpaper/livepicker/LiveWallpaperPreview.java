@@ -154,6 +154,13 @@ public class LiveWallpaperPreview extends Activity {
 
         mWallpaperManager = WallpaperManager.getInstance(this);
         mWallpaperConnection = new WallpaperConnection(mWallpaperIntent);
+        getWindow().getDecorView().post(new Runnable() {
+            public void run() {
+                if (!mWallpaperConnection.connect()) {
+                    mWallpaperConnection = null;
+                }
+            }
+        });
 
         if (!TextUtils.isEmpty(deleteAction)) {
             mDeleteIntent = new Intent(deleteAction);
@@ -517,48 +524,17 @@ public class LiveWallpaperPreview extends Activity {
     @Override
     public void onResume() {
         super.onResume();
-        if (mWallpaperConnection != null && mWallpaperConnection.mEngine != null) {
-            try {
-                mWallpaperConnection.mEngine.setVisibility(true);
-            } catch (RemoteException e) {
-                // Ignore
-            }
+        if (mWallpaperConnection != null) {
+            mWallpaperConnection.setVisibility(true);
         }
     }
 
     @Override
     public void onPause() {
         super.onPause();
-        if (mWallpaperConnection != null && mWallpaperConnection.mEngine != null) {
-            try {
-                mWallpaperConnection.mEngine.setVisibility(false);
-            } catch (RemoteException e) {
-                // Ignore
-            }
-        }
-    }
-
-    @Override
-    public void onAttachedToWindow() {
-        super.onAttachedToWindow();
-
-        getWindow().getDecorView().post(new Runnable() {
-            public void run() {
-                if (!mWallpaperConnection.connect()) {
-                    mWallpaperConnection = null;
-                }
-            }
-        });
-    }
-
-    @Override
-    public void onDetachedFromWindow() {
-        super.onDetachedFromWindow();
-
         if (mWallpaperConnection != null) {
-            mWallpaperConnection.disconnect();
+            mWallpaperConnection.setVisibility(false);
         }
-        mWallpaperConnection = null;
     }
 
     @Override
@@ -567,6 +543,10 @@ public class LiveWallpaperPreview extends Activity {
             mLiveDataSettings.removeObserver(mSliceViewSettings);
             mLiveDataSettings = null;
         }
+        if (mWallpaperConnection != null) {
+            mWallpaperConnection.disconnect();
+        }
+        mWallpaperConnection = null;
         super.onDestroy();
     }
 
@@ -610,6 +590,8 @@ public class LiveWallpaperPreview extends Activity {
         IWallpaperService mService;
         IWallpaperEngine mEngine;
         boolean mConnected;
+        boolean mIsVisible;
+        boolean mIsEngineVisible;
 
         WallpaperConnection(Intent intent) {
             mIntent = intent;
@@ -675,10 +657,8 @@ public class LiveWallpaperPreview extends Activity {
             synchronized (this) {
                 if (mConnected) {
                     mEngine = engine;
-                    try {
-                        engine.setVisibility(true);
-                    } catch (RemoteException e) {
-                        // Ignore
+                    if (mIsVisible) {
+                        setEngineVisibility(true);
                     }
                 } else {
                     try {
@@ -711,6 +691,22 @@ public class LiveWallpaperPreview extends Activity {
                                 android.R.interpolator.fast_out_linear_in))
                         .withEndAction(() -> mLoading.setVisibility(View.INVISIBLE));
             });
+        }
+
+        public void setVisibility(boolean visible) {
+            mIsVisible = visible;
+            setEngineVisibility(visible);
+        }
+
+        private void setEngineVisibility(boolean visible) {
+            if (mEngine != null && visible != mIsEngineVisible) {
+                try {
+                    mEngine.setVisibility(visible);
+                    mIsEngineVisible = visible;
+                } catch (RemoteException e) {
+                    Log.w(LOG_TAG, "Failure setting wallpaper visibility ", e);
+                }
+            }
         }
     }
 

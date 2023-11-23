@@ -16,6 +16,8 @@
 
 package com.android.documentsui.base;
 
+import static androidx.core.util.Preconditions.checkArgument;
+
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.Mockito.mock;
@@ -31,6 +33,8 @@ import android.test.suitebuilder.annotation.SmallTest;
 import androidx.test.rule.provider.ProviderTestRule;
 
 import com.android.documentsui.InspectorProvider;
+import com.android.documentsui.testing.TestProvidersAccess;
+import com.android.documentsui.util.VersionUtils;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -64,6 +68,7 @@ public class DocumentInfoTest extends AndroidTestCase {
 
     private static DocumentInfo createDocInfo(String authority, String docId, String mimeType) {
         DocumentInfo doc = new DocumentInfo();
+        doc.userId = UserId.DEFAULT_USER;
         doc.authority = authority;
         doc.documentId = docId;
         doc.mimeType = mimeType;
@@ -94,6 +99,14 @@ public class DocumentInfoTest extends AndroidTestCase {
     public void testEquals_HandlesNullFields() throws Exception {
         assertFalse(TEST_DOC.equals(new DocumentInfo()));
         assertFalse(new DocumentInfo().equals(TEST_DOC));
+    }
+
+    @Test
+    public void testNotEquals_differentUser() throws Exception {
+        DocumentInfo documentInfo1 = createDocInfo("authority.a", "doc.1", "text/plain");
+        DocumentInfo documentInfo2 = createDocInfo("authority.a", "doc.1", "text/plain");
+        documentInfo1.userId = UserId.of(documentInfo2.userId.getIdentifier() + 1);
+        assertFalse(documentInfo1.equals(documentInfo2));
     }
 
     @Test
@@ -135,5 +148,58 @@ public class DocumentInfoTest extends AndroidTestCase {
         assertThat(mimeTypes.size()).isEqualTo(1);
 
         assertThat(mimeTypes.contains("text/plain")).isTrue();
+    }
+
+    @Test
+    public void testGetTreeDocumentUri_currentUser() {
+        checkArgument(UserId.CURRENT_USER.equals(TEST_DOC.userId));
+
+        assertThat(TEST_DOC.getTreeDocumentUri())
+                .isEqualTo(DocumentsContract.buildTreeDocumentUri(TEST_DOC.authority,
+                        TEST_DOC.documentId));
+    }
+
+    @Test
+    public void testGetTreeDocumentUri_otherUser_shouldHaveDifferentUri() {
+        if (VersionUtils.isAtLeastR()) {
+            final DocumentInfo doc = createDocInfo("authority.a", "doc.1", "text/plain");
+            final DocumentInfo otherUserDoc = createDocInfo("authority.a", "doc.1", "text/plain");
+            otherUserDoc.userId = TestProvidersAccess.OtherUser.USER_ID;
+
+            // Make sure they do not return the same tree uri
+            assertThat(otherUserDoc.getTreeDocumentUri()).isNotEqualTo(doc.getTreeDocumentUri());
+        }
+    }
+
+    @Test
+    public void testGetTreeDocumentUri_otherUser_sameHostAndPath() {
+        if (VersionUtils.isAtLeastR()) {
+            final DocumentInfo doc = createDocInfo("authority.a", "doc.1", "text/plain");
+            final DocumentInfo otherUserDoc = createDocInfo("authority.a", "doc.1", "text/plain");
+            otherUserDoc.userId = TestProvidersAccess.OtherUser.USER_ID;
+
+            // They should have same host(authority without user info) and path
+            assertThat(otherUserDoc.getTreeDocumentUri().getHost())
+                    .isEqualTo(doc.getTreeDocumentUri().getHost());
+            assertThat(otherUserDoc.getTreeDocumentUri().getPath())
+                    .isEqualTo(doc.getTreeDocumentUri().getPath());
+        }
+    }
+
+    @Test
+    public void testGetTreeDocumentUri_otherUser_userInfo() {
+        if (VersionUtils.isAtLeastR()) {
+            final DocumentInfo doc = createDocInfo("authority.a", "doc.1", "text/plain");
+            final DocumentInfo otherUserDoc = createDocInfo("authority.a", "doc.1", "text/plain");
+            otherUserDoc.userId = TestProvidersAccess.OtherUser.USER_ID;
+
+            // Different user info between doc and otherUserDoc
+            assertThat(otherUserDoc.getTreeDocumentUri().getUserInfo())
+                    .isNotEqualTo(doc.getTreeDocumentUri().getUserInfo());
+
+            // Same user info within otherUserDoc
+            assertThat(otherUserDoc.getTreeDocumentUri().getUserInfo())
+                    .isEqualTo(otherUserDoc.getDocumentUri().getUserInfo());
+        }
     }
 }

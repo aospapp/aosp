@@ -16,6 +16,7 @@
 
 package com.android.car.settings.users;
 
+import android.car.user.CarUserManager;
 import android.car.userlib.CarUserManagerHelper;
 import android.content.pm.UserInfo;
 import android.os.AsyncTask;
@@ -24,11 +25,16 @@ import android.os.AsyncTask;
  * Task to add a new user to the device
  */
 public class AddNewUserTask extends AsyncTask<String, Void, UserInfo> {
+    private final CarUserManager mCarUserManager;
     private final CarUserManagerHelper mCarUserManagerHelper;
     private final AddNewUserListener mAddNewUserListener;
 
-    public AddNewUserTask(CarUserManagerHelper helper, AddNewUserListener addNewUserListener) {
-        mCarUserManagerHelper = helper;
+    // TODO: Completely deprecate the usage of CarUserManagerHelper once all of its functionalities
+    // can be handled by CarUserManager's interfaces.
+    public AddNewUserTask(CarUserManagerHelper carUserManagerHelper, CarUserManager carUserManager,
+            AddNewUserListener addNewUserListener) {
+        mCarUserManager = carUserManager;
+        mCarUserManagerHelper = carUserManagerHelper;
         mAddNewUserListener = addNewUserListener;
     }
 
@@ -44,7 +50,7 @@ public class AddNewUserTask extends AsyncTask<String, Void, UserInfo> {
     protected void onPostExecute(UserInfo user) {
         if (user != null) {
             mAddNewUserListener.onUserAddedSuccess();
-            mCarUserManagerHelper.switchToUser(user);
+            mCarUserManager.switchUser(user.id);
         } else {
             mAddNewUserListener.onUserAddedFailure();
         }

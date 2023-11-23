@@ -34,14 +34,15 @@ public final class PermissionUtil {
      * Check that the caller is allowed to communicate with the network stack.
      * @throws SecurityException The caller is not allowed to communicate with the network stack.
      */
-    public static void checkNetworkStackCallingPermission() {
+    public static void enforceNetworkStackCallingPermission() {
         final int caller = getCallingUid();
         if (caller == Process.SYSTEM_UID) {
             checkConsistentSystemPid();
             return;
         }
 
-        if (UserHandle.getAppId(caller) != Process.BLUETOOTH_UID) {
+        if (caller != Process.myUid() && // apps with NETWORK_STACK_UID
+                UserHandle.getAppId(caller) != Process.BLUETOOTH_UID) {
             throw new SecurityException("Invalid caller: " + caller);
         }
     }
@@ -72,7 +73,7 @@ public final class PermissionUtil {
      */
     public static void checkDumpPermission() {
         final int caller = getCallingUid();
-        if (caller != Process.SYSTEM_UID && caller != Process.ROOT_UID
+        if (caller != Process.myUid() && caller != Process.SYSTEM_UID && caller != Process.ROOT_UID
                 && caller != Process.SHELL_UID) {
             throw new SecurityException("No dump permissions for caller: " + caller);
         }

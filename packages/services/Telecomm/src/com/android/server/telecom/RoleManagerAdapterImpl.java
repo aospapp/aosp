@@ -38,7 +38,6 @@ public class RoleManagerAdapterImpl implements RoleManagerAdapter {
 
     private String mOverrideDefaultCallRedirectionApp = null;
     private String mOverrideDefaultCallScreeningApp = null;
-    private String mOverrideDefaultCarModeApp = null;
     private String mOverrideDefaultDialerApp = null;
     private List<String> mOverrideCallCompanionApps = new ArrayList<>();
     private Context mContext;
@@ -112,19 +111,6 @@ public class RoleManagerAdapterImpl implements RoleManagerAdapter {
     }
 
     @Override
-    public String getCarModeDialerApp() {
-        if (mOverrideDefaultCarModeApp != null) {
-            return mOverrideDefaultCarModeApp;
-        }
-        return getRoleManagerCarModeDialerApp();
-    }
-
-    @Override
-    public void setTestAutoModeApp(String packageName) {
-        mOverrideDefaultCarModeApp = packageName;
-    }
-
-    @Override
     public void setCurrentUserHandle(UserHandle currentUserHandle) {
         mCurrentUserHandle = currentUserHandle;
     }
@@ -145,11 +131,6 @@ public class RoleManagerAdapterImpl implements RoleManagerAdapter {
             return null;
         }
         return roleHolders.get(0);
-    }
-
-    // TODO in R: query and return car mode apps
-    private String getRoleManagerCarModeDialerApp() {
-        return null;
     }
 
     // TODO in R: Use companion app manager
@@ -210,15 +191,6 @@ public class RoleManagerAdapterImpl implements RoleManagerAdapter {
             pw.print(mOverrideDefaultCallScreeningApp);
             pw.print(") ");
             pw.print(getRoleManagerCallScreeningApp());
-        }
-        pw.println();
-
-        pw.print("DefaultCarModeDialerApp: ");
-        if (mOverrideDefaultCarModeApp != null) {
-            pw.print("(override ");
-            pw.print(mOverrideDefaultCarModeApp);
-            pw.print(") ");
-            pw.print(getRoleManagerCarModeDialerApp());
         }
         pw.println();
 

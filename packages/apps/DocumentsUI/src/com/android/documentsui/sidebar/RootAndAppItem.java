@@ -18,7 +18,9 @@ package com.android.documentsui.sidebar;
 
 import android.content.Context;
 import android.content.pm.ResolveInfo;
+import android.os.UserManager;
 import android.provider.DocumentsProvider;
+import android.text.TextUtils;
 import android.view.View;
 
 import com.android.documentsui.ActionHandler;
@@ -34,14 +36,15 @@ class RootAndAppItem extends RootItem {
 
     public final ResolveInfo resolveInfo;
 
-    public RootAndAppItem(RootInfo root, ResolveInfo info, ActionHandler actionHandler) {
-        super(root, actionHandler, info.activityInfo.packageName);
+    public RootAndAppItem(RootInfo root, ResolveInfo info, ActionHandler actionHandler,
+            boolean maybeShowBadge) {
+        super(root, actionHandler, info.activityInfo.packageName, maybeShowBadge);
         this.resolveInfo = info;
     }
 
     @Override
     boolean showAppDetails() {
-        mActionHandler.showAppDetails(resolveInfo);
+        mActionHandler.showAppDetails(resolveInfo, userId);
         return true;
     }
 
@@ -50,7 +53,8 @@ class RootAndAppItem extends RootItem {
         final Context context = convertView.getContext();
 
         String contentDescription =
-                context.getResources().getString(R.string.open_external_app, root.title);
+                context.getResources().getString(
+                        R.string.open_external_app, userId.getUserBadgedLabel(context, root.title));
 
         bindAction(convertView, View.VISIBLE, R.drawable.ic_exit_to_app, contentDescription);
         bindIconAndTitle(convertView);
@@ -59,13 +63,14 @@ class RootAndAppItem extends RootItem {
 
     @Override
     protected void onActionClick(View view) {
-        mActionHandler.openRoot(resolveInfo);
+        mActionHandler.openRoot(resolveInfo, userId);
     }
 
     @Override
     public String toString() {
         return "RootAndAppItem{"
                 + "id=" + stringId
+                + ", userId=" + userId
                 + ", root=" + root
                 + ", resolveInfo=" + resolveInfo
                 + ", docInfo=" + docInfo

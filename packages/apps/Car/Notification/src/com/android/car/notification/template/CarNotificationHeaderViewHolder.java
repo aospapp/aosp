@@ -16,13 +16,14 @@
 package com.android.car.notification.template;
 
 import android.annotation.CallSuper;
+import android.content.Context;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.android.car.notification.NotificationClickHandlerFactory;
+import com.android.car.notification.CarNotificationItemController;
 import com.android.car.notification.R;
 
 /**
@@ -36,21 +37,29 @@ public class CarNotificationHeaderViewHolder extends RecyclerView.ViewHolder {
     private final TextView mNotificationHeaderText;
     private final Button mClearAllButton;
     private final TextView mEmptyNotificationHeaderText;
-    private final NotificationClickHandlerFactory mClickHandlerFactory;
+    private final CarNotificationItemController mNotificationItemController;
+    private final boolean mShowHeader;
 
-    public CarNotificationHeaderViewHolder(View view,
-            NotificationClickHandlerFactory clickHandlerFactory) {
+    public CarNotificationHeaderViewHolder(Context context, View view,
+            CarNotificationItemController notificationItemController) {
         super(view);
+
+        if (notificationItemController == null) {
+            throw new IllegalArgumentException(
+                    "com.android.car.notification.template.CarNotificationHeaderViewHolder did not "
+                            + "receive NotificationItemController from the Adapter.");
+        }
 
         mNotificationHeaderText = view.findViewById(R.id.notification_header_text);
         mClearAllButton = view.findViewById(R.id.clear_all_button);
         mEmptyNotificationHeaderText = view.findViewById(R.id.empty_notification_header_text);
-        mClickHandlerFactory = clickHandlerFactory;
+        mShowHeader = context.getResources().getBoolean(R.bool.config_showHeaderForNotifications);
+        mNotificationItemController = notificationItemController;
     }
 
     @CallSuper
     public void bind(boolean containsNotification) {
-        if (containsNotification) {
+        if (containsNotification && mShowHeader) {
             mNotificationHeaderText.setVisibility(View.VISIBLE);
             mEmptyNotificationHeaderText.setVisibility(View.GONE);
 
@@ -60,13 +69,19 @@ public class CarNotificationHeaderViewHolder extends RecyclerView.ViewHolder {
 
             mClearAllButton.setVisibility(View.VISIBLE);
             if (!mClearAllButton.hasOnClickListeners()) {
-                mClearAllButton.setOnClickListener(
-                        view -> mClickHandlerFactory.clearAllNotifications());
+                mClearAllButton.setOnClickListener(view -> {
+                    mNotificationItemController.clearAllNotifications();
+                });
             }
             return;
         }
+
+        if (containsNotification) {
+            mEmptyNotificationHeaderText.setVisibility(View.GONE);
+        } else {
+            mEmptyNotificationHeaderText.setVisibility(View.VISIBLE);
+        }
         mNotificationHeaderText.setVisibility(View.GONE);
-        mEmptyNotificationHeaderText.setVisibility(View.VISIBLE);
 
         if (mClearAllButton != null) {
             mClearAllButton.setVisibility(View.GONE);

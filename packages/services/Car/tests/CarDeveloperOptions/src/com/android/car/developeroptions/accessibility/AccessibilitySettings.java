@@ -52,16 +52,16 @@ import androidx.preference.PreferenceCategory;
 import androidx.preference.PreferenceScreen;
 import androidx.preference.SwitchPreference;
 
-import com.android.internal.accessibility.AccessibilityShortcutController;
-import com.android.internal.content.PackageMonitor;
-import com.android.internal.view.RotationPolicy;
-import com.android.internal.view.RotationPolicy.RotationPolicyListener;
 import com.android.car.developeroptions.R;
 import com.android.car.developeroptions.SettingsPreferenceFragment;
 import com.android.car.developeroptions.Utils;
 import com.android.car.developeroptions.display.DarkUIPreferenceController;
 import com.android.car.developeroptions.display.ToggleFontSizePreferenceFragment;
 import com.android.car.developeroptions.search.BaseSearchIndexProvider;
+import com.android.internal.accessibility.AccessibilityShortcutController;
+import com.android.internal.content.PackageMonitor;
+import com.android.internal.view.RotationPolicy;
+import com.android.internal.view.RotationPolicy.RotationPolicyListener;
 import com.android.settingslib.RestrictedLockUtils.EnforcedAdmin;
 import com.android.settingslib.RestrictedLockUtilsInternal;
 import com.android.settingslib.RestrictedPreference;
@@ -236,7 +236,6 @@ public class AccessibilitySettings extends SettingsPreferenceFragment implements
     private Preference mDisplayMagnificationPreferenceScreen;
     private Preference mFontSizePreferenceScreen;
     private Preference mAutoclickPreferenceScreen;
-    private Preference mAccessibilityShortcutPreferenceScreen;
     private Preference mDisplayDaltonizerPreferenceScreen;
     private Preference mHearingAidPreference;
     private Preference mVibrationPreferenceScreen;
@@ -514,9 +513,6 @@ public class AccessibilitySettings extends SettingsPreferenceFragment implements
         // Display color adjustments.
         mDisplayDaltonizerPreferenceScreen = findPreference(DISPLAY_DALTONIZER_PREFERENCE_SCREEN);
 
-        // Accessibility shortcut.
-        mAccessibilityShortcutPreferenceScreen = findPreference(ACCESSIBILITY_SHORTCUT_PREFERENCE);
-
         // Vibrations.
         mVibrationPreferenceScreen = findPreference(VIBRATION_PREFERENCE_SCREEN);
 
@@ -759,8 +755,6 @@ public class AccessibilitySettings extends SettingsPreferenceFragment implements
 
         updateAutoclickSummary(mAutoclickPreferenceScreen);
 
-        updateAccessibilityShortcut(mAccessibilityShortcutPreferenceScreen);
-
         updateAccessibilityTimeoutSummary(getContentResolver(),
                 findPreference(ACCESSIBILITY_CONTENT_TIMEOUT_PREFERENCE));
         updateAccessibilityTimeoutSummary(getContentResolver(),
@@ -934,23 +928,6 @@ public class AccessibilitySettings extends SettingsPreferenceFragment implements
                 getContentResolver(), Settings.System.MASTER_MONO,
                 0 /* default */, UserHandle.USER_CURRENT) == 1;
         mToggleMasterMonoPreference.setChecked(masterMono);
-    }
-
-    private void updateAccessibilityShortcut(Preference preference) {
-        if (AccessibilityManager.getInstance(getActivity())
-                .getInstalledAccessibilityServiceList().isEmpty()) {
-            mAccessibilityShortcutPreferenceScreen
-                    .setSummary(getString(R.string.accessibility_no_services_installed));
-            mAccessibilityShortcutPreferenceScreen.setEnabled(false);
-        } else {
-            mAccessibilityShortcutPreferenceScreen.setEnabled(true);
-            boolean shortcutEnabled =
-                    AccessibilityUtils.isShortcutEnabled(getContext(), UserHandle.myUserId());
-            CharSequence summary = shortcutEnabled
-                    ? AccessibilityShortcutPreferenceFragment.getServiceName(getContext())
-                    : getString(R.string.accessibility_feature_state_off);
-            mAccessibilityShortcutPreferenceScreen.setSummary(summary);
-        }
     }
 
     private static void configureMagnificationPreferenceIfNeeded(Preference preference) {

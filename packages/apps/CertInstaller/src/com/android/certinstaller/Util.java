@@ -30,8 +30,6 @@ import java.security.NoSuchAlgorithmException;
 class Util {
     private static final String TAG = "certinstaller.Util";
 
-    public static final String SETTINGS_PACKAGE = "com.android.settings";
-
     static byte[] toBytes(Object object) {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         try {

@@ -32,6 +32,7 @@ import androidx.preference.PreferenceGroup;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.Logger;
 import com.android.car.settings.common.PreferenceController;
+import com.android.car.ui.preference.CarUiPreference;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -71,17 +72,12 @@ public class EnabledKeyboardPreferenceController extends
     protected void updateState(PreferenceGroup preferenceGroup) {
         List<Preference> preferencesToDisplay = new ArrayList<>();
         Set<String> preferencesToRemove = new HashSet<>(mPreferences.keySet());
-        List<String> permittedList = mDevicePolicyManager.getPermittedInputMethodsForCurrentUser();
-        List<InputMethodInfo> inputMethodInfos = mInputMethodManager.getEnabledInputMethodList();
+        List<InputMethodInfo> inputMethodInfos =
+                InputMethodUtil.getPermittedAndEnabledInputMethodList(
+                    mInputMethodManager, mDevicePolicyManager);
         int size = (inputMethodInfos == null) ? 0 : inputMethodInfos.size();
         for (int i = 0; i < size; ++i) {
             InputMethodInfo inputMethodInfo = inputMethodInfos.get(i);
-            // permittedList is Null means that all input methods are allowed.
-            boolean isAllowedByOrganization = (permittedList == null)
-                    || permittedList.contains(inputMethodInfo.getPackageName());
-            if (!isAllowedByOrganization) {
-                continue;
-            }
 
             Preference preference = createPreference(inputMethodInfo);
             if (mPreferences.containsKey(preference.getKey())) {
@@ -122,7 +118,7 @@ public class EnabledKeyboardPreferenceController extends
      * Creates a preference.
      */
     private Preference createPreference(InputMethodInfo inputMethodInfo) {
-        Preference preference = new Preference(getContext());
+        CarUiPreference preference = new CarUiPreference(getContext());
         preference.setKey(String.valueOf(inputMethodInfo.hashCode()));
         preference.setIcon(InputMethodUtil.getPackageIcon(mPackageManager, inputMethodInfo));
         preference.setTitle(InputMethodUtil.getPackageLabel(mPackageManager, inputMethodInfo));

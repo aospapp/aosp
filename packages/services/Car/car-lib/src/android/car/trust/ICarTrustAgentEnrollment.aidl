@@ -26,6 +26,8 @@ import android.car.trust.TrustedDeviceInfo;
  * to communicate with the remote device securely to enroll the remote device as a trusted device.
  *
  * @hide
+ * @deprecated Enrolling a trusted device is no longer a supported feature and these APIs will be
+ * removed in the next Android release.
  */
 interface ICarTrustAgentEnrollment {
     void startEnrollmentAdvertising();

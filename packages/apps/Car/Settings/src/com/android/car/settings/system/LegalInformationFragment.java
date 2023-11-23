@@ -19,11 +19,15 @@ package com.android.car.settings.system;
 import androidx.annotation.XmlRes;
 
 import com.android.car.settings.R;
+import com.android.car.settings.common.CarSettingActivities.LegalInformationActivity;
 import com.android.car.settings.common.SettingsFragment;
+import com.android.car.settings.search.CarBaseSearchIndexProvider;
+import com.android.settingslib.search.SearchIndexable;
 
 /**
  * Fragment showing legal information.
  */
+@SearchIndexable
 public class LegalInformationFragment extends SettingsFragment {
 
     @Override
@@ -31,4 +35,11 @@ public class LegalInformationFragment extends SettingsFragment {
     protected int getPreferenceScreenResId() {
         return R.xml.legal_information_fragment;
     }
+
+    /**
+     * Data provider for Settings Search.
+     */
+    public static final CarBaseSearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
+            new CarBaseSearchIndexProvider(R.xml.legal_information_fragment,
+                    LegalInformationActivity.class);
 }

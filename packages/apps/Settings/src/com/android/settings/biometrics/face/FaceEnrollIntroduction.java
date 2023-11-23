@@ -26,6 +26,7 @@ import android.widget.TextView;
 import com.android.settings.R;
 import com.android.settings.Utils;
 import com.android.settings.biometrics.BiometricEnrollIntroduction;
+import com.android.settings.overlay.FeatureFactory;
 import com.android.settings.password.ChooseLockSettingsHelper;
 import com.android.settingslib.RestrictedLockUtilsInternal;
 
@@ -33,24 +34,28 @@ import com.google.android.setupcompat.template.FooterBarMixin;
 import com.google.android.setupcompat.template.FooterButton;
 import com.google.android.setupcompat.util.WizardManagerHelper;
 import com.google.android.setupdesign.span.LinkSpan;
+import com.google.android.setupdesign.template.RequireScrollMixin;
 
 public class FaceEnrollIntroduction extends BiometricEnrollIntroduction {
 
     private static final String TAG = "FaceIntro";
 
     private FaceManager mFaceManager;
+    private FaceFeatureProvider mFaceFeatureProvider;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         mFaceManager = Utils.getFaceManagerOrNull(this);
+        mFaceFeatureProvider = FeatureFactory.getFactory(getApplicationContext())
+                .getFaceFeatureProvider();
 
         mFooterBarMixin = getLayout().getMixin(FooterBarMixin.class);
         if (WizardManagerHelper.isAnySetupWizard(getIntent())) {
             mFooterBarMixin.setSecondaryButton(
                     new FooterButton.Builder(this)
-                            .setText(R.string.skip_label)
+                            .setText(R.string.security_settings_face_enroll_introduction_no_thanks)
                             .setListener(this::onSkipButtonClick)
                             .setButtonType(FooterButton.ButtonType.SKIP)
                             .setTheme(R.style.SudGlifButton_Secondary)
@@ -59,7 +64,7 @@ public class FaceEnrollIntroduction extends BiometricEnrollIntroduction {
         } else {
             mFooterBarMixin.setSecondaryButton(
                     new FooterButton.Builder(this)
-                            .setText(R.string.security_settings_face_enroll_introduction_cancel)
+                            .setText(R.string.security_settings_face_enroll_introduction_no_thanks)
                             .setListener(this::onCancelButtonClick)
                             .setButtonType(FooterButton.ButtonType.CANCEL)
                             .setTheme(R.style.SudGlifButton_Secondary)
@@ -67,14 +72,31 @@ public class FaceEnrollIntroduction extends BiometricEnrollIntroduction {
             );
         }
 
-        mFooterBarMixin.setPrimaryButton(
-                new FooterButton.Builder(this)
-                        .setText(R.string.wizard_next)
-                        .setListener(this::onNextButtonClick)
-                        .setButtonType(FooterButton.ButtonType.NEXT)
-                        .setTheme(R.style.SudGlifButton_Primary)
-                        .build()
-        );
+        FooterButton.Builder nextButtonBuilder = new FooterButton.Builder(this)
+                .setText(R.string.security_settings_face_enroll_introduction_agree)
+                .setButtonType(FooterButton.ButtonType.NEXT)
+                .setTheme(R.style.SudGlifButton_Primary);
+        if (maxFacesEnrolled()) {
+            nextButtonBuilder.setListener(this::onNextButtonClick);
+            mFooterBarMixin.setPrimaryButton(nextButtonBuilder.build());
+        } else {
+            final FooterButton agreeButton = nextButtonBuilder.build();
+            mFooterBarMixin.setPrimaryButton(agreeButton);
+            final RequireScrollMixin requireScrollMixin = getLayout().getMixin(
+                    RequireScrollMixin.class);
+            requireScrollMixin.requireScrollWithButton(this, agreeButton,
+                    R.string.security_settings_face_enroll_introduction_more,
+                    button -> {
+                        onNextButtonClick(button);
+                    });
+        }
+
+        final TextView footer2 = findViewById(R.id.face_enroll_introduction_footer_part_2);
+        final int footer2TextResource =
+                mFaceFeatureProvider.isAttentionSupported(getApplicationContext())
+                        ? R.string.security_settings_face_enroll_introduction_footer_part_2
+                        : R.string.security_settings_face_settings_footer_attention_not_supported;
+        footer2.setText(footer2TextResource);
     }
 
     @Override
@@ -124,13 +146,22 @@ public class FaceEnrollIntroduction extends BiometricEnrollIntroduction {
         return findViewById(R.id.error_text);
     }
 
-    @Override
-    protected int checkMaxEnrolled() {
+    private boolean maxFacesEnrolled() {
         if (mFaceManager != null) {
             final int max = getResources().getInteger(
                     com.android.internal.R.integer.config_faceMaxTemplatesPerUser);
             final int numEnrolledFaces = mFaceManager.getEnrolledFaces(mUserId).size();
-            if (numEnrolledFaces >= max) {
+            return numEnrolledFaces >= max;
+        } else {
+            return false;
+        }
+    }
+
+    //TODO: Refactor this to something that conveys it is used for getting a string ID.
+    @Override
+    protected int checkMaxEnrolled() {
+        if (mFaceManager != null) {
+            if (maxFacesEnrolled()) {
                 return R.string.face_intro_error_max;
             }
         } else {

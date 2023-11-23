@@ -22,23 +22,19 @@ import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.VectorDrawable;
 
-import androidx.preference.Preference;
-
 /** Utilities related to default apps. */
 public class DefaultAppUtils {
 
-    private DefaultAppUtils() {}
+    private DefaultAppUtils() {
+    }
 
-    /**
-     * Sets the preference icon with a drawable that is scaled down to to avoid crashing Settings if
-     * it's too big.
-     */
-    public static void setSafeIcon(Preference pref, Drawable icon, int maxDimension) {
+    /** Scales the icon to a maximum size to avoid crashing Settings if it is too big. */
+    public static Drawable getSafeIcon(Drawable icon, int maxDimension) {
         Drawable safeIcon = icon;
         if ((icon != null) && !(icon instanceof VectorDrawable)) {
             safeIcon = getSafeDrawable(icon, maxDimension);
         }
-        pref.setIcon(safeIcon);
+        return safeIcon;
     }
 
     /**

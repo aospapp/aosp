@@ -16,6 +16,8 @@
 
 package com.android.documentsui.dirlist;
 
+import static com.android.documentsui.base.State.MODE_GRID;
+
 import android.content.Context;
 import android.database.Cursor;
 import android.view.View;
@@ -25,6 +27,7 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import com.android.documentsui.R;
+import com.android.documentsui.base.State.ViewMode;
 
 /**
  * RecyclerView.ViewHolder class that displays at the top of the directory list when there
@@ -32,23 +35,45 @@ import com.android.documentsui.R;
  * Used by {@link DirectoryAddonsAdapter}.
  */
 final class HeaderMessageDocumentHolder extends MessageHolder {
+    private final View mRoot;
     private final ImageView mIcon;
+    private final TextView mTitle;
+    private final TextView mSubtitle;
     private final TextView mTextView;
-    private final Button mButton;
+    private final View mActionView;
+    private final Button mDismissButton;
+    private final Button mActionButton;
     private Message mMessage;
 
     public HeaderMessageDocumentHolder(Context context, ViewGroup parent) {
         super(context, parent, R.layout.item_doc_header_message);
 
+        mRoot = itemView.findViewById(R.id.item_root);
         mIcon = (ImageView) itemView.findViewById(R.id.message_icon);
+        mTitle = itemView.findViewById(R.id.message_title);
+        mSubtitle = itemView.findViewById(R.id.message_subtitle);
         mTextView = (TextView) itemView.findViewById(R.id.message_textview);
-        mButton = (Button) itemView.findViewById(R.id.button_dismiss);
+        mActionView = (View) itemView.findViewById(R.id.action_view);
+        mActionButton = (Button) itemView.findViewById(R.id.action_button);
+        mDismissButton = (Button) itemView.findViewById(R.id.dismiss_button);
     }
 
     public void bind(Message message) {
         mMessage = message;
-        mButton.setOnClickListener(this::onButtonClick);
+        mDismissButton.setOnClickListener(this::onButtonClick);
+        mActionButton.setOnClickListener(this::onButtonClick);
         bind(null, null);
+    }
+
+    /**
+     * We set different padding on directory parent in different mode by
+     * {@link DirectoryFragment#onViewModeChanged()}. To avoid the layout shifting when
+     * display mode changed, we set the opposite padding on the item.
+     */
+    public void setPadding(@ViewMode int mode) {
+        int padding = itemView.getResources().getDimensionPixelSize(mode == MODE_GRID
+                ? R.dimen.list_container_padding : R.dimen.grid_container_padding);
+        mRoot.setPadding(padding, 0, padding, 0);
     }
 
     private void onButtonClick(View button) {
@@ -57,10 +82,33 @@ final class HeaderMessageDocumentHolder extends MessageHolder {
 
     @Override
     public void bind(Cursor cursor, String modelId) {
-        mTextView.setText(mMessage.getMessageString());
+        if (mMessage.getTitleString() != null) {
+            mTitle.setVisibility(View.VISIBLE);
+            mSubtitle.setVisibility(View.VISIBLE);
+            mTextView.setVisibility(View.GONE);
+            mTitle.setText(mMessage.getTitleString());
+            mSubtitle.setText(mMessage.getMessageString());
+        } else {
+            mTitle.setVisibility(View.GONE);
+            mSubtitle.setVisibility(View.GONE);
+            mTextView.setVisibility(View.VISIBLE);
+            mTextView.setText(mMessage.getMessageString());
+        }
+
         mIcon.setImageDrawable(mMessage.getIcon());
-        if (mMessage.getButtonString() != null) {
-            mButton.setText(mMessage.getButtonString());
+
+        if (mMessage.shouldKeep()) {
+            mActionView.setVisibility(View.VISIBLE);
+            mDismissButton.setVisibility(View.GONE);
+            if (mMessage.getButtonString() != null) {
+                mActionButton.setText(mMessage.getButtonString());
+            }
+        } else {
+            mActionView.setVisibility(View.GONE);
+            mDismissButton.setVisibility(View.VISIBLE);
+            if (mMessage.getButtonString() != null) {
+                mDismissButton.setText(mMessage.getButtonString());
+            }
         }
     }
 }

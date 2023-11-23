@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 The Android Open Source Project
+ * Copyright (C) 2020 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package com.android.tv.settings.connectivity.setup;
 import android.content.Context;
 import android.os.Bundle;
 
+import androidx.annotation.VisibleForTesting;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentActivity;
 import androidx.leanback.widget.GuidanceStylist;
@@ -32,7 +33,7 @@ import com.android.tv.settings.connectivity.util.StateMachine;
 import java.util.List;
 
 /**
- * State responsible for handling the failed connection.
+ * State for displaying the failure information.
  */
 public class ConnectFailedState implements State {
     private final FragmentActivity mActivity;
@@ -63,19 +64,18 @@ public class ConnectFailedState implements State {
     }
 
     /**
-     * Fragment that notifies the user the connection to network is failed.
+     *  Fragment displaying the failure information when connection is failed.
      */
     public static class ConnectFailedFragment extends WifiConnectivityGuidedStepFragment {
         private static final int ACTION_ID_TRY_AGAIN = 100001;
         private static final int ACTION_ID_VIEW_AVAILABLE_NETWORK = 100002;
+        @VisibleForTesting
+        UserChoiceInfo mUserChoiceInfo;
         private StateMachine mStateMachine;
-        private UserChoiceInfo mUserChoiceInfo;
 
         @Override
         public GuidanceStylist.Guidance onCreateGuidance(Bundle savedInstanceState) {
-            String title = getString(
-                    R.string.title_wifi_could_not_connect,
-                    mUserChoiceInfo.getWifiConfiguration().getPrintableSsid());
+            String title = getConnectionFailTitle();
             return new GuidanceStylist.Guidance(title, null, null, null);
         }
 
@@ -111,6 +111,26 @@ public class ConnectFailedState implements State {
             } else if (action.getId() == ACTION_ID_VIEW_AVAILABLE_NETWORK) {
                 mStateMachine.getListener()
                         .onComplete(StateMachine.SELECT_WIFI);
+            }
+        }
+
+        @VisibleForTesting
+        String getConnectionFailTitle() {
+            UserChoiceInfo.ConnectionFailedStatus status =
+                    mUserChoiceInfo.getConnectionFailedStatus();
+            String ssid = mUserChoiceInfo.getWifiConfiguration().getPrintableSsid();
+            switch (status) {
+                case AUTHENTICATION:
+                    return getContext().getString(
+                            R.string.title_wifi_could_not_connect_authentication_failure, ssid);
+                case REJECTED:
+                    return getContext().getString(R.string.title_wifi_could_not_connect_ap_reject,
+                            ssid);
+                case TIMEOUT:
+                    return getContext().getString(R.string.title_wifi_could_not_connect_timeout,
+                            ssid);
+                default: // UNKNOWN
+                    return getContext().getString(R.string.title_wifi_could_not_connect, ssid);
             }
         }
     }

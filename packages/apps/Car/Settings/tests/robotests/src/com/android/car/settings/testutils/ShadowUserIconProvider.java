@@ -17,7 +17,11 @@ package com.android.car.settings.testutils;
 
 import android.content.Context;
 import android.content.pm.UserInfo;
-import android.graphics.drawable.Drawable;
+import android.content.res.Resources;
+import android.graphics.Bitmap;
+import android.os.UserManager;
+
+import androidx.core.graphics.drawable.RoundedBitmapDrawable;
 
 import com.android.car.settings.users.UserIconProvider;
 
@@ -27,12 +31,18 @@ import org.robolectric.annotation.Implements;
 @Implements(UserIconProvider.class)
 public class ShadowUserIconProvider {
     @Implementation
-    protected Drawable getUserIcon(UserInfo userInfo, Context context) {
+    protected RoundedBitmapDrawable getRoundedUserIcon(UserInfo userInfo, Context context) {
         return null;
     }
 
     @Implementation
-    protected Drawable getDefaultGuestIcon(Context context) {
+    protected RoundedBitmapDrawable getRoundedGuestDefaultIcon(Resources resources) {
+        return null;
+    }
+
+    @Implementation
+    protected Bitmap assignDefaultIcon(
+            UserManager userManager, Resources resources, UserInfo userInfo) {
         return null;
     }
 }

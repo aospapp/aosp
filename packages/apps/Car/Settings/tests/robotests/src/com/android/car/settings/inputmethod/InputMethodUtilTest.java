@@ -23,6 +23,7 @@ import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import android.app.admin.DevicePolicyManager;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
@@ -34,23 +35,23 @@ import android.view.inputmethod.InputMethodManager;
 import android.view.inputmethod.InputMethodSubtype;
 import android.view.inputmethod.InputMethodSubtype.InputMethodSubtypeBuilder;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
-
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 public class InputMethodUtilTest {
     private static final String DUMMY_PACKAGE_NAME = "dummy package name";
     private static final String DUMMY_LABEL = "dummy label";
@@ -76,6 +77,8 @@ public class InputMethodUtilTest {
     @Mock
     private InputMethodManager mInputMethodManager;
     @Mock
+    private DevicePolicyManager mDevicePolicyManager;
+    @Mock
     private Drawable mIcon;
 
     @Before
@@ -90,26 +93,76 @@ public class InputMethodUtilTest {
                 Settings.Secure.DEFAULT_INPUT_METHOD, DUMMY_ENABLED_INPUT_METHOD_ID_DEFAULT);
 
         mDummyEnabledInputMethodsListOneDefaultable = Arrays
-                .stream(DUMMY_ENABLED_INPUT_METHODS.split(String.valueOf(InputMethodUtil
-                        .INPUT_METHOD_DELIMITER))).collect(Collectors.toList()).stream().map(
-                            result -> {
-                                InputMethodInfo info = createMockInputMethodInfo(
-                                        mPackageManager, DUMMY_PACKAGE_NAME);
-                                when(info.getId()).thenReturn(result);
-                                when(info.isDefault(mContext)).thenReturn(result.equals(
-                                        DUMMY_ENABLED_INPUT_METHOD_ID_DEFAULT));
-                                return info;
-                            }).collect(Collectors.toList());
+                .stream(DUMMY_ENABLED_INPUT_METHODS.split(
+                        String.valueOf(InputMethodUtil.INPUT_METHOD_DELIMITER)))
+                .collect(Collectors.toList())
+                .stream().map(
+                        result -> {
+                            InputMethodInfo info = createMockInputMethodInfo(
+                                    mPackageManager, DUMMY_PACKAGE_NAME);
+                            when(info.getId()).thenReturn(result);
+                            when(info.isDefault(mContext)).thenReturn(result.equals(
+                                    DUMMY_ENABLED_INPUT_METHOD_ID_DEFAULT));
+                            return info;
+                        })
+                .collect(Collectors.toList());
         mDummyEnabledInputMethodsListAllDefaultable = Arrays
                 .stream(DUMMY_ENABLED_INPUT_METHODS.split(String.valueOf(InputMethodUtil
-                        .INPUT_METHOD_DELIMITER))).collect(Collectors.toList()).stream().map(
-                                result -> {
-                                    InputMethodInfo info = createMockInputMethodInfo(
-                                            mPackageManager, DUMMY_PACKAGE_NAME);
-                                    when(info.getId()).thenReturn(result);
-                                    when(info.isDefault(mContext)).thenReturn(true);
-                                    return info;
-                                }).collect(Collectors.toList());
+                        .INPUT_METHOD_DELIMITER)))
+                .collect(Collectors.toList())
+                .stream().map(
+                        result -> {
+                            InputMethodInfo info = createMockInputMethodInfo(
+                                    mPackageManager, DUMMY_PACKAGE_NAME);
+                            when(info.getId()).thenReturn(result);
+                            when(info.isDefault(mContext)).thenReturn(true);
+                            return info;
+                        })
+                .collect(Collectors.toList());
+    }
+
+    @Test
+    public void getPermittedAndEnabledInputMethodList_noEnabledInputMethods_returnsNull() {
+        when(mInputMethodManager.getEnabledInputMethodList()).thenReturn(null);
+
+        List<InputMethodInfo> results = InputMethodUtil.getPermittedAndEnabledInputMethodList(
+                mInputMethodManager, mDevicePolicyManager);
+
+        assertThat(results).isNull();
+    }
+
+    @Test
+    public void getPermittedAndEnabledInputMethodList_noPermittedMethods_returnsEmptyList() {
+        String secondDummyPackageName = "Different package";
+        InputMethodInfo info = createMockInputMethodInfoWithSubtypes(
+                mPackageManager, mInputMethodManager, DUMMY_PACKAGE_NAME);
+        when(mInputMethodManager.getEnabledInputMethodList())
+                .thenReturn(Collections.singletonList(info));
+        when(mDevicePolicyManager.getPermittedInputMethodsForCurrentUser())
+                .thenReturn(Collections.singletonList(secondDummyPackageName));
+
+        List<InputMethodInfo> results = InputMethodUtil.getPermittedAndEnabledInputMethodList(
+                mInputMethodManager, mDevicePolicyManager);
+
+        assertThat(results).isNotNull();
+        assertThat(results).isEmpty();
+    }
+
+    @Test
+    public void getPermittedAndEnabledInputMethodList_withGoogleTypingIME_doesNotIncludeIME() {
+        InputMethodInfo dummyIME = createMockInputMethodInfoWithSubtypes(
+                mPackageManager, mInputMethodManager, DUMMY_PACKAGE_NAME);
+        InputMethodInfo googleVoiceTypingIME = createMockInputMethodInfoWithSubtypes(
+                mPackageManager, mInputMethodManager, InputMethodUtil.GOOGLE_VOICE_TYPING);
+        when(mInputMethodManager.getEnabledInputMethodList())
+                .thenReturn(Arrays.asList(dummyIME, googleVoiceTypingIME));
+        when(mDevicePolicyManager.getPermittedInputMethodsForCurrentUser()).thenReturn(null);
+
+        List<InputMethodInfo> results = InputMethodUtil.getPermittedAndEnabledInputMethodList(
+                mInputMethodManager, mDevicePolicyManager);
+
+        assertThat(results).contains(dummyIME);
+        assertThat(results).doesNotContain(googleVoiceTypingIME);
     }
 
     @Test

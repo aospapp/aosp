@@ -25,8 +25,7 @@
 
     <PreferenceCategory
         android:key="display_options"
-        android:title="@string/display_options"
-        android:layout="@layout/preference_category_compact_layout">
+        android:title="@string/display_options">
         <ListPreference
             android:key="captions_language"
             android:title="@string/captions_language"
@@ -40,8 +39,7 @@
     </PreferenceCategory>
     <PreferenceCategory
         android:key="captions_style"
-        android:title="@string/captions_captionstyle"
-        android:layout="@layout/preference_category_compact_layout">
+        android:title="@string/captions_captionstyle">
         <com.android.tv.settings.RadioPreference
             android:key="captions_style_0"
             android:persistent="true"

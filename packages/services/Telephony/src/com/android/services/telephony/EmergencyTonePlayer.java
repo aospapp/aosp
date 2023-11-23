@@ -23,7 +23,6 @@ import android.content.Context;
 import android.media.AudioAttributes;
 import android.media.AudioManager;
 import android.media.ToneGenerator;
-import android.os.SystemVibrator;
 import android.os.Vibrator;
 import android.provider.Settings;
 
@@ -49,11 +48,9 @@ class EmergencyTonePlayer {
                 .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
                 .build();
 
-    // We don't rely on getSystemService(Context.VIBRATOR_SERVICE) to make sure that this vibrator
-    // object will be isolated from others.
-    private final Vibrator mVibrator = new SystemVibrator();
     private final Context mContext;
     private final AudioManager mAudioManager;
+    private final Vibrator mVibrator;
 
     private ToneGenerator mToneGenerator;
     private int mSavedInCallVolume;
@@ -62,6 +59,7 @@ class EmergencyTonePlayer {
     EmergencyTonePlayer(Context context) {
         mContext = context;
         mAudioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+        mVibrator = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
     }
 
     public void start() {

@@ -32,6 +32,7 @@ import androidx.annotation.Nullable;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 
+import com.android.car.radio.SkipMode;
 import com.android.car.radio.bands.ProgramType;
 import com.android.car.radio.bands.RegionConfig;
 import com.android.car.radio.platform.RadioTunerExt.TuneCallback;
@@ -201,7 +202,9 @@ public class RadioAppServiceWrapper {
             throw new IllegalStateException(
                     "This is not a remote service wrapper, you can't unbind it");
         }
-        callService(service -> service.removeCallback(mCallback));
+        try {
+            callService(service -> service.removeCallback(mCallback));
+        } catch (IllegalStateException e) { }  // it's fine if the service is not connected
         mClientContext.unbindService(mServiceConnection);
     }
 
@@ -322,6 +325,20 @@ public class RadioAppServiceWrapper {
      */
     public void seek(boolean forward, @Nullable TuneCallback result) {
         callService(service -> service.seek(forward, new TuneCallbackAdapter(result)));
+    }
+
+    /**
+     * Skips forward/backwards.
+     */
+    public void skip(boolean forward) {
+        callService(service -> service.skip(forward, new TuneCallbackAdapter(null)));
+    }
+
+    /**
+     * Sets the service's {@link SkipMode} mode.
+     */
+    public void setSkipMode(@NonNull SkipMode mode) {
+        callService(service -> service.setSkipMode(mode.ordinal()));
     }
 
     /**

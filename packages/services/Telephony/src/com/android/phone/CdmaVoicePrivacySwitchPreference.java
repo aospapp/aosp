@@ -102,4 +102,8 @@ public class CdmaVoicePrivacySwitchPreference extends SwitchPreference {
             phone.getEnhancedVoicePrivacy(obtainMessage(MESSAGE_GET_VP));
         }
     }
+
+    public void setPhone(Phone phone) {
+        this.phone = phone;
+    }
 }

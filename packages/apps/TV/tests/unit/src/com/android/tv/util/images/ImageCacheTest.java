@@ -52,28 +52,28 @@ public class ImageCacheTest {
     public void testPutIfLarger_smaller() throws Exception {
 
         mImageCache.putIfNeeded(INFO_50);
-    assertWithMessage("before").that(mImageCache.get(KEY)).isSameAs(INFO_50);
+    assertWithMessage("before").that(mImageCache.get(KEY)).isSameInstanceAs(INFO_50);
 
         mImageCache.putIfNeeded(INFO_25);
-    assertWithMessage("after").that(mImageCache.get(KEY)).isSameAs(INFO_50);
+    assertWithMessage("after").that(mImageCache.get(KEY)).isSameInstanceAs(INFO_50);
     }
 
     @Test
     public void testPutIfLarger_larger() throws Exception {
         mImageCache.putIfNeeded(INFO_50);
-    assertWithMessage("before").that(mImageCache.get(KEY)).isSameAs(INFO_50);
+    assertWithMessage("before").that(mImageCache.get(KEY)).isSameInstanceAs(INFO_50);
 
         mImageCache.putIfNeeded(INFO_100);
-    assertWithMessage("after").that(mImageCache.get(KEY)).isSameAs(INFO_100);
+    assertWithMessage("after").that(mImageCache.get(KEY)).isSameInstanceAs(INFO_100);
     }
 
     @Test
     public void testPutIfLarger_alreadyMax() throws Exception {
 
         mImageCache.putIfNeeded(INFO_100);
-    assertWithMessage("before").that(mImageCache.get(KEY)).isSameAs(INFO_100);
+    assertWithMessage("before").that(mImageCache.get(KEY)).isSameInstanceAs(INFO_100);
 
         mImageCache.putIfNeeded(INFO_200);
-    assertWithMessage("after").that(mImageCache.get(KEY)).isSameAs(INFO_100);
+    assertWithMessage("after").that(mImageCache.get(KEY)).isSameInstanceAs(INFO_100);
     }
 }

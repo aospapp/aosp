@@ -36,6 +36,7 @@ public abstract class TunerHal implements Tuner {
     private static final int DEFAULT_QAM_TUNE_TIMEOUT_MS = 4000; // Some device takes time for
 
     @DeliverySystemType private int mDeliverySystemType;
+    @DeliverySystemType private int[] mDeliverySystemTypes;
     private boolean mIsStreaming;
     private int mFrequency;
     private String mModulation;
@@ -57,8 +58,15 @@ public abstract class TunerHal implements Tuner {
     }
 
     protected void getDeliverySystemTypeFromDevice() {
+        getDeliverySystemTypesFromDevice();
+    }
+
+    protected void getDeliverySystemTypesFromDevice() {
         if (mDeliverySystemType == DELIVERY_SYSTEM_UNDEFINED) {
             mDeliverySystemType = nativeGetDeliverySystemType(getDeviceId());
+        }
+        if (mDeliverySystemTypes == null) {
+            mDeliverySystemTypes = nativeGetDeliverySystemTypes(getDeviceId());
         }
     }
 
@@ -79,18 +87,34 @@ public abstract class TunerHal implements Tuner {
 
     protected native void nativeFinalize(long deviceId);
 
+    @Override
+    public synchronized boolean tune(
+                int frequency, @ModulationType String modulation,
+            String channelNumber) {
+        return tuneInternal(mDeliverySystemType, frequency, modulation, channelNumber);
+    }
+
+    @Override
+    public synchronized boolean tune(
+            int deliverySystemType, int frequency, @ModulationType String modulation,
+            String channelNumber) {
+        return tuneInternal(deliverySystemType, frequency, modulation, channelNumber);
+    }
+
     /**
      * Sets the tuner channel. This should be called after acquiring a tuner device.
      *
+     * @param deliverySystemType a system delivery type of the channel to tune to
      * @param frequency a frequency of the channel to tune to
      * @param modulation a modulation method of the channel to tune to
      * @param channelNumber channel number when channel number is already known. Some tuner HAL may
      *     use channelNumber instead of frequency for tune.
      * @return {@code true} if the operation was successful, {@code false} otherwise
      */
-    @Override
-    public synchronized boolean tune(
-            int frequency, @ModulationType String modulation, String channelNumber) {
+    protected boolean tuneInternal(
+        int deliverySystemType, int frequency, @ModulationType String modulation,
+        String channelNumber) {
+
         if (!isDeviceOpen()) {
             Log.e(TAG, "There's no available device");
             return false;
@@ -99,40 +123,76 @@ public abstract class TunerHal implements Tuner {
             nativeCloseAllPidFilters(getDeviceId());
             mIsStreaming = false;
         }
+        if (mDeliverySystemTypes != null) {
+            int i;
+            for (i = 0; i < mDeliverySystemTypes.length; i++) {
+                if (deliverySystemType == mDeliverySystemTypes[i]) {
+                    break;
+                }
+            }
+
+            if (i == mDeliverySystemTypes.length) {
+                Log.e(TAG, "Unsupported delivery system type for device");
+                return false;
+            }
+        }
 
         // When tuning to a new channel in the same frequency, there's no need to stop current tuner
         // device completely and the only thing necessary for tuning is reopening pid filters.
         if (mFrequency == frequency && Objects.equals(mModulation, modulation)) {
             addPidFilter(PID_PAT, FILTER_TYPE_OTHER);
             addPidFilter(PID_ATSC_SI_BASE, FILTER_TYPE_OTHER);
-            if (Tuner.isDvbDeliverySystem(mDeliverySystemType)) {
+            if (Tuner.isDvbDeliverySystem(deliverySystemType)) {
                 addPidFilter(PID_DVB_SDT, FILTER_TYPE_OTHER);
                 addPidFilter(PID_DVB_EIT, FILTER_TYPE_OTHER);
             }
             mIsStreaming = true;
             return true;
         }
+
         int timeout_ms =
                 modulation.equals(MODULATION_8VSB)
                         ? DEFAULT_VSB_TUNE_TIMEOUT_MS
                         : DEFAULT_QAM_TUNE_TIMEOUT_MS;
-        if (nativeTune(getDeviceId(), frequency, modulation, timeout_ms)) {
+
+        boolean tuneStatus;
+        switch(deliverySystemType) {
+            case DELIVERY_SYSTEM_UNDEFINED:
+            case DELIVERY_SYSTEM_ATSC:
+                tuneStatus = nativeTune(getDeviceId(), frequency, modulation, timeout_ms);
+                break;
+            case DELIVERY_SYSTEM_DVBT:
+            case DELIVERY_SYSTEM_DVBT2:
+                tuneStatus = nativeTune(getDeviceId(), deliverySystemType, frequency, modulation,
+                        timeout_ms);
+                break;
+            default:
+                Log.e(TAG, "Unsupported delivery system type for device");
+                return false;
+        }
+
+        if (tuneStatus == true) {
             addPidFilter(PID_PAT, FILTER_TYPE_OTHER);
             addPidFilter(PID_ATSC_SI_BASE, FILTER_TYPE_OTHER);
-            if (Tuner.isDvbDeliverySystem(mDeliverySystemType)) {
+            if (Tuner.isDvbDeliverySystem(deliverySystemType)) {
                 addPidFilter(PID_DVB_SDT, FILTER_TYPE_OTHER);
                 addPidFilter(PID_DVB_EIT, FILTER_TYPE_OTHER);
             }
             mFrequency = frequency;
             mModulation = modulation;
             mIsStreaming = true;
-            return true;
         }
-        return false;
+
+        return tuneStatus;
     }
 
     protected native boolean nativeTune(
-            long deviceId, int frequency, @ModulationType String modulation, int timeout_ms);
+            long deviceId, int frequency,
+            @ModulationType String modulation, int timeout_ms);
+
+    protected native boolean nativeTune(
+            long deviceId, int deliverySystemType, int frequency,
+            @ModulationType String modulation, int timeout_ms);
 
     /**
      * Sets a pid filter. This should be set after setting a channel.
@@ -162,6 +222,8 @@ public abstract class TunerHal implements Tuner {
 
     protected native int nativeGetDeliverySystemType(long deviceId);
 
+    protected native int[] nativeGetDeliverySystemTypes(long deviceId);
+
     protected native int nativeGetSignalStrength(long deviceId);
 
     /**
@@ -189,6 +251,11 @@ public abstract class TunerHal implements Tuner {
     @Override
     public int getDeliverySystemType() {
         return mDeliverySystemType;
+    }
+
+    @Override
+    public int[] getDeliverySystemTypes() {
+        return mDeliverySystemTypes;
     }
 
     protected native void nativeStopTune(long deviceId);

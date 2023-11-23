@@ -31,7 +31,6 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.annotation.VisibleForTesting;
 
-import com.android.internal.telephony.PhoneConstants;
 import com.android.settings.R;
 
 public class ImeiInfoDialogController {
@@ -119,7 +118,8 @@ public class ImeiInfoDialogController {
 
         mDialog.setText(ID_PRL_VERSION_VALUE, getCdmaPrlVersion());
 
-        if (mSubscriptionInfo != null && isCdmaLteEnabled()) {
+        if ((mSubscriptionInfo != null && isCdmaLteEnabled()) ||
+                    (mSubscriptionInfo == null && isSimPresent(mSlotId))) {
             // Show IMEI for LTE device
             mDialog.setText(ID_IMEI_VALUE,
                     getTextAsDigits(mTelephonyManager.getImei(mSlotId)));
@@ -147,8 +147,16 @@ public class ImeiInfoDialogController {
 
     @VisibleForTesting
     boolean isCdmaLteEnabled() {
-        return mTelephonyManager.getLteOnCdmaMode(mSubscriptionInfo.getSubscriptionId())
-                == PhoneConstants.LTE_ON_CDMA_TRUE;
+        return mTelephonyManager.isLteCdmaEvdoGsmWcdmaEnabled();
+    }
+
+    boolean isSimPresent(int slotId) {
+        final int simState = mTelephonyManager.getSimState(slotId);
+        if ((simState != TelephonyManager.SIM_STATE_ABSENT) &&
+                (simState != TelephonyManager.SIM_STATE_UNKNOWN)) {
+            return true;
+        }
+        return false;
     }
 
     @VisibleForTesting

@@ -30,16 +30,6 @@ import com.android.internal.annotations.VisibleForTesting;
 @VisibleForTesting
 public class SystemSettingsUtil {
 
-    /** Flag for ringer ramping time in milliseconds. */
-    private static final String RAMPING_RINGER_DURATION_MILLIS = "ramping_ringer_duration";
-
-    /** Flag for vibration time in milliseconds before ramping ringer starts. */
-    private static final String RAMPING_RINGER_VIBRATION_DURATION =
-            "ramping_ringer_vibration_duration";
-
-    /** Flag for whether or not to apply ramping ringer on incoming phone calls. */
-    private static final String RAMPING_RINGER_ENABLED = "ramping_ringer_enabled";
-
     /** Flag for whether or not to support audio coupled haptics in ramping ringer. */
     private static final String RAMPING_RINGER_AUDIO_COUPLED_VIBRATION_ENABLED =
             "ramping_ringer_audio_coupled_vibration_enabled";
@@ -69,24 +59,9 @@ public class SystemSettingsUtil {
                 Settings.Global.APPLY_RAMPING_RINGER, 0) == 1;
     }
 
-    public boolean enableRampingRingerFromDeviceConfig() {
-        return DeviceConfig.getBoolean(DeviceConfig.NAMESPACE_TELEPHONY, RAMPING_RINGER_ENABLED,
-                false);
-    }
-
     public boolean enableAudioCoupledVibrationForRampingRinger() {
         return DeviceConfig.getBoolean(DeviceConfig.NAMESPACE_TELEPHONY,
                 RAMPING_RINGER_AUDIO_COUPLED_VIBRATION_ENABLED, false);
-    }
-
-    public int getRampingRingerDuration() {
-	return DeviceConfig.getInt(DeviceConfig.NAMESPACE_TELEPHONY,
-                RAMPING_RINGER_DURATION_MILLIS, -1);
-    }
-
-    public int getRampingRingerVibrationDuration() {
-        return DeviceConfig.getInt(DeviceConfig.NAMESPACE_TELEPHONY, 
-                RAMPING_RINGER_VIBRATION_DURATION, 0);
     }
 
     public boolean isHapticPlaybackSupported(Context context) {

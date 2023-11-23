@@ -15,39 +15,42 @@
  */
 package com.android.documentsui.inspector;
 
+import android.content.ContentResolver;
 import android.content.Context;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.DocumentsContract;
+import android.util.Log;
+
 import androidx.annotation.Nullable;
 import androidx.loader.content.AsyncTaskLoader;
-
-import android.util.Log;
 
 import java.io.FileNotFoundException;
 
 /**
- * Loads metadata from {@link DocumentsContract#getDocumentMetadata(android.content.ContentProviderClient, Uri, String[])}
+ * Loads metadata from
+ * {@link DocumentsContract#getDocumentMetadata(android.content.ContentProviderClient,
+ * Uri)}
  */
 final class MetadataLoader extends AsyncTaskLoader<Bundle> {
 
     private static final String TAG = "MetadataLoader";
 
-    private final Context mContext;
     private final Uri mUri;
+    private final ContentResolver mContentResolver;
 
     private @Nullable Bundle mMetadata;
 
-    MetadataLoader(Context context, Uri uri) {
+    MetadataLoader(Context context, Uri uri, ContentResolver contentResolver) {
         super(context);
-        mContext = context;
         mUri = uri;
+        mContentResolver = contentResolver;
     }
 
     @Override
     public Bundle loadInBackground() {
         try {
-            return DocumentsContract.getDocumentMetadata(mContext.getContentResolver(), mUri);
+            return DocumentsContract.getDocumentMetadata(mContentResolver, mUri);
         } catch (FileNotFoundException | RuntimeException e) {
             Log.e(TAG, "Failed to load metadata for doc: " + mUri, e);
         }

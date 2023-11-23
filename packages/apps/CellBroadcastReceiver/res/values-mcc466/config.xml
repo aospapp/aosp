@@ -15,9 +15,12 @@
 -->
 
 <resources>
-    <!-- Whether to enable CMAS settings (United States) -->
-    <!-- No need to show this for Taiwanese users -->
-    <bool name="show_cmas_settings">false</bool>
+    <!-- Whether to show extreme alert settings -->
+    <bool name="show_extreme_alert_settings">false</bool>
+    <!-- Whether to show severe alert settings -->
+    <bool name="show_severe_alert_settings">false</bool>
+    <!-- Whether to show amber alert settings -->
+    <bool name="show_amber_alert_settings">false</bool>
 
     <string-array name="public_safety_messages_channels_range_strings" translatable="false">
         <!-- Channel 911 and 919 are required by Taiwan NCC -->
@@ -26,9 +29,9 @@
     </string-array>
     <!-- 4370, 4383 -->
     <string-array name="cmas_presidential_alerts_channels_range_strings" translatable="false">
-        <item>0x1112-0x1112:rat=gsm, emergency=true</item>
+        <item>0x1112:rat=gsm, emergency=true</item>
         <!-- additional language -->
-        <item>0x111F-0x111F:rat=gsm, emergency=true</item>
+        <item>0x111F:rat=gsm, emergency=true</item>
     </string-array>
     <!--4371~4379, 4384~4392 -->
     <string-array name="emergency_alerts_channels_range_strings" translatable="false">
@@ -38,9 +41,9 @@
     </string-array>
     <!--4380, 4393 -->
     <string-array name="required_monthly_test_range_strings" translatable="false">
-        <item>0x111C-0x111C:rat=gsm, emergency=true</item>
+        <item>0x111C:rat=gsm, emergency=true</item>
         <!-- additional language -->
-        <item>0x1129-0x1129:rat=gsm, emergency=true</item>
+        <item>0x1129:rat=gsm, emergency=true</item>
     </string-array>
     <string-array name="cmas_alert_extreme_channels_range_strings" translatable="false"></string-array>
     <string-array name="cmas_alerts_severe_range_strings" translatable="false"></string-array>

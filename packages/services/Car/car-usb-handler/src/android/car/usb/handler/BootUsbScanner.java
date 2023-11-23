@@ -6,6 +6,7 @@ import android.content.Intent;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbManager;
 import android.os.UserHandle;
+import android.os.UserManager;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -15,10 +16,11 @@ public class BootUsbScanner extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context context, Intent intent) {
-        // Only start the service if we are the system user. We cannot use the singleUser tag in the
-        // manifest for <receiver>s, so there is no way to avoid us registering this receiver as the
-        // non system user. Just return immediately if we are not.
-        if (context.getUserId() != UserHandle.USER_SYSTEM) {
+        // Only start the service for the non-system user, or for the system user if it is running
+        // as a "real" user. This ensures the service is started only once and is started even on a
+        // foreground user switch.
+        if (context.getUserId() == UserHandle.USER_SYSTEM
+                && !UserManager.isHeadlessSystemUserMode()) {
             return;
         }
         // we defer this processing to BootUsbService so that we are very quick to process

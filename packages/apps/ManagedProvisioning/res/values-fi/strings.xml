@@ -83,8 +83,10 @@
     <string name="reset" msgid="6467204151306265796">"Palauta"</string>
     <string name="cant_set_up_profile" msgid="4341825293970158436">"Profiilin määritys epäonnistui."</string>
     <string name="cant_set_up_device" msgid="4120090138983350714">"Laitteen määritys epäonnistui."</string>
+    <string name="something_went_wrong" msgid="3593223774041784329">"Jotain meni pieleen"</string>
     <string name="couldnt_set_up_device" msgid="5137950404283642302">"Laitteen määrittäminen epäonnistui. Pyydä apua IT-järjestelmänvalvojalta."</string>
     <string name="contact_your_admin_for_help" msgid="2009904021552323731">"Pyydä apua IT-järjestelmänvalvojalta."</string>
+    <string name="reset_device" msgid="5483853913241939262">"Nollaa tämä laite ja yritä ottaa se käyttöön uudelleen"</string>
     <string name="device_already_set_up" msgid="507881934487140294">"Laite on jo määritetty."</string>
     <string name="error_wifi" msgid="1850288843966836571">"Wi-Fi-yhteyden muodostaminen epäonnistui"</string>
     <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"Palauttamisen esto on käytössä laitteella. Pyydä apua IT-järjestelmänvalvojalta."</string>
@@ -161,25 +163,34 @@
     <string name="setup_provisioning_header" msgid="4282483198266806271">"Valmistellaan työlaitteen määritystä…"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"Hallintasovellusta määritetään"</string>
     <string name="set_up_everything_else" msgid="4407706086957916501">"Määritä kaikki muu"</string>
-    <string name="now_lets_set_up_everything_else" msgid="2905102208584231894">"Määritetään nyt kaikki muu"</string>
+    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"Lisää henkilökohtainen tili, niin saat enemmän irti laitteestasi"</string>
+    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"Nyt kun työprofiili on valmis, lisää myös henkilökohtainen Google-tili voidaksesi käyttää sovelluksia ja sisältöä."</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"Tämä on organisaatiosi laite"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"Tätä puhelinta ylläpidetään ja valvotaan seuraavalla sovelluksella"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"Valmistellaan työprofiilin määritystä…"</string>
-    <string name="work_profile_provisioning_accept_header" msgid="462916780311392444">"Määritetään ensin työprofiilisi"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Määritetään työprofiilisi"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"Työsovelluksia säilytetään työprofiilissa"</string>
     <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"Keskeytä työsovellukset, kun päivä on pulkassa"</string>
-    <string name="work_profile_provisioning_step_3_header" msgid="7495564624887776704">"IT-järjestelmänvalvoja näkee vain työprofiilin datan"</string>
+    <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"IT-järjestelmänvalvoja näkee työprofiilin datan"</string>
     <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"Määritetään työprofiilia…"</string>
-    <string name="work_profile_provisioning_summary" msgid="3917907344897144246">"Työsovelluksia säilytetään työprofiilissa. Voit keskeyttää työsovellukset, kun päivä on pulkassa. IT-järjestelmänvalvoja näkee vain työprofiilin datan."</string>
+    <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"Työsovelluksia säilytetään työprofiilissa. Voit keskeyttää työsovellukset, kun päivä on pulkassa. IT-järjestelmänvalvoja näkee työprofiilin datan."</string>
     <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"Määritetään työlaitteesi"</string>
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"Pidä työsovellukset ulottuvillasi"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"Tämä laite ei ole yksityinen"</string>
     <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"IT-järjestelmänvalvoja voi nähdä datasi ja toimintasi tällä laitteella."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"Määritetään laitetta…"</string>
     <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"Käytä työsovelluksia helposti tällä laitteella. Laite ei ole yksityinen, joten IT-järjestelmänvalvoja voi nähdä datasi ja toimintasi. Pyydä lisätietoja IT-järjestelmänvalvojalta."</string>
+    <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"Työsovellukset ovat työprofiilissa ja ne ovat IT- järjestelmänvalvojan ylläpitämiä"</string>
+    <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"Omat sovellukset ovat erillisiä ja piilossa työsovelluksilta"</string>
+    <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"IT-järjestelmänvalvoja voi käyttää tätä laitetta ja estää sovelluksia"</string>
+    <string name="cope_provisioning_summary" msgid="993014104601034878">"Työsovelluksia säilytetään työprofiilissa ja IT-järjestelmänvalvoja ylläpitää niitä. Henkilökohtaiset sovellukset ovat erillisiä ja piilotettu työsovelluksilta. IT-järjestelmänvalvoja ei voi kontrolloida tätä laitetta tai estää tiettyjä sovelluksia."</string>
+    <string name="just_a_sec" msgid="6244676028626237220">"Hetki vain…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"Tietosuojamuistutus"</string>
     <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"IT-järjestelmänvalvoja voi nähdä datasi ja toimintasi tällä laitteella."</string>
     <string name="device_provisioning_finished" msgid="3981783240592092906">"Laite on valmiina käyttöön."</string>
     <string name="done" msgid="7755227776955952318">"Valmis"</string>
+    <string name="financed_device_screen_header" msgid="7890706080917322376">"Tämä laite ostettiin luottosopimuksella: <xliff:g id="CREDITOR_NAME">%1$s</xliff:g>"</string>
+    <string name="creditor_capabilities_header" msgid="6217362648469323253">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> voi"</string>
+    <string name="install_creditor_app_description" msgid="6159751782301108878">"asentaa sovelluksen <xliff:g id="CREDITOR_NAME">%1$s</xliff:g>, jotta voit tehdä tämän laitteen maksuja"</string>
+    <string name="lock_device_description" msgid="2940362560732989166">"rajoittaa pääsyä tälle laitteelle, jos et suorita maksuja"</string>
 </resources>

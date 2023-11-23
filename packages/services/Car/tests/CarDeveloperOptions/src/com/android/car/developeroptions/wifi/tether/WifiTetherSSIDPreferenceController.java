@@ -18,15 +18,13 @@ package com.android.car.developeroptions.wifi.tether;
 
 import android.content.Context;
 import android.content.Intent;
-import android.net.wifi.WifiConfiguration;
+import android.net.wifi.SoftApConfiguration;
 import android.util.Log;
-import android.view.View;
 
 import androidx.annotation.VisibleForTesting;
 import androidx.preference.EditTextPreference;
 import androidx.preference.Preference;
 
-import com.android.car.developeroptions.R;
 import com.android.car.developeroptions.widget.ValidatedEditTextPreference;
 import com.android.car.developeroptions.wifi.dpp.WifiDppUtils;
 
@@ -54,17 +52,16 @@ public class WifiTetherSSIDPreferenceController extends WifiTetherBasePreference
 
     @Override
     public void updateDisplay() {
-        final WifiConfiguration config = mWifiManager.getWifiApConfiguration();
+        final SoftApConfiguration config = mWifiManager.getSoftApConfiguration();
         if (config != null) {
-            mSSID = config.SSID;
+            mSSID = config.getSsid();
         } else {
             mSSID = DEFAULT_SSID;
         }
         ((ValidatedEditTextPreference) mPreference).setValidator(this);
 
         if (mWifiManager.isWifiApEnabled() && config != null) {
-            final Intent intent = WifiDppUtils.getHotspotConfiguratorIntentOrNull(mContext,
-                    mWifiManager, config);
+            final Intent intent = WifiDppUtils.getHotspotConfiguratorIntentOrNull(mContext, config);
 
             if (intent == null) {
                 Log.e(TAG, "Invalid security to share hotspot");

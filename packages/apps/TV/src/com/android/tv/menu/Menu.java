@@ -23,7 +23,7 @@ import android.content.Context;
 import android.content.res.Resources;
 import android.support.annotation.IntDef;
 import android.support.annotation.VisibleForTesting;
-import android.support.v17.leanback.widget.HorizontalGridView;
+import androidx.leanback.widget.HorizontalGridView;
 import android.util.Log;
 import android.view.accessibility.AccessibilityManager.AccessibilityStateChangeListener;
 import com.android.tv.ChannelTuner;

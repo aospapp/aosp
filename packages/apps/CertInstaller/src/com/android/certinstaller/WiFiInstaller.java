@@ -93,6 +93,13 @@ public class WiFiInstaller extends Activity {
                         public void run() {
                             boolean success = true;
                             try {
+                                mWifiManager.removePasspointConfiguration(
+                                        mPasspointConfig.getHomeSp().getFqdn());
+                            } catch (IllegalArgumentException e) {
+                                // Do nothing. This is expected if a profile with this FQDN does not
+                                // exist.
+                            }
+                            try {
                                 mWifiManager.addOrUpdatePasspointConfiguration(mPasspointConfig);
                             } catch (RuntimeException rte) {
                                 Log.w(TAG, "Caught exception while installing wifi config: " +

@@ -16,6 +16,6 @@
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:color="@color/primary_icon_color"
           android:state_activated="false"/>
-    <item android:color="?android:colorAccent"
+    <item android:color="@color/audio_output_accent"
           android:state_activated="true"/>
 </selector>

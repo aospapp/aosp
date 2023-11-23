@@ -81,9 +81,9 @@ final class CdmaConnection extends TelephonyConnection {
             Connection connection,
             EmergencyTonePlayer emergencyTonePlayer,
             boolean allowMute,
-            boolean isOutgoing,
+            int callDirection,
             String telecomCallId) {
-        super(connection, telecomCallId, isOutgoing);
+        super(connection, telecomCallId, callDirection);
         mEmergencyTonePlayer = emergencyTonePlayer;
         mAllowMute = allowMute;
         mIsCallWaiting = connection != null && connection.getState() == Call.State.WAITING;
@@ -151,7 +151,7 @@ final class CdmaConnection extends TelephonyConnection {
     @Override
     public TelephonyConnection cloneConnection() {
         CdmaConnection cdmaConnection = new CdmaConnection(getOriginalConnection(),
-                mEmergencyTonePlayer, mAllowMute, mIsOutgoing, getTelecomCallId());
+                mEmergencyTonePlayer, mAllowMute, getCallDirection(), getTelecomCallId());
         return cdmaConnection;
     }
 
@@ -202,10 +202,6 @@ final class CdmaConnection extends TelephonyConnection {
         }
     }
 
-    boolean isOutgoing() {
-        return mIsOutgoing;
-    }
-
     boolean isCallWaiting() {
         return mIsCallWaiting;
     }
@@ -228,8 +224,8 @@ final class CdmaConnection extends TelephonyConnection {
             } catch (CallStateException e) {
                 Log.e(this, e, "Failed to hangup call waiting call");
             }
-            setDisconnected(DisconnectCauseUtil.toTelecomDisconnectCause(telephonyDisconnectCause,
-                    null, getPhone().getPhoneId()));
+            setTelephonyConnectionDisconnected(DisconnectCauseUtil.toTelecomDisconnectCause(
+                    telephonyDisconnectCause, null, getPhone().getPhoneId()));
         }
     }
 
@@ -288,9 +284,8 @@ final class CdmaConnection extends TelephonyConnection {
 
     private boolean isEmergency() {
         Phone phone = getPhone();
-        return phone != null &&
-                PhoneNumberUtils.isLocalEmergencyNumber(
-                    phone.getContext(), getAddress().getSchemeSpecificPart());
+        return phone != null && getAddress() != null && PhoneNumberUtils.isLocalEmergencyNumber(
+                phone.getContext(), getAddress().getSchemeSpecificPart());
     }
 
     /**
@@ -306,7 +301,7 @@ final class CdmaConnection extends TelephonyConnection {
 
     private void handleCdmaConnectionTimeReset() {
         boolean isImsCall = getOriginalConnection() instanceof ImsPhoneConnection;
-        if (!isImsCall && !mIsConnectionTimeReset && mIsOutgoing
+        if (!isImsCall && !mIsConnectionTimeReset && isOutgoingCall()
                 && getOriginalConnection() != null
                 && getOriginalConnection().getState() == Call.State.ACTIVE
                 && getOriginalConnection().getDurationMillis() > 0) {
@@ -325,7 +320,7 @@ final class CdmaConnection extends TelephonyConnection {
     }
 
     @Override
-    protected void close() {
+    public void close() {
         mIsConnectionTimeReset = false;
         if (getPhone() != null) {
             getPhone().unregisterForLineControlInfo(mHandler);

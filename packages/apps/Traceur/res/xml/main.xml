@@ -38,6 +38,7 @@
         android:defaultValue="@string/default_buffer_size"/>
     <Preference
         android:key="clear_saved_traces"
+        android:summary="@string/clear_saved_traces_summary"
         android:persistent="false"
         android:title="@string/clear_saved_traces" />
     <androidx.preference.PreferenceCategory

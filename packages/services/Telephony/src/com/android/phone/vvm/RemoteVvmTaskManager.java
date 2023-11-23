@@ -22,6 +22,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.content.pm.ComponentInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.os.Bundle;
@@ -38,6 +39,7 @@ import android.telephony.VisualVoicemailService;
 import android.telephony.VisualVoicemailSms;
 import android.text.TextUtils;
 
+import com.android.internal.telephony.util.TelephonyUtils;
 import com.android.phone.Assert;
 import com.android.phone.R;
 
@@ -167,7 +169,8 @@ public class RemoteVvmTaskManager extends Service {
             }
             if (info.serviceInfo == null) {
                 VvmLog.w(TAG,
-                        "Component " + info.getComponentInfo() + " is not a service, ignoring");
+                        "Component " + TelephonyUtils.getComponentInfo(info)
+                            + " is not a service, ignoring");
                 continue;
             }
             if (!android.Manifest.permission.BIND_VISUAL_VOICEMAIL_SERVICE
@@ -180,7 +183,8 @@ public class RemoteVvmTaskManager extends Service {
                 VvmLog.w(TAG, "target package " + targetPackage
                         + " is no longer the active VisualVoicemailService, ignoring");
             }
-            return info.getComponentInfo().getComponentName();
+            ComponentInfo componentInfo = TelephonyUtils.getComponentInfo(info);
+            return new ComponentName(componentInfo.packageName, componentInfo.name);
 
         }
         return null;
@@ -199,7 +203,8 @@ public class RemoteVvmTaskManager extends Service {
         if (info.isEmpty()) {
             return null;
         }
-        return info.get(0).getComponentInfo().getComponentName();
+        ComponentInfo componentInfo = TelephonyUtils.getComponentInfo(info.get(0));
+        return new ComponentName(componentInfo.packageName, componentInfo.name);
     }
 
     @Override
@@ -226,6 +231,11 @@ public class RemoteVvmTaskManager extends Service {
         Assert.isMainThread();
         mTaskReferenceCount++;
 
+        if (intent == null) {
+            VvmLog.i(TAG, "received intent is null");
+            checkReference();
+            return START_NOT_STICKY;
+        }
         PhoneAccountHandle phoneAccountHandle = intent.getExtras()
                 .getParcelable(VisualVoicemailService.DATA_PHONE_ACCOUNT_HANDLE);
         int subId = PhoneAccountHandleConverter.toSubId(phoneAccountHandle);

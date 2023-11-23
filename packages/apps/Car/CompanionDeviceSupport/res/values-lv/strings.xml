@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 
+  ~ Copyright (C) 2019 The Android Open Source Project
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~
+  ~      http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+   -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="default_device_name" msgid="405493967512651629">"Saistītā ierīce"</string>
+    <string name="add_device_title" msgid="6166003577845888151">"Pievienot saistīto ierīci"</string>
+    <string name="add_associated_device_title" msgid="3275596124326477381">"Palīgierīces pievienošana"</string>
+    <string name="add_associated_device_instruction" msgid="1015406964657139291">"Varat izmantot savu tālruni kā palīgierīci braukšanas iespēju pārvaldībai."</string>
+    <string name="associated_device_install_app" msgid="981663561198924864">"Jūsu tālrunī ir jābūt instalētai "<b>"palīglietotnei"</b>"."</string>
+    <string name="associated_device_pairing_code_title" msgid="5118861901337336309">"Koda apstiprināšana tālrunī"</string>
+    <string name="associated_device_pairing_message" msgid="7319249426394299109">"Apstipriniet, ka šis kods atbilst jūsu tālrunī redzamajam kodam."</string>
+    <string name="associated_device_success" msgid="584760065696870256">"Ierīce tika sekmīgi saistīta."</string>
+    <string name="associated_device_select_device" msgid="1931869046289060602">"Atveriet lietotni un savienojiet to ar &lt;b&gt;<xliff:g id="CAR_NAME">%1$s</xliff:g>&lt;b&gt;"</string>
+    <string name="remove_associated_device_title" msgid="4060806982019423895">"Vai noņemt ierīci &lt;b&gt;<xliff:g id="CAR_NAME">%1$s</xliff:g>&lt;/b&gt;?"</string>
+    <string name="remove_associated_device_message" msgid="3991333597951462900">"Šī automašīna vairs nebūs savienota pārī ar šo ierīci. Jums būs arī jānoņem šī automašīna no palīglietotnes."</string>
+    <string name="device_removed_success_toast_text" msgid="3242832156490823936">"Tālrunis <xliff:g id="PHONE_NAME">%1$s</xliff:g> tika noņemts."</string>
+    <string name="device_removed_failure_toast_text" msgid="3756625943664982395">"Neizdevās noņemt tālruni <xliff:g id="PHONE_NAME">%1$s</xliff:g>."</string>
+    <string name="continue_setup_toast_text" msgid="8487187853051037413">"Turpiniet iestatīšanu tālrunī."</string>
+    <string name="error_screen_title" msgid="3977744142045194903">"Radās problēma"</string>
+    <string name="error_screen_message" msgid="1217200461704367056">"Diemžēl nevarēja pareizi parādīt šo ekrānu. Mēģiniet vēlreiz."</string>
+    <string name="turn_on_bluetooth_title" msgid="2877749869113938263">"Bluetooth ieslēgšana"</string>
+    <string name="turn_on_bluetooth_message" msgid="5087006108685547788">"Lai iestatītu tālruni kā palīgierīci, automašīnai ir nepieciešams Bluetooth savienojums."</string>
+    <string name="turn_on_bluetooth_dialog_title" msgid="8693712073791430461">"Vai ieslēgt Bluetooth?"</string>
+    <string name="turn_on_bluetooth_dialog_message" msgid="5347157597209022072">"Lai pievienotu palīgierīci, automašīnai ir nepieciešams Bluetooth savienojums."</string>
+    <string name="accept" msgid="1454710793329618813">"Piekrist"</string>
+    <string name="reject" msgid="4315432282758892890">"Noraidīt"</string>
+    <string name="confirm" msgid="3748997214719276945">"Apstiprināt"</string>
+    <string name="cancel" msgid="4306609731174629323">"Atcelt"</string>
+    <string name="remove" msgid="5513398257088729188">"Noņemt"</string>
+    <string name="ok" msgid="2825038997730899083">"Labi"</string>
+    <string name="connection" msgid="2798490936433656846">"Savienojums"</string>
+    <string name="forget_title" msgid="3027608547243824729">"Neiegaumēt šo ierīci"</string>
+    <string name="forget" msgid="2069897665699141222">"Neiegaumēt"</string>
+    <string name="disable" msgid="4619854429066283970">"Atspējot"</string>
+    <string name="enable" msgid="7656386199154111316">"Iespējot"</string>
+    <string name="continue_button" msgid="2748318968566159950">"Tālāk"</string>
+    <string name="retry" msgid="3783419451480721367">"Mēģināt vēlreiz"</string>
+    <string name="turn_on" msgid="4288754850470994812">"Ieslēgt"</string>
+    <string name="not_now" msgid="8764692269093707622">"Vēlāk"</string>
+    <string name="connected" msgid="8051190714042020471">"Saistīta"</string>
+    <string name="notDetected" msgid="4115229772085594506">"Netika atrasta"</string>
+    <string name="disconnected" msgid="8526513868622591894">"Atvienota"</string>
+    <string name="unknown" msgid="555736316465118024">"Nezināms"</string>
+    <string name="app_running_msg_channel_name" msgid="87011783084544733">"Darbojas tālruņa īsziņu pakalpojums"</string>
+    <string name="app_running_msg_notification_title" msgid="388907180286994900">"Tālruņa īsziņu pakalpojums ir aktīvs"</string>
+    <string name="app_running_msg_notification_content" msgid="4602261901969140233">"Īsziņas tiek saņemtas, izmantojot palīgierīci"</string>
+    <string name="trusted_device_feature_title" msgid="2690568414493283969">"Profila atbloķēšana, izmantojot tālruni"</string>
+    <string name="trusted_device_feature_instruction" msgid="2546439818978826962">"Pārbaudiet palīglietotni, lai iestatītu atbloķēšanas iespējas."</string>
+    <string name="trusted_device_item_title" msgid="4390572381407233745">"Atļauja tālrunim &lt;b&gt;<xliff:g id="PHONE_NAME">%1$s</xliff:g>&lt;/b&gt; atbloķēt manu profilu"</string>
+    <string name="device_not_connected_dialog_title" msgid="1157155922752758658">"Tālrunī ir jābūt aktīvam savienojumam"</string>
+    <string name="device_not_connected_dialog_message" msgid="4987412656697205324">"Lai ieslēgtu šo funkciju, automašīnai un tālrunim ir jābūt ar ieslēgtu Bluetooth savienojumu un ir jāatrodas tuvu cits citam."</string>
+    <string name="trusted_device_enrollment_success_message" msgid="2080578779942302923">"Tagad &lt;b&gt;<xliff:g id="PHONE_NAME">%1$s</xliff:g>&lt;/b&gt; var atbloķēt jūsu profilu."</string>
+    <string name="create_profile_lock_dialog_title" msgid="7865225698595414341">"Profila bloķēšanas galvenā veida iestatīšana"</string>
+    <string name="create_profile_lock_dialog_message" msgid="5078929325894045416">"Lai varētu atbloķēt profilu, izmantojot tālruni, galvenajam profila bloķēšanas veidam ir jābūt iestatītam kā rezerves iespējai."</string>
+    <string name="unlock_profile_to_finish_title" msgid="6542028315996392302">"Profila atbloķēšana, lai pabeigtu procesu"</string>
+    <string name="unlock_profile_to_finish_message" msgid="8616094218201557262">"Jūs izveidojāt jaunu profila bloķēšanas veidu. Ievadiet to vēlreiz, lai apstiprinātu, ka jūsu tālrunis var automātiski atbloķēt jūsu profilu."</string>
+    <string name="disable_device_connection_text" msgid="4361795552013963732">"Atvienot šo ierīci"</string>
+    <string name="enable_device_connection_text" msgid="7742550392552935783">"Atkārtoti pievienot šo ierīci"</string>
+    <string name="trusted_device_notification_channel_name" msgid="6717174570621750321">"Atbloķēšana, izmantojot tālruni"</string>
+    <string name="trusted_device_notification_title" msgid="249913439061543209">"Atļauja atbloķēt profilu, izmantojot tālruni"</string>
+    <string name="trusted_device_notification_content" msgid="7536321078698712456">"Pieskarieties šeit, lai atļautu šo funkciju."</string>
+    <string name="trusted_device_enrollment_error_dialog_title" msgid="8120284275374458606">"Radās problēma"</string>
+    <string name="trusted_device_enrollment_error_dialog_message" msgid="7205036748277720461">"Diemžēl šobrīd nevarēja ieslēgt šo funkciju. Mēģiniet vēlreiz."</string>
+    <string name="create_phone_lock_dialog_title" msgid="9160142569534569820">"Ekrāna bloķēšanas iestatīšana tālrunī"</string>
+    <string name="create_phone_lock_dialog_message" msgid="8209460622086922427">"Tālrunim nav iestatīta ekrāna bloķēšana. Lai varētu atbloķēt automašīnas profilu, izmantojot tālruni, vispirms tālruņa iestatījumos izveidojiet ekrāna bloķēšanu (piekļuves kodu)."</string>
+</resources>

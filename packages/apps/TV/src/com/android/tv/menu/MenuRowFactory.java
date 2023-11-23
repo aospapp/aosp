@@ -19,24 +19,43 @@ package com.android.tv.menu;
 import android.content.Context;
 import android.support.annotation.Nullable;
 import android.text.TextUtils;
+
 import com.android.tv.MainActivity;
 import com.android.tv.R;
 import com.android.tv.common.customization.CustomAction;
 import com.android.tv.common.customization.CustomizationManager;
+import com.android.tv.menu.MenuRowFactory.Factory;
 import com.android.tv.ui.TunableTvView;
+
+import com.google.auto.factory.AutoFactory;
+import com.google.auto.factory.Provided;
+
 import java.util.List;
 
 /** A factory class to create menu rows. */
+@AutoFactory(implementing = Factory.class)
 public class MenuRowFactory {
+
+    /** Factory for a {@link MenuRowFactory}. */
+    public interface Factory {
+        /** Creates a {@link MenuRowFactory} */
+        MenuRowFactory create(MainActivity mainActivity, TunableTvView tvView);
+    }
+
     private final MainActivity mMainActivity;
     private final TunableTvView mTvView;
     private final CustomizationManager mCustomizationManager;
+    private final TvOptionsRowAdapter.Factory mTvOptionsRowAdapterFactory;
 
     /** A constructor. */
-    public MenuRowFactory(MainActivity mainActivity, TunableTvView tvView) {
+    public MenuRowFactory(
+            MainActivity mainActivity,
+            TunableTvView tvView,
+            @Provided TvOptionsRowAdapter.Factory tvOptionsRowAdapterFactory) {
         mMainActivity = mainActivity;
         mTvView = tvView;
         mCustomizationManager = new CustomizationManager(mainActivity);
+        mTvOptionsRowAdapterFactory = tvOptionsRowAdapterFactory;
         mCustomizationManager.initialize();
     }
 
@@ -60,7 +79,8 @@ public class MenuRowFactory {
             return new TvOptionsRow(
                     mMainActivity,
                     menu,
-                    mCustomizationManager.getCustomActions(CustomizationManager.ID_OPTIONS_ROW));
+                    mCustomizationManager.getCustomActions(CustomizationManager.ID_OPTIONS_ROW),
+                    mTvOptionsRowAdapterFactory);
         }
         return null;
     }
@@ -70,13 +90,17 @@ public class MenuRowFactory {
         /** The ID of the row. */
         public static final String ID = TvOptionsRow.class.getName();
 
-        private TvOptionsRow(Context context, Menu menu, List<CustomAction> customActions) {
+        private TvOptionsRow(
+                Context context,
+                Menu menu,
+                @Nullable List<CustomAction> customActions,
+                TvOptionsRowAdapter.Factory tvOptionsRowAdapterFactory) {
             super(
                     context,
                     menu,
                     R.string.menu_title_options,
                     R.dimen.action_card_height,
-                    new TvOptionsRowAdapter(context, customActions));
+                    tvOptionsRowAdapterFactory.create(context, customActions));
         }
     }
 

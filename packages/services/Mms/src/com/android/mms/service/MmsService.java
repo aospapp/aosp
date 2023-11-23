@@ -16,6 +16,9 @@
 
 package com.android.mms.service;
 
+import static com.google.android.mms.pdu.PduHeaders.MESSAGE_TYPE;
+import static com.google.android.mms.pdu.PduHeaders.MESSAGE_TYPE_SEND_REQ;
+
 import android.annotation.Nullable;
 import android.app.PendingIntent;
 import android.app.Service;
@@ -36,6 +39,7 @@ import android.os.RemoteException;
 import android.os.UserHandle;
 import android.provider.Settings;
 import android.provider.Telephony;
+import android.security.NetworkSecurityPolicy;
 import android.service.carrier.CarrierMessagingService;
 import android.telephony.SmsManager;
 import android.telephony.SubscriptionManager;
@@ -87,6 +91,15 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
 
     // The default number of threads allowed to run MMS requests in each queue
     public static final int THREAD_POOL_SIZE = 4;
+
+    /** Represents the received SMS message for importing. */
+    public static final int SMS_TYPE_INCOMING = 0;
+    /** Represents the sent SMS message for importing. */
+    public static final int SMS_TYPE_OUTGOING = 1;
+    /** Message status property: whether the message has been seen. */
+    public static final String MESSAGE_STATUS_SEEN = "seen";
+    /** Message status property: whether the message has been read. */
+    public static final String MESSAGE_STATUS_READ = "read";
 
     // Pending requests that are waiting for the SIM to be available
     // If a different SIM is currently used by previous requests, the following
@@ -152,22 +165,11 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
         }
     }
 
-    private int checkSubId(int subId) {
-        if (!SubscriptionManager.isValidSubscriptionId(subId)) {
-            throw new RuntimeException("Invalid subId " + subId);
-        }
-        if (subId == SubscriptionManager.DEFAULT_SUBSCRIPTION_ID) {
-            return SubscriptionManager.getDefaultSmsSubscriptionId();
-        }
-        return subId;
-    }
-
     @Nullable
     private String getCarrierMessagingServicePackageIfExists(int subId) {
         Intent intent = new Intent(CarrierMessagingService.SERVICE_INTERFACE);
         TelephonyManager telephonyManager = getTelephonyManager(subId);
-        List<String> carrierPackages = telephonyManager.getCarrierPackageNamesForIntentAndPhone(
-                intent, SubscriptionManager.getPhoneId(subId));
+        List<String> carrierPackages = telephonyManager.getCarrierPackageNamesForIntent(intent);
 
         if (carrierPackages == null || carrierPackages.size() != 1) {
             return null;
@@ -179,12 +181,20 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
     private IMms.Stub mStub = new IMms.Stub() {
         @Override
         public void sendMessage(int subId, String callingPkg, Uri contentUri,
-                String locationUrl, Bundle configOverrides, PendingIntent sentIntent) {
-            LogUtil.d("sendMessage");
+                String locationUrl, Bundle configOverrides, PendingIntent sentIntent,
+                long messageId) {
+            LogUtil.d("sendMessage messageId: " + messageId);
             enforceSystemUid();
 
             // Make sure the subId is correct
-            subId = checkSubId(subId);
+            if (!SubscriptionManager.isValidSubscriptionId(subId)) {
+                LogUtil.e("Invalid subId " + subId);
+                sendErrorInPendingIntent(sentIntent);
+                return;
+            }
+            if (subId == SubscriptionManager.DEFAULT_SUBSCRIPTION_ID) {
+                subId = SubscriptionManager.getDefaultSmsSubscriptionId();
+            }
 
             // Make sure the subId is active
             if (!isActiveSubId(subId)) {
@@ -192,17 +202,9 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
                 return;
             }
 
-            // Make sure subId has MMS data
-            if (!getTelephonyManager(subId).isDataEnabledForApn(ApnSetting.TYPE_MMS)) {
-                LogUtil.w("Subscription with id: " + subId
-                        + " cannot send MMS, data connection is not available");
-                sendSettingsIntentForFailedMms(/*isIncoming=*/ false, subId);
-                sendErrorInPendingIntent(sentIntent);
-                return;
-            }
-
             final SendRequest request = new SendRequest(MmsService.this, subId, contentUri,
-                    locationUrl, sentIntent, callingPkg, configOverrides, MmsService.this);
+                    locationUrl, sentIntent, callingPkg, configOverrides, MmsService.this,
+                    messageId);
 
             final String carrierMessagingServicePackage =
                     getCarrierMessagingServicePackageIfExists(subId);
@@ -210,57 +212,68 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
             if (carrierMessagingServicePackage != null) {
                 LogUtil.d(request.toString(), "sending message by carrier app");
                 request.trySendingByCarrierApp(MmsService.this, carrierMessagingServicePackage);
-            } else {
-                addSimRequest(request);
+                return;
             }
+
+            // Make sure subId has MMS data. We intentionally do this after attempting to send via a
+            // carrier messaging service as the carrier messaging service may want to handle this in
+            // a different way and may not be restricted by whether data is enabled for an APN on a
+            // given subscription.
+            if (!getTelephonyManager(subId).isDataEnabledForApn(ApnSetting.TYPE_MMS)) {
+                // ENABLE_MMS_DATA_REQUEST_REASON_OUTGOING_MMS is set for only SendReq case, since
+                // AcknowledgeInd and NotifyRespInd are parts of downloading sequence.
+                // TODO: Should consider ReadRecInd(Read Report)?
+                sendSettingsIntentForFailedMms(!isRawPduSendReq(contentUri), subId);
+                sendErrorInPendingIntent(sentIntent);
+                return;
+            }
+
+            addSimRequest(request);
         }
 
         @Override
         public void downloadMessage(int subId, String callingPkg, String locationUrl,
                 Uri contentUri, Bundle configOverrides,
-                PendingIntent downloadedIntent) {
-            LogUtil.d("downloadMessage: " + MmsHttpClient.redactUrlForNonVerbose(locationUrl));
+                PendingIntent downloadedIntent, long messageId) {
+            // If the subId is no longer active it could be caused by an MVNO using multiple
+            // subIds, so we should try to download anyway.
+            // TODO: Fail fast when downloading will fail (i.e. SIM swapped)
+            LogUtil.d("downloadMessage: " + MmsHttpClient.redactUrlForNonVerbose(locationUrl) +
+                    ", messageId: " + messageId);
+
             enforceSystemUid();
 
             // Make sure the subId is correct
-            subId = checkSubId(subId);
-
-            // Make sure subId has MMS data
-            if (!getTelephonyManager(subId).isDataEnabledForApn(ApnSetting.TYPE_MMS)) {
-                LogUtil.w("Subscription with id: " + subId
-                        + " cannot download MMS, data connection is not available");
-                sendSettingsIntentForFailedMms(/*isIncoming=*/ true, subId);
+            if (!SubscriptionManager.isValidSubscriptionId(subId)) {
+                LogUtil.e("Invalid subId " + subId);
                 sendErrorInPendingIntent(downloadedIntent);
                 return;
             }
-
-            // If the subId is no longer active it could be caused by
-            // an MVNO using multiple subIds, so we should try to
-            // download anyway.
-            // TODO: Fail fast when downloading will fail (i.e. SIM swapped)
+            if (subId == SubscriptionManager.DEFAULT_SUBSCRIPTION_ID) {
+                subId = SubscriptionManager.getDefaultSmsSubscriptionId();
+            }
 
             final DownloadRequest request = new DownloadRequest(MmsService.this, subId, locationUrl,
-                    contentUri, downloadedIntent, callingPkg, configOverrides, MmsService.this);
+                    contentUri, downloadedIntent, callingPkg, configOverrides, MmsService.this,
+                    messageId);
+
             final String carrierMessagingServicePackage =
                     getCarrierMessagingServicePackageIfExists(subId);
 
             if (carrierMessagingServicePackage != null) {
                 LogUtil.d(request.toString(), "downloading message by carrier app");
                 request.tryDownloadingByCarrierApp(MmsService.this, carrierMessagingServicePackage);
-            } else {
-                addSimRequest(request);
+                return;
             }
-        }
 
-        public Bundle getCarrierConfigValues(int subId) {
-            LogUtil.d("getCarrierConfigValues");
-            // Make sure the subId is correct
-            subId = checkSubId(subId);
-            final Bundle mmsConfig = MmsConfigManager.getInstance().getMmsConfigBySubId(subId);
-            if (mmsConfig == null) {
-                return new Bundle();
+            // Make sure subId has MMS data
+            if (!getTelephonyManager(subId).isDataEnabledForApn(ApnSetting.TYPE_MMS)) {
+                sendSettingsIntentForFailedMms(/*isIncoming=*/ true, subId);
+                sendErrorInPendingIntent(downloadedIntent);
+                return;
             }
-            return mmsConfig;
+
+            addSimRequest(request);
         }
 
         @Override
@@ -396,7 +409,8 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
          * @return true if the subId is active.
          */
         private boolean isActiveSubId(int subId) {
-            return SubscriptionManager.from(MmsService.this).isActiveSubId(subId);
+            return ((SubscriptionManager) getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE))
+                .isActiveSubscriptionId(subId);
         }
 
         /*
@@ -409,6 +423,22 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
                 } catch (PendingIntent.CanceledException ex) {
                 }
             }
+        }
+
+        private boolean isRawPduSendReq(Uri contentUri) {
+            // X-Mms-Message-Type is at the beginning of the message headers always. 1st byte is
+            // MMS-filed-name and 2nd byte is MMS-value for X-Mms-Message-Type field.
+            // See OMA-TS-MMS_ENC-V1_3-20110913-A, 7. Binary Encoding of ProtocolData Units
+            byte[] pduData = new byte[2];
+            int bytesRead = readPduBytesFromContentUri(contentUri, pduData);
+
+            // Return true for MESSAGE_TYPE_SEND_REQ only. Otherwise false even wrong PDU case.
+            if (bytesRead == 2
+                    && (pduData[0] & 0xFF) == MESSAGE_TYPE
+                    && (pduData[1] & 0xFF) == MESSAGE_TYPE_SEND_REQ) {
+                return true;
+            }
+            return false;
         }
     };
 
@@ -441,6 +471,9 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
     }
 
     private void sendSettingsIntentForFailedMms(boolean isIncoming, int subId) {
+        LogUtil.w("Subscription with id: " + subId
+                + " cannot " + (isIncoming ? "download" : "send")
+                + " MMS, data connection is not available");
         Intent intent = new Intent(Settings.ACTION_ENABLE_MMS_DATA_REQUEST);
 
         intent.putExtra(Settings.EXTRA_ENABLE_MMS_DATA_REQUEST_REASON,
@@ -518,6 +551,9 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
         LogUtil.d("onCreate");
         // Load mms_config
         MmsConfigManager.getInstance().init(this);
+
+        NetworkSecurityPolicy.getInstance().setCleartextTrafficPermitted(true);
+
         // Initialize running request state
         for (int i = 0; i < mRunningRequestExecutors.length; i++) {
             mRunningRequestExecutors[i] = Executors.newFixedThreadPool(THREAD_POOL_SIZE);
@@ -541,11 +577,11 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
             boolean seen, boolean read, String creator) {
         Uri insertUri = null;
         switch (type) {
-            case SmsManager.SMS_TYPE_INCOMING:
+            case SMS_TYPE_INCOMING:
                 insertUri = Telephony.Sms.Inbox.CONTENT_URI;
 
                 break;
-            case SmsManager.SMS_TYPE_OUTGOING:
+            case SMS_TYPE_OUTGOING:
                 insertUri = Telephony.Sms.Sent.CONTENT_URI;
                 break;
         }
@@ -665,14 +701,14 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
             return false;
         }
         final ContentValues values = new ContentValues();
-        if (statusValues.containsKey(SmsManager.MESSAGE_STATUS_READ)) {
-            final Integer val = statusValues.getAsInteger(SmsManager.MESSAGE_STATUS_READ);
+        if (statusValues.containsKey(MESSAGE_STATUS_READ)) {
+            final Integer val = statusValues.getAsInteger(MESSAGE_STATUS_READ);
             if (val != null) {
                 // MMS uses the same column name
                 values.put(Telephony.Sms.READ, val);
             }
-        } else if (statusValues.containsKey(SmsManager.MESSAGE_STATUS_SEEN)) {
-            final Integer val = statusValues.getAsInteger(SmsManager.MESSAGE_STATUS_SEEN);
+        } else if (statusValues.containsKey(MESSAGE_STATUS_SEEN)) {
+            final Integer val = statusValues.getAsInteger(MESSAGE_STATUS_SEEN);
             if (val != null) {
                 // MMS uses the same column name
                 values.put(Telephony.Sms.SEEN, val);
@@ -715,7 +751,7 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
                     Telephony.Threads.CONTENT_URI,
                     values,
                     ARCHIVE_CONVERSATION_SELECTION,
-                    new String[] {Long.toString(conversationId)}) != 1) {
+                    new String[]{Long.toString(conversationId)}) != 1) {
                 LogUtil.e("archiveConversation: failed to update database");
                 return false;
             }
@@ -836,38 +872,53 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
     }
 
     /**
-     * Read pdu from content provider uri
+     * Read pdu from content provider uri.
      *
-     * @param contentUri content provider uri from which to read
-     * @param maxSize    maximum number of bytes to read
-     * @return pdu bytes if succeeded else null
+     * @param contentUri content provider uri from which to read.
+     * @param maxSize    maximum number of bytes to read.
+     * @return pdu bytes if succeeded else null.
      */
     public byte[] readPduFromContentUri(final Uri contentUri, final int maxSize) {
-        if (contentUri == null) {
+        // Request one extra byte to make sure file not bigger than maxSize
+        byte[] pduData = new byte[maxSize + 1];
+        int bytesRead = readPduBytesFromContentUri(contentUri, pduData);
+        if (bytesRead <= 0) {
             return null;
         }
-        Callable<byte[]> copyPduToArray = new Callable<byte[]>() {
-            public byte[] call() {
+        if (bytesRead > maxSize) {
+            LogUtil.e("PDU read is too large");
+            return null;
+        }
+        return Arrays.copyOf(pduData, bytesRead);
+    }
+
+    /**
+     * Read up to length of the pduData array from content provider uri.
+     *
+     * @param contentUri content provider uri from which to read.
+     * @param pduData    the buffer into which the data is read.
+     * @return the total number of bytes read into the pduData.
+     */
+    public int readPduBytesFromContentUri(final Uri contentUri, byte[] pduData) {
+        if (contentUri == null) {
+            LogUtil.e("Uri is null");
+            return 0;
+        }
+        Callable<Integer> copyPduToArray = new Callable<Integer>() {
+            public Integer call() {
                 ParcelFileDescriptor.AutoCloseInputStream inStream = null;
                 try {
                     ContentResolver cr = MmsService.this.getContentResolver();
                     ParcelFileDescriptor pduFd = cr.openFileDescriptor(contentUri, "r");
                     inStream = new ParcelFileDescriptor.AutoCloseInputStream(pduFd);
-                    // Request one extra byte to make sure file not bigger than maxSize
-                    byte[] tempBody = new byte[maxSize + 1];
-                    int bytesRead = inStream.read(tempBody, 0, maxSize + 1);
-                    if (bytesRead == 0) {
-                        LogUtil.e("Read empty PDU");
-                        return null;
+                    int bytesRead = inStream.read(pduData, 0, pduData.length);
+                    if (bytesRead <= 0) {
+                        LogUtil.e("Empty PDU or at end of the file");
                     }
-                    if (bytesRead <= maxSize) {
-                        return Arrays.copyOf(tempBody, bytesRead);
-                    }
-                    LogUtil.e("PDU read is too large");
-                    return null;
+                    return bytesRead;
                 } catch (IOException ex) {
                     LogUtil.e("IO exception reading PDU", ex);
-                    return null;
+                    return 0;
                 } finally {
                     if (inStream != null) {
                         try {
@@ -879,14 +930,14 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
             }
         };
 
-        final Future<byte[]> pendingResult = mPduTransferExecutor.submit(copyPduToArray);
+        final Future<Integer> pendingResult = mPduTransferExecutor.submit(copyPduToArray);
         try {
             return pendingResult.get(TASK_TIMEOUT_MS, TimeUnit.MILLISECONDS);
         } catch (Exception e) {
             // Typically a timeout occurred - cancel task
             pendingResult.cancel(true);
         }
-        return null;
+        return 0;
     }
 
     /**

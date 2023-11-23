@@ -29,9 +29,11 @@ import android.hardware.automotive.vehicle.V2_0.VehicleApPowerStateShutdownParam
 import android.hardware.automotive.vehicle.V2_0.VehiclePropConfig;
 import android.hardware.automotive.vehicle.V2_0.VehiclePropValue;
 import android.hardware.automotive.vehicle.V2_0.VehicleProperty;
+import android.os.ServiceSpecificException;
 import android.util.Log;
 
 import com.android.car.CarLog;
+import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
 
 import java.io.PrintWriter;
@@ -43,6 +45,12 @@ import java.util.List;
 public class PowerHalService extends HalServiceBase {
     // Set display brightness from 0-100%
     public static final int MAX_BRIGHTNESS = 100;
+
+    private static final int[] SUPPORTED_PROPERTIES = new int[]{
+            AP_POWER_STATE_REQ,
+            AP_POWER_STATE_REPORT,
+            DISPLAY_BRIGHTNESS
+    };
 
     @VisibleForTesting
     public static final int SET_WAIT_FOR_VHAL = VehicleApPowerStateReport.WAIT_FOR_VHAL;
@@ -68,6 +76,8 @@ public class PowerHalService extends HalServiceBase {
             VehicleApPowerStateShutdownParam.SHUTDOWN_IMMEDIATELY;
     @VisibleForTesting
     public static final int SHUTDOWN_ONLY = VehicleApPowerStateShutdownParam.SHUTDOWN_ONLY;
+
+    private final Object mLock = new Object();
 
     private static String powerStateReportName(int state) {
         String baseName;
@@ -132,7 +142,8 @@ public class PowerHalService extends HalServiceBase {
             if (mState != VehicleApPowerStateReq.SHUTDOWN_PREPARE) {
                 throw new IllegalStateException("wrong state");
             }
-            return (mParam == VehicleApPowerStateShutdownParam.CAN_SLEEP);
+            return (mParam == VehicleApPowerStateShutdownParam.CAN_SLEEP
+                    || mParam == VehicleApPowerStateShutdownParam.SLEEP_IMMEDIATELY);
         }
 
         /**
@@ -145,7 +156,8 @@ public class PowerHalService extends HalServiceBase {
             if (mState != VehicleApPowerStateReq.SHUTDOWN_PREPARE) {
                 throw new IllegalStateException("wrong state");
             }
-            return (mParam != VehicleApPowerStateShutdownParam.SHUTDOWN_IMMEDIATELY);
+            return (mParam != VehicleApPowerStateShutdownParam.SHUTDOWN_IMMEDIATELY
+                    && mParam != VehicleApPowerStateShutdownParam.SLEEP_IMMEDIATELY);
         }
 
         @Override
@@ -166,10 +178,14 @@ public class PowerHalService extends HalServiceBase {
         }
     }
 
+    @GuardedBy("mLock")
     private final HashMap<Integer, VehiclePropConfig> mProperties = new HashMap<>();
     private final VehicleHal mHal;
+    @GuardedBy("mLock")
     private LinkedList<VehiclePropValue> mQueuedEvents;
+    @GuardedBy("mLock")
     private PowerEventListener mListener;
+    @GuardedBy("mLock")
     private int mMaxDisplayBrightness;
 
     public PowerHalService(VehicleHal hal) {
@@ -178,7 +194,7 @@ public class PowerHalService extends HalServiceBase {
 
     public void setListener(PowerEventListener listener) {
         LinkedList<VehiclePropValue> eventsToDispatch = null;
-        synchronized (this) {
+        synchronized (mLock) {
             mListener = listener;
             if (mQueuedEvents != null && mQueuedEvents.size() > 0) {
                 eventsToDispatch = mQueuedEvents;
@@ -199,13 +215,13 @@ public class PowerHalService extends HalServiceBase {
         setPowerState(VehicleApPowerStateReport.WAIT_FOR_VHAL, 0);
     }
 
-   /**
+    /**
      * Send SleepEntry message to VHAL
      * @param wakeupTimeSec Notify VHAL when system wants to be woken from sleep.
      */
     public void sendSleepEntry(int wakeupTimeSec) {
         Log.i(CarLog.TAG_POWER, "send sleep entry");
-        setPowerState(VehicleApPowerStateReport.DEEP_SLEEP_ENTRY, wakeupTimeSec * 1000);
+        setPowerState(VehicleApPowerStateReport.DEEP_SLEEP_ENTRY, wakeupTimeSec);
     }
 
     /**
@@ -230,7 +246,7 @@ public class PowerHalService extends HalServiceBase {
      */
     public void sendShutdownStart(int wakeupTimeSec) {
         Log.i(CarLog.TAG_POWER, "send shutdown start");
-        setPowerState(VehicleApPowerStateReport.SHUTDOWN_START, wakeupTimeSec * 1000);
+        setPowerState(VehicleApPowerStateReport.SHUTDOWN_START, wakeupTimeSec);
     }
 
     /**
@@ -267,10 +283,14 @@ public class PowerHalService extends HalServiceBase {
         } else if (brightness > 100) {
             brightness = 100;
         }
+        VehiclePropConfig prop = mProperties.get(DISPLAY_BRIGHTNESS);
+        if (prop == null) {
+            return;
+        }
         try {
             mHal.set(VehicleProperty.DISPLAY_BRIGHTNESS, 0).to(brightness);
             Log.i(CarLog.TAG_POWER, "send display brightness = " + brightness);
-        } catch (PropertyTimeoutException e) {
+        } catch (ServiceSpecificException | IllegalArgumentException e) {
             Log.e(CarLog.TAG_POWER, "cannot set DISPLAY_BRIGHTNESS", e);
         }
     }
@@ -282,7 +302,7 @@ public class PowerHalService extends HalServiceBase {
                 mHal.set(VehicleProperty.AP_POWER_STATE_REPORT, 0).to(values);
                 Log.i(CarLog.TAG_POWER, "setPowerState=" + powerStateReportName(state)
                         + " param=" + additionalParam);
-            } catch (PropertyTimeoutException e) {
+            } catch (ServiceSpecificException e) {
                 Log.e(CarLog.TAG_POWER, "cannot set to AP_POWER_STATE_REPORT", e);
             }
         }
@@ -293,7 +313,7 @@ public class PowerHalService extends HalServiceBase {
         int[] state;
         try {
             state = mHal.get(int[].class, VehicleProperty.AP_POWER_STATE_REQ);
-        } catch (PropertyTimeoutException e) {
+        } catch (ServiceSpecificException e) {
             Log.e(CarLog.TAG_POWER, "Cannot get AP_POWER_STATE_REQ", e);
             return null;
         }
@@ -301,16 +321,23 @@ public class PowerHalService extends HalServiceBase {
                 state[VehicleApPowerStateReqIndex.ADDITIONAL]);
     }
 
-    public synchronized boolean isPowerStateSupported() {
-        return (mProperties.get(VehicleProperty.AP_POWER_STATE_REQ) != null)
-                && (mProperties.get(VehicleProperty.AP_POWER_STATE_REPORT) != null);
+    /**
+     * Determines if the current properties describe a valid power state
+     * @return true if both the power state request and power state report are valid
+     */
+    public boolean isPowerStateSupported() {
+        synchronized (mLock) {
+            return (mProperties.get(VehicleProperty.AP_POWER_STATE_REQ) != null)
+                    && (mProperties.get(VehicleProperty.AP_POWER_STATE_REPORT) != null);
+        }
     }
 
-    private synchronized boolean isConfigFlagSet(int flag) {
-        VehiclePropConfig config = mProperties.get(VehicleProperty.AP_POWER_STATE_REQ);
-        if (config == null) {
-            return false;
-        } else if (config.configArray.size() < 1) {
+    private boolean isConfigFlagSet(int flag) {
+        VehiclePropConfig config;
+        synchronized (mLock) {
+            config = mProperties.get(VehicleProperty.AP_POWER_STATE_REQ);
+        }
+        if (config == null || config.configArray.size() < 1) {
             return false;
         }
         return (config.configArray.get(0) & flag) != 0;
@@ -325,48 +352,54 @@ public class PowerHalService extends HalServiceBase {
     }
 
     @Override
-    public synchronized void init() {
-        for (VehiclePropConfig config : mProperties.values()) {
-            if (VehicleHal.isPropertySubscribable(config)) {
-                mHal.subscribeProperty(this, config.prop);
+    public void init() {
+        synchronized (mLock) {
+            for (VehiclePropConfig config : mProperties.values()) {
+                if (VehicleHal.isPropertySubscribable(config)) {
+                    mHal.subscribeProperty(this, config.prop);
+                }
             }
-        }
-        VehiclePropConfig brightnessProperty = mProperties.get(DISPLAY_BRIGHTNESS);
-        if (brightnessProperty != null) {
-            mMaxDisplayBrightness = brightnessProperty.areaConfigs.size() > 0
-                    ? brightnessProperty.areaConfigs.get(0).maxInt32Value : 0;
-            if (mMaxDisplayBrightness <= 0) {
-                Log.w(CarLog.TAG_POWER, "Max display brightness from vehicle HAL is invalid:" +
-                        mMaxDisplayBrightness);
-                mMaxDisplayBrightness = 1;
+            VehiclePropConfig brightnessProperty = mProperties.get(DISPLAY_BRIGHTNESS);
+            if (brightnessProperty != null) {
+                mMaxDisplayBrightness = brightnessProperty.areaConfigs.size() > 0
+                        ? brightnessProperty.areaConfigs.get(0).maxInt32Value : 0;
+                if (mMaxDisplayBrightness <= 0) {
+                    Log.w(CarLog.TAG_POWER, "Max display brightness from vehicle HAL is invalid:"
+                            + mMaxDisplayBrightness);
+                    mMaxDisplayBrightness = 1;
+                }
             }
         }
     }
 
     @Override
-    public synchronized void release() {
-        mProperties.clear();
+    public void release() {
+        synchronized (mLock) {
+            mProperties.clear();
+        }
     }
 
     @Override
-    public synchronized Collection<VehiclePropConfig> takeSupportedProperties(
-            Collection<VehiclePropConfig> allProperties) {
-        for (VehiclePropConfig config : allProperties) {
-            switch (config.prop) {
-                case AP_POWER_STATE_REQ:
-                case AP_POWER_STATE_REPORT:
-                case DISPLAY_BRIGHTNESS:
-                    mProperties.put(config.prop, config);
-                    break;
+    public int[] getAllSupportedProperties() {
+        return SUPPORTED_PROPERTIES;
+    }
+
+    @Override
+    public void takeProperties(Collection<VehiclePropConfig> properties) {
+        if (properties.isEmpty()) {
+            return;
+        }
+        synchronized (mLock) {
+            for (VehiclePropConfig config : properties) {
+                mProperties.put(config.prop, config);
             }
         }
-        return new LinkedList<>(mProperties.values());
     }
 
     @Override
-    public void handleHalEvents(List<VehiclePropValue> values) {
+    public void onHalEvents(List<VehiclePropValue> values) {
         PowerEventListener listener;
-        synchronized (this) {
+        synchronized (mLock) {
             if (mListener == null) {
                 if (mQueuedEvents == null) {
                     mQueuedEvents = new LinkedList<>();
@@ -383,7 +416,7 @@ public class PowerHalService extends HalServiceBase {
         for (VehiclePropValue v : values) {
             switch (v.prop) {
                 case AP_POWER_STATE_REPORT:
-                    // Should never see this; write-only property
+                    // Ignore this property event. It was generated inside of CarService.
                     break;
                 case AP_POWER_STATE_REQ:
                     int state = v.value.int32Values.get(VehicleApPowerStateReqIndex.STATE);
@@ -395,7 +428,7 @@ public class PowerHalService extends HalServiceBase {
                 case DISPLAY_BRIGHTNESS:
                 {
                     int maxBrightness;
-                    synchronized (this) {
+                    synchronized (mLock) {
                         maxBrightness = mMaxDisplayBrightness;
                     }
                     int brightness = v.value.int32Values.get(0) * MAX_BRIGHTNESS / maxBrightness;

@@ -196,7 +196,9 @@ public class HfpClientConnectionService extends ConnectionService {
         // We should already have a connection by this time.
         BluetoothHeadsetClientCall call =
                 request.getExtras().getParcelable(TelecomManager.EXTRA_INCOMING_CALL_EXTRAS);
-        return block.onCreateIncomingConnection(call);
+        HfpClientConnection connection = block.onCreateIncomingConnection(call);
+        connection.setHfpClientConnectionService(this);
+        return connection;
     }
 
     // This method is called *only if* Dialer UI is used to place an outgoing call.
@@ -211,8 +213,9 @@ public class HfpClientConnectionService extends ConnectionService {
             Log.w(TAG, "HfpClient does not support having a connection manager");
             return null;
         }
-
-        return block.onCreateOutgoingConnection(request.getAddress());
+        HfpClientConnection connection = block.onCreateOutgoingConnection(request.getAddress());
+        connection.setHfpClientConnectionService(this);
+        return connection;
     }
 
     // This method is called when:
@@ -233,7 +236,9 @@ public class HfpClientConnectionService extends ConnectionService {
         // We should already have a connection by this time.
         BluetoothHeadsetClientCall call =
                 request.getExtras().getParcelable(TelecomManager.EXTRA_OUTGOING_CALL_EXTRAS);
-        return block.onCreateUnknownConnection(call);
+        HfpClientConnection connection = block.onCreateUnknownConnection(call);
+        connection.setHfpClientConnectionService(this);
+        return connection;
     }
 
     @Override
@@ -335,10 +340,6 @@ public class HfpClientConnectionService extends ConnectionService {
                 .hfp_client_connection_service_support_emergency_call)) {
             // Need to have an emergency call capability to place emergency call
             capabilities |= PhoneAccount.CAPABILITY_PLACE_EMERGENCY_CALLS;
-            // Emergency call is processed in user 0 context in multi-user setting
-            // even if caller is from another user. Declare multi user
-            // capability for the account to be chosen.
-            capabilities |= PhoneAccount.CAPABILITY_MULTI_USER;
         }
 
         PhoneAccount account =

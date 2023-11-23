@@ -65,6 +65,15 @@
         android:textSize="@dimen/info_text_size"
         android:textAppearance="?android:textAppearanceLarge"/>
 
+    <TextView
+        android:id="@+id/current_driver_distraction"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/current_driver_distraction"
+        android:padding="@dimen/section_padding"
+        android:textSize="@dimen/info_text_size"
+        android:textAppearance="?android:textAppearanceLarge"/>
+
     <!-- Section: Available Actions -->
     <View
         android:layout_width="match_parent"

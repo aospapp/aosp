@@ -69,7 +69,6 @@
     <string name="upload_succ_ok" msgid="7705428476405478828">"OK"</string>
     <string name="upload_fail_line1" msgid="7899394672421491701">"A fájlt nem sikerült elküldeni a következőnek: \"<xliff:g id="RECIPIENT">%1$s</xliff:g>\"."</string>
     <string name="upload_fail_line1_2" msgid="2108129204050841798">"Fájl: <xliff:g id="FILE">%1$s</xliff:g>"</string>
-    <string name="upload_fail_ok" msgid="5807702461606714296">"Próbálkozzon újra"</string>
     <string name="upload_fail_cancel" msgid="9118496285835687125">"Bezárás"</string>
     <string name="bt_error_btn_ok" msgid="5965151173011534240">"OK"</string>
     <string name="unknown_file" msgid="6092727753965095366">"Ismeretlen fájl"</string>
@@ -100,7 +99,7 @@
     <string name="status_connection_error" msgid="947681831523219891">"A kapcsolódás sikertelen."</string>
     <string name="status_protocol_error" msgid="3245444473429269539">"A kérést nem lehet megfelelően kezelni."</string>
     <string name="status_unknown_error" msgid="8156660554237824912">"Ismeretlen hiba."</string>
-    <string name="btopp_live_folder" msgid="7967791481444474554">"Fogadott fájlok"</string>
+    <string name="btopp_live_folder" msgid="7967791481444474554">"Fogadás Bluetooth-on keresztül"</string>
     <string name="opp_notification_group" msgid="3486303082135789982">"Bluetooth-megosztás"</string>
     <string name="download_success" msgid="7036160438766730871">"<xliff:g id="FILE_SIZE">%1$s</xliff:g> A fogadás kész."</string>
     <string name="upload_success" msgid="4014469387779648949">"<xliff:g id="FILE_SIZE">%1$s</xliff:g> A küldés kész.."</string>
@@ -134,4 +133,5 @@
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"Bluetooth audió leválasztva"</string>
     <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"Bluetooth audió"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="8894450394309084519">"A 4 GB-nál nagyobb fájlokat nem lehet átvinni"</string>
+    <string name="bluetooth_connect_action" msgid="4009848433321657090">"Csatlakozás Bluetooth-eszközhöz"</string>
 </resources>

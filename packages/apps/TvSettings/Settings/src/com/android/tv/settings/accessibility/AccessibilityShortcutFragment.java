@@ -16,7 +16,10 @@
 
 package com.android.tv.settings.accessibility;
 
+import static com.android.tv.settings.util.InstrumentationUtils.logToggleInteracted;
+
 import android.accessibilityservice.AccessibilityServiceInfo;
+import android.app.tvsettings.TvSettingsEnums;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.pm.PackageManager;
@@ -45,20 +48,31 @@ public class AccessibilityShortcutFragment extends SettingsPreferenceFragment {
     private static final String KEY_ENABLE = "enable";
     private static final String KEY_SERVICE = "service";
 
+    /**
+     * Setting specifying if the accessibility shortcut is enabled.
+     *
+     * @deprecated this setting is no longer in use.
+     */
+    @Deprecated
+    private static final String ACCESSIBILITY_SHORTCUT_ENABLED =
+            "accessibility_shortcut_enabled";
+
     @Override
     public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
         setPreferencesFromResource(R.xml.accessibility_shortcut, null);
 
         final TwoStatePreference enablePref = (TwoStatePreference) findPreference(KEY_ENABLE);
         enablePref.setOnPreferenceChangeListener((preference, newValue) -> {
+            logToggleInteracted(TvSettingsEnums.SYSTEM_A11Y_SHORTCUT_ON_OFF, (Boolean) newValue);
             setAccessibilityShortcutEnabled((Boolean) newValue);
             return true;
         });
 
         boolean shortcutEnabled = Settings.Secure.getInt(getContext().getContentResolver(),
-                Settings.Secure.ACCESSIBILITY_SHORTCUT_ENABLED, 1) == 1;
+                ACCESSIBILITY_SHORTCUT_ENABLED, 1) == 1;
 
         enablePref.setChecked(shortcutEnabled);
+        setAccessibilityShortcutEnabled(shortcutEnabled);
     }
 
     @Override
@@ -80,7 +94,7 @@ public class AccessibilityShortcutFragment extends SettingsPreferenceFragment {
 
     private void setAccessibilityShortcutEnabled(boolean enabled) {
         Settings.Secure.putInt(getContext().getContentResolver(),
-                Settings.Secure.ACCESSIBILITY_SHORTCUT_ENABLED, enabled ? 1 : 0);
+                ACCESSIBILITY_SHORTCUT_ENABLED, enabled ? 1 : 0);
         final Preference servicePref = findPreference(KEY_SERVICE);
         servicePref.setEnabled(enabled);
     }
@@ -100,5 +114,10 @@ public class AccessibilityShortcutFragment extends SettingsPreferenceFragment {
     @Override
     public int getMetricsCategory() {
         return MetricsProto.MetricsEvent.ACCESSIBILITY_TOGGLE_GLOBAL_GESTURE;
+    }
+
+    @Override
+    protected int getPageId() {
+        return TvSettingsEnums.SYSTEM_A11Y_SHORTCUT;
     }
 }

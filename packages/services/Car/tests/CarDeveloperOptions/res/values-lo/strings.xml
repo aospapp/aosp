@@ -83,8 +83,7 @@
     <string name="font_size_summary" msgid="9120023206321191067">"ເຮັດໃຫ້ຂໍ້ຄວາມໃນໜ້າຈໍນ້ອຍລົງ ຫຼື ໃຫຍ່ຂຶ້ນ."</string>
     <string name="font_size_make_smaller_desc" msgid="5780829318985556969">"ເຮັດໃຫ້ນ້ອຍລົງ"</string>
     <string name="font_size_make_larger_desc" msgid="2907824418252785875">"ເຮັດໃຫ້ໃຫຍ່ຂຶ້ນ"</string>
-    <!-- no translation found for font_size_preview_text (360019784926073822) -->
-    <skip />
+    <string name="font_size_preview_text" msgid="360019784926073822">"Servez à ce monsieur une bière et des kiwis."</string>
     <string name="font_size_preview_text_headline" msgid="8038650525913995091">"ຂໍ້ຄວາມຕົວຢ່າງ"</string>
     <string name="font_size_preview_text_title" msgid="2593520249400910305">"ພໍ່ມົດອັດສະຈັນແຫ່ງອອດຊ໌"</string>
     <string name="font_size_preview_text_subtitle" msgid="6106782964143379331">"ບົດທີ 11: ເມືອງມໍລະກົດອັນໜ້າອັດສະຈັນຂອງອອດຊ໌"</string>
@@ -208,7 +207,7 @@
     <string name="proxy_error_empty_port" msgid="8034561724923076215">"ທ່ານຈຳເປັນຕ້ອງຕື່ມຂໍ້ມູນໃສ່ໃນຊ່ອງພອດ."</string>
     <string name="proxy_error_empty_host_set_port" msgid="8471455809508588255">"ຊ່ອງຂໍ້ມູນພອດຈະຕ້ອງປ່ອຍຫວ່າງໄວ້ ຫາກວ່າຊ່ອງ host ຫວ່າງຢູ່."</string>
     <string name="proxy_error_invalid_port" msgid="4046559920586100637">"ພອດທີ່ທ່ານລະບຸນັ້ນບໍ່ຖືກຕ້ອງ."</string>
-    <string name="proxy_warning_limited_support" msgid="9026539134219095768">"HTTP proxy ນີ້ຖືກໃຊ້ໂດຍໂປຣແກຣມທ່ອງເວັບແລ້ວ ແລະບໍ່ອາດໃຊ້ກັບແອັບຯອື່ນໄດ້."</string>
+    <string name="proxy_warning_limited_support" msgid="9026539134219095768">"HTTP proxy ນີ້ຖືກໃຊ້ໂດຍໂປຣແກຣມທ່ອງເວັບແລ້ວ ແລະ ບໍ່ອາດໃຊ້ກັບແອັບອື່ນໄດ້."</string>
     <string name="proxy_url_title" msgid="882042361706435904">"PAC URL: "</string>
     <string name="radio_info_dl_kbps" msgid="2903778264453410272">"ແບນວິດ DL (kbps):"</string>
     <string name="radio_info_ul_kbps" msgid="3802245899811732716">"ແບນວິດ UL (kbps):"</string>
@@ -456,7 +455,7 @@
     <string name="lock_screen_intro_skip_dialog_text" product="tablet" msgid="7572334562915795226">"ບໍ່ສາມາດເປີດຄຸນສົມບັດການປ້ອງກັນອຸປະກອນໄດ້. ທ່ານຈະບໍ່ສາມາດປ້ອງກັນບໍ່ໃຫ້ຄົນອື່ນໃຊ້ແທັບເລັດນີ້ໄດ້ຫາກມັນເສຍ ຫຼື ຖືກລັກ."</string>
     <string name="lock_screen_intro_skip_dialog_text" product="device" msgid="3819285334459763813">"ບໍ່ສາມາດເປີດຄຸນສົມບັດການປ້ອງກັນອຸປະກອນໄດ້. ທ່ານຈະບໍ່ສາມາດປ້ອງກັນບໍ່ໃຫ້ຄົນອື່ນໃຊ້ອຸປະກອນນີ້ໄດ້ຫາກມັນເສຍ ຫຼື ຖືກລັກ."</string>
     <string name="lock_screen_intro_skip_dialog_text" product="default" msgid="5361573789585652826">"ບໍ່ສາມາດເປີດຄຸນສົມບັດການປ້ອງກັນອຸປະກອນໄດ້. ທ່ານຈະບໍ່ສາມາດປ້ອງກັນບໍ່ໃຫ້ຄົນອື່ນໃຊ້ໂທລະສັບນີ້ໄດ້ຫາກມັນເສຍ ຫຼື ຖືກລັກ."</string>
-    <string name="skip_anyway_button_label" msgid="4437815969645175429">"ແນວ​ໃດ​ກໍ​ຂ້າມ​ໄປ"</string>
+    <string name="skip_anyway_button_label" msgid="4437815969645175429">"ຢືນຢັນການຂ້າມ"</string>
     <string name="go_back_button_label" msgid="7310586887969860472">"​ກັບ​ຄືນ"</string>
     <string name="skip_lock_screen_dialog_button_label" msgid="6706047245716780006">"ຂ້າມ"</string>
     <string name="cancel_lock_screen_dialog_button_label" msgid="2534925227627658819">"ຍົກເລີກ"</string>
@@ -481,8 +480,7 @@
     <string name="face_lock_screen_setup_skip_dialog_text" product="tablet" msgid="2998863111689476550">"ປົກປ້ອງແທັບເລັດຂອງທ່ານດ້ວຍຕົວເລືອກການລັອກໜ້າຈໍເພື່ອບໍ່ໃຫ້ມີໃຜສາມາດໃຊ້ມັນໄດ້ຫາກມັນເສຍ ຫຼື ຖືກລັອກ. ທ່ານອາດຕ້ອງໃຊ້ຕົວເລືອກການລັອກໜ້າຈໍເພື່ອຕັ້ງຄ່າການພິສູດຢືນຢັນໃບໜ້ານຳ. ແຕະໃສ່ຍົກເລີກ, ຈາກນັ້ນຕັ້ງລະຫັດ PIN ຫຼື ເລືອກຕົວເລືອກການລັອກໜ້າຈໍແບບອື່ນ."</string>
     <string name="face_lock_screen_setup_skip_dialog_text" product="device" msgid="6780557259734235952">"ປົກປ້ອງອຸປະກອນຂອງທ່ານດ້ວຍຕົວເລືອກການລັອກໜ້າຈໍເພື່ອບໍ່ໃຫ້ມີໃຜສາມາດໃຊ້ມັນໄດ້ຫາກມັນເສຍ ຫຼື ຖືກລັອກ. ທ່ານອາດຕ້ອງໃຊ້ຕົວເລືອກການລັອກໜ້າຈໍເພື່ອຕັ້ງຄ່າການພິສູດຢືນຢັນໃບໜ້ານຳ. ແຕະໃສ່ຍົກເລີກ, ຈາກນັ້ນຕັ້ງລະຫັດ PIN ຫຼື ເລືອກຕົວເລືອກການລັອກໜ້າຈໍແບບອື່ນ."</string>
     <string name="face_lock_screen_setup_skip_dialog_text" product="default" msgid="8541640018478926775">"ປົກປ້ອງໂທລະສັບຂອງທ່ານດ້ວຍຕົວເລືອກການລັອກໜ້າຈໍເພື່ອບໍ່ໃຫ້ມີໃຜສາມາດໃຊ້ມັນໄດ້ຫາກມັນເສຍ ຫຼື ຖືກລັອກ. ທ່ານອາດຕ້ອງໃຊ້ຕົວເລືອກການລັອກໜ້າຈໍເພື່ອຕັ້ງຄ່າການພິສູດຢືນຢັນໃບໜ້ານຳ. ແຕະໃສ່ຍົກເລີກ, ຈາກນັ້ນຕັ້ງລະຫັດ PIN ຫຼື ເລືອກຕົວເລືອກການລັອກໜ້າຈໍແບບອື່ນ."</string>
-    <!-- no translation found for lock_screen_pin_skip_title (8217519439213393785) -->
-    <skip />
+    <string name="lock_screen_pin_skip_title" msgid="8217519439213393785">"ຂ້າມການຕັ້ງລະຫັດ PIN ບໍ?"</string>
     <string name="lock_screen_password_skip_title" msgid="3725788215672959827">"ຂ້າມການຕັ້ງລະຫັດບໍ?"</string>
     <string name="lock_screen_pattern_skip_title" msgid="4237030500353932005">"ຂ້າມການຕັ້ງຮູບແບບປົດລັອກບໍ?"</string>
     <string name="security_settings_fingerprint_enroll_setup_screen_lock" msgid="9036983528330627756">"ຕັ້ງຄ່າການລັອກໜ້າຈໍ"</string>
@@ -490,7 +488,7 @@
     <string name="security_settings_fingerprint_enroll_touch_dialog_title" msgid="7410398793283818609">"ອຸ້ຍ, ນັ້ນ​ບໍ່​ແມ່ນ​ເຊັນ​ເຊີ"</string>
     <string name="security_settings_fingerprint_enroll_touch_dialog_message" msgid="7192100314788868883">"ແຕະທີ່ເຊັນເຊີຢູ່ຫຼັງຂອງໂທລະສັບຂອງທ່ານ. ໃຫ້ໃຊ້ນິ້ວຊີ້ທ່ານ."</string>
     <string name="security_settings_fingerprint_enroll_error_dialog_title" msgid="1415709674142168770">"ການ​ລົງ​ທະ​ບຽນ​ບໍ່​ສຳ​ເລັດ"</string>
-    <string name="security_settings_fingerprint_enroll_error_timeout_dialog_message" msgid="498951203761192366">"ຮອດ​ຂີດ​ຈຳ​ກັດ​ເວ​ລາ​ການ​ລົງ​ທະ​ບຽນ​ລາຍ​ນີ້ວ​ມື​ແລ້ວ. ລອງ​ໃໝ່​ອີກ."</string>
+    <string name="security_settings_fingerprint_enroll_error_timeout_dialog_message" msgid="498951203761192366">"ຮອດ​ຂີດ​ຈຳ​ກັດ​ເວ​ລາ​ການ​ລົງ​ທະ​ບຽນ​ລາຍ​ນີ້ວ​ມື​ແລ້ວ. ກະລຸນາລອງ​ໃໝ່​ອີກຄັ້ງ."</string>
     <string name="security_settings_fingerprint_enroll_error_generic_dialog_message" msgid="7896295829530444810">"ການ​ລົງ​ທະ​ບຽນ​ລາຍ​ນີ້ວ​ມື​ບໍ່​ເຮັດ​ວຽກ. ລອງ​ໃໝ່​ອີກ ຫຼື ໃຊ້​ນີ້ວ​ມື​ນີ້ວ​ອື່ນ."</string>
     <string name="fingerprint_enroll_button_add" msgid="6335782936874996629">"ເພີ່ມ​ອັນ​ອື່ນ"</string>
     <string name="fingerprint_enroll_button_next" msgid="6419214079104413695">"ຕໍ່​ໄປ"</string>
@@ -669,7 +667,6 @@
       <item quantity="other">ຕ້ອງມີໜ້ອຍກວ່າ <xliff:g id="NUMBER_1">%d</xliff:g> ຕົວເລກ</item>
       <item quantity="one">ຕ້ອງມີໜ້ອຍກວ່າ <xliff:g id="NUMBER_0">%d</xliff:g> ຕົວເລກ</item>
     </plurals>
-    <string name="lockpassword_pin_contains_non_digits" msgid="1501729742023195556">"ຕ້ອງມີຕົວເລກ 0 ຫາ 9 ເທົ່ານັ້ນ"</string>
     <string name="lockpassword_pin_recently_used" msgid="5556148774911741103">"ຜູ້ເບິ່ງແຍງລະບົບອຸປະກອນບໍ່ອະນຸຍາດໃຫ້ໃຊ້ລະຫັດ PIN ເມື່ອບໍ່ດົນມານີ້"</string>
     <string name="lockpassword_pin_blacklisted_by_admin" msgid="2752037810571200697">"ລະຫັດ PIN ທົ່ວໄປແມ່ນຖືກບລັອກໂດຍຜູ້ເບິ່ງແຍງລະບົບໄອທີຂອງທ່ານ. ໃຫ້ລອງໃຊ້ລະຫັດ PIN ອື່ນແທນ."</string>
     <string name="lockpassword_illegal_character" msgid="3577712947676261351">"ນີ້ບໍ່ສາມາດຮວມມີຕົວອັກສອນທີ່ບໍ່ຖືກຕ້ອງນຳໄດ້"</string>
@@ -699,6 +696,10 @@
     <plurals name="lockpassword_password_requires_nonletter" formatted="false" msgid="3692485784007607387">
       <item quantity="other">ຕ້ອງມີຕົວອັກຂະລະທີ່ບໍ່ແມ່ນຕົວອັກສອນຢ່າງໜ້ອຍ <xliff:g id="COUNT">%d</xliff:g> ຕົວ</item>
       <item quantity="one">ຕ້ອງມີຕົວອັກຂະລະທີ່ບໍ່ແມ່ນຕົວອັກສອນຢ່າງໜ້ອຍ 1 ຕົວ</item>
+    </plurals>
+    <plurals name="lockpassword_password_requires_nonnumerical" formatted="false" msgid="6943707011152180150">
+      <item quantity="other">ຕ້ອງມີຕົວອັກສອນທີ່ບໍ່ແມ່ນຕົວເລກຢ່າງໜ້ອຍ <xliff:g id="COUNT">%d</xliff:g> ຕົວ</item>
+      <item quantity="one">ຕ້ອງມີຕົວອັກສອນທີ່ບໍ່ແມ່ນຕົວເລກຢ່າງໜ້ອຍ 1 ຕົວ</item>
     </plurals>
     <string name="lockpassword_password_recently_used" msgid="6944729699375087431">"ຜູ້ເບິ່ງແຍງລະບົບບໍ່ອະນຸຍາດໃຫ້ໃຊ້ລະຫັດຜ່ານເມື່ອບໍ່ດົນມານີ້ໄດ້"</string>
     <string name="lockpassword_password_blacklisted_by_admin" msgid="4988166770148440755">"ລະຫັດຜ່ານທົ່ວໄປແມ່ນຖືກບລັອກໂດຍຜູ້ເບິ່ງແຍງລະບົບໄອທີຂອງທ່ານ. ໃຫ້ລອງໃຊ້ລະຫັດອື່ນແທນ."</string>
@@ -969,7 +970,7 @@
     <string name="wifi_unchanged" msgid="6804964646942333992">"(ບໍ່ມີການປ່ຽນແປງ)"</string>
     <string name="wifi_unspecified" msgid="893491188483500809">"ກະລຸນາເລືອກ"</string>
     <string name="wifi_multiple_cert_added" msgid="7986200585749147204">"(ເພີ່ມຫຼາຍໃບຢັ້ງຢືນແລ້ວ)"</string>
-    <string name="wifi_use_system_certs" msgid="4794489370929885022">"ໃຊ້ໃບຢັ້ງຢືນຂອງລະບົບ"</string>
+    <string name="wifi_use_system_certs" msgid="4794489370929885022">"ໃຊ້ໃບຮັບຮອງລະບົບ"</string>
     <string name="wifi_do_not_provide_eap_user_cert" msgid="4044301449482425250">"ບໍ່ໃຫ້"</string>
     <string name="wifi_do_not_validate_eap_server" msgid="1892537559682474878">"ບໍ່ກວດຮັບຮອງ"</string>
     <string name="wifi_do_not_validate_eap_server_warning" msgid="3895397996759837323">"ບໍ່ໄດ້ລະບຸໃບຢັ້ງຢືນໃດໆ. ການເຊື່ອມຕໍ່ຂອງທ່ານຈະບໍ່ເປັນສ່ວນຕົວ."</string>
@@ -1092,13 +1093,19 @@
     <item msgid="2552412793005571845">"@*android:string/wfc_mode_cellular_preferred_summary"</item>
     <item msgid="742811521969300868">"@*android:string/wfc_mode_wifi_only_summary"</item>
   </string-array>
-    <!-- no translation found for wifi_calling_mode_choices_v2:0 (9149346657812979257) -->
-    <!-- no translation found for wifi_calling_mode_choices_v2:2 (6007360612667098926) -->
+  <string-array name="wifi_calling_mode_choices_v2">
+    <item msgid="9149346657812979257">"Wi-Fi"</item>
+    <item msgid="4421333712484542489">"ມືຖື"</item>
+    <item msgid="6007360612667098926">"Wi-Fi ເທົ່ານັ້ນ"</item>
+  </string-array>
   <string-array name="wifi_calling_mode_choices_without_wifi_only">
     <item msgid="3658897985297386665">"@*android:string/wfc_mode_wifi_preferred_summary"</item>
     <item msgid="4191802193352447215">"@*android:string/wfc_mode_cellular_preferred_summary"</item>
   </string-array>
-    <!-- no translation found for wifi_calling_mode_choices_v2_without_wifi_only:0 (6452246499629557266) -->
+  <string-array name="wifi_calling_mode_choices_v2_without_wifi_only">
+    <item msgid="6452246499629557266">"Wi-Fi"</item>
+    <item msgid="2271962426654621656">"ມືຖື"</item>
+  </string-array>
     <string name="wifi_calling_mode_wifi_preferred_summary" msgid="8298294808362169798">"ຫາກບໍ່ສາມາດໃຊ້ Wi‑Fi ໄດ້, ໃຫ້ໃຊ້ເຄືອຂ່າຍມືຖືແທນ"</string>
     <string name="wifi_calling_mode_cellular_preferred_summary" msgid="4906499810156794061">"ຫາກເຄືອຂ່າຍມືຖືບໍ່ສາມາດໃຊ້ໄດ້, ໃຫ້ໃຊ້ Wi‑Fi ແທນ"</string>
     <string name="wifi_calling_mode_wifi_only_summary" msgid="6928556021002500522">"ໂທຜ່ານ Wi‑Fi. ຫາກໃຊ້ Wi‑Fi ບໍ່ໄດ້, ການໂທຈະສິ້ນສຸດລົງ."</string>
@@ -1531,7 +1538,7 @@
     <string name="apn_server" msgid="625116221513279678">"ເຊີບເວີ"</string>
     <string name="apn_mmsc" msgid="4621771343217824216">"MMSC"</string>
     <string name="apn_mms_proxy" msgid="636948562860444714">"MMS proxy"</string>
-    <string name="apn_mms_port" msgid="6606572282014819299">"ພອດ MMS"</string>
+    <string name="apn_mms_port" msgid="6606572282014819299">"ຜອດ MMS"</string>
     <string name="apn_mcc" msgid="9138301167194779180">"MCC"</string>
     <string name="apn_mnc" msgid="1276161191283274976">"MNC"</string>
     <string name="apn_auth_type" msgid="4286147728662523362">"ປະເພດການພິສູດຢືນຢັນ"</string>
@@ -1640,7 +1647,7 @@
     <string name="mobile_insert_sim_card" msgid="7594550403454243732">"ກະ​ລຸ​ນາ​ໃສ່​ຊິມກາດ ​ແລະເປີດເຄື່ອງຄືນໃໝ່"</string>
     <string name="mobile_connect_to_internet" msgid="6031886097365170913">"ກະ​ລຸ​ນາ​ເຊື່ອມ​ຕໍ່​ກັບ​ອິນ​ເຕີ​ເນັດ"</string>
     <string name="location_title" msgid="8664674161765477168">"ທີ່ຢູ່ຂອງຂ້ອຍ"</string>
-    <string name="managed_profile_location_switch_title" msgid="8157384427925389680">"ຈຸດ​ທີ່​ຕັ້ງ​ສຳ​ລັບ​ໂປ​ຣ​ໄຟ​ລ໌​ບ່ອນ​ເຮັດ​ວຽກ​"</string>
+    <string name="managed_profile_location_switch_title" msgid="8157384427925389680">"ສະຖານທີ່ສຳລັບໂປຣໄຟລ໌ບ່ອນເຮັດວຽກ"</string>
     <string name="location_app_level_permissions" msgid="1298041503927632960">"ສິດອະນຸຍາດແອັບ"</string>
     <string name="location_app_permission_summary_location_off" msgid="541372845344796336">"ປິດສະຖານທີ່ແລ້ວ"</string>
     <plurals name="location_app_permission_summary_location_on" formatted="false" msgid="7904821382328758218">
@@ -1649,7 +1656,7 @@
     </plurals>
     <string name="location_category_recent_location_access" msgid="286059523360285026">"ສິດການເຂົ້າເຖິງຫຼ້າສຸດ"</string>
     <string name="location_recent_location_access_view_details" msgid="2051602261436245905">"ເບິ່ງລາຍລະອຽດ"</string>
-    <string name="location_no_recent_apps" msgid="77502059586413278">"ຫຼ້າສຸດນີ້ບໍ່ມີແອັບຯໃດເອີ້ນໃຊ້ຂໍ້ມູນຕຳແໜ່ງ"</string>
+    <string name="location_no_recent_apps" msgid="77502059586413278">"ບໍ່ມີແອັບທີ່ຮ້ອງຂໍສະຖານທີ່ເມື່ອບໍ່ດົນມານີ້"</string>
     <string name="location_no_recent_accesses" msgid="6289916310397279890">"ບໍ່ມີແອັບໃດເຂົ້າເຖິງສະຖານທີ່ຫຼ້າສຸດ"</string>
     <string name="location_high_battery_use" msgid="7177199869979522663">"ໃຊ້ແບັດເຕີຣີ່ຫຼາຍ"</string>
     <string name="location_low_battery_use" msgid="5030448574501435888">"ໃຊ້ແບັດເຕີຣີ່ໜ້ອຍ"</string>
@@ -1748,7 +1755,7 @@
     <string name="lockpattern_recording_inprogress" msgid="4060818382176523671">"ປ່ອຍນິ້ວມືຂອງທ່ານເມື່ອເຮັດແລ້ວ."</string>
     <string name="lockpattern_recording_incorrect_too_short" msgid="6374760294545431845">"ໃຫ້ເຊື່ອມຕໍ່ຢ່າງໜ້ອຍ <xliff:g id="NUMBER">%d</xliff:g> ຈຸດເຂົ້າຫາກັນ. ແລ້ວລອງໃໝ່ອີກຄັ້ງ."</string>
     <string name="lockpattern_pattern_entered_header" msgid="2108106638322637851">"ຮູບແບບຖືກບັນທຶກແລ້ວ"</string>
-    <string name="lockpattern_need_to_confirm" msgid="4079482507985867389">"ແຕ້ມຮູບແບບຄືນອີກຄັ້ງເພື່ອຢັ້ງຢືນ"</string>
+    <string name="lockpattern_need_to_confirm" msgid="4079482507985867389">"ແຕ້ມຮູບແບບຄືນອີກຄັ້ງເພື່ອຢືນຢັນ"</string>
     <string name="lockpattern_pattern_confirmed_header" msgid="5603156929428721407">"ຮູບ​ແບບ​ປົດ​ລັອກ​ໃໝ່​ຂອງ​ທ່ານ"</string>
     <string name="lockpattern_confirm_button_text" msgid="7059311304112902598">"ຢືນຢັນ"</string>
     <string name="lockpattern_restart_button_text" msgid="4322968353922529868">"ແຕ້ມໃໝ່"</string>
@@ -1791,7 +1798,7 @@
     <string name="install_all_warning" product="device" msgid="9141585291103603515">"ອຸປະກອນ ແລະ ຂໍ້ມູນສ່ວນຕົວຂອງທ່ານຈະສາມາດຖືກແອັບທີ່ບໍ່ຮູ້ຈັກໂຈມຕີໄດ້ງ່າຍຂຶ້ນ. ໂດຍການຕິດຕັ້ງແອັບຕ່າງໆຈາກແຫລ່ງທີ່ມາເຫຼົ່ານີ້, ແມ່ນທ່ານຍອມຮັບວ່າຈະຮັບຜິດຊອບຕໍ່ຄວາມເສຍຫາຍທີ່ເກີດຂຶ້ນກັບອຸປະກອນຂອງທ່ານ ຫຼື ການສູນເສຍຂໍ້ມູນທີ່ອາດເກີດຂຶ້ນຈາກການນຳໃຊ້ແອັບເຫຼົ່ານັ້ນ."</string>
     <string name="advanced_settings" msgid="6282069364060968122">"ການຕັ້ງຄ່າຂັ້ນສູງ"</string>
     <string name="advanced_settings_summary" msgid="5912237062506771716">"ເປີດໃຊ້ໂຕເລືອກການຕັ້ງຄ່າເພີ່ມເຕີມ."</string>
-    <string name="application_info_label" msgid="3886253474964599105">"ຂໍ້ມູນແອັບຯ"</string>
+    <string name="application_info_label" msgid="3886253474964599105">"ຂໍ້ມູນແອັບ"</string>
     <string name="storage_label" msgid="1109537840103290384">"ພື້ນທີ່ຈັດເກັບຂໍ້ມູນ"</string>
     <string name="auto_launch_label" msgid="47089737922907379">"ເປີດ​ຕາມຄ່າເລີ່ມຕົ້ນ"</string>
     <string name="auto_launch_label_generic" msgid="7865828543459493308">"ຄ່າເລີ່ມຕົ້ນ"</string>
@@ -2089,7 +2096,7 @@
     <string name="accessibility_ring_vibration_title" msgid="7943341443551359985">"ສຽງພ້ອມການສັ່ນເຕືອນ"</string>
     <string name="accessibility_touch_vibration_title" msgid="285890135612038092">"ການສັ່ນເມື່ອສຳຜັດ"</string>
     <string name="accessibility_service_master_switch_title" msgid="2734791644475782924">"ໃຊ້ບໍລິການ"</string>
-    <string name="accessibility_daltonizer_master_switch_title" msgid="4855011639012300777">"ໃຊ້ການແກ້ໄຂສີ"</string>
+    <string name="accessibility_daltonizer_master_switch_title" msgid="4855011639012300777">"ໃຊ້ການປັບແຕ່ງສີ"</string>
     <string name="accessibility_caption_master_switch_title" msgid="6373335123229234053">"ໃຊ້ຄຳບັນຍາຍ"</string>
     <string name="accessibility_hearingaid_instruction_continue_button" msgid="4650111296711466691">"ສືບຕໍ່"</string>
     <string name="accessibility_hearingaid_title" msgid="3700978781235124891">"ເຄື່ອງຊ່ວຍຟັງ"</string>
@@ -2386,7 +2393,7 @@
     <string name="usage_type_computed_power" msgid="2594890316149868151">"​ການ​ນຳ​ໃຊ້​ພະ​ລັງ​ງານ​ທີ່​ຄຳ​ນວນ​​ໄວ້"</string>
     <string name="usage_type_actual_power" msgid="8067253427718526111">"ການ​ນຳ​ໃຊ້​ພະ​ລັງ​ງານ​ທີ່​ຕິດ​ຕາມ"</string>
     <string name="battery_action_stop" msgid="1866624019460630143">"ບັງ​ຄັບ​ປິດ"</string>
-    <string name="battery_action_app_details" msgid="1077011181969550402">"ຂໍ້ມູນແອັບຯ"</string>
+    <string name="battery_action_app_details" msgid="1077011181969550402">"ຂໍ້ມູນແອັບ"</string>
     <string name="battery_action_app_settings" msgid="587998773852488539">"ການຕັ້ງຄ່າແອັບຯ"</string>
     <string name="battery_action_display" msgid="4887913003634317465">"ການຕັ້ງຄ່າໜ້າຈໍ"</string>
     <string name="battery_action_wifi" msgid="7123520587925323824">"ການຕັ້ງຄ່າ Wi-Fi"</string>
@@ -2533,7 +2540,7 @@
     <string name="credentials_settings_not_available" msgid="5490259681690183274">"ບໍ່​ມີຂໍ້​ມູນ​​ຮັບ​ຮອງ​ໂຕສຳ​ລັບ​ຜູ່​ໃຊ້​ນີ້"</string>
     <string name="credential_for_vpn_and_apps" msgid="2462642486949593841">"ຕິດຕັ້ງສຳລັບ VPN ແລະ ແອັບຕ່າງໆແລ້ວ"</string>
     <string name="credential_for_wifi" msgid="2903295786961726388">"ຕິດຕັ້ງສຳລັບ Wi-Fi ແລ້ວ"</string>
-    <string name="credentials_reset_hint" msgid="3484350477764088169">"ລຶບເນື້ອຫາທັງໝົດອອກ?"</string>
+    <string name="credentials_reset_hint" msgid="3484350477764088169">"ລຶບເນື້ອຫາທັງໝົດອອກບໍ?"</string>
     <string name="credentials_erased" msgid="7287088033523869085">"ພື້ນທີ່ຈັດເກັບຂໍ້ມູນຮັບຮອງຖືກລຶບແລ້ວ."</string>
     <string name="credentials_not_erased" msgid="9137227570738627637">"ບ່ອນຈັດເກັບຂໍ້ມູນຮັບຮອງບໍ່ສາມາດຖືກລຶບໄດ້."</string>
     <string name="usage_access_title" msgid="7981321142726540574">"ແອັບທີ່ມີສິດອະນຸຍາດເຂົ້າເຖິງ"</string>
@@ -2917,8 +2924,8 @@
     <string name="nfc_payment_favor_default" msgid="7555356982142464260">"​ທຸກ​ເທື່ອ"</string>
     <string name="nfc_payment_favor_open" msgid="3739055715000436749">"ຍົກ​ເວັ້ນ​ເມື່ອ​ແອັບ​ການ​ຊຳ​ລະ​ເງິນ​ອື່ນ​ເປີດ"</string>
     <string name="nfc_payment_pay_with" msgid="8412558374792061266">"ຢູ່​ທີ່​ຊ່ອງ​ແຕະ ແລະ​ຈ່າຍ, ຈ່າຍ​ດ້ວຍ:"</string>
-    <string name="nfc_how_it_works_title" msgid="6531433737926327904">"ການ​ຈ່າຍ​ຢູ່​ປາຍທາງ"</string>
-    <string name="nfc_how_it_works_content" msgid="9174575836302449343">"ຕັ້ງ​ແອັບ​ການ​ຊຳ​ລະ​ເງິນ. ຈາກນັ້ນ​ຈັບ​ໂທ​ລະ​ສັບ​ຂອງ​ທ່ານ​ທາງ​ດ້ານ​ຫຼັງ​ໄປ​ຈົນ​ຮອດ​ບ່ອນ​ວາງ​ໃດ​ໜຶ່ງ​ທີ່​ມີ​ສັນ​ຍາ​ລັກ​ບໍ່​ມີ​ການສຳ​ຜັດ​."</string>
+    <string name="nfc_how_it_works_title" msgid="6531433737926327904">"ການຈ່າຍເງິນຢູ່ເຄື່ອງຈ່າຍເງິນ"</string>
+    <string name="nfc_how_it_works_content" msgid="9174575836302449343">"ຕັ້ງ​ແອັບ​ການ​ຈ່າຍເງິນ. ຈາກນັ້ນ​ຈັບ​ໂທ​ລະ​ສັບ​ຂອງ​ທ່ານ​ທາງ​ດ້ານ​ຫຼັງ​ໄປ​ຈົນ​ຮອດ​ບ່ອນ​ວາງ​ໃດ​ໜຶ່ງ​ທີ່​ມີ​ສັນ​ຍາ​ລັກ contactless​."</string>
     <string name="nfc_how_it_works_got_it" msgid="2432535672153247411">"ໄດ້​ແລ້ວ"</string>
     <string name="nfc_more_title" msgid="2825856411836382264">"ເພີ່ມເຕີມ..."</string>
     <string name="nfc_payment_set_default_label" msgid="3997927342761454042">"ກຳນົດເປັນຄ່າທີ່ທ່ານຕ້ອງການ?"</string>
@@ -3396,7 +3403,7 @@
       <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> ໝວດໝູ່</item>
       <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> ໝວດໝູ່</item>
     </plurals>
-    <string name="no_channels" msgid="8884254729302501652">"This app has not posted any notifications"</string>
+    <string name="no_channels" msgid="8884254729302501652">"ແອັບນີ້ຍັງບໍ່ໄດ້ໂພສການແຈ້ງເຕືອນໃດເທື່ອ"</string>
     <string name="app_settings_link" msgid="8465287765715790984">"ການຕັ້ງຄ່າເພີ່ມເຕີມໃນແອັບ"</string>
     <string name="app_notification_listing_summary_zero" msgid="4047782719487686699">"ເປີດສຳລັບທຸກແອັບ"</string>
     <plurals name="app_notification_listing_summary_others" formatted="false" msgid="1161774065480666519">
@@ -3702,7 +3709,7 @@
     <string name="high_power_filter_on" msgid="5294209328473386403">"ບໍ່ໄດ້ປັບໃຫ້ເໝາະສົມ"</string>
     <string name="high_power_on" msgid="3573501822510580334">"ບໍ່ໄດ້ປັບໃຫ້ເໝາະສົມ"</string>
     <string name="high_power_off" msgid="5906679734326490426">"ກຳລັງປັບການໃຊ້ແບັດເຕີຣີໃຫ້ເໝາະສົມ"</string>
-    <string name="high_power_system" msgid="739584574711292753">"ການປັບແບັດເຕີຣີໃຫ້ເໝາະສົມບໍ່ມີໃຫ້ໃຊ້ງານ"</string>
+    <string name="high_power_system" msgid="739584574711292753">"ບໍ່ສາມາດໃຊ້ການປັບແບັດເຕີຣີໃຫ້ເໝາະສົມໄດ້"</string>
     <string name="high_power_desc" msgid="333756885680362741">"ບໍ່ນໍາໃຊ້ການປັບແບັດເຕີຣີໃຫ້ເໝາະສົມ. ອາດຈະເຮັດໃຫ້ແບັດເຕີຣີຂອງທ່ານໝົດໄວ."</string>
     <string name="high_power_prompt_title" msgid="2805745781720454052">"ໃຫ້ແອັບເຮັດວຽກໃນພື້ນຫຼັງໄດ້ຕະຫຼອດເວລາບໍ?"</string>
     <string name="high_power_prompt_body" msgid="8067395096053552289">"ການອະນຸຍາດໃຫ້ <xliff:g id="APP_NAME">%1$s</xliff:g> ເຮັດວຽກໃນພື້ນຫຼັງໄດ້ຕະຫຼອດເວລາອາດຫຼຸດອາຍຸແບັດເຕີຣີລົງ. \n\nທ່ານສາມາດປ່ຽນແປງຄ່ານີ້ໃນພາຍຫຼັງໄດ້ຈາກການຕັ້ງຄ່າ &gt; ແອັບ &amp; ການແຈ້ງເຕືອນ."</string>
@@ -4130,9 +4137,9 @@
     <string name="ambient_display_tap_screen_summary" msgid="7869039870571925213">"ເພື່ອກວດສອບເວລາ, ການແຈ້ງເຕືອນ ແລະ ຂໍ້ມູນອື່ນໆ, ໃຫ້ແຕະໃສ່ໜ້າຈໍຂອງທ່ານ."</string>
     <string name="fingerprint_swipe_for_notifications_title" msgid="3676002930672489760">"ປັດລາຍນິ້ວມືສຳລັບການແຈ້ງເຕືອນ"</string>
     <string name="fingerprint_gesture_screen_title" msgid="8638932855807473479">"ປັດລາຍນິ້ວມື"</string>
-    <string name="fingerprint_swipe_for_notifications_summary" product="default" msgid="4347999905190477310">"ເພື່ອກວດເບິ່ງການແຈ້ງເຕືອນຂອງທ່ານ, ໃຫ້ເລື່ອນລົງໃສ່ເຊັນເຊີນລາຍນິ້ວມືທີ່ຢູ່ຫຼັງໂທລະສັບຂອງທ່ານ"</string>
-    <string name="fingerprint_swipe_for_notifications_summary" product="tablet" msgid="3480057984564476283">"ເພື່ອກວດເບິ່ງການແຈ້ງເຕືອນຂອງທ່ານ, ໃຫ້ເລື່ອນລົງໃສ່ເຊັນເຊີນລາຍນິ້ວມືທີ່ຢູ່ຫຼັງແທັບເລັດຂອງທ່ານ"</string>
-    <string name="fingerprint_swipe_for_notifications_summary" product="device" msgid="7950264130913070035">"ເພື່ອກວດເບິ່ງການແຈ້ງເຕືອນຂອງທ່ານ, ໃຫ້ເລື່ອນລົງໃສ່ເຊັນເຊີນລາຍນິ້ວມືທີ່ຢູ່ຫຼັງອຸປະກອນຂອງທ່ານ"</string>
+    <string name="fingerprint_swipe_for_notifications_summary" product="default" msgid="4347999905190477310">"ເພື່ອກວດເບິ່ງການແຈ້ງເຕືອນຂອງທ່ານ, ໃຫ້ເລື່ອນລົງໃສ່ເຊັນເຊີນລາຍນິ້ວມືທີ່ຢູ່ຫຼັງໂທລະສັບຂອງທ່ານ."</string>
+    <string name="fingerprint_swipe_for_notifications_summary" product="tablet" msgid="3480057984564476283">"ເພື່ອກວດເບິ່ງການແຈ້ງເຕືອນຂອງທ່ານ, ໃຫ້ເລື່ອນລົງໃສ່ເຊັນເຊີນລາຍນິ້ວມືທີ່ຢູ່ຫຼັງແທັບເລັດຂອງທ່ານ."</string>
+    <string name="fingerprint_swipe_for_notifications_summary" product="device" msgid="7950264130913070035">"ເພື່ອກວດເບິ່ງການແຈ້ງເຕືອນຂອງທ່ານ, ໃຫ້ເລື່ອນລົງໃສ່ເຊັນເຊີນລາຍນິ້ວມືທີ່ຢູ່ຫຼັງອຸປະກອນຂອງທ່ານ."</string>
     <string name="fingerprint_swipe_for_notifications_suggestion_title" msgid="948946491233738823">"ເບິ່ງການແຈ້ງເຕືອນແບບດ່ວນ"</string>
     <string name="gesture_setting_on" msgid="7573680730101327866">"ເປີດ"</string>
     <string name="gesture_setting_off" msgid="2540159841716890511">"ປິດ"</string>
@@ -4272,6 +4279,8 @@
     <string name="disabled_feature_reason_slow_down_phone" msgid="1819157849156814583">"ມັນຈະເຮັດໃຫ້ໂທລະສັບໜ່ວຍນີ້ຊ້າລົງ"</string>
     <string name="enable_gnss_raw_meas_full_tracking" msgid="3397182995626655581">"ບັງຄັບການກວດສອບ GNSS ເຕັມຮູບແບບ"</string>
     <string name="enable_gnss_raw_meas_full_tracking_summary" msgid="2469305990718976105">"ຕິດຕາມກຸ່ມ ແລະ ຄວາມຖີ່ GNSS ທັງໝົດໂດຍບໍ່ມີຮອບຕາມພັນທະ"</string>
+    <string name="enable_user_switch_message" msgid="8613014373053051092">"ດີບັກບັນຫາການປ່ຽນຜູ້ໃຊ້"</string>
+    <string name="enable_user_switch_message_summary" msgid="3354160264601132060">"ສະແດງຂໍ້ມູນລະອຽດໃນລະຫວ່າງການປ່ຽນຜູ້ໃຊ້"</string>
     <string name="allow_background_activity_starts" msgid="6754016668813082728">"ອະນຸຍາດໃຫ້ການເຄື່ອນໄຫວໃນພື້ນຫຼັງເລີ່ມຕົ້ນ"</string>
     <string name="allow_background_activity_starts_summary" msgid="8170749270869606692">"ອະນຸຍາດໃຫ້ການເຄື່ອນໄຫວໃນພື້ນຫຼັງທັງໝົດເລີ່ມຕົ້ນ"</string>
     <string name="show_first_crash_dialog" msgid="3682063068903692710">"ສະແດງກ່ອງຂໍ້ຄວາມການເຮັດວຽກລົ້ມເຫລວທຸກເທື່ອ"</string>

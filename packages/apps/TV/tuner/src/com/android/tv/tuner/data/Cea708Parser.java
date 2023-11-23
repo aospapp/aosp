@@ -138,6 +138,7 @@ public class Cea708Parser {
     private long mLastDiscoveryLaunchedMs = SystemClock.elapsedRealtime();
     private int mCommand = 0;
     private int mListenServiceNumber = 0;
+    private int mDtvCcPacketCalculatedSize = 0;
     private boolean mDtvCcPacking = false;
     private boolean mFirstServiceNumberDiscovered;
 
@@ -229,6 +230,7 @@ public class Cea708Parser {
         mBuffer.setLength(0);
         mDiscoveredNumBytes.clear();
         mCommand = 0;
+        mDtvCcPacketCalculatedSize = 0;
         mDtvCcPacking = false;
     }
 
@@ -284,29 +286,33 @@ public class Cea708Parser {
         for (int i = 0; i < ccPacket.ccCount; ++i) {
             boolean ccValid = (bytes[pos] & 0x04) != 0;
             int ccType = bytes[pos] & 0x03;
-
-            // The dtvcc should be considered complete:
-            // - if either ccValid is set and ccType is 3
-            // - or ccValid is clear and ccType is 2 or 3.
             if (ccValid) {
+                // The dtvcc should be considered complete:
+                // if ccType is 3 or if the packet size is reached.
                 if (ccType == CC_TYPE_DTVCC_PACKET_START) {
                     if (mDtvCcPacking) {
                         parseDtvCcPacket(mDtvCcPacket.buffer(), mDtvCcPacket.length());
                         mDtvCcPacket.clear();
+                        mDtvCcPacketCalculatedSize = 0;
                     }
                     mDtvCcPacking = true;
+                    int packetSize = bytes[pos + 1] & 0x3F; // last 6 bits
+                    if (packetSize == 0) {
+                        packetSize = DTVCC_MAX_PACKET_SIZE;
+                    }
+                    mDtvCcPacketCalculatedSize = packetSize * DTVCC_PACKET_SIZE_SCALE_FACTOR;
                     mDtvCcPacket.append(bytes[pos + 1]);
                     mDtvCcPacket.append(bytes[pos + 2]);
                 } else if (mDtvCcPacking && ccType == CC_TYPE_DTVCC_PACKET_DATA) {
                     mDtvCcPacket.append(bytes[pos + 1]);
                     mDtvCcPacket.append(bytes[pos + 2]);
                 }
-            } else {
                 if ((ccType == CC_TYPE_DTVCC_PACKET_START || ccType == CC_TYPE_DTVCC_PACKET_DATA)
-                        && mDtvCcPacking) {
+                        && mDtvCcPacking && mDtvCcPacket.length() == mDtvCcPacketCalculatedSize) {
                     mDtvCcPacking = false;
                     parseDtvCcPacket(mDtvCcPacket.buffer(), mDtvCcPacket.length());
                     mDtvCcPacket.clear();
+                    mDtvCcPacketCalculatedSize = 0;
                 }
             }
             pos += 3;

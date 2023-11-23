@@ -43,19 +43,19 @@
         <intent android:action="android.settings.DEVICE_NAME" />
     </Preference>
 
-    <com.android.tv.settings.LongClickPreference
-        android:key="restart"
-        android:title="@string/restart_button_label"
-        android:fragment="com.android.tv.settings.about.RebootConfirmFragment" />
+    <Preference
+        android:key="reset"
+        android:title="@string/device_reset">
+        <intent
+            android:targetClass="com.android.tv.settings.device.storage.ResetActivity"
+            android:targetPackage="com.android.tv.settings"/>
+    </Preference>
 
     <!-- Device status - launches as activity, must run in separate process -->
     <Preference android:key="status_info"
         android:title="@string/device_status"
-        android:summary="@string/device_status_summary">
-        <intent android:action="android.intent.action.MAIN"
-            android:targetPackage="com.android.tv.settings"
-            android:targetClass="com.android.tv.settings.about.StatusActivity" />
-    </Preference>
+        android:summary="@string/device_status_summary"
+        android:fragment="com.android.tv.settings.about.StatusFragment" />
 
     <!-- Manual -->
     <Preference

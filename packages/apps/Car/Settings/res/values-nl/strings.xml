@@ -50,7 +50,7 @@
     <string name="roaming_title" msgid="6218635014519017734">"Roaming"</string>
     <string name="roaming_summary" msgid="7476127740259728901">"Verbinding maken met dataservices tijdens roaming"</string>
     <string name="roaming_alert_title" msgid="4433901635766775763">"Dataroaming toestaan?"</string>
-    <string name="roaming_warning" msgid="5313281900566657209">"Er kunnen hoge kosten in rekening worden gebracht."</string>
+    <string name="roaming_warning" msgid="4908184914868720704">"Er kunnen kosten voor roaming in rekening worden gebracht."</string>
     <string name="data_usage_settings" msgid="7877132994777987848">"Datagebruik"</string>
     <string name="data_usage_title" msgid="2923515974389203812">"Primaire data"</string>
     <string name="data_used_formatted" msgid="6684557577780068339">"<xliff:g id="ID_1">^1</xliff:g> <xliff:g id="ID_2">^2</xliff:g> gebruikt"</string>
@@ -71,7 +71,7 @@
     <string name="app_data_usage" msgid="3878609885080232877">"Datagebruik van app"</string>
     <string name="data_usage_app_restricted" msgid="4570970078120010951">"beperkt"</string>
     <string name="cycle_reset_day_of_month_picker_title" msgid="1374568502823735361">"Datum voor resetten gebruikscyclus"</string>
-    <string name="cycle_reset_day_of_month_picker_subtitle" msgid="5361061448258189846">"Datum van elke maand:"</string>
+    <string name="cycle_reset_day_of_month_picker_subtitle" msgid="5361061448258189846">"Dag van elke maand:"</string>
     <string name="cycle_reset_day_of_month_picker_positive_button" msgid="6919858010423269305">"Instellen"</string>
     <string name="data_warning_limit_title" msgid="4950868241810828601">"Datawaarschuwing- en limiet"</string>
     <string name="app_usage_cycle" msgid="8445927080245880296">"Gebruikscyclus app-data"</string>
@@ -199,6 +199,8 @@
     <string name="bluetooth_device_picker" msgid="673238198452345475">"Bluetooth-apparaat kiezen"</string>
     <string name="language_settings" msgid="2079258598337245546">"Talen"</string>
     <string name="languages_and_input_settings" msgid="3672322610529408248">"Talen en invoer"</string>
+    <string name="language_picker_list_suggested_header" msgid="7593893806003415948">"Voorgesteld"</string>
+    <string name="language_picker_list_all_header" msgid="1577387973934368428">"Alle talen"</string>
     <string name="keyboard_settings" msgid="1959697870618278081">"Toetsenbord"</string>
     <string name="manage_keyboard" msgid="4045394766282200132">"Toetsenborden beheren"</string>
     <string name="text_to_speech_settings" msgid="811985746199507343">"Tekst-naar-spraak-uitvoer"</string>
@@ -283,9 +285,11 @@
     <string name="not_installed" msgid="4218816013370552746">"Niet geïnstalleerd voor deze gebruiker"</string>
     <string name="permissions_label" msgid="2701446753515612685">"Rechten"</string>
     <string name="notifications_label" msgid="6586089149665170731">"Meldingen"</string>
+    <string name="storage_application_label" msgid="5911779903670978586">"Opslag en cache"</string>
     <string name="application_version_label" msgid="8556889839783311649">"Versie: %1$s"</string>
     <string name="runtime_permissions_summary_no_permissions_granted" msgid="6001439205270250021">"Geen rechten verleend"</string>
     <string name="runtime_permissions_summary_no_permissions_requested" msgid="4074220596273432442">"Geen rechten aangevraagd"</string>
+    <string name="storage_type_internal" msgid="8918688427078709570">"%s in interne opslag"</string>
     <string name="data_usage_summary_title" msgid="4368024763485916986">"Datagebruik"</string>
     <string name="data_usage_app_summary_title" msgid="5012851696585421420">"Gegevensgebruik van app"</string>
     <string name="computing_size" msgid="5791407621793083965">"Berekenen…"</string>
@@ -344,17 +348,13 @@
     <string name="location_settings_recent_requests_title" msgid="6345634382240930628">"Recente locatieverzoeken"</string>
     <string name="location_settings_recent_requests_empty_message" msgid="7789667070033674910">"Geen recente locatieverzoeken"</string>
     <string name="location_settings_app_permissions_title" msgid="6446735313354321564">"Rechten op app-niveau"</string>
-    <string name="location_settings_scanning_title" msgid="4253945869911300740">"Scannen"</string>
     <string name="location_settings_services_title" msgid="1186133632690970468">"Locatieservices"</string>
-    <string name="location_settings_wifi_scanning_title" msgid="8021558840074023719">"Wifi-scannen"</string>
-    <string name="location_settings_wifi_scanning_summary" msgid="2116283960258671324">"Apps en services toestaan altijd te scannen naar wifi-netwerken in de buurt, zelfs als wifi is uitgeschakeld. Dit kan bijvoorbeeld worden gebruikt om locatiegebaseerde functies en services te verbeteren."</string>
-    <string name="location_settings_bluetooth_scanning_title" msgid="2969682902241932059">"Bluetooth-scannen"</string>
-    <string name="location_settings_bluetooth_scanning_summary" msgid="9158101751700727062">"Apps en services toestaan altijd te scannen naar apparaten in de buurt, zelfs als Bluetooth is uitgeschakeld. Dit kan bijvoorbeeld worden gebruikt om locatiegebaseerde functies en services te verbeteren."</string>
     <string name="system_setting_title" msgid="6864599341809463440">"Systeem"</string>
     <string name="system_update_settings_title" msgid="8448588267784138855">"Systeemupdates"</string>
     <string name="firmware_version" msgid="8491753744549309333">"Android-versie"</string>
     <string name="security_patch" msgid="4794276590178386903">"Android-beveiligingspatchniveau"</string>
-    <string name="model_info" msgid="4966408071657934452">"Model"</string>
+    <string name="hardware_info" msgid="3973165746261507658">"Model en hardware"</string>
+    <string name="hardware_info_summary" msgid="8262576443254075921">"Model: <xliff:g id="MODEL">%1$s</xliff:g>"</string>
     <string name="baseband_version" msgid="2370088062235041897">"Smalbandversie"</string>
     <string name="kernel_version" msgid="7327212934187011508">"Kernel-versie"</string>
     <string name="build_number" msgid="3997326631001009102">"Build-nummer"</string>
@@ -378,6 +378,9 @@
     <string name="webview_license_title" msgid="6442372337052056463">"Systeemlicenties voor WebView"</string>
     <string name="wallpaper_attributions" msgid="9201272150014500697">"Achtergronden"</string>
     <string name="wallpaper_attributions_values" msgid="4292446851583307603">"Providers van satellietbeelden:\n©2014 CNES / Astrium, DigitalGlobe, Bluesky"</string>
+    <string name="model_info" msgid="4966408071657934452">"Model"</string>
+    <string name="status_serial_number" msgid="9158889113131907656">"Serienummer"</string>
+    <string name="hardware_revision" msgid="5713759927934872874">"Hardwareversie"</string>
     <string name="regulatory_info_text" msgid="8890339124198005428"></string>
     <string name="settings_license_activity_title" msgid="8499293744313077709">"Licenties van derden"</string>
     <string name="settings_license_activity_unavailable" msgid="6104592821991010350">"Er is een probleem bij het laden van de licenties."</string>
@@ -452,7 +455,7 @@
     <string name="user_add_user_menu" msgid="5319151436895941496">"Gebruiker toevoegen"</string>
     <string name="user_new_user_name" msgid="7115771396412339662">"Nieuwe gebruiker"</string>
     <string name="user_add_user_title" msgid="7458813670614932479">"Nieuwe gebruiker?"</string>
-    <string name="user_add_user_message_setup" msgid="6030901156040053106">"Wanneer je een nieuwe gebruiker toevoegt, moet die persoon zijn eigen profiel instellen."</string>
+    <string name="user_add_user_message_setup" msgid="6030901156040053106">"Wanneer je een nieuwe gebruiker toevoegt, moet die persoon een eigen profiel instellen."</string>
     <string name="user_add_user_message_update" msgid="1528170913388932459">"Elke gebruiker kan apps updaten voor alle andere gebruikers"</string>
     <string name="user_limit_reached_title" msgid="8803355734556061238">"Gebruikerslimiet bereikt"</string>
     <plurals name="user_limit_reached_message" formatted="false" msgid="2651922256448824747">
@@ -478,6 +481,8 @@
     <string name="user_name_label" msgid="3210832645046206845">"Naam"</string>
     <string name="user_summary_not_set_up" msgid="1473688119241224145">"Niet ingesteld"</string>
     <string name="edit_user_name_title" msgid="6890782937520262478">"Gebruikersnaam bewerken"</string>
+    <string name="name_input_blank_error" msgid="2088850865880984123">"Veld mag niet leeg zijn."</string>
+    <string name="name_input_invalid_error" msgid="3523545780580744273">"De ingevoerde gebruikersnaam is ongeldig."</string>
     <string name="users_list_title" msgid="770764290290240909">"Gebruikers"</string>
     <string name="user_details_admin_title" msgid="3530292857178371891">"Rechten verleend aan %1$s"</string>
     <string name="storage_settings_title" msgid="8957054192781341797">"Opslag"</string>
@@ -497,6 +502,8 @@
     <string name="storage_clear_data_dlg_title" msgid="5863775997588969879">"App-gegevens verwijderen?"</string>
     <string name="storage_clear_data_dlg_text" msgid="795055288575727801">"Alle gegevens van deze app worden definitief verwijderd. Dit omvat alle bestanden, instellingen, accounts, databases, enzovoort."</string>
     <string name="storage_clear_failed_dlg_text" msgid="6710485971686866306">"Kan opslag voor app niet wissen."</string>
+    <string name="storage_unmount_success" msgid="1553591517580407021">"<xliff:g id="NAME">%1$s</xliff:g> is veilig uitgeworpen"</string>
+    <string name="storage_unmount_failure" msgid="4591934911541762883">"Kan <xliff:g id="NAME">%1$s</xliff:g> niet veilig uitwerpen"</string>
     <string name="accounts_settings_title" msgid="436190037084293471">"Accounts"</string>
     <string name="user_add_account_menu" msgid="6625351983590713721">"Account toevoegen"</string>
     <string name="no_accounts_added" msgid="5148163140691096055">"Geen accounts toegevoegd"</string>
@@ -528,13 +535,14 @@
     <string name="sync_button_sync_now" msgid="5767643057970371315">"Nu synchroniseren"</string>
     <string name="sync_button_sync_cancel" msgid="7739510554513641393">"Synchronisatie annuleren"</string>
     <string name="sync_is_failing" msgid="5766255460901806206">"Er zijn momenteel problemen met de synchronisatie. Synchronisatie wordt snel opnieuw uitgevoerd."</string>
+    <string name="privacy_settings_title" msgid="3150145262029229572">"Privacy"</string>
     <string name="security_settings_title" msgid="6955331714774709746">"Beveiliging"</string>
     <string name="security_settings_subtitle" msgid="2244635550239273229">"Schermvergrendeling"</string>
     <string name="security_lock_none" msgid="1054645093754839638">"Geen"</string>
     <string name="security_lock_pattern" msgid="1174352995619563104">"Patroon"</string>
     <string name="security_lock_pin" msgid="4891899974369503200">"Pincode"</string>
     <string name="security_lock_password" msgid="4420203740048322494">"Wachtwoord"</string>
-    <string name="lock_settings_picker_title" msgid="6590330165050361632">"Vergrend.type kiezen"</string>
+    <string name="lock_settings_picker_title" msgid="6590330165050361632">"Vergrendeling kiezen"</string>
     <string name="screen_lock_options" msgid="8531177937577168185">"Vergrendelingsopties"</string>
     <string name="lock_settings_enter_pattern" msgid="4826034565853171624">"Geef je patroon op"</string>
     <string name="lockpattern_confirm_button_text" msgid="7784925958324484965">"Bevestigen"</string>
@@ -618,26 +626,11 @@
     <string name="lockpassword_pin_no_sequential_digits" msgid="38813552228809240">"Een oplopende, aflopende of herhaalde reeks cijfers is niet toegestaan."</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"Schermvergrendelingsopties"</string>
     <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g>: <xliff:g id="NUM_DAYS">%3$s</xliff:g> dagen geleden"</string>
-    <string name="add_device_title" msgid="8452168024017866232">"Vertrouwd apparaat toevoegen"</string>
-    <string name="add_device_summary" msgid="5368217520710573302">"Vertrouwd apparaat wordt toegevoegd via Bluetooth"</string>
-    <string name="trusted_device" msgid="5637378361866787603">"Vertrouwde apparaten"</string>
-    <plurals name="trusted_device_subtitle" formatted="false" msgid="462041049834264945">
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> apparaten</item>
-      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> apparaat</item>
-    </plurals>
-    <string name="remove_device_message" msgid="6447820559674148349">"Je <xliff:g id="CONNECTED_DEVICE_NAME_0">%1$s</xliff:g> ontgrendelt deze auto wanneer je apparaat is verbonden. Als iemand je <xliff:g id="CONNECTED_DEVICE_NAME_1">%1$s</xliff:g> in handen krijgt, kan die persoon mogelijk toegang krijgen tot dit apparaat."</string>
-    <string name="trusted_device_confirm_button" msgid="102354635014627996">"Bevestigen"</string>
-    <string name="trusted_device_remove_button" msgid="6140476996063415420">"Veilig apparaat verwijderen"</string>
-    <string name="trusted_device_done_button" msgid="8481956533222625296">"Klaar"</string>
-    <string name="add_trusted_device_instruction" msgid="2280382609884918033">"Gebruik de bijbehorende app om een vertrouwd apparaat in te stellen. Na het instellen wordt je gebruikersprofiel automatisch ontgrendeld wanneer je telefoon in de buurt van het voertuig wordt waargenomen."</string>
-    <string name="trusted_device_download_app" msgid="6971096140154499983">"1. Download de bijbehorende app op je telefoon"</string>
-    <string name="trusted_device_select_device" msgid="198902765179270739">"2. Selecteer <xliff:g id="CAR_NAME">%1$s</xliff:g> op je telefoon om de apparaten te koppelen"</string>
-    <string name="trusted_device_safety_alert" msgid="3834898922112046769">"Een vertrouwd apparaat in de buurt van je auto ontgrendelt het gebruikersprofiel wanneer de auto wordt gestart, ook als iemand anders het apparaat vasthoudt."</string>
-    <string name="trusted_device_pairing_code_dialog_title" msgid="8173792468216796873">"Bevestig dat de koppelingscodes overeenkomen"</string>
-    <string name="trusted_device_success_enrollment_toast" msgid="1238468775285575827">"De telefoon is ingeschreven"</string>
-    <string name="trusted_device_fail_enrollment_toast" msgid="6801324174861209092">"Inschrijving van <xliff:g id="DEVICE_NAME">%1$s</xliff:g> mislukt"</string>
-    <string name="trusted_device_set_authentication_reminder" msgid="5947077589994822305">"Als je een vertrouwd apparaat toevoegt, moet je daarna een verificatiemethode instellen. Als je je vertrouwde apparaat niet bij je hebt, is verificatie vereist voor toegang tot je profiel."</string>
-    <string name="trusted_device_disconnected_toast" msgid="2541862946536880255">"Verbinding met apparaat verbroken."</string>
+    <string name="credentials_reset" msgid="873900550885788639">"Certificaatgegevens wissen"</string>
+    <string name="credentials_reset_summary" msgid="6067911547500459637">"Alle certificaten verwijderen"</string>
+    <string name="credentials_reset_hint" msgid="3459271621754137661">"Alle content verwijderen?"</string>
+    <string name="credentials_erased" msgid="2515915439705550379">"Opslag certificaatgegevens is gewist."</string>
+    <string name="credentials_not_erased" msgid="6118567459076742720">"Kan opslag certificaatgegevens niet wissen."</string>
     <string name="forget" msgid="3971143908183848527">"Vergeten"</string>
     <string name="connect" msgid="5861699594602380150">"Verbinden"</string>
     <string name="disconnect" msgid="6140789953324820336">"Verbinding verbreken"</string>
@@ -653,6 +646,7 @@
     <string name="exit_retail_mode_dialog_body" msgid="8314316171782527301">"Hiermee wordt het demo-account verwijderd en wordt het systeem teruggezet op de fabrieksinstellingen. Alle gebruikersgegevens gaan verloren."</string>
     <string name="exit_retail_mode_dialog_confirmation_button_text" msgid="3147249675355968649">"Demo afsluiten"</string>
     <string name="suggestion_dismiss_button" msgid="4539412646977050641">"SLUITEN"</string>
-    <string name="restricted_while_driving" msgid="6217369093121968299">"Functie niet beschikbaar tijdens het rijden."</string>
-    <string name="add_user_restricted_while_driving" msgid="6384004350628271556">"Kan geen gebruikers toevoegen tijdens het rijden."</string>
+    <string name="restricted_while_driving" msgid="6587569249519274524">"Functie niet beschikbaar tijdens het rijden"</string>
+    <string name="add_user_restricted_while_driving" msgid="4754946754222453656">"Kan geen gebruikers toevoegen tijdens het rijden"</string>
+    <string name="default_search_query" msgid="3137420627428857068">"Zoeken"</string>
 </resources>

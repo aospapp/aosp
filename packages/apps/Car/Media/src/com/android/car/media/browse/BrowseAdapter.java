@@ -182,6 +182,18 @@ public class BrowseAdapter extends ListAdapter<BrowseViewData, BrowseViewHolder>
     }
 
     @Override
+    public void onViewAttachedToWindow(@NonNull BrowseViewHolder holder) {
+        super.onViewAttachedToWindow(holder);
+        holder.onViewAttachedToWindow(mContext);
+    }
+
+    @Override
+    public void onViewDetachedFromWindow(@NonNull BrowseViewHolder holder) {
+        super.onViewDetachedFromWindow(holder);
+        holder.onViewDetachedFromWindow(mContext);
+    }
+
+    @Override
     public int getItemViewType(int position) {
         return getItem(position).mViewType.ordinal();
     }
@@ -311,8 +323,11 @@ public class BrowseAdapter extends ListAdapter<BrowseViewData, BrowseViewHolder>
         switch(hint) {
             case MediaConstants.CONTENT_STYLE_GRID_ITEM_HINT_VALUE:
                 return BrowseItemViewType.GRID_ITEM;
+            case MediaConstants.CONTENT_STYLE_CATEGORY_GRID_ITEM_HINT_VALUE:
+                return BrowseItemViewType.ICON_GRID_ITEM;
+            case MediaConstants.CONTENT_STYLE_CATEGORY_LIST_ITEM_HINT_VALUE:
+                return BrowseItemViewType.ICON_LIST_ITEM;
             case MediaConstants.CONTENT_STYLE_LIST_ITEM_HINT_VALUE:
-                return BrowseItemViewType.LIST_ITEM;
             default:
                 return BrowseItemViewType.LIST_ITEM;
         }

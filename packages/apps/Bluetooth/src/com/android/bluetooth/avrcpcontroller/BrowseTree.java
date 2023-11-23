@@ -17,28 +17,33 @@
 package com.android.bluetooth.avrcpcontroller;
 
 import android.bluetooth.BluetoothDevice;
-import android.media.MediaDescription;
-import android.media.browse.MediaBrowser;
-import android.media.browse.MediaBrowser.MediaItem;
-import android.os.Bundle;
+import android.net.Uri;
+import android.support.v4.media.MediaBrowserCompat.MediaItem;
 import android.util.Log;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
-// Browsing hierarchy.
-// Root:
-//      Player1:
-//        Now_Playing:
-//          MediaItem1
-//          MediaItem2
-//        Folder1
-//        Folder2
-//        ....
-//      Player2
-//      ....
+/**
+ * An object that holds the browse tree of available media from a remote device.
+ *
+ * Browsing hierarchy follows the AVRCP specification's description of various scopes and
+ * looks like follows:
+ *    Root:
+ *      Player1:
+ *        Now_Playing:
+ *           MediaItem1
+ *           MediaItem2
+ *        Folder1
+ *        Folder2
+ *          ....
+ *        Player2
+ *          ....
+ */
 public class BrowseTree {
     private static final String TAG = "BrowseTree";
     private static final boolean DBG = Log.isLoggable(TAG, Log.DEBUG);
@@ -59,28 +64,29 @@ public class BrowseTree {
     final BrowseNode mNavigateUpNode;
     final BrowseNode mNowPlayingNode;
 
+    // In support of Cover Artwork, Cover Art URI <-> List of UUIDs using that artwork
+    private final HashMap<String, ArrayList<String>> mCoverArtMap =
+            new HashMap<String, ArrayList<String>>();
+
     BrowseTree(BluetoothDevice device) {
         if (device == null) {
-            mRootNode = new BrowseNode(new MediaItem(new MediaDescription.Builder()
-                    .setMediaId(ROOT).setTitle(ROOT).build(), MediaItem.FLAG_BROWSABLE));
+            mRootNode = new BrowseNode(new AvrcpItem.Builder()
+                    .setUuid(ROOT).setTitle(ROOT).setBrowsable(true).build());
             mRootNode.setCached(true);
         } else {
-            mRootNode = new BrowseNode(new MediaItem(new MediaDescription.Builder()
-                    .setMediaId(ROOT + device.getAddress().toString()).setTitle(
-                            device.getName()).build(), MediaItem.FLAG_BROWSABLE));
-            mRootNode.mDevice = device;
-
+            mRootNode = new BrowseNode(new AvrcpItem.Builder().setDevice(device)
+                    .setUuid(ROOT + device.getAddress().toString())
+                    .setTitle(device.getName()).setBrowsable(true).build());
         }
         mRootNode.mBrowseScope = AvrcpControllerService.BROWSE_SCOPE_PLAYER_LIST;
         mRootNode.setExpectedChildren(255);
 
-        mNavigateUpNode = new BrowseNode(new MediaItem(new MediaDescription.Builder()
-                .setMediaId(UP).setTitle(UP).build(),
-                MediaItem.FLAG_BROWSABLE));
+        mNavigateUpNode = new BrowseNode(new AvrcpItem.Builder()
+                .setUuid(UP).setTitle(UP).setBrowsable(true).build());
 
-        mNowPlayingNode = new BrowseNode(new MediaItem(new MediaDescription.Builder()
-                .setMediaId(NOW_PLAYING_PREFIX)
-                .setTitle(NOW_PLAYING_PREFIX).build(), MediaItem.FLAG_BROWSABLE));
+        mNowPlayingNode = new BrowseNode(new AvrcpItem.Builder()
+                .setUuid(NOW_PLAYING_PREFIX).setTitle(NOW_PLAYING_PREFIX)
+                .setBrowsable(true).build());
         mNowPlayingNode.mBrowseScope = AvrcpControllerService.BROWSE_SCOPE_NOW_PLAYING;
         mNowPlayingNode.setExpectedChildren(255);
         mBrowseMap.put(ROOT, mRootNode);
@@ -92,6 +98,7 @@ public class BrowseTree {
     public void clear() {
         // Clearing the map should garbage collect everything.
         mBrowseMap.clear();
+        mCoverArtMap.clear();
     }
 
     void onConnected(BluetoothDevice device) {
@@ -100,16 +107,13 @@ public class BrowseTree {
     }
 
     BrowseNode getTrackFromNowPlayingList(int trackNumber) {
-        return mNowPlayingNode.mChildren.get(trackNumber);
+        return mNowPlayingNode.getChild(trackNumber);
     }
 
     // Each node of the tree is represented by Folder ID, Folder Name and the children.
     class BrowseNode {
-        // MediaItem to store the media related details.
-        MediaItem mItem;
-
-        BluetoothDevice mDevice;
-        long mBluetoothId;
+        // AvrcpItem to store the media related details.
+        AvrcpItem mItem;
 
         // Type of this browse node.
         // Since Media APIs do not define the player separately we define that
@@ -127,45 +131,43 @@ public class BrowseTree {
         private final List<BrowseNode> mChildren = new ArrayList<BrowseNode>();
         private int mExpectedChildrenCount;
 
-        BrowseNode(MediaItem item) {
+        BrowseNode(AvrcpItem item) {
             mItem = item;
-            Bundle extras = mItem.getDescription().getExtras();
-            if (extras != null) {
-                mBluetoothId = extras.getLong(AvrcpControllerService.MEDIA_ITEM_UID_KEY);
-            }
         }
 
         BrowseNode(AvrcpPlayer player) {
             mIsPlayer = true;
 
             // Transform the player into a item.
-            MediaDescription.Builder mdb = new MediaDescription.Builder();
-            String playerKey = PLAYER_PREFIX + player.getId();
-            mBluetoothId = player.getId();
-
-            mdb.setMediaId(UUID.randomUUID().toString());
-            mdb.setTitle(player.getName());
-            int mediaItemFlags = player.supportsFeature(AvrcpPlayer.FEATURE_BROWSING)
-                    ? MediaBrowser.MediaItem.FLAG_BROWSABLE : 0;
-            mItem = new MediaBrowser.MediaItem(mdb.build(), mediaItemFlags);
+            AvrcpItem.Builder aid = new AvrcpItem.Builder();
+            aid.setDevice(player.getDevice());
+            aid.setUid(player.getId());
+            aid.setUuid(UUID.randomUUID().toString());
+            aid.setDisplayableName(player.getName());
+            aid.setTitle(player.getName());
+            aid.setBrowsable(player.supportsFeature(AvrcpPlayer.FEATURE_BROWSING));
+            mItem = aid.build();
         }
 
         BrowseNode(BluetoothDevice device) {
-            boolean mIsPlayer = true;
-            mDevice = device;
-            MediaDescription.Builder mdb = new MediaDescription.Builder();
+            mIsPlayer = true;
             String playerKey = PLAYER_PREFIX + device.getAddress().toString();
-            mdb.setMediaId(playerKey);
-            mdb.setTitle(device.getName());
-            int mediaItemFlags = MediaBrowser.MediaItem.FLAG_BROWSABLE;
-            mItem = new MediaBrowser.MediaItem(mdb.build(), mediaItemFlags);
+
+            AvrcpItem.Builder aid = new AvrcpItem.Builder();
+            aid.setDevice(device);
+            aid.setUuid(playerKey);
+            aid.setDisplayableName(device.getName());
+            aid.setTitle(device.getName());
+            aid.setBrowsable(true);
+            mItem = aid.build();
         }
 
         private BrowseNode(String name) {
-            MediaDescription.Builder mdb = new MediaDescription.Builder();
-            mdb.setMediaId(name);
-            mdb.setTitle(name);
-            mItem = new MediaBrowser.MediaItem(mdb.build(), MediaBrowser.MediaItem.FLAG_BROWSABLE);
+            AvrcpItem.Builder aid = new AvrcpItem.Builder();
+            aid.setUuid(name);
+            aid.setDisplayableName(name);
+            aid.setTitle(name);
+            mItem = aid.build();
         }
 
         synchronized void setExpectedChildren(int count) {
@@ -179,8 +181,8 @@ public class BrowseTree {
         synchronized <E> int addChildren(List<E> newChildren) {
             for (E child : newChildren) {
                 BrowseNode currentNode = null;
-                if (child instanceof MediaItem) {
-                    currentNode = new BrowseNode((MediaItem) child);
+                if (child instanceof AvrcpItem) {
+                    currentNode = new BrowseNode((AvrcpItem) child);
                 } else if (child instanceof AvrcpPlayer) {
                     currentNode = new BrowseNode((AvrcpPlayer) child);
                 }
@@ -195,11 +197,15 @@ public class BrowseTree {
                 if (this.mBrowseScope == AvrcpControllerService.BROWSE_SCOPE_NOW_PLAYING) {
                     node.mBrowseScope = this.mBrowseScope;
                 }
-                if (node.mDevice == null) {
-                    node.mDevice = this.mDevice;
-                }
                 mChildren.add(node);
                 mBrowseMap.put(node.getID(), node);
+
+                // Each time we add a node to the tree, check for an image handle so we can add
+                // the artwork URI once it has been downloaded
+                String imageUuid = node.getCoverArtUuid();
+                if (imageUuid != null) {
+                    indicateCoverArtUsed(node.getID(), imageUuid);
+                }
                 return true;
             }
             return false;
@@ -208,6 +214,7 @@ public class BrowseTree {
         synchronized void removeChild(BrowseNode node) {
             mChildren.remove(node);
             mBrowseMap.remove(node.getID());
+            indicateCoverArtUnused(node.getID(), node.getCoverArtUuid());
         }
 
         synchronized int getChildrenCount() {
@@ -218,8 +225,27 @@ public class BrowseTree {
             return mChildren;
         }
 
+        synchronized BrowseNode getChild(int index) {
+            if (index < 0 || index >= mChildren.size()) {
+                return null;
+            }
+            return mChildren.get(index);
+        }
+
         synchronized BrowseNode getParent() {
             return mParent;
+        }
+
+        synchronized BluetoothDevice getDevice() {
+            return mItem.getDevice();
+        }
+
+        synchronized String getCoverArtUuid() {
+            return mItem.getCoverArtUuid();
+        }
+
+        synchronized void setCoverArtUri(Uri uri) {
+            mItem.setCoverArtLocation(uri);
         }
 
         synchronized List<MediaItem> getContents() {
@@ -251,6 +277,7 @@ public class BrowseTree {
             if (!cached) {
                 for (BrowseNode child : mChildren) {
                     mBrowseMap.remove(child.getID());
+                    indicateCoverArtUnused(child.getID(), child.getCoverArtUuid());
                 }
                 mChildren.clear();
             }
@@ -258,7 +285,7 @@ public class BrowseTree {
 
         // Fetch the Unique UID for this item, this is unique across all elements in the tree.
         synchronized String getID() {
-            return mItem.getDescription().getMediaId();
+            return mItem.getUuid();
         }
 
         // Get the BT Player ID associated with this node.
@@ -278,11 +305,11 @@ public class BrowseTree {
         }
 
         synchronized long getBluetoothID() {
-            return mBluetoothId;
+            return mItem.getUid();
         }
 
         synchronized MediaItem getMediaItem() {
-            return mItem;
+            return mItem.toMediaItem();
         }
 
         synchronized boolean isPlayer() {
@@ -305,7 +332,7 @@ public class BrowseTree {
         @Override
         public synchronized String toString() {
             if (VDBG) {
-                String serialized = "[ Name: " + mItem.getDescription().getTitle()
+                String serialized = "[ Name: " + mItem.getTitle()
                         + " Scope:" + mBrowseScope + " expected Children: "
                         + mExpectedChildrenCount + "] ";
                 for (BrowseNode node : mChildren) {
@@ -394,11 +421,82 @@ public class BrowseTree {
         return mCurrentAddressedPlayer;
     }
 
+    /**
+     * Indicate that a node in the tree is using a specific piece of cover art, identified by the
+     * given image handle.
+     */
+    synchronized void indicateCoverArtUsed(String nodeId, String handle) {
+        mCoverArtMap.putIfAbsent(handle, new ArrayList<String>());
+        mCoverArtMap.get(handle).add(nodeId);
+    }
+
+    /**
+     * Indicate that a node in the tree no longer needs a specific piece of cover art.
+     */
+    synchronized void indicateCoverArtUnused(String nodeId, String handle) {
+        if (mCoverArtMap.containsKey(handle) && mCoverArtMap.get(handle).contains(nodeId)) {
+            mCoverArtMap.get(handle).remove(nodeId);
+        }
+    }
+
+    /**
+     * Get a list of items using the piece of cover art identified by the given handle.
+     */
+    synchronized ArrayList<String> getNodesUsingCoverArt(String handle) {
+        if (!mCoverArtMap.containsKey(handle)) return new ArrayList<String>();
+        return (ArrayList<String>) mCoverArtMap.get(handle).clone();
+    }
+
+    /**
+     * Get a list of Cover Art UUIDs that are no longer being used by the tree. Clear that list.
+     */
+    synchronized ArrayList<String> getAndClearUnusedCoverArt() {
+        ArrayList<String> unused = new ArrayList<String>();
+        for (String uuid : mCoverArtMap.keySet()) {
+            if (mCoverArtMap.get(uuid).isEmpty()) {
+                unused.add(uuid);
+            }
+        }
+        for (String uuid : unused) {
+            mCoverArtMap.remove(uuid);
+        }
+        return unused;
+    }
+
+    /**
+     * Adds the Uri of a newly downloaded image to all tree nodes using that specific handle.
+     * Returns the set of parent nodes that have children impacted by the new art so clients can
+     * be notified of the change.
+     */
+    synchronized Set<BrowseNode> notifyImageDownload(String uuid, Uri uri) {
+        if (DBG) Log.d(TAG, "Received downloaded image handle to cascade to BrowseNodes using it");
+        ArrayList<String> nodes = getNodesUsingCoverArt(uuid);
+        HashSet<BrowseNode> parents = new HashSet<BrowseNode>();
+        for (String nodeId : nodes) {
+            BrowseNode node = findBrowseNodeByID(nodeId);
+            if (node == null) {
+                Log.e(TAG, "Node was removed without clearing its cover art status");
+                indicateCoverArtUnused(nodeId, uuid);
+                continue;
+            }
+            node.setCoverArtUri(uri);
+            if (node.mParent != null) {
+                parents.add(node.mParent);
+            }
+        }
+        return parents;
+    }
+
+
     @Override
     public String toString() {
         String serialized = "Size: " + mBrowseMap.size();
         if (VDBG) {
             serialized += mRootNode.toString();
+            serialized += "\n  Image handles in use (" + mCoverArtMap.size() + "):";
+            for (String handle : mCoverArtMap.keySet()) {
+                serialized += "\n    " + handle + "\n";
+            }
         }
         return serialized;
     }

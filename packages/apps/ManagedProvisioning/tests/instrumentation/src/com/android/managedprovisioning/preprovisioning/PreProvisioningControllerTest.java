@@ -16,8 +16,7 @@
 package com.android.managedprovisioning.preprovisioning;
 
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_DEVICE;
-import static android.app.admin.DevicePolicyManager
-        .ACTION_PROVISION_MANAGED_DEVICE_FROM_TRUSTED_SOURCE;
+import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_DEVICE_FROM_TRUSTED_SOURCE;
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_PROFILE;
 import static android.app.admin.DevicePolicyManager.CODE_MANAGED_USERS_NOT_SUPPORTED;
 import static android.app.admin.DevicePolicyManager.CODE_OK;
@@ -36,8 +35,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
-import static java.util.Collections.emptyList;
-
 import android.app.ActivityManager;
 import android.app.KeyguardManager;
 import android.app.admin.DevicePolicyManager;
@@ -50,13 +47,15 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.content.res.Resources;
 import android.graphics.drawable.VectorDrawable;
+import android.net.ConnectivityManager;
 import android.os.UserHandle;
 import android.os.UserManager;
 import android.service.persistentdata.PersistentDataBlockManager;
-import androidx.test.InstrumentationRegistry;
-import androidx.test.filters.SmallTest;
 import android.test.AndroidTestCase;
 import android.text.TextUtils;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.SmallTest;
 
 import com.android.managedprovisioning.R;
 import com.android.managedprovisioning.analytics.TimeLogger;
@@ -171,6 +170,7 @@ public class PreProvisioningControllerTest extends AndroidTestCase {
         when(mSettingsFacade.isDuringSetupWizard(mContext)).thenReturn(false);
         mController = new PreProvisioningController(mContext, mUi, mTimeLogger, mMessageParser,
                 mUtils, mSettingsFacade, mEncryptionController, mSharedPreferences);
+        when(mSettingsFacade.isDeveloperMode(mContext)).thenReturn(true);
     }
 
     public void testManagedProfile() throws Exception {
@@ -365,6 +365,20 @@ public class PreProvisioningControllerTest extends AndroidTestCase {
         // THEN show an error indicating that this device does not support encryption
         verify(mUi).showErrorAndClose(eq(R.string.cant_set_up_device),
                 eq(R.string.device_doesnt_allow_encryption_contact_admin), any());
+        verifyNoMoreInteractions(mUi);
+    }
+
+    public void testManagedProfile_restrictedFromRemovingExisting() throws Exception {
+        // GIVEN an intent to provision a managed profile, but provisioning mode is not allowed
+        prepareMocksForManagedProfileIntent(false);
+        when(mUtils.alreadyHasManagedProfile(mContext)).thenReturn(TEST_USER_ID);
+        when(mUserManager.hasUserRestriction(
+                UserManager.DISALLOW_REMOVE_MANAGED_PROFILE)).thenReturn(true);
+        // WHEN initiating provisioning
+        mController.initiateProvisioning(mIntent, null, TEST_MDM_PACKAGE);
+        // THEN show an error dialog
+        verify(mUi).showErrorAndClose(eq(R.string.cant_replace_or_remove_work_profile),
+                eq(R.string.work_profile_cant_be_added_contact_admin), any());
         verifyNoMoreInteractions(mUi);
     }
 
@@ -647,36 +661,58 @@ public class PreProvisioningControllerTest extends AndroidTestCase {
         verify(mUi).startProvisioning(mUserManager.getUserHandle(), mParams);
     }
 
-    public void testInitiateProvisioning_doWithDownloadInfoAndUseMobileDataFalse_showsWifiPicker()
-            throws Exception {
-        final ProvisioningParams params = createProvisioningParamsBuilder()
-                .setProvisioningAction(ACTION_PROVISION_MANAGED_DEVICE)
-                .setDeviceAdminDownloadInfo(PACKAGE_DOWNLOAD_INFO)
-                .setUseMobileData(false)
+    public void testInitiateProvisioning_showsWifiPicker() {
+        final ProvisioningParams params = createProvisioningParamsBuilderForInitiateProvisioning()
                 .build();
         initiateProvisioning(params);
         verify(mUi).requestWifiPick();
     }
 
-    public void testInitiateProvisioning_doWithNoDownloadInfoAndUseMobileDataFalse_noWifiPicker()
-            throws Exception {
-        final ProvisioningParams params = createProvisioningParamsBuilder()
-                .setProvisioningAction(ACTION_PROVISION_MANAGED_DEVICE)
+    public void testInitiateProvisioning_useMobileData_showsWifiPicker() {
+        final ProvisioningParams params = createProvisioningParamsBuilderForInitiateProvisioning()
+                .setUseMobileData(true)
+                .build();
+        initiateProvisioning(params);
+        verify(mUi).requestWifiPick();
+    }
+
+    public void testInitiateProvisioning_useMobileData_noWifiPicker() {
+        when(mUtils.isMobileNetworkConnectedToInternet(mContext)).thenReturn(true);
+        final ProvisioningParams params = createProvisioningParamsBuilderForInitiateProvisioning()
                 .setUseMobileData(true)
                 .build();
         initiateProvisioning(params);
         verify(mUi, never()).requestWifiPick();
     }
 
-    public void testInitiateProvisioning_doWithDownloadInfoAndUseMobileDataTrue_noWifiPicker()
-            throws Exception {
-        final ProvisioningParams params = createProvisioningParamsBuilder()
-                .setProvisioningAction(ACTION_PROVISION_MANAGED_DEVICE)
-                .setDeviceAdminDownloadInfo(PACKAGE_DOWNLOAD_INFO)
-                .setUseMobileData(true)
+    public void testInitiateProvisioning_connectedToWifiOrEthernet_noWifiPicker() {
+        when(mUtils.isNetworkTypeConnected(mContext, ConnectivityManager.TYPE_WIFI,
+                ConnectivityManager.TYPE_ETHERNET)).thenReturn(true);
+        final ProvisioningParams params = createProvisioningParamsBuilderForInitiateProvisioning()
                 .build();
         initiateProvisioning(params);
         verify(mUi, never()).requestWifiPick();
+    }
+
+    public void testInitiateProvisioning_noAdminDownloadInfo_noWifiPicker() {
+        final ProvisioningParams params = createProvisioningParamsBuilderForInitiateProvisioning()
+                .setDeviceAdminDownloadInfo(null)
+                .build();
+        initiateProvisioning(params);
+        verify(mUi, never()).requestWifiPick();
+    }
+
+    public void testInitiateProvisioning_wifiInfo_noWifiPicker() {
+        final ProvisioningParams params = createProvisioningParamsBuilderForInitiateProvisioning()
+                .setWifiInfo(new WifiInfo.Builder().setSsid(TEST_WIFI_SSID).build())
+                .build();
+        initiateProvisioning(params);
+        verify(mUi, never()).requestWifiPick();
+    }
+
+    private ProvisioningParams.Builder createProvisioningParamsBuilderForInitiateProvisioning() {
+        return createProvisioningParamsBuilder()
+                .setDeviceAdminDownloadInfo(PACKAGE_DOWNLOAD_INFO);
     }
 
     private void prepareMocksForMaybeStartProvisioning(

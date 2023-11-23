@@ -19,13 +19,14 @@ package com.android.tv.ui.sidepanel;
 import android.text.TextUtils;
 import android.view.View;
 import android.widget.TextView;
+
 import com.android.tv.R;
 import com.android.tv.data.ChannelDataManager;
 import com.android.tv.data.ChannelDataManager.ChannelListener;
 import com.android.tv.data.OnCurrentProgramUpdatedListener;
-import com.android.tv.data.Program;
 import com.android.tv.data.ProgramDataManager;
 import com.android.tv.data.api.Channel;
+import com.android.tv.data.api.Program;
 
 public abstract class ChannelCheckItem extends CompoundButtonItem {
     private final ChannelDataManager mChannelDataManager;

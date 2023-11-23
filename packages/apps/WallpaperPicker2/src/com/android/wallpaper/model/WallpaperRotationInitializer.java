@@ -58,13 +58,6 @@ public interface WallpaperRotationInitializer extends Parcelable {
                                      Listener listener);
 
     /**
-     * Returns whether the live wallpaper needs to be set to the device in order to be able to start
-     * rotation or is already set but on home-only on N-MR2 or later, which means the user has the
-     * option to pick a new destination preference.
-     */
-    boolean isNoBackupImageWallpaperPreviewNeeded(Context appContext);
-
-    /**
      * Gets the current state of the possible wallpaper rotation represented by this object.
      */
     void fetchRotationInitializationState(Context context, RotationStateListener listener);

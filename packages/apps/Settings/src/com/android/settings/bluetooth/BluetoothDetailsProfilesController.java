@@ -28,6 +28,7 @@ import androidx.preference.PreferenceFragmentCompat;
 import androidx.preference.PreferenceScreen;
 import androidx.preference.SwitchPreference;
 
+import com.android.settings.R;
 import com.android.settingslib.bluetooth.A2dpProfile;
 import com.android.settingslib.bluetooth.CachedBluetoothDevice;
 import com.android.settingslib.bluetooth.LocalBluetoothManager;
@@ -48,6 +49,8 @@ public class BluetoothDetailsProfilesController extends BluetoothDetailsControll
         implements Preference.OnPreferenceClickListener,
         LocalBluetoothProfileManager.ServiceListener {
     private static final String KEY_PROFILES_GROUP = "bluetooth_profiles";
+    private static final String KEY_BOTTOM_PREFERENCE = "bottom_preference";
+    private static final int ORDINAL = 99;
 
     @VisibleForTesting
     static final String HIGH_QUALITY_AUDIO_PREF_TAG = "A2dpProfileHighQualityAudio";
@@ -55,7 +58,9 @@ public class BluetoothDetailsProfilesController extends BluetoothDetailsControll
     private LocalBluetoothManager mManager;
     private LocalBluetoothProfileManager mProfileManager;
     private CachedBluetoothDevice mCachedDevice;
-    private PreferenceCategory mProfilesContainer;
+
+    @VisibleForTesting
+    PreferenceCategory mProfilesContainer;
 
     public BluetoothDetailsProfilesController(Context context, PreferenceFragmentCompat fragment,
             LocalBluetoothManager manager, CachedBluetoothDevice device, Lifecycle lifecycle) {
@@ -69,6 +74,7 @@ public class BluetoothDetailsProfilesController extends BluetoothDetailsControll
     @Override
     protected void init(PreferenceScreen screen) {
         mProfilesContainer = (PreferenceCategory)screen.findPreference(getPreferenceKey());
+        mProfilesContainer.setLayoutResource(R.layout.preference_bluetooth_profile_category);
         // Call refresh here even though it will get called later in onResume, to avoid the
         // list of switches appearing to "pop" into the page.
         refresh();
@@ -109,7 +115,7 @@ public class BluetoothDetailsProfilesController extends BluetoothDetailsControll
             profilePref.setChecked(profile.getConnectionStatus(device) ==
                     BluetoothProfile.STATE_CONNECTED);
         } else {
-            profilePref.setChecked(profile.isPreferred(device));
+            profilePref.setChecked(profile.isEnabled(device));
         }
 
         if (profile instanceof A2dpProfile) {
@@ -117,7 +123,7 @@ public class BluetoothDetailsProfilesController extends BluetoothDetailsControll
             SwitchPreference highQualityPref = (SwitchPreference) mProfilesContainer.findPreference(
                     HIGH_QUALITY_AUDIO_PREF_TAG);
             if (highQualityPref != null) {
-                if (a2dp.isPreferred(device) && a2dp.supportsHighQualityAudio(device)) {
+                if (a2dp.isEnabled(device) && a2dp.supportsHighQualityAudio(device)) {
                     highQualityPref.setVisible(true);
                     highQualityPref.setTitle(a2dp.getHighQualityAudioOptionLabel(device));
                     highQualityPref.setChecked(a2dp.isHighQualityAudioEnabled(device));
@@ -142,8 +148,7 @@ public class BluetoothDetailsProfilesController extends BluetoothDetailsControll
         if (profile instanceof MapProfile) {
             bluetoothDevice.setMessageAccessPermission(BluetoothDevice.ACCESS_ALLOWED);
         }
-        profile.setPreferred(bluetoothDevice, true);
-        mCachedDevice.connectProfile(profile);
+        profile.setEnabled(bluetoothDevice, true);
     }
 
     /**
@@ -151,8 +156,7 @@ public class BluetoothDetailsProfilesController extends BluetoothDetailsControll
      */
     private void disableProfile(LocalBluetoothProfile profile) {
         final BluetoothDevice bluetoothDevice = mCachedDevice.getDevice();
-        mCachedDevice.disconnect(profile);
-        profile.setPreferred(bluetoothDevice, false);
+        profile.setEnabled(bluetoothDevice, false);
         if (profile instanceof MapProfile) {
             bluetoothDevice.setMessageAccessPermission(BluetoothDevice.ACCESS_REJECTED);
         } else if (profile instanceof PbapServerProfile) {
@@ -284,6 +288,16 @@ public class BluetoothDetailsProfilesController extends BluetoothDetailsControll
             if (pref != null) {
                 mProfilesContainer.removePreference(pref);
             }
+        }
+
+        Preference preference = mProfilesContainer.findPreference(KEY_BOTTOM_PREFERENCE);
+        if (preference == null) {
+            preference = new Preference(mContext);
+            preference.setLayoutResource(R.layout.preference_bluetooth_profile_category);
+            preference.setEnabled(false);
+            preference.setKey(KEY_BOTTOM_PREFERENCE);
+            preference.setOrder(ORDINAL);
+            mProfilesContainer.addPreference(preference);
         }
     }
 

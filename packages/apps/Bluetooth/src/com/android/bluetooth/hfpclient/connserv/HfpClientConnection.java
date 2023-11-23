@@ -35,6 +35,7 @@ public class HfpClientConnection extends Connection {
     private final Context mContext;
     private final BluetoothDevice mDevice;
     private BluetoothHeadsetClient mHeadsetProfile;
+    private HfpClientConnectionService mHfpClientConnectionService;
 
     private BluetoothHeadsetClientCall mCurrentCall;
     private int mPreviousCallState = -1;
@@ -244,7 +245,7 @@ public class HfpClientConnection extends Connection {
 
     @Override
     public synchronized void onUnhold() {
-        if (getConnectionService().getAllConnections().size() > 1) {
+        if (getHfpClientConnectionService().getAllConnections().size() > 1) {
             Log.w(TAG, "Ignoring unhold; call hold on the foreground call");
             return;
         }
@@ -290,4 +291,14 @@ public class HfpClientConnection extends Connection {
         return "HfpClientConnection{" + getAddress() + "," + stateToString(getState()) + ","
                 + mCurrentCall + "}";
     }
+
+    public void setHfpClientConnectionService(
+            HfpClientConnectionService hfpClientConnectionService) {
+        mHfpClientConnectionService = hfpClientConnectionService;
+    }
+
+    public HfpClientConnectionService getHfpClientConnectionService() {
+        return mHfpClientConnectionService;
+    }
+
 }

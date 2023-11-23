@@ -19,8 +19,10 @@ package com.android.car.settings.system;
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.text.BidiFormatter;
 import android.text.SpannableString;
 import android.text.SpannableStringBuilder;
+import android.text.TextDirectionHeuristics;
 import android.text.style.BulletSpan;
 
 import androidx.annotation.StringRes;
@@ -66,7 +68,9 @@ public class ResetNetworkItemsPreferenceController extends PreferenceController<
 
     private void addBulletedValue(SpannableStringBuilder sb, @StringRes int resId) {
         sb.append(System.lineSeparator());
-        SpannableString value = new SpannableString(getContext().getString(resId));
+        SpannableString value = new SpannableString(
+                BidiFormatter.getInstance().unicodeWrap(getContext().getString(resId),
+                        TextDirectionHeuristics.LOCALE));
         // Match android.content.res.StringBlock which applies a 10 gapWidth BulletSpan as the <li>
         // style. This is a workaround for translation specific behavior in StringBlock which led
         // to multiple indents when building the list using getText(resId).

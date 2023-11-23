@@ -17,12 +17,12 @@
 package com.android.car.settings.applications.managedomainurls;
 
 import android.car.drivingstate.CarUxRestrictions;
-import android.car.userlib.CarUserManagerHelper;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.net.Uri;
+import android.os.UserHandle;
 
 import androidx.annotation.VisibleForTesting;
 import androidx.preference.Preference;
@@ -49,16 +49,12 @@ public abstract class AppLaunchSettingsBasePreferenceController<V extends Prefer
             .setData(Uri.parse("http:"));
 
     private final PackageManager mPm;
-    private final CarUserManagerHelper mCarUserManagerHelper;
-
-    private String mPackageName;
     private ApplicationsState.AppEntry mAppEntry;
 
     public AppLaunchSettingsBasePreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
         mPm = context.getPackageManager();
-        mCarUserManagerHelper = new CarUserManagerHelper(context);
     }
 
     /** Sets the app entry associated with this settings screen. */
@@ -78,7 +74,7 @@ public abstract class AppLaunchSettingsBasePreferenceController<V extends Prefer
 
     /** Returns the current user id. */
     protected int getCurrentUserId() {
-        return mCarUserManagerHelper.getCurrentProcessUserId();
+        return UserHandle.myUserId();
     }
 
     /** Returns {@code true} if the current package is a browser app. */

@@ -15,8 +15,23 @@
  */
 package com.android.car.apps.common;
 
+import static android.graphics.Bitmap.Config.ARGB_8888;
+
+import android.content.Context;
+import android.content.res.Resources;
 import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Matrix;
+import android.graphics.Paint;
+import android.graphics.RectF;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
 import android.util.Log;
+import android.util.Size;
+
+import androidx.annotation.ColorInt;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 public class BitmapUtils {
     private static final String TAG = "BitmapUtils";
@@ -92,5 +107,65 @@ public class BitmapUtils {
         int x = (bm.getWidth() - width) / 2;
         int y =(bm.getHeight() - height) / 2;
         return Bitmap.createBitmap(bm, x, y, width, height);
+    }
+
+    /** Creates a copy of the given bitmap and applies the given color over the result */
+    @Nullable
+    public static Bitmap createTintedBitmap(@Nullable Bitmap image, @ColorInt int colorOverlay) {
+        if (image == null) return null;
+        Bitmap clone = Bitmap.createBitmap(image.getWidth(), image.getHeight(), ARGB_8888);
+        Canvas canvas = new Canvas(clone);
+        canvas.drawBitmap(image, 0f, 0f, new Paint());
+        canvas.drawColor(colorOverlay);
+        return clone;
+    }
+
+    /** Returns a tinted drawable if flagging is enabled and the given drawable is a bitmap. */
+    @NonNull
+    public static Drawable maybeFlagDrawable(@NonNull Context context, @NonNull Drawable drawable) {
+        if (drawable instanceof BitmapDrawable) {
+            CommonFlags flags = CommonFlags.getInstance(context);
+            Bitmap bitmap = ((BitmapDrawable) drawable).getBitmap();
+            if (flags.shouldFlagImproperImageRefs() && bitmap != null) {
+                Resources res = context.getResources();
+                int tint = context.getColor(R.color.improper_image_refs_tint_color);
+                drawable = new BitmapDrawable(res, BitmapUtils.createTintedBitmap(bitmap, tint));
+            }
+        }
+        return drawable;
+    }
+
+    /** Renders the drawable into a bitmap if needed. */
+    public static Bitmap fromDrawable(Drawable drawable, @Nullable Size bitmapSize) {
+        if (drawable instanceof BitmapDrawable) {
+            BitmapDrawable bitmapDrawable = (BitmapDrawable) drawable;
+            if (bitmapDrawable.getBitmap() != null) {
+                return bitmapDrawable.getBitmap();
+            }
+        }
+
+        Matrix matrix = new Matrix();
+        if (drawable.getIntrinsicWidth() <= 0 || drawable.getIntrinsicHeight() <= 0) {
+            bitmapSize = new Size(1, 1);
+            drawable.setBounds(0, 0, bitmapSize.getWidth(), bitmapSize.getHeight());
+        } else {
+            if (bitmapSize == null) {
+                bitmapSize = new Size(drawable.getIntrinsicWidth(), drawable.getIntrinsicHeight());
+            }
+            drawable.setBounds(0, 0, drawable.getIntrinsicWidth(), drawable.getIntrinsicHeight());
+            RectF srcR = new RectF(0f, 0f, drawable.getIntrinsicWidth(),
+                    drawable.getIntrinsicHeight());
+            RectF dstR = new RectF(0f, 0f, bitmapSize.getWidth(), bitmapSize.getHeight());
+            matrix.setRectToRect(srcR, dstR, Matrix.ScaleToFit.CENTER);
+        }
+
+        Bitmap bitmap = Bitmap.createBitmap(bitmapSize.getWidth(), bitmapSize.getHeight(),
+                Bitmap.Config.ARGB_8888);
+
+        Canvas canvas = new Canvas(bitmap);
+        canvas.setMatrix(matrix);
+        drawable.draw(canvas);
+
+        return bitmap;
     }
 }

@@ -22,6 +22,7 @@ import static com.android.documentsui.base.SharedMinimal.DEBUG;
 import static com.android.documentsui.base.SharedMinimal.TAG;
 
 import android.database.AbstractCursor;
+import android.database.ContentObserver;
 import android.database.Cursor;
 import android.os.Bundle;
 import android.provider.DocumentsContract.Document;
@@ -64,6 +65,26 @@ public class FilteringCursorWrapper extends AbstractCursor {
             if (MimeTypes.mimeMatches(acceptMimes, mimeType)) {
                 mPosition[mCount++] = cursor.getPosition();
             }
+        }
+
+        if (DEBUG && mCount != cursor.getCount()) {
+            Log.d(TAG, "Before filtering " + cursor.getCount() + ", after " + mCount);
+        }
+    }
+
+    public FilteringCursorWrapper(Cursor cursor, boolean showHiddenFiles) {
+        mCursor = cursor;
+
+        final int count = cursor.getCount();
+        mPosition = new int[count];
+
+        cursor.moveToPosition(-1);
+        while (cursor.moveToNext() && mCount < count) {
+            final String name = getCursorString(cursor, Document.COLUMN_DISPLAY_NAME);
+            if (!showHiddenFiles && name != null && name.startsWith(".")) {
+                continue;
+            }
+            mPosition[mCount++] = cursor.getPosition();
         }
 
         if (DEBUG && mCount != cursor.getCount()) {
@@ -135,5 +156,15 @@ public class FilteringCursorWrapper extends AbstractCursor {
     @Override
     public boolean isNull(int column) {
         return mCursor.isNull(column);
+    }
+
+    @Override
+    public void registerContentObserver(ContentObserver observer) {
+        mCursor.registerContentObserver(observer);
+    }
+
+    @Override
+    public void unregisterContentObserver(ContentObserver observer) {
+        mCursor.unregisterContentObserver(observer);
     }
 }

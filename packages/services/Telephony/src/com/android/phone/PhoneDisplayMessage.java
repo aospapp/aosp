@@ -78,10 +78,11 @@ public class PhoneDisplayMessage {
         sDisplayMessageDialog.getWindow().setType(
                 WindowManager.LayoutParams.TYPE_SYSTEM_DIALOG);
         sDisplayMessageDialog.getWindow().addFlags(
-                WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+                WindowManager.LayoutParams.FLAG_DIM_BEHIND
+                | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+                | WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
         sDisplayMessageDialog.show();
-        PhoneGlobals.getInstance().wakeUpScreen();
     }
 
     /**
@@ -91,6 +92,9 @@ public class PhoneDisplayMessage {
         if (DBG) log("Dissmissing Display Info Record...");
 
         if (sDisplayMessageDialog != null) {
+            sDisplayMessageDialog.getWindow().clearFlags(
+                    WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+                    | WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
             sDisplayMessageDialog.dismiss();
             sDisplayMessageDialog = null;
         }

@@ -59,4 +59,9 @@ public class VersionPreferenceController extends PreferenceController<Preference
         preference.setTitle(getContext().getString(
                 R.string.application_version_label, mPackageInfo.versionName));
     }
+
+    @Override
+    protected int getAvailabilityStatus() {
+        return AVAILABLE_FOR_VIEWING;
+    }
 }

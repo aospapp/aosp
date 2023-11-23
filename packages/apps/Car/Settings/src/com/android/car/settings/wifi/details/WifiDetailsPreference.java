@@ -22,21 +22,22 @@ import android.util.AttributeSet;
 import android.widget.TextView;
 
 import androidx.annotation.VisibleForTesting;
-import androidx.preference.Preference;
 import androidx.preference.PreferenceViewHolder;
 
 import com.android.car.settings.R;
+import com.android.car.ui.preference.CarUiPreference;
 
 /**
  * A Preference to be used with the Wifi Network Detail Fragment that allows a summary text to be
  * set inside the widget resource
  */
-public class WifiDetailsPreference extends Preference {
+public class WifiDetailsPreference extends CarUiPreference {
     private String mDetailText;
 
     public WifiDetailsPreference(Context context, AttributeSet attributeSet) {
         super(context, attributeSet);
         setWidgetLayoutResource(R.layout.summary_preference_widget);
+        setShowChevron(false);
     }
 
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)

@@ -32,6 +32,7 @@
 
 package com.android.bluetooth.pbap;
 
+import android.bluetooth.AlertActivity;
 import android.bluetooth.BluetoothDevice;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -47,13 +48,10 @@ import android.text.InputFilter.LengthFilter;
 import android.text.TextWatcher;
 import android.util.Log;
 import android.view.View;
-import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 
 import com.android.bluetooth.R;
-import com.android.internal.app.AlertActivity;
-import com.android.internal.app.AlertController;
 
 /**
  * PbapActivity shows two dialogues: One for accepting incoming pbap request and
@@ -82,8 +80,6 @@ public class BluetoothPbapActivity extends AlertActivity
     private String mSessionKey = "";
 
     private int mCurrentDialog;
-
-    private Button mOkButton;
 
     private boolean mTimeout = false;
 
@@ -122,18 +118,14 @@ public class BluetoothPbapActivity extends AlertActivity
     }
 
     private void showPbapDialog(int id) {
-        final AlertController.AlertParams p = mAlertParams;
         switch (id) {
             case DIALOG_YES_NO_AUTH:
-                p.mTitle = getString(R.string.pbap_session_key_dialog_header);
-                p.mView = createView(DIALOG_YES_NO_AUTH);
-                p.mPositiveButtonText = getString(android.R.string.ok);
-                p.mPositiveButtonListener = this;
-                p.mNegativeButtonText = getString(android.R.string.cancel);
-                p.mNegativeButtonListener = this;
+                mAlertBuilder.setTitle(getString(R.string.pbap_session_key_dialog_header));
+                mAlertBuilder.setView(createView(DIALOG_YES_NO_AUTH));
+                mAlertBuilder.setPositiveButton(android.R.string.ok, this);
+                mAlertBuilder.setNegativeButton(android.R.string.cancel, this);
                 setupAlert();
-                mOkButton = mAlert.getButton(DialogInterface.BUTTON_POSITIVE);
-                mOkButton.setEnabled(false);
+                changeButtonEnabled(DialogInterface.BUTTON_POSITIVE, false);
                 break;
             default:
                 break;
@@ -223,8 +215,8 @@ public class BluetoothPbapActivity extends AlertActivity
             mKeyView.setVisibility(View.GONE);
             mKeyView.clearFocus();
             mKeyView.removeTextChangedListener(this);
-            mOkButton.setEnabled(true);
-            mAlert.getButton(DialogInterface.BUTTON_NEGATIVE).setVisibility(View.GONE);
+            changeButtonEnabled(DialogInterface.BUTTON_POSITIVE, true);
+            changeButtonVisibility(DialogInterface.BUTTON_NEGATIVE, View.GONE);
         }
 
         mTimeoutHandler.sendMessageDelayed(mTimeoutHandler.obtainMessage(DISMISS_TIMEOUT_DIALOG),
@@ -271,7 +263,7 @@ public class BluetoothPbapActivity extends AlertActivity
     @Override
     public void afterTextChanged(android.text.Editable s) {
         if (s.length() > 0) {
-            mOkButton.setEnabled(true);
+            changeButtonEnabled(DialogInterface.BUTTON_POSITIVE, true);
         }
     }
 

@@ -37,7 +37,6 @@ import android.os.UserHandle;
 import androidx.lifecycle.Lifecycle;
 import androidx.preference.Preference;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.R;
 import com.android.car.settings.common.LogicalPreferenceGroup;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
@@ -51,6 +50,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.Shadows;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadow.api.Shadow;
@@ -62,7 +62,7 @@ import java.util.List;
 /**
  * Unit test for {@link AccountSyncDetailsPreferenceController}.
  */
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 @Config(shadows = {ShadowContentResolver.class, ShadowApplicationPackageManager.class,
         ShadowAccountManager.class})
 public class AccountSyncDetailsPreferenceControllerTest {
@@ -112,7 +112,7 @@ public class AccountSyncDetailsPreferenceControllerTest {
     public void refreshUi_syncAdapterDoesNotHaveSameAccountType_shouldNotBeShown() {
         // Adds a sync adapter type that is visible but does not have the right account type.
         SyncAdapterType syncAdapterType = new SyncAdapterType(AUTHORITY,
-                DIFFERENT_ACCOUNT_TYPE, /* userVisible */ true, /* supportsUploading */ true);
+                DIFFERENT_ACCOUNT_TYPE, /* userVisible= */ true, /* supportsUploading= */ true);
         SyncAdapterType[] syncAdapters = {syncAdapterType};
         ShadowContentResolver.setSyncAdapterTypes(syncAdapters);
 
@@ -125,7 +125,7 @@ public class AccountSyncDetailsPreferenceControllerTest {
     public void refreshUi_syncAdapterIsNotVisible_shouldNotBeShown() {
         // Adds a sync adapter type that has the right account type but is not visible.
         SyncAdapterType syncAdapterType = new SyncAdapterType(AUTHORITY,
-                ACCOUNT_TYPE, /* userVisible */ false, /* supportsUploading */ true);
+                ACCOUNT_TYPE, /* userVisible= */ false, /* supportsUploading= */ true);
         SyncAdapterType[] syncAdapters = {syncAdapterType};
         ShadowContentResolver.setSyncAdapterTypes(syncAdapters);
 
@@ -138,7 +138,7 @@ public class AccountSyncDetailsPreferenceControllerTest {
     public void refreshUi_syncAdapterIsNotSyncable_shouldNotBeShown() {
         // Adds a sync adapter type that has the right account type and is visible.
         SyncAdapterType syncAdapterType = new SyncAdapterType(AUTHORITY,
-                ACCOUNT_TYPE, /* userVisible */ true, /* supportsUploading */ true);
+                ACCOUNT_TYPE, /* userVisible= */ true, /* supportsUploading= */ true);
         SyncAdapterType[] syncAdapters = {syncAdapterType};
         ShadowContentResolver.setSyncAdapterTypes(syncAdapters);
         // Sets that the sync adapter to not syncable.
@@ -153,7 +153,7 @@ public class AccountSyncDetailsPreferenceControllerTest {
     public void refreshUi_syncAdapterDoesNotHaveProviderInfo_shouldNotBeShown() {
         // Adds a sync adapter type that has the right account type and is visible.
         SyncAdapterType syncAdapterType = new SyncAdapterType(AUTHORITY,
-                ACCOUNT_TYPE, /* userVisible */ true, /* supportsUploading */ true);
+                ACCOUNT_TYPE, /* userVisible= */ true, /* supportsUploading= */ true);
         SyncAdapterType[] syncAdapters = {syncAdapterType};
         ShadowContentResolver.setSyncAdapterTypes(syncAdapters);
         // Sets that the sync adapter to syncable.
@@ -170,7 +170,7 @@ public class AccountSyncDetailsPreferenceControllerTest {
     public void refreshUi_providerInfoDoesNotHaveLabel_shouldNotBeShown() {
         // Adds a sync adapter type that has the right account type and is visible.
         SyncAdapterType syncAdapterType = new SyncAdapterType(AUTHORITY,
-                ACCOUNT_TYPE, /* userVisible */ true, /* supportsUploading */ true);
+                ACCOUNT_TYPE, /* userVisible= */ true, /* supportsUploading= */ true);
         SyncAdapterType[] syncAdapters = {syncAdapterType};
         ShadowContentResolver.setSyncAdapterTypes(syncAdapters);
         // Sets that the sync adapter to syncable.
@@ -195,7 +195,7 @@ public class AccountSyncDetailsPreferenceControllerTest {
     public void refreshUi_providerLabelShouldBeSet() {
         // Adds a sync adapter type that has the right account type and is visible.
         SyncAdapterType syncAdapterType = new SyncAdapterType(AUTHORITY,
-                ACCOUNT_TYPE, /* userVisible */ true, /* supportsUploading */ true);
+                ACCOUNT_TYPE, /* userVisible= */ true, /* supportsUploading= */ true);
         SyncAdapterType[] syncAdapters = {syncAdapterType};
         ShadowContentResolver.setSyncAdapterTypes(syncAdapters);
         // Sets that the sync adapter to syncable.
@@ -517,7 +517,7 @@ public class AccountSyncDetailsPreferenceControllerTest {
             String authority = authorities[i];
             // Adds a sync adapter type that has the right account type and is visible.
             SyncAdapterType syncAdapterType = new SyncAdapterType(authority,
-                    ACCOUNT_TYPE, /* userVisible */ true, /* supportsUploading */ true);
+                    ACCOUNT_TYPE, /* userVisible= */ true, /* supportsUploading= */ true);
             syncAdapters[i] = syncAdapterType;
 
             // Sets that the sync adapter is syncable.

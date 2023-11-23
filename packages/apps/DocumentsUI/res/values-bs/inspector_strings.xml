@@ -18,7 +18,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="inspector_title" msgid="1924760928091740238">"Informacije"</string>
     <string name="inspector_load_error" msgid="7522190243413249291">"Informacije o fajlu nisu učitane"</string>
-    <string name="inspector_debug_section" msgid="2576052661505700421">"Informacije o otklanjanju grešaka (samo dev)"</string>
+    <string name="inspector_debug_section" msgid="2576052661505700421">"Informacije o ispravci grešaka (samo za programere)"</string>
     <string name="inspector_debug_metadata_section" msgid="5875140675600744846">"Raw metapodaci: <xliff:g id="METADATATYPE">%1$s</xliff:g>"</string>
     <string name="inspector_metadata_section" msgid="6077622515328240575">"Detalji o medijima"</string>
     <string name="handler_app_file_opens_with" msgid="5272329600389613550">"Ovu vrstu fajlova otvara aplikacija"</string>

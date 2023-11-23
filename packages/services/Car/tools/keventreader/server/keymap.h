@@ -25,7 +25,7 @@ namespace com::android::car::keventreader {
     public:
         static Keymap& get();
 
-        std::string_view getDisplayName(int keycode);
+        std::string getDisplayName(int keycode);
 
     private:
         std::map<int, const char*> mKeyMap;

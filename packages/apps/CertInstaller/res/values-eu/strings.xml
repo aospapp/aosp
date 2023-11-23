@@ -21,8 +21,8 @@
     <string name="pkcs12_password_dialog_title" msgid="5997624645207427161">"Atera ziurtagiria"</string>
     <string name="extracting_pkcs12" msgid="1881267738821799771">"Ateratzen…"</string>
     <string name="pkcs12_file_password_dialog_title" msgid="8102721384767269510">"Atera %s fitxategitik"</string>
-    <string name="name_credential_dialog_title" msgid="277729846491554437">"Jarri izena ziurtagiriari"</string>
-    <string name="credential_name" msgid="1974979771369744378">"Ziurtagiriaren izena:"</string>
+    <string name="name_credential_dialog_title" msgid="1481964824549786927">"Eman izen bat ziurtagiriari"</string>
+    <string name="certificate_name" msgid="8415893401368824792">"Ziurtagiriaren izena"</string>
     <string name="credential_password" msgid="3520176519550993326">"Idatzi ziurtagiriak ateratzeko pasahitza."</string>
     <string name="credential_info" msgid="2436768402308470397">"Paketearen edukia:"</string>
     <string name="p12_description" msgid="4128352087331630024">"PKCS12 gako-biltegian dauden ziurtagiriak."</string>
@@ -41,10 +41,24 @@
     <string name="invalid_cert" msgid="7704228670980743590">"Ziurtagiriak ez du balio."</string>
     <string name="action_missing_private_key" msgid="7543470057312920042">"Gako pribatua behar da ziurtagiri bat instalatzeko"</string>
     <string name="action_missing_user_cert" msgid="3727411730202316771">"Ziurtagiria behar da gako pribatu bat instalatzeko"</string>
-    <string name="cert_is_added" msgid="6996557598167000500">"<xliff:g id="CREDENTIAL">%s</xliff:g> instalatu da."</string>
+    <string name="select_certificate_usage_title" msgid="8853023485944920851">"Aukeratu ziurtagiri mota bat"</string>
+    <string name="redirect_ca_certificate_title" msgid="3457516863949244510">"Instalatu CA ziurtagiriak Ezarpenak atalean"</string>
+    <string name="redirect_ca_certificate_with_app_info_message" msgid="934477720755323579">"<xliff:g id="REQUESTING_APP">%1$s</xliff:g> aplikazioaren ziurtagiri hau instalatu behar da Ezarpenak atalean. Instalatu erakunde fidagarrien CA ziurtagiriak soilik."</string>
+    <string name="redirect_ca_certificate_close_button" msgid="4291301659747279488">"Itxi"</string>
+    <string name="invalid_certificate_title" msgid="6500315398016809635">"Ezin da erabili fitxategi hau"</string>
+    <string name="invalid_certificate_close_button" msgid="350986774973653102">"Itxi"</string>
+    <string name="invalid_certificate_message" msgid="3508065546083182733">"Fitxategi horri ezin zaio eman erabilera hau: <xliff:g id="CERTIFICATE_USAGE">%1$s</xliff:g>"</string>
+    <string name="certificate" msgid="8790577925509962529">"Ziurtagiria"</string>
+    <string name="ca_certificate" msgid="7397198551290322945">"CA ziurtagiria"</string>
+    <string name="user_certificate" msgid="514888069820553128">"VPN eta aplikazioetarako erabiltzaile-ziurtagiria"</string>
+    <string name="wifi_certificate" msgid="5356595832360140989">"Wifi-ziurtagiria"</string>
+    <string name="ca_cert_is_added" msgid="2847081843756291802">"Instalatu da CA ziurtagiria"</string>
+    <string name="user_cert_is_added" msgid="3088794616560630823">"Instalatu da erabiltzaile-ziurtagiria"</string>
+    <string name="wifi_cert_is_added" msgid="333220613655140428">"Instalatu da wifi-ziurtagiria"</string>
     <string name="cert_too_large_error" msgid="8715414972725646285">"Ezin izan da instalatu ziurtagiria handiegia delako."</string>
     <string name="cert_missing_error" msgid="7040527352278728220">"Ezin izan da instalatu ezin izan delako ziurtagiri-fitxategia aurkitu."</string>
     <string name="cert_read_error" msgid="7353463360652419796">"Ezin izan da instalatu ezin izan delako ziurtagiri-fitxategia irakurri."</string>
+    <string name="cert_temp_error" msgid="617276803992714550">"Aldi baterako hutsegitea. Saiatu berriro geroago."</string>
     <string name="only_primary_user_allowed" msgid="4005084935023047716">"Gailuaren jabeak soilik instala ditzake ziurtagiriak."</string>
     <string name="credential_usage_label" msgid="1513892208033156805">"Kredentzialen erabilera:"</string>
   <string-array name="credential_usage">
@@ -70,7 +84,7 @@
     <string name="done_label" msgid="5597425930652904250">"EGINDA"</string>
     <string name="wifi_installer_detail" msgid="63879632832701669">"Instalatu Wi-Fi kredentzialak <xliff:g id="NAME">%1$s</xliff:g> bidez erabilgarri dauden sareetara konektatzeko."</string>
     <string name="wifi_installer_download_error" msgid="5429453090956277692">"Deskargatutako fitxategiak arazoak ditu eta ezin da instalatu. Ziurtatu iturburu zuzenetik deskargatu duzula fitxategia."</string>
-    <string name="wifi_installer_fail" msgid="894483173306576331">"Ezin dira instalatu Wi-Fi kredentzialak. Saiatu fitxategia berriro deskargatzen."</string>
+    <string name="wifi_installer_fail" msgid="894483173306576331">"Ezin dira instalatu wifi-kredentzialak. Deskargatu fitxategia berriro."</string>
     <string name="wifi_installer_fail_no_wifi_title" msgid="8358191074828840533">"Instalazioa bertan behera utzi da"</string>
     <string name="wifi_installer_fail_title" msgid="5547079779067835479">"Ezin da instalatu"</string>
     <string name="wifi_installer_fail_no_wifi" msgid="2044576439984209921">"Aktibatu Wi-Fi konexioa eta saiatu berriro."</string>

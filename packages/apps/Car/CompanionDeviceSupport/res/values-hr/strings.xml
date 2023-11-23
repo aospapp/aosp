@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 
+  ~ Copyright (C) 2019 The Android Open Source Project
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~
+  ~      http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+   -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="default_device_name" msgid="405493967512651629">"Povezani uređaj"</string>
+    <string name="add_device_title" msgid="6166003577845888151">"Dodajte povezani uređaj"</string>
+    <string name="add_associated_device_title" msgid="3275596124326477381">"Povezivanje popratnog uređaja"</string>
+    <string name="add_associated_device_instruction" msgid="1015406964657139291">"Telefon možete koristiti kao popratni uređaj koji vam pomaže u upravljanju doživljajem vožnje"</string>
+    <string name="associated_device_install_app" msgid="981663561198924864">"Provjerite je li na telefonu instalirana "<b>"popratna aplikacija"</b></string>
+    <string name="associated_device_pairing_code_title" msgid="5118861901337336309">"Potvrdite kôd na telefonu"</string>
+    <string name="associated_device_pairing_message" msgid="7319249426394299109">"Potvrdite podudara li se ovo s kodom prikazanim na telefonu"</string>
+    <string name="associated_device_success" msgid="584760065696870256">"Uređaj je uspješno povezan"</string>
+    <string name="associated_device_select_device" msgid="1931869046289060602">"Otvorite apl. i povežite je s automobilom &lt;b&gt;<xliff:g id="CAR_NAME">%1$s</xliff:g>&lt;b&gt;"</string>
+    <string name="remove_associated_device_title" msgid="4060806982019423895">"Zaboravi automobil &lt;b&gt;<xliff:g id="CAR_NAME">%1$s</xliff:g>&lt;/b&gt;?"</string>
+    <string name="remove_associated_device_message" msgid="3991333597951462900">"Ovaj automobil više neće biti uparen s ovim uređajem. Dodatno ćete morati ukloniti ovaj automobil iz popratne aplikacije."</string>
+    <string name="device_removed_success_toast_text" msgid="3242832156490823936">"Uklonjen je uređaj <xliff:g id="PHONE_NAME">%1$s</xliff:g>"</string>
+    <string name="device_removed_failure_toast_text" msgid="3756625943664982395">"Niste uklonili uređaj <xliff:g id="PHONE_NAME">%1$s</xliff:g>"</string>
+    <string name="continue_setup_toast_text" msgid="8487187853051037413">"Nastavite s postavljanjem na telefonu"</string>
+    <string name="error_screen_title" msgid="3977744142045194903">"Nešto nije u redu"</string>
+    <string name="error_screen_message" msgid="1217200461704367056">"Nažalost, ovaj se zaslon ne može ispravno prikazati. Pokušajte ponovo."</string>
+    <string name="turn_on_bluetooth_title" msgid="2877749869113938263">"Uključi Bluetooth"</string>
+    <string name="turn_on_bluetooth_message" msgid="5087006108685547788">"Da biste svoj telefon postavili kao popratni uređaj, vaš automobil treba imati Bluetooth."</string>
+    <string name="turn_on_bluetooth_dialog_title" msgid="8693712073791430461">"Želite li uključiti Bluetooth?"</string>
+    <string name="turn_on_bluetooth_dialog_message" msgid="5347157597209022072">"Da bi se povezao s popratnim uređajem, vaš automobil treba imati Bluetooth."</string>
+    <string name="accept" msgid="1454710793329618813">"Prihvati"</string>
+    <string name="reject" msgid="4315432282758892890">"Odbij"</string>
+    <string name="confirm" msgid="3748997214719276945">"Potvrdi"</string>
+    <string name="cancel" msgid="4306609731174629323">"Odustani"</string>
+    <string name="remove" msgid="5513398257088729188">"Ukloni"</string>
+    <string name="ok" msgid="2825038997730899083">"U redu"</string>
+    <string name="connection" msgid="2798490936433656846">"Veza"</string>
+    <string name="forget_title" msgid="3027608547243824729">"Zaboravi ovaj uređaj"</string>
+    <string name="forget" msgid="2069897665699141222">"Zaboravi"</string>
+    <string name="disable" msgid="4619854429066283970">"Onemogući"</string>
+    <string name="enable" msgid="7656386199154111316">"Omogući"</string>
+    <string name="continue_button" msgid="2748318968566159950">"Nastavi"</string>
+    <string name="retry" msgid="3783419451480721367">"Ponovi"</string>
+    <string name="turn_on" msgid="4288754850470994812">"Uključi"</string>
+    <string name="not_now" msgid="8764692269093707622">"Ne sad"</string>
+    <string name="connected" msgid="8051190714042020471">"Povezan"</string>
+    <string name="notDetected" msgid="4115229772085594506">"Nije otkriveno"</string>
+    <string name="disconnected" msgid="8526513868622591894">"Nije povezan"</string>
+    <string name="unknown" msgid="555736316465118024">"Nepoznato"</string>
+    <string name="app_running_msg_channel_name" msgid="87011783084544733">"Pokrenuta je usluga tekstnih poruka na telefonu"</string>
+    <string name="app_running_msg_notification_title" msgid="388907180286994900">"Aktivna je usluga tekstnih poruka na telefonu"</string>
+    <string name="app_running_msg_notification_content" msgid="4602261901969140233">"Primanje tekstnih poruka putem popratnog uređaja"</string>
+    <string name="trusted_device_feature_title" msgid="2690568414493283969">"Otključavanje profila telefonom"</string>
+    <string name="trusted_device_feature_instruction" msgid="2546439818978826962">"Provjerite svoju popratnu aplikaciju i postavite opcije otključavanja"</string>
+    <string name="trusted_device_item_title" msgid="4390572381407233745">"Dopusti telefonu &lt;b&gt;<xliff:g id="PHONE_NAME">%1$s</xliff:g>&lt;/b&gt; da otključa moj profil"</string>
+    <string name="device_not_connected_dialog_title" msgid="1157155922752758658">"Telefon mora biti aktivno povezan"</string>
+    <string name="device_not_connected_dialog_message" msgid="4987412656697205324">"Da biste uključili ovu značajku, provjerite je li u automobilu i na telefonu uključen Bluetooth te jesu li automobil i telefon blizu"</string>
+    <string name="trusted_device_enrollment_success_message" msgid="2080578779942302923">"Sa svojeg profila sada možete otključati &lt;b&gt;<xliff:g id="PHONE_NAME">%1$s</xliff:g>&lt;/b&gt;"</string>
+    <string name="create_profile_lock_dialog_title" msgid="7865225698595414341">"Postavljanje primarnog zaključavanja profila"</string>
+    <string name="create_profile_lock_dialog_message" msgid="5078929325894045416">"Da biste telefon upotrebljavali za otključavanje profila, trebate imati primarno zaključavanje profila kao pričuvnu opciju"</string>
+    <string name="unlock_profile_to_finish_title" msgid="6542028315996392302">"Otključajte svoj profil da biste završili"</string>
+    <string name="unlock_profile_to_finish_message" msgid="8616094218201557262">"Izradili ste novo zaključavanje profila. Zatim ga ponovo unesite da biste potvrdili da vaš telefon može automatski otključati vaš profil"</string>
+    <string name="disable_device_connection_text" msgid="4361795552013963732">"Odspojite ovaj uređaj"</string>
+    <string name="enable_device_connection_text" msgid="7742550392552935783">"Ponovno povežite ovaj uređaj"</string>
+    <string name="trusted_device_notification_channel_name" msgid="6717174570621750321">"Otključaj telefonom"</string>
+    <string name="trusted_device_notification_title" msgid="249913439061543209">"Dopustite telefonu da otključa vaš profil"</string>
+    <string name="trusted_device_notification_content" msgid="7536321078698712456">"Dodirnite ovdje da biste autorizirali ovu značajku"</string>
+    <string name="trusted_device_enrollment_error_dialog_title" msgid="8120284275374458606">"Nešto nije u redu"</string>
+    <string name="trusted_device_enrollment_error_dialog_message" msgid="7205036748277720461">"Nažalost, ova se značajka trenutačno ne može uključiti. Pokušajte ponovo."</string>
+    <string name="create_phone_lock_dialog_title" msgid="9160142569534569820">"Postavljanje zaključavanja zaslona na telefonu"</string>
+    <string name="create_phone_lock_dialog_message" msgid="8209460622086922427">"Na telefonu nemate postavljeno zaključavanje zaslona. Da biste pomoću telefona otključali profil automobila, najprije u postavkama telefona postavite zaključavanje zaslona (poznato i kao šifra)."</string>
+</resources>

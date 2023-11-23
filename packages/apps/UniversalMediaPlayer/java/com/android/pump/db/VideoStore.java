@@ -17,6 +17,7 @@
 package com.android.pump.db;
 
 import android.content.ContentResolver;
+import android.content.ContentUris;
 import android.database.ContentObserver;
 import android.database.Cursor;
 import android.net.Uri;
@@ -43,7 +44,7 @@ class VideoStore extends ContentObserver {
     private static final String RELATIVE_PATH = "relative_path";
 
     // TODO Replace with Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q throughout the code.
-    private static boolean isRunningQ() {
+    private static boolean isAtLeastRunningQ() {
         return Build.VERSION.SDK_INT > Build.VERSION_CODES.P
                 || (Build.VERSION.SDK_INT == Build.VERSION_CODES.P
                 && Build.VERSION.PREVIEW_SDK_INT > 0);
@@ -101,7 +102,7 @@ class VideoStore extends ContentObserver {
         {
             Uri contentUri = MediaStore.Video.Media.EXTERNAL_CONTENT_URI;
             String[] projection;
-            if (isRunningQ()) {
+            if (isAtLeastRunningQ()) {
                 projection = new String[] {
                     MediaStore.Video.Media._ID,
                     MediaStore.Video.Media.MIME_TYPE,
@@ -126,7 +127,7 @@ class VideoStore extends ContentObserver {
                     int mimeTypeColumn = cursor.getColumnIndexOrThrow(
                             MediaStore.Video.Media.MIME_TYPE);
 
-                    if (isRunningQ()) {
+                    if (isAtLeastRunningQ()) {
                         dataColumn = -1;
                         relativePathColumn = cursor.getColumnIndexOrThrow(RELATIVE_PATH);
                         displayNameColumn = cursor.getColumnIndexOrThrow(
@@ -142,7 +143,7 @@ class VideoStore extends ContentObserver {
                         String mimeType = cursor.getString(mimeTypeColumn);
 
                         File file;
-                        if (isRunningQ()) {
+                        if (isAtLeastRunningQ()) {
                             String relativePath = cursor.getString(relativePathColumn);
                             String displayName = cursor.getString(displayNameColumn);
                             file = new File(relativePath, displayName);
@@ -276,35 +277,9 @@ class VideoStore extends ContentObserver {
     }
 
     private @Nullable Uri getThumbnailUri(long id) {
-        int thumbKind = MediaStore.Video.Thumbnails.MINI_KIND;
-
-        // TODO(b/123707512) The following line is required to generate thumbnails -- is there a better way?
-        MediaStore.Video.Thumbnails.getThumbnail(mContentResolver, id, thumbKind, null);
-
-        Uri thumbnailUri = null;
-        Uri contentUri = MediaStore.Video.Thumbnails.EXTERNAL_CONTENT_URI;
-        String[] projection = {
-            MediaStore.Video.Thumbnails.DATA
-        };
-        String selection = MediaStore.Video.Thumbnails.KIND + " = " + thumbKind + " AND " +
-                MediaStore.Video.Thumbnails.VIDEO_ID + " = ?";
-        String[] selectionArgs = { Long.toString(id) };
-        Cursor cursor = mContentResolver.query(
-                contentUri, projection, selection, selectionArgs, null);
-        if (cursor != null) {
-            try {
-                int dataColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Thumbnails.DATA);
-
-                if (cursor.moveToFirst()) {
-                    String data = cursor.getString(dataColumn);
-
-                    thumbnailUri = Uri.fromFile(new File(data));
-                }
-            } finally {
-                cursor.close();
-            }
-        }
-        return thumbnailUri;
+        // TODO(b/130363861) No need to store the URI -- generate when requested instead
+        return ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id)
+                .buildUpon().appendPath("thumbnail").build();
     }
 
     @Override

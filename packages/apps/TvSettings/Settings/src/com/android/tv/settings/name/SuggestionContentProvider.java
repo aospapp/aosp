@@ -20,6 +20,7 @@ import android.content.ContentProvider;
 import android.content.ContentValues;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 
 /**
@@ -65,8 +66,9 @@ public class SuggestionContentProvider extends ContentProvider {
     public Bundle call(String method, String arg, Bundle extras) {
         Bundle bundle = new Bundle();
         if (method.equals(GET_SUGGESTION_STATE_METHOD)) {
-            boolean isComplete = DeviceNameSuggestionStatus.getInstance(getContext()).isFinished();
-            bundle.putBoolean(EXTRA_IS_COMPLETE, isComplete);
+            bundle.putBoolean(EXTRA_IS_COMPLETE,
+                    DeviceNameSuggestionStatus.getInstance(getContext()).isFinished()
+                            || !Build.MODEL.equals(DeviceManager.getDeviceName(getContext())));
         }
         return bundle;
     }

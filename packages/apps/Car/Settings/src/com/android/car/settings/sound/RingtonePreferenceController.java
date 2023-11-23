@@ -119,7 +119,7 @@ public class RingtonePreferenceController extends
     private Context createPackageContextAsUser(Context context, int userId) {
         try {
             return context.createPackageContextAsUser(
-                    context.getPackageName(), 0 /* flags */, UserHandle.of(userId));
+                    context.getPackageName(), /* flags= */ 0, UserHandle.of(userId));
         } catch (PackageManager.NameNotFoundException e) {
             LOG.e("Failed to create user context", e);
         }

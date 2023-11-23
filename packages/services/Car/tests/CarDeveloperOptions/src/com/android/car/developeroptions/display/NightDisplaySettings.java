@@ -30,8 +30,7 @@ import androidx.preference.Preference;
 import com.android.car.developeroptions.R;
 import com.android.car.developeroptions.dashboard.DashboardFragment;
 import com.android.car.developeroptions.search.BaseSearchIndexProvider;
-import com.android.car.developeroptions.search.Indexable;
-import com.android.settingslib.core.AbstractPreferenceController;
+import com.android.settingslib.search.Indexable;
 import com.android.settingslib.search.SearchIndexable;
 
 import java.time.LocalTime;
@@ -176,17 +175,6 @@ public class NightDisplaySettings extends DashboardFragment
         return TAG;
     }
 
-    @Override
-    protected List<AbstractPreferenceController> createPreferenceControllers(Context context) {
-        return buildPreferenceControllers(context);
-    }
-
-    private static List<AbstractPreferenceController> buildPreferenceControllers(Context context) {
-        final List<AbstractPreferenceController> controllers = new ArrayList<>(1);
-        controllers.add(new NightDisplayFooterPreferenceController(context));
-        return controllers;
-    }
-
     public static final Indexable.SearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
             new BaseSearchIndexProvider() {
                 @Override
@@ -202,12 +190,6 @@ public class NightDisplaySettings extends DashboardFragment
                 @Override
                 protected boolean isPageSearchEnabled(Context context) {
                     return ColorDisplayManager.isNightDisplayAvailable(context);
-                }
-
-                @Override
-                public List<AbstractPreferenceController> createPreferenceControllers(
-                        Context context) {
-                    return buildPreferenceControllers(context);
                 }
             };
 }

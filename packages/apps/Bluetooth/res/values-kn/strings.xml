@@ -69,7 +69,6 @@
     <string name="upload_succ_ok" msgid="7705428476405478828">"ಸರಿ"</string>
     <string name="upload_fail_line1" msgid="7899394672421491701">"\"<xliff:g id="RECIPIENT">%1$s</xliff:g>\" ಇವರಿಗೆ ಫೈಲ್‌ ಕಳುಹಿಸಲಾಗಲಿಲ್ಲ."</string>
     <string name="upload_fail_line1_2" msgid="2108129204050841798">"ಫೈಲ್‌: <xliff:g id="FILE">%1$s</xliff:g>"</string>
-    <string name="upload_fail_ok" msgid="5807702461606714296">"ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ"</string>
     <string name="upload_fail_cancel" msgid="9118496285835687125">"ಮುಚ್ಚು"</string>
     <string name="bt_error_btn_ok" msgid="5965151173011534240">"ಸರಿ"</string>
     <string name="unknown_file" msgid="6092727753965095366">"ಅಪರಿಚಿತ ಫೈಲ್"</string>
@@ -134,4 +133,5 @@
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"ಬ್ಲೂಟೂತ್‌ ಆಡಿಯೊ ಸಂಪರ್ಕ ಕಡಿತಗೊಂಡಿದೆ"</string>
     <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"ಬ್ಲೂಟೂತ್‌ ಆಡಿಯೊ"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="8894450394309084519">"4GB ಗಿಂತ ದೊಡ್ಡದಾದ ಫೈಲ್‌ಗಳನ್ನು ವರ್ಗಾಯಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ"</string>
+    <string name="bluetooth_connect_action" msgid="4009848433321657090">"ಬ್ಲೂಟೂತ್‌ಗೆ ಕನೆಕ್ಟ್ ಮಾಡಿ"</string>
 </resources>

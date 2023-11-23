@@ -72,9 +72,7 @@ class PrimaryConsentUiHelper implements ConsentUiHelper {
         int animationResId = 0;
         if (mUtils.isProfileOwnerAction(uiParams.provisioningAction)) {
             titleResId = R.string.setup_profile;
-            headerResId = uiParams.isOrganizationOwnedProvisioning
-                    ? R.string.work_profile_provisioning_accept_header
-                    : R.string.work_profile_provisioning_accept_header_post_suw;
+            headerResId = R.string.work_profile_provisioning_accept_header_post_suw;
             animationResId = R.drawable.consent_animation_po;
         } else if (mUtils.isDeviceOwnerAction(uiParams.provisioningAction)) {
             titleResId = R.string.setup_device;

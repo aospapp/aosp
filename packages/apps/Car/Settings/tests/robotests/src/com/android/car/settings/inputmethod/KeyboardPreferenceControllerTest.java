@@ -31,7 +31,6 @@ import android.view.inputmethod.InputMethodInfo;
 import androidx.lifecycle.Lifecycle;
 import androidx.preference.Preference;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
 import com.android.car.settings.testutils.ShadowDevicePolicyManager;
 import com.android.car.settings.testutils.ShadowInputMethodManager;
@@ -40,6 +39,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadow.api.Shadow;
@@ -48,7 +48,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 @Config(shadows = {ShadowInputMethodManager.class, ShadowDevicePolicyManager.class})
 public class KeyboardPreferenceControllerTest {
     private static final String EMPTY = "";
@@ -186,9 +186,12 @@ public class KeyboardPreferenceControllerTest {
         resolveInfo.serviceInfo = serviceInfo;
         resolveInfo.nonLocalizedLabel = label;
         when(resolveInfo.loadLabel(packageManager)).thenReturn(label);
-        return new InputMethodInfo(resolveInfo, /* isAuxIme */false,
-                DUMMY_SETTINGS_ACTIVITY,  /* subtypes */null, /* isDefaultResId */
-                1, /*forceDefault*/false);
+        return new InputMethodInfo(resolveInfo,
+                /* isAuxIme= */ false,
+                DUMMY_SETTINGS_ACTIVITY,
+                /* subtypes= */ null,
+                /* isDefaultResId= */ 1,
+                /* forceDefault= */ false);
     }
 
     private static ShadowInputMethodManager getShadowInputMethodManager(Context context) {

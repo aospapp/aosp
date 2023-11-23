@@ -20,7 +20,8 @@ import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.Mockito.verify;
 
-import android.app.AlarmManager;
+import android.app.timezonedetector.ManualTimeZoneSuggestion;
+import android.app.timezonedetector.TimeZoneDetector;
 import android.content.Context;
 import android.content.Intent;
 
@@ -28,7 +29,6 @@ import androidx.lifecycle.Lifecycle;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceGroup;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.common.LogicalPreferenceGroup;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
 import com.android.settingslib.datetime.ZoneGetter;
@@ -38,6 +38,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.shadows.ShadowApplication;
 
@@ -46,7 +47,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 public class TimeZonePickerScreenPreferenceControllerTest {
 
     private PreferenceGroup mPreferenceGroup;
@@ -54,7 +55,7 @@ public class TimeZonePickerScreenPreferenceControllerTest {
             mPreferenceControllerHelper;
     private TimeZonePickerScreenPreferenceController mController;
     @Mock
-    private AlarmManager mAlarmManager;
+    private TimeZoneDetector mTimeZoneDetector;
 
     @Before
     public void setUp() {
@@ -66,7 +67,7 @@ public class TimeZonePickerScreenPreferenceControllerTest {
         mController = mPreferenceControllerHelper.getController();
 
         // Test setup.
-        mController.mAlarmManager = mAlarmManager;
+        mController.mTimeZoneDetector = mTimeZoneDetector;
     }
 
     @Test
@@ -93,7 +94,9 @@ public class TimeZonePickerScreenPreferenceControllerTest {
         mPreferenceControllerHelper.markState(Lifecycle.State.CREATED);
         Preference preference = mPreferenceGroup.findPreference("testKey");
         preference.performClick();
-        verify(mAlarmManager).setTimeZone("testKey");
+        ManualTimeZoneSuggestion suggestion =
+                TimeZoneDetector.createManualTimeZoneSuggestion("testKey", "Test debug info");
+        verify(mTimeZoneDetector).suggestManualTimeZone(suggestion);
     }
 
     @Test

@@ -24,6 +24,7 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.res.Resources;
 import android.media.AudioManager;
 import android.media.Ringtone;
 import android.media.RingtoneManager;
@@ -33,7 +34,10 @@ import android.os.SystemClock;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.preference.PreferenceManager;
+import android.telephony.SubscriptionManager;
 import android.util.Log;
+
+import com.android.internal.annotations.VisibleForTesting;
 
 /**
  * Manages alert reminder notification.
@@ -42,10 +46,12 @@ public class CellBroadcastAlertReminder extends Service {
     private static final String TAG = "CellBroadcastAlertReminder";
 
     /** Action to wake up and play alert reminder sound. */
-    private static final String ACTION_PLAY_ALERT_REMINDER = "ACTION_PLAY_ALERT_REMINDER";
+    @VisibleForTesting
+    public static final String ACTION_PLAY_ALERT_REMINDER = "ACTION_PLAY_ALERT_REMINDER";
 
     /** Extra for alert reminder vibration enabled (from settings). */
-    private static final String ALERT_REMINDER_VIBRATE_EXTRA = "alert_reminder_vibrate_extra";
+    @VisibleForTesting
+    public static final String ALERT_REMINDER_VIBRATE_EXTRA = "alert_reminder_vibrate_extra";
 
     /**
      * Pending intent for alert reminder. This is static so that we don't have to start the
@@ -74,7 +80,9 @@ public class CellBroadcastAlertReminder extends Service {
         log("playing alert reminder");
         playAlertReminderSound(intent.getBooleanExtra(ALERT_REMINDER_VIBRATE_EXTRA, true));
 
-        if (queueAlertReminder(this, false)) {
+        int subId = intent.getIntExtra(SubscriptionManager.EXTRA_SUBSCRIPTION_INDEX,
+                SubscriptionManager.DEFAULT_SUBSCRIPTION_ID);
+        if (queueAlertReminder(this, subId, false)) {
             return START_STICKY;
         } else {
             log("no reminders queued");
@@ -96,12 +104,9 @@ public class CellBroadcastAlertReminder extends Service {
             return;
         }
         Ringtone r = RingtoneManager.getRingtone(this, notificationUri);
-        r.setStreamType(AudioManager.STREAM_NOTIFICATION);
 
-        // Acquire the wakelock for 500ms. The wakelock will be released by its
-        // timer.
-        CellBroadcastAlertWakeLock.acquirePartialWakeLock(getApplicationContext(), 500);
         if (r != null) {
+            r.setStreamType(AudioManager.STREAM_NOTIFICATION);
             log("playing alert reminder sound");
             r.play();
         } else {
@@ -119,43 +124,61 @@ public class CellBroadcastAlertReminder extends Service {
      * Helper method to start the alert reminder service to queue the alert reminder.
      *
      * @param context Context.
+     * @param subId Subscription index
      * @param firstTime True if entering this method for the first time, otherwise false.
      *
      * @return true if a pending reminder was set; false if there are no more reminders
      */
-    static boolean queueAlertReminder(Context context, boolean firstTime) {
+    @VisibleForTesting
+    public static boolean queueAlertReminder(Context context, int subId, boolean firstTime) {
         // Stop any alert reminder sound and cancel any previously queued reminders.
         cancelAlertReminder();
 
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
-        String prefStr = prefs.getString(CellBroadcastSettings.KEY_ALERT_REMINDER_INTERVAL, null);
+        String prefStr = prefs.getString(CellBroadcastSettings.KEY_ALERT_REMINDER_INTERVAL,
+                null);
+        int reminderIntervalMinutes;
 
         if (prefStr == null) {
             if (DBG) log("no preference value for alert reminder");
             return false;
         }
-
-        int interval;
         try {
-            interval = Integer.valueOf(prefStr);
+            reminderIntervalMinutes = Integer.valueOf(prefStr);
         } catch (NumberFormatException ignored) {
             loge("invalid alert reminder interval preference: " + prefStr);
             return false;
         }
 
-        if (interval == 0 || (interval == 1 && !firstTime)) {
+        if (reminderIntervalMinutes == 0) {
+            if (DBG) log("Reminder is turned off.");
             return false;
         }
-        if (interval == 1) {
-            interval = 2;   // "1" = one reminder after 2 minutes
+
+        // "1" means remind once, so we should do nothing if this is not the first reminder.
+        if (reminderIntervalMinutes == 1 && !firstTime) {
+            if (DBG) log("Not scheduling reminder. Done for now.");
+            return false;
         }
 
-        if (DBG) log("queueAlertReminder() in " + interval + " minutes");
+        if (firstTime) {
+            Resources res = CellBroadcastSettings.getResources(context, subId);
+            int interval = res.getInteger(R.integer.first_reminder_interval_in_min);
+            // If there is first reminder interval configured, use it.
+            if (interval != 0) {
+                reminderIntervalMinutes = interval;
+            } else if (reminderIntervalMinutes == 1) {
+                reminderIntervalMinutes = 2;   // "1" = one reminder after 2 minutes
+            }
+        }
+
+        if (DBG) log("queueAlertReminder() in " + reminderIntervalMinutes + " minutes");
 
         Intent playIntent = new Intent(context, CellBroadcastAlertReminder.class);
         playIntent.setAction(ACTION_PLAY_ALERT_REMINDER);
         playIntent.putExtra(ALERT_REMINDER_VIBRATE_EXTRA,
                 prefs.getBoolean(CellBroadcastSettings.KEY_ENABLE_ALERT_VIBRATE, true));
+        playIntent.putExtra(SubscriptionManager.EXTRA_SUBSCRIPTION_INDEX, subId);
         sPlayReminderIntent = PendingIntent.getService(context, 0, playIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT);
 
@@ -166,11 +189,11 @@ public class CellBroadcastAlertReminder extends Service {
         }
 
         // remind user after 2 minutes or 15 minutes
-        long triggerTime = SystemClock.elapsedRealtime() + (interval * 60000);
+        long triggerTime = SystemClock.elapsedRealtime() + (reminderIntervalMinutes * 60000);
         // We use setExact instead of set because this is for emergency reminder.
         alarmManager.setExact(AlarmManager.ELAPSED_REALTIME_WAKEUP,
                 triggerTime, sPlayReminderIntent);
-        log("Set reminder in " + interval + " minutes");
+        log("Set reminder in " + reminderIntervalMinutes + " minutes");
         return true;
     }
 

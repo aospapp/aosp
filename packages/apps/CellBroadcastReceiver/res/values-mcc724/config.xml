@@ -19,4 +19,6 @@
         <!-- Channel 50 for area update info is required by Brazilian government -->
         <item>0x032:type=area, emergency=false</item>
     </string-array>
+    <!-- Show area update info settings in CellBroadcastReceiver and information in SIM status in Settings app -->
+    <bool name="config_showAreaUpdateInfoSettings">true</bool>
 </resources>

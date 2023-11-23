@@ -23,6 +23,9 @@ import android.os.Looper;
 import android.os.Message;
 import android.util.Log;
 
+import com.android.bluetooth.Utils;
+import com.android.internal.annotations.VisibleForTesting;
+
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -47,6 +50,7 @@ public class BrowsablePlayerConnector {
     private static final int MSG_CONNECT_CB = 1;
     private static final int MSG_TIMEOUT = 2;
 
+    private static BrowsablePlayerConnector sInjectConnector;
     private Handler mHandler;
     private Context mContext;
     private PlayerListCallback mCallback;
@@ -58,13 +62,21 @@ public class BrowsablePlayerConnector {
         void run(List<BrowsedPlayerWrapper> result);
     }
 
+    private static void setInstanceForTesting(BrowsablePlayerConnector connector) {
+        Utils.enforceInstrumentationTestMode();
+        sInjectConnector = connector;
+    }
+
     static BrowsablePlayerConnector connectToPlayers(
             Context context,
             Looper looper,
             List<ResolveInfo> players,
             PlayerListCallback cb) {
+        if (sInjectConnector != null) {
+            return sInjectConnector;
+        }
         if (cb == null) {
-            Log.wtfStack(TAG, "Null callback passed");
+            Log.wtf(TAG, "Null callback passed");
             return null;
         }
 
@@ -74,6 +86,7 @@ public class BrowsablePlayerConnector {
         for (ResolveInfo info : players) {
             BrowsedPlayerWrapper player = BrowsedPlayerWrapper.wrap(
                             context,
+                            looper,
                             info.serviceInfo.packageName,
                             info.serviceInfo.name);
             newWrapper.mPendingPlayers.add(player);

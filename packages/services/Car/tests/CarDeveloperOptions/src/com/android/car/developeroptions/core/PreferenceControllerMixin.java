@@ -18,8 +18,8 @@ package com.android.car.developeroptions.core;
 import android.text.TextUtils;
 import android.util.Log;
 
-import com.android.car.developeroptions.search.SearchIndexableRaw;
 import com.android.settingslib.core.AbstractPreferenceController;
+import com.android.settingslib.search.SearchIndexableRaw;
 
 import java.util.List;
 

@@ -14,17 +14,18 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_HARDWARE_AUTOMOTIVE_EVS_V1_0_BUFFERCOPY_H
-#define ANDROID_HARDWARE_AUTOMOTIVE_EVS_V1_0_BUFFERCOPY_H
+#ifndef ANDROID_HARDWARE_AUTOMOTIVE_EVS_V1_1_BUFFERCOPY_H
+#define ANDROID_HARDWARE_AUTOMOTIVE_EVS_V1_1_BUFFERCOPY_H
 
-#include <android/hardware/automotive/evs/1.0/types.h>
+#include <android/hardware_buffer.h>
+#include <android/hardware/automotive/evs/1.1/types.h>
 
 
 namespace android {
 namespace hardware {
 namespace automotive {
 namespace evs {
-namespace V1_0 {
+namespace V1_1 {
 namespace implementation {
 
 
@@ -44,10 +45,10 @@ void fillYUYVFromUYVY(const BufferDesc& tgtBuff, uint8_t* tgt,
                       void* imgData, unsigned imgStride);
 
 } // namespace implementation
-} // namespace V1_0
+} // namespace V1_1
 } // namespace evs
 } // namespace automotive
 } // namespace hardware
 } // namespace android
 
-#endif  // ANDROID_HARDWARE_AUTOMOTIVE_EVS_V1_0_BUFFERCOPY_H
+#endif  // ANDROID_HARDWARE_AUTOMOTIVE_EVS_V1_1_BUFFERCOPY_H

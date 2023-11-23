@@ -24,6 +24,8 @@ import android.view.View;
 import android.widget.EditText;
 import android.widget.TextView;
 
+import com.android.car.ui.preference.EditTextPreferenceDialogFragment;
+
 /**
  * Adds optional text validation logic to {@link EditTextPreferenceDialogFragment}. Disables
  * Positive Button and the ability to press Enter to submit the dialog if the input is invalid.

@@ -24,6 +24,12 @@
         android:id="@+id/grid_preview_image"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="@color/primary_color"/>
+        android:background="@color/primary_color" />
+
+    <SurfaceView
+        android:id="@+id/grid_preview_surface"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/primary_color" />
 
 </androidx.cardview.widget.CardView>

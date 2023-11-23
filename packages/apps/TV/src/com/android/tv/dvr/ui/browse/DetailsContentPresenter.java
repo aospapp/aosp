@@ -24,7 +24,7 @@ import android.app.Activity;
 import android.content.Context;
 import android.graphics.Paint;
 import android.graphics.Paint.FontMetricsInt;
-import android.support.v17.leanback.widget.Presenter;
+import androidx.leanback.widget.Presenter;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -40,10 +40,10 @@ import com.android.tv.util.Utils;
 /**
  * An {@link Presenter} for rendering a detailed description of an DVR item. Typically this
  * Presenter will be used in a {@link
- * android.support.v17.leanback.widget.DetailsOverviewRowPresenter}. Most codes of this class is
- * originated from {@link android.support.v17.leanback.widget.AbstractDetailsDescriptionPresenter}.
+ * androidx.leanback.widget.DetailsOverviewRowPresenter}. Most codes of this class is
+ * originated from {@link androidx.leanback.widget.AbstractDetailsDescriptionPresenter}.
  * The latter class are re-used to provide a customized version of {@link
- * android.support.v17.leanback.widget.DetailsOverviewRow}.
+ * androidx.leanback.widget.DetailsOverviewRow}.
  */
 public class DetailsContentPresenter extends Presenter {
     /** The ViewHolder for the {@link DetailsContentPresenter}. */

@@ -30,7 +30,6 @@ import android.os.UserHandle;
 import androidx.lifecycle.Lifecycle;
 import androidx.preference.Preference;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.R;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
@@ -40,6 +39,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.annotation.Config;
 
 /**
@@ -47,7 +47,7 @@ import org.robolectric.annotation.Config;
  *
  * <p>Largely copied from {@link com.android.settings.accounts.AccountSyncPreferenceControllerTest}.
  */
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 @Config(shadows = {ShadowContentResolver.class})
 public class AccountSyncPreferenceControllerTest {
     private static final int SYNCABLE = 1;
@@ -86,8 +86,10 @@ public class AccountSyncPreferenceControllerTest {
     public void refreshUi_notSameAccountType_shouldNotCount() {
         // Adds a sync adapter type that has a visible user, is syncable, and syncs automatically
         // but does not have the right account type.
-        SyncAdapterType syncAdapterType = new SyncAdapterType("authority", /* accountType */
-                "type5", /* userVisible */ true, /* supportsUploading */ true);
+        SyncAdapterType syncAdapterType = new SyncAdapterType("authority",
+                /* accountType= */ "type5",
+                /* userVisible= */ true,
+                /* supportsUploading= */ true);
         SyncAdapterType[] syncAdapters = {syncAdapterType};
         ShadowContentResolver.setSyncAdapterTypes(syncAdapters);
         ContentResolver.setIsSyncable(mAccount, "authority", SYNCABLE);
@@ -105,12 +107,14 @@ public class AccountSyncPreferenceControllerTest {
         // Adds a sync adapter type that has the right account type, is syncable, and syncs
         // automatically, but doesn't have a visible user
         SyncAdapterType syncAdapterType = new SyncAdapterType("authority",
-                /* accountType */ "type1", /* userVisible */ false, /* supportsUploading */ true);
+                /* accountType= */ "type1",
+                /* userVisible= */ false,
+                /* supportsUploading= */ true);
         SyncAdapterType[] syncAdapters = {syncAdapterType};
         ShadowContentResolver.setSyncAdapterTypes(syncAdapters);
         ContentResolver.setIsSyncable(mAccount, "authority", SYNCABLE);
-        ContentResolver.setSyncAutomaticallyAsUser(mAccount, "authority", /* sync= */
-                true, /* userId= */ mUserId);
+        ContentResolver.setSyncAutomaticallyAsUser(mAccount, "authority",
+                /* sync= */ true, /* userId= */ mUserId);
 
         mController.refreshUi();
 
@@ -122,8 +126,10 @@ public class AccountSyncPreferenceControllerTest {
     public void refreshUi_notSyncable_shouldNotCount() {
         // Adds a sync adapter type that is the right account type and a visible user, but is not
         // syncable
-        SyncAdapterType syncAdapterType = new SyncAdapterType("authority", /* accountType */
-                "type1", /* userVisible */ true, /* supportsUploading */ true);
+        SyncAdapterType syncAdapterType = new SyncAdapterType("authority",
+                /* accountType= */ "type1",
+                /* userVisible= */ true,
+                /* supportsUploading= */ true);
         SyncAdapterType[] syncAdapters = {syncAdapterType};
         ShadowContentResolver.setSyncAdapterTypes(syncAdapters);
         ContentResolver.setIsSyncable(mAccount, "authority", NOT_SYNCABLE);
@@ -138,14 +144,16 @@ public class AccountSyncPreferenceControllerTest {
     public void refreshUi_masterAutomaticSyncIgnoredAndAccountSyncDisabled_shouldNotCount() {
         // Adds a sync adapter type that is the right account type, has a visible user, and is
         // syncable, but has master automatic sync ignored and account-level sync disabled
-        SyncAdapterType syncAdapterType = new SyncAdapterType("authority", /* accountType */
-                "type1", /* userVisible */ true, /* supportsUploading */ true);
+        SyncAdapterType syncAdapterType = new SyncAdapterType("authority",
+                /* accountType= */ "type1",
+                /* userVisible= */ true,
+                /* supportsUploading= */ true);
         SyncAdapterType[] syncAdapters = {syncAdapterType};
         ShadowContentResolver.setSyncAdapterTypes(syncAdapters);
         ContentResolver.setIsSyncable(mAccount, "authority", SYNCABLE);
         ContentResolver.setMasterSyncAutomaticallyAsUser(true, mUserId);
-        ContentResolver.setSyncAutomaticallyAsUser(mAccount, "authority", /* sync= */
-                false, /* userId= */ mUserId);
+        ContentResolver.setSyncAutomaticallyAsUser(mAccount, "authority",
+                /* sync= */ false, /* userId= */ mUserId);
 
         mController.refreshUi();
 
@@ -157,8 +165,10 @@ public class AccountSyncPreferenceControllerTest {
     public void refreshUi_masterAutomaticSyncUsed_shouldCount() {
         // Adds a sync adapter type that is the right account type, has a visible user, is
         // syncable, and has master-level automatic syncing enabled
-        SyncAdapterType syncAdapterType = new SyncAdapterType("authority", /* accountType */
-                "type1", /* userVisible */ true, /* supportsUploading */ true);
+        SyncAdapterType syncAdapterType = new SyncAdapterType("authority",
+                /* accountType= */ "type1",
+                /* userVisible= */ true,
+                /* supportsUploading= */ true);
         SyncAdapterType[] syncAdapters = {syncAdapterType};
         ShadowContentResolver.setSyncAdapterTypes(syncAdapters);
         ContentResolver.setIsSyncable(mAccount, "authority", SYNCABLE);
@@ -174,13 +184,15 @@ public class AccountSyncPreferenceControllerTest {
     public void refreshUi_automaticSyncEnabled_shouldCount() {
         // Adds a sync adapter type that is the right account type, has a visible user, is
         // syncable, and has account-level automatic syncing enabled
-        SyncAdapterType syncAdapterType = new SyncAdapterType("authority", /* accountType */
-                "type1", /* userVisible */ true, /* supportsUploading */ true);
+        SyncAdapterType syncAdapterType = new SyncAdapterType("authority",
+                /* accountType= */ "type1",
+                /* userVisible= */ true,
+                /* supportsUploading= */ true);
         SyncAdapterType[] syncAdapters = {syncAdapterType};
         ShadowContentResolver.setSyncAdapterTypes(syncAdapters);
         ContentResolver.setIsSyncable(mAccount, "authority", SYNCABLE);
-        ContentResolver.setSyncAutomaticallyAsUser(mAccount, "authority", /* sync= */
-                true, /* userId= */ mUserId);
+        ContentResolver.setSyncAutomaticallyAsUser(mAccount, "authority",
+                /* sync= */ true, /* userId= */ mUserId);
 
         mController.refreshUi();
 
@@ -190,33 +202,41 @@ public class AccountSyncPreferenceControllerTest {
 
     @Test
     public void refreshUi_someEnabled_shouldSetSummary() {
-        SyncAdapterType syncAdapterType1 = new SyncAdapterType("authority1", /* accountType */
-                "type1", /* userVisible */ true, /* supportsUploading */ true);
-        SyncAdapterType syncAdapterType2 = new SyncAdapterType("authority2", /* accountType */
-                "type1", /* userVisible */ true, /* supportsUploading */ true);
-        SyncAdapterType syncAdapterType3 = new SyncAdapterType("authority3", /* accountType */
-                "type1", /* userVisible */ true, /* supportsUploading */ true);
-        SyncAdapterType syncAdapterType4 = new SyncAdapterType("authority4", /* accountType */
-                "type1", /* userVisible */ true, /* supportsUploading */ true);
+        SyncAdapterType syncAdapterType1 = new SyncAdapterType("authority1",
+                /* accountType= */ "type1",
+                /* userVisible= */ true,
+                /* supportsUploading= */ true);
+        SyncAdapterType syncAdapterType2 = new SyncAdapterType("authority2",
+                /* accountType= */ "type1",
+                /* userVisible= */ true,
+                /* supportsUploading= */ true);
+        SyncAdapterType syncAdapterType3 = new SyncAdapterType("authority3",
+                /* accountType= */ "type1",
+                /* userVisible= */ true,
+                /* supportsUploading= */ true);
+        SyncAdapterType syncAdapterType4 = new SyncAdapterType("authority4",
+                /* accountType= */ "type1",
+                /* userVisible= */ true,
+                /* supportsUploading= */ true);
         SyncAdapterType[] syncAdapters =
                 {syncAdapterType1, syncAdapterType2, syncAdapterType3, syncAdapterType4};
         ShadowContentResolver.setSyncAdapterTypes(syncAdapters);
 
         // Enable sync for the first three authorities and disable it for the fourth one
         ContentResolver.setIsSyncable(mAccount, "authority1", SYNCABLE);
-        ContentResolver.setSyncAutomaticallyAsUser(mAccount, "authority1", /* sync= */
-                true, /* userId= */ mUserId);
+        ContentResolver.setSyncAutomaticallyAsUser(mAccount, "authority1",
+                /* sync= */ true, /* userId= */ mUserId);
 
         ContentResolver.setIsSyncable(mAccount, "authority2", SYNCABLE);
-        ContentResolver.setSyncAutomaticallyAsUser(mAccount, "authority2", /* sync= */
-                true, /* userId= */ mUserId);
+        ContentResolver.setSyncAutomaticallyAsUser(mAccount, "authority2",
+                /* sync= */ true, /* userId= */ mUserId);
 
         ContentResolver.setIsSyncable(mAccount, "authority3", SYNCABLE);
-        ContentResolver.setSyncAutomaticallyAsUser(mAccount, "authority3", /* sync= */
-                true, /* userId= */ mUserId);
+        ContentResolver.setSyncAutomaticallyAsUser(mAccount, "authority3",
+                /* sync= */ true, /* userId= */ mUserId);
 
-        ContentResolver.setSyncAutomaticallyAsUser(mAccount, "authority4", /* sync= */
-                false, /* userId= */ mUserId);
+        ContentResolver.setSyncAutomaticallyAsUser(mAccount, "authority4",
+                /* sync= */ false, /* userId= */ mUserId);
 
         mController.refreshUi();
 

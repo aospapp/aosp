@@ -17,7 +17,7 @@
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:width="@dimen/large_avatar_icon_size"
           android:height="@dimen/large_avatar_icon_size">
-        <shape android:shape="rectangle">
+        <shape android:shape="oval">
             <solid android:color="@color/add_favorite_background_color"/>
         </shape>
     </item>

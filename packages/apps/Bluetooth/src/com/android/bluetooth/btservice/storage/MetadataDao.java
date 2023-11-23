@@ -28,7 +28,7 @@ interface MetadataDao {
     /**
      * Load all items in the database
      */
-    @Query("SELECT * FROM metadata")
+    @Query("SELECT * FROM metadata ORDER BY last_active_time DESC")
     List<Metadata> load();
 
     /**

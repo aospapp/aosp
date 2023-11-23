@@ -18,34 +18,63 @@ package com.android.car.settings.wifi.preferences;
 
 import android.app.Service;
 import android.car.drivingstate.CarUxRestrictions;
+import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
 import android.location.LocationManager;
+import android.net.wifi.WifiManager;
 import android.provider.Settings;
 import android.text.SpannableString;
 import android.text.Spanned;
+import android.text.TextUtils;
 import android.text.style.URLSpan;
 import android.widget.Toast;
 
+import androidx.annotation.VisibleForTesting;
 import androidx.preference.TwoStatePreference;
 
 import com.android.car.settings.R;
+import com.android.car.settings.common.ConfirmationDialogFragment;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.Logger;
 import com.android.car.settings.common.PreferenceController;
+import com.android.settingslib.HelpUtils;
 
 /** Business logic to allow auto-enabling of wifi near saved networks. */
-public class WifiWakeupTogglePreferenceController extends
-        PreferenceController<TwoStatePreference> implements
-        ConfirmEnableWifiScanningDialogFragment.WifiScanningEnabledListener {
+public class WifiWakeupTogglePreferenceController extends PreferenceController<TwoStatePreference> {
 
     private static final Logger LOG = new Logger(WifiWakeupTogglePreferenceController.class);
-    private final LocationManager mLocationManager;
+    private LocationManager mLocationManager;
+    @VisibleForTesting
+    WifiManager mWifiManager;
+
+    @VisibleForTesting
+    final ConfirmationDialogFragment.ConfirmListener mConfirmListener = arguments -> {
+        enableWifiScanning();
+        if (mLocationManager.isLocationEnabled()) {
+            setWifiWakeupEnabled(true);
+        }
+        refreshUi();
+    };
+
+    private final ConfirmationDialogFragment.NeutralListener mNeutralListener = arguments -> {
+        Intent intent = HelpUtils.getHelpIntent(getContext(),
+                getContext().getString(R.string.help_uri_wifi_scanning_required),
+                getContext().getClass().getName());
+        if (intent != null) {
+            try {
+                getContext().startActivity(intent);
+            } catch (ActivityNotFoundException e) {
+                LOG.e("Activity was not found for intent, " + intent.toString());
+            }
+        }
+    };
 
     public WifiWakeupTogglePreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
         mLocationManager = (LocationManager) context.getSystemService(Service.LOCATION_SERVICE);
+        mWifiManager = context.getSystemService(WifiManager.class);
     }
 
     @Override
@@ -55,12 +84,14 @@ public class WifiWakeupTogglePreferenceController extends
 
     @Override
     protected void onCreateInternal() {
-        ConfirmEnableWifiScanningDialogFragment dialogFragment =
-                (ConfirmEnableWifiScanningDialogFragment) getFragmentController().findDialogByTag(
-                        ConfirmEnableWifiScanningDialogFragment.TAG);
-        if (dialogFragment != null) {
-            dialogFragment.setWifiScanningEnabledListener(this);
-        }
+        ConfirmationDialogFragment dialog =
+                (ConfirmationDialogFragment) getFragmentController().findDialogByTag(
+                        ConfirmationDialogFragment.TAG);
+        ConfirmationDialogFragment.resetListeners(
+                dialog,
+                mConfirmListener,
+                /* rejectListener= */ null,
+                mNeutralListener);
     }
 
     @Override
@@ -104,13 +135,11 @@ public class WifiWakeupTogglePreferenceController extends
     }
 
     private boolean getWifiScanningEnabled() {
-        return Settings.Global.getInt(getContext().getContentResolver(),
-                Settings.Global.WIFI_SCAN_ALWAYS_AVAILABLE, 0) == 1;
+        return mWifiManager.isScanAlwaysAvailable();
     }
 
     private void enableWifiScanning() {
-        Settings.Global.putInt(getContext().getContentResolver(),
-                Settings.Global.WIFI_SCAN_ALWAYS_AVAILABLE, 1);
+        mWifiManager.setScanAlwaysAvailable(true);
         Toast.makeText(
                 getContext(),
                 getContext().getString(R.string.wifi_settings_scanning_required_enabled),
@@ -134,19 +163,24 @@ public class WifiWakeupTogglePreferenceController extends
     }
 
     private void showScanningDialog() {
-        ConfirmEnableWifiScanningDialogFragment dialogFragment =
-                new ConfirmEnableWifiScanningDialogFragment();
-        dialogFragment.setWifiScanningEnabledListener(this);
-        getFragmentController().showDialog(dialogFragment,
-                ConfirmEnableWifiScanningDialogFragment.TAG);
+        ConfirmationDialogFragment dialogFragment =
+                getConfirmEnableWifiScanningDialogFragment();
+        getFragmentController().showDialog(
+                dialogFragment, ConfirmationDialogFragment.TAG);
     }
 
-    @Override
-    public void onWifiScanningEnabled() {
-        enableWifiScanning();
-        if (mLocationManager.isLocationEnabled()) {
-            setWifiWakeupEnabled(true);
+    private ConfirmationDialogFragment getConfirmEnableWifiScanningDialogFragment() {
+        ConfirmationDialogFragment.Builder builder =
+                new ConfirmationDialogFragment.Builder(getContext())
+                        .setTitle(R.string.wifi_settings_scanning_required_title)
+                        .setPositiveButton(
+                                R.string.wifi_settings_scanning_required_turn_on, mConfirmListener)
+                        .setNegativeButton(R.string.cancel, /* rejectListener= */ null);
+
+        // Only show "learn more" if there is a help page to show
+        if (!TextUtils.isEmpty(getContext().getString(R.string.help_uri_wifi_scanning_required))) {
+            builder.setNeutralButton(R.string.learn_more, mNeutralListener);
         }
-        refreshUi();
+        return builder.build();
     }
 }

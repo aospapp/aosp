@@ -87,6 +87,12 @@ public class MockedPowerHalService extends PowerHalService {
         doSendState(SET_SHUTDOWN_START, wakeupTimeSec);
     }
 
+    @Override
+    public void sendShutdownCancel() {
+        Log.i(TAG, "sendShutdownCancel");
+        doSendState(SET_SHUTDOWN_CANCELLED, 0);
+    }
+
     public synchronized int[] waitForSend(long timeoutMs) throws Exception {
         if (mSentStates.size() == 0) {
             wait(timeoutMs);

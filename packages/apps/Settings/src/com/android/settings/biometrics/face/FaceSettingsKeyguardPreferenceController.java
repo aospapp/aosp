@@ -18,16 +18,15 @@ package com.android.settings.biometrics.face;
 
 import static android.provider.Settings.Secure.FACE_UNLOCK_KEYGUARD_ENABLED;
 
-import android.app.admin.DevicePolicyManager;
 import android.content.Context;
 import android.hardware.face.FaceManager;
-import android.os.UserHandle;
 import android.provider.Settings;
 
 import androidx.preference.Preference;
 
 import com.android.settings.Utils;
-import com.android.settings.core.TogglePreferenceController;
+import com.android.settingslib.RestrictedLockUtils.EnforcedAdmin;
+import com.android.settingslib.RestrictedSwitchPreference;
 
 /**
  * Preference controller for Face settings page controlling the ability to unlock the phone
@@ -54,9 +53,9 @@ public class FaceSettingsKeyguardPreferenceController extends FaceSettingsPrefer
 
     @Override
     public boolean isChecked() {
-        if (!FaceSettings.isAvailable(mContext)) {
+        if (!FaceSettings.isFaceHardwareDetected(mContext)) {
             return false;
-        } else if (adminDisabled()) {
+        } else if (getRestrictingAdmin() != null) {
             return false;
         }
         return Settings.Secure.getIntForUser(mContext.getContentResolver(),
@@ -76,24 +75,16 @@ public class FaceSettingsKeyguardPreferenceController extends FaceSettingsPrefer
 
     @Override
     public void updateState(Preference preference) {
+        EnforcedAdmin admin;
         super.updateState(preference);
-        if (!FaceSettings.isAvailable(mContext)) {
+        if (!FaceSettings.isFaceHardwareDetected(mContext)) {
             preference.setEnabled(false);
-        } else if (adminDisabled()) {
-            preference.setEnabled(false);
+        } else if ((admin = getRestrictingAdmin()) != null) {
+            ((RestrictedSwitchPreference) preference).setDisabledByAdmin(admin);
         } else if (!mFaceManager.hasEnrolledTemplates(getUserId())) {
             preference.setEnabled(false);
         } else {
             preference.setEnabled(true);
         }
-    }
-
-    private boolean adminDisabled() {
-        DevicePolicyManager dpm =
-                (DevicePolicyManager) mContext.getSystemService(Context.DEVICE_POLICY_SERVICE);
-        return dpm != null &&
-                (dpm.getKeyguardDisabledFeatures(null, UserHandle.myUserId())
-                        & DevicePolicyManager.KEYGUARD_DISABLE_FACE)
-                        != 0;
     }
 }

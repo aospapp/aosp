@@ -16,12 +16,18 @@
 
 package com.android.bluetooth.btservice;
 
+import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothProfile;
+import android.bluetooth.IBluetoothManager;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.res.Resources;
+import android.os.SystemProperties;
+import android.os.IBinder;
+import android.os.RemoteException;
+import android.os.ServiceManager;
 import android.provider.Settings;
-import android.util.FeatureFlagUtils;
+import android.text.TextUtils;
 import android.util.Log;
 
 import com.android.bluetooth.R;
@@ -44,6 +50,7 @@ import com.android.bluetooth.pbapclient.PbapClientService;
 import com.android.bluetooth.sap.SapService;
 
 import java.util.ArrayList;
+import java.util.List;
 
 public class Config {
     private static final String TAG = "AdapterServiceConfig";
@@ -112,23 +119,30 @@ public class Config {
         if (resources == null) {
             return;
         }
+        List<String> enabledProfiles =
+                getSystemConfigEnabledProfilesForPackage(ctx.getPackageName());
 
         ArrayList<Class> profiles = new ArrayList<>(PROFILE_SERVICES_AND_FLAGS.length);
         for (ProfileConfig config : PROFILE_SERVICES_AND_FLAGS) {
             boolean supported = resources.getBoolean(config.mSupported);
 
-            if (!supported && (config.mClass == HearingAidService.class) && FeatureFlagUtils
-                                .isEnabled(ctx, FeatureFlagUtils.HEARING_AID_SETTINGS)) {
+            if (!supported && (config.mClass == HearingAidService.class) && isHearingAidSettingsEnabled(ctx)) {
                 Log.v(TAG, "Feature Flag enables support for HearingAidService");
                 supported = true;
+            }
+
+            if (enabledProfiles != null && enabledProfiles.contains(config.mClass.getName())) {
+                supported = true;
+                Log.v(TAG, config.mClass.getSimpleName() + " Feature Flag set to " + supported
+                        + " by components configuration");
             }
 
             if (supported && !isProfileDisabled(ctx, config.mMask)) {
                 Log.v(TAG, "Adding " + config.mClass.getSimpleName());
                 profiles.add(config.mClass);
             }
-            sSupportedProfiles = profiles.toArray(new Class[profiles.size()]);
         }
+        sSupportedProfiles = profiles.toArray(new Class[profiles.size()]);
     }
 
     static Class[] getSupportedProfiles() {
@@ -159,5 +173,46 @@ public class Config {
                 Settings.Global.getLong(resolver, Settings.Global.BLUETOOTH_DISABLED_PROFILES, 0);
 
         return (disabledProfilesBitMask & profileMask) != 0;
+    }
+
+    private static boolean isHearingAidSettingsEnabled(Context context) {
+        final String flagOverridePrefix = "sys.fflag.override.";
+        final String hearingAidSettings = "settings_bluetooth_hearing_aid";
+
+        // Override precedence:
+        // Settings.Global -> sys.fflag.override.* -> static list
+
+        // Step 1: check if hearing aid flag is set in Settings.Global.
+        String value;
+        if (context != null) {
+            value = Settings.Global.getString(context.getContentResolver(), hearingAidSettings);
+            if (!TextUtils.isEmpty(value)) {
+                return Boolean.parseBoolean(value);
+            }
+        }
+
+        // Step 2: check if hearing aid flag has any override.
+        value = SystemProperties.get(flagOverridePrefix + hearingAidSettings);
+        if (!TextUtils.isEmpty(value)) {
+            return Boolean.parseBoolean(value);
+        }
+
+        // Step 3: return default value.
+        return false;
+    }
+
+    private static List<String> getSystemConfigEnabledProfilesForPackage(String packageName) {
+        IBinder b = ServiceManager.getService(BluetoothAdapter.BLUETOOTH_MANAGER_SERVICE);
+        if (b == null) {
+            Log.e(TAG, "Bluetooth binder is null");
+        }
+
+        IBluetoothManager managerService = IBluetoothManager.Stub.asInterface(b);
+        try {
+            return managerService.getSystemConfigEnabledProfilesForPackage(packageName);
+        } catch (RemoteException e) {
+            return null;
+        }
+
     }
 }

@@ -104,8 +104,8 @@
     <string name="clear" msgid="3648880442502887163">"Borrar"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"¿Borrar toda la información y los contactos?"</string>
     <string name="emergency_info_footer" msgid="8751758742506410146">"Añadir información médica y contactos de emergencia puede ayudar a los servicios de emergencia en caso de urgencias.\n\nCualquiera puede leer esta información en tu pantalla de bloqueo y tocar el nombre de tus contactos para llamarlos sin desbloquear el teléfono."</string>
-    <string name="settings_suggestion_title" msgid="2503369576806243476">"Añadir información de emergencia"</string>
-    <string name="settings_suggestion_body" msgid="5559349261345837716">"Permitir que primeros en responder vean tu información"</string>
+    <string name="settings_suggestion_title" msgid="2503369576806243476">"Añade información de emergencia"</string>
+    <string name="settings_suggestion_body" msgid="5559349261345837716">"Permite que Emergencias vea tu información"</string>
     <string name="user_image_take_photo" msgid="2779924488370750102">"Hacer una foto"</string>
     <string name="user_image_choose_photo" msgid="2442095378052415700">"Seleccionar una imagen"</string>
     <string name="user_image_photo_selector" msgid="8941966433899876760">"Selecciona la foto"</string>

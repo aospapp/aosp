@@ -26,13 +26,13 @@
         android:id="@+id/header_text"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="@dimen/car_padding_4"
-        android:layout_marginBottom="@dimen/car_padding_2"
-        android:textAppearance="@style/TextAppearance.Car.Body1.Light"/>
+        android:layout_marginTop="@dimen/car_ui_padding_4"
+        android:layout_marginBottom="@dimen/car_ui_padding_2"
+        android:textAppearance="@style/TextAppearance.CarUi.Body1"/>
 
     <TextView
         android:id="@+id/disclaimer_content"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:textAppearance="@style/TextAppearance.Car.Body2.Light"/>
+        android:textAppearance="@style/TextAppearance.CarUi.Body2"/>
 </LinearLayout>

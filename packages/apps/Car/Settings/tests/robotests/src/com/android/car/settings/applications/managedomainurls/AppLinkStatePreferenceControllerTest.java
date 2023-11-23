@@ -22,59 +22,49 @@ import static android.content.pm.PackageManager.INTENT_FILTER_DOMAIN_VERIFICATIO
 
 import static com.google.common.truth.Truth.assertThat;
 
-import static org.mockito.Mockito.when;
-
-import android.car.userlib.CarUserManagerHelper;
 import android.content.Context;
 import android.content.pm.ActivityInfo;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.ResolveInfo;
+import android.os.UserHandle;
 
 import androidx.lifecycle.Lifecycle;
 import androidx.preference.ListPreference;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.R;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
 import com.android.car.settings.testutils.ShadowApplicationPackageManager;
-import com.android.car.settings.testutils.ShadowCarUserManagerHelper;
 import com.android.settingslib.applications.ApplicationsState;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadow.api.Shadow;
 
 import java.util.Arrays;
 
-@RunWith(CarSettingsRobolectricTestRunner.class)
-@Config(shadows = {ShadowCarUserManagerHelper.class, ShadowApplicationPackageManager.class})
+@RunWith(RobolectricTestRunner.class)
+@Config(shadows = {ShadowApplicationPackageManager.class})
 public class AppLinkStatePreferenceControllerTest {
 
-    private static final int USER_ID = 10;
     private static final String TEST_PACKAGE_NAME = "com.example.test";
     private static final int TEST_PACKAGE_ID = 1;
-    private static final String TEST_LABEL = "Test App";
     private static final String TEST_PATH = "TEST_PATH";
-    private static final String TEST_ACTIVITY = "TestActivity";
+    private final int mUserId = UserHandle.myUserId();
 
     private Context mContext;
     private ListPreference mPreference;
     private PreferenceControllerTestHelper<AppLinkStatePreferenceController> mControllerHelper;
     private AppLinkStatePreferenceController mController;
-    @Mock
-    private CarUserManagerHelper mCarUserManagerHelper;
 
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
-        ShadowCarUserManagerHelper.setMockInstance(mCarUserManagerHelper);
-        when(mCarUserManagerHelper.getCurrentProcessUserId()).thenReturn(USER_ID);
 
         mContext = RuntimeEnvironment.application;
         mPreference = new ListPreference(mContext);
@@ -85,7 +75,6 @@ public class AppLinkStatePreferenceControllerTest {
 
     @After
     public void tearDown() {
-        ShadowCarUserManagerHelper.reset();
         ShadowApplicationPackageManager.reset();
     }
 
@@ -185,7 +174,7 @@ public class AppLinkStatePreferenceControllerTest {
 
         setupIsBrowserApp(false);
         mContext.getPackageManager().updateIntentVerificationStatusAsUser(TEST_PACKAGE_NAME,
-                INTENT_FILTER_DOMAIN_VERIFICATION_STATUS_ALWAYS_ASK, USER_ID);
+                INTENT_FILTER_DOMAIN_VERIFICATION_STATUS_ALWAYS_ASK, mUserId);
 
         mController.setAppEntry(entry);
         mControllerHelper.setPreference(mPreference);
@@ -209,7 +198,7 @@ public class AppLinkStatePreferenceControllerTest {
 
         setupIsBrowserApp(false);
         mContext.getPackageManager().updateIntentVerificationStatusAsUser(TEST_PACKAGE_NAME,
-                INTENT_FILTER_DOMAIN_VERIFICATION_STATUS_ALWAYS, USER_ID);
+                INTENT_FILTER_DOMAIN_VERIFICATION_STATUS_ALWAYS, mUserId);
 
         mController.setAppEntry(entry);
         mControllerHelper.setPreference(mPreference);
@@ -233,7 +222,7 @@ public class AppLinkStatePreferenceControllerTest {
 
         setupIsBrowserApp(false);
         mContext.getPackageManager().updateIntentVerificationStatusAsUser(TEST_PACKAGE_NAME,
-                INTENT_FILTER_DOMAIN_VERIFICATION_STATUS_NEVER, USER_ID);
+                INTENT_FILTER_DOMAIN_VERIFICATION_STATUS_NEVER, mUserId);
 
         mController.setAppEntry(entry);
         mControllerHelper.setPreference(mPreference);

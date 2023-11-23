@@ -19,4 +19,5 @@
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <!--  Activity to present for free navigation -->
     <string name="freeNavigationIntent" translatable="false">intent:#Intent;component=android.car.cluster/.FakeFreeNavigationActivity;launchFlags=0x24000000;end</string>
+    <bool name="navigationOnly">false</bool>
 </resources>

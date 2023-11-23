@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (C) 2020 The Android Open Source Project
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+-->
+<resources>
+    <!-- Any resource or attribute that is or can be referenced from RRO needs to be public go/rro-on-r -->
+
+    <!-- To add new resources to this file follow the following naming convention -->
+    <!-- 0cXXXX is used for styles -->
+    <!-- 0dXXXX is used for attributes -->
+    <!-- 0eXXXX is used for drawables -->
+    <!-- The first time that a resource type is seen, Android resource manager, assigns YY of the ID (0xXXYYXXXX) of the resouce to that type.
+         And you'll get a compile error if you use the same type with a different YY -->
+
+    <public type="style" name="Theme.CarUi" id="0x000c0000" />
+
+    <public type="attr" name="logo" id="0x000d0001" />
+    <public type="attr" name="car_ui_state" id="0x000d0002" />
+    <public type="attr" name="title" id="0x000d0003" />
+    <public type="attr" name="layoutStyle" id="0x000d0004" />
+    <public type="attr" name="numOfColumns" id="0x000d0005" />
+    <public type="attr" name="layout_constraintTop_toTopOf" id="0x000d0006" />
+    <public type="attr" name="layout_constraintTop_toBottomOf" id="0x000d0007" />
+    <public type="attr" name="layout_constraintLeft_toLeftOf" id="0x000d0008" />
+    <public type="attr" name="layout_constraintBottom_toTopOf" id="0x000d0009" />
+    <public type="attr" name="layout_constraintBottom_toBottomOf" id="0x000d0010" />
+    <public type="attr" name="layout_constraintRight_toRightOf" id="0x000d0011" />
+    <public type="attr" name="search" id="0x000d0012" />
+    <public type="attr" name="settings" id="0x000d0013" />
+    <public type="attr" name="id" id="0x000d0014" />
+    <public type="attr" name="icon" id="0x000d0015" />
+    <public type="attr" name="onClick" id="0x000d0016" />
+    <public type="attr" name="checkable" id="0x000d0017" />
+    <public type="attr" name="uxRestrictions" id="0x000d0018" />
+    <public type="attr" name="singleLineTitle" id="0x000d0019" />
+    <public type="attr" name="useSimpleSummaryProvider" id="0x000d0020" />
+    <public type="attr" name="initialExpandedChildrenCount" id="0x000d0021" />
+    <public type="attr" name="enableCopying" id="0x000d0022" />
+
+    <public type="drawable" name="car_ui_activity_background" id="0x000e0000" />
+
+</resources>

@@ -17,16 +17,12 @@
 package com.android.car.settings.wifi;
 
 import android.car.drivingstate.CarUxRestrictions;
-import android.content.BroadcastReceiver;
 import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.SharedPreferences;
-import android.net.wifi.WifiConfiguration;
+import android.net.wifi.SoftApConfiguration;
 import android.text.InputType;
 import android.text.TextUtils;
-
-import androidx.localbroadcastmanager.content.LocalBroadcastManager;
+import android.util.Log;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.FragmentController;
@@ -43,11 +39,14 @@ import java.util.UUID;
  */
 public class WifiTetherPasswordPreferenceController extends
         WifiTetherBasePreferenceController<ValidatedEditTextPreference> {
+    private static final String TAG = "CarWifiTetherApPwdPref";
 
     protected static final String SHARED_PREFERENCE_PATH =
             "com.android.car.settings.wifi.WifiTetherPreferenceController";
     protected static final String KEY_SAVED_PASSWORD =
             "com.android.car.settings.wifi.SAVED_PASSWORD";
+
+    private static final int SHARED_SECURITY_TYPE_UNSET = -1;
 
     private static final int HOTSPOT_PASSWORD_MIN_LENGTH = 8;
     private static final int HOTSPOT_PASSWORD_MAX_LENGTH = 63;
@@ -55,15 +54,6 @@ public class WifiTetherPasswordPreferenceController extends
             value -> value.length() >= HOTSPOT_PASSWORD_MIN_LENGTH
                     && value.length() <= HOTSPOT_PASSWORD_MAX_LENGTH;
 
-    private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            mSecurityType = intent.getIntExtra(
-                    WifiTetherSecurityPreferenceController.KEY_SECURITY_TYPE,
-                    /* defaultValue= */ WifiConfiguration.KeyMgmt.NONE);
-            syncPassword();
-        }
-    };
     private final SharedPreferences mSharedPreferences =
             getContext().getSharedPreferences(SHARED_PREFERENCE_PATH, Context.MODE_PRIVATE);
 
@@ -83,31 +73,32 @@ public class WifiTetherPasswordPreferenceController extends
     @Override
     protected void onCreateInternal() {
         super.onCreateInternal();
-
         getPreference().setValidator(PASSWORD_VALIDATOR);
-        mSecurityType = getCarWifiApConfig().getAuthType();
+        mSecurityType = getCarSoftApConfig().getSecurityType();
         syncPassword();
     }
 
     @Override
     protected void onStartInternal() {
-        LocalBroadcastManager.getInstance(getContext()).registerReceiver(mReceiver,
-                new IntentFilter(
-                        WifiTetherSecurityPreferenceController.ACTION_SECURITY_TYPE_CHANGED));
-    }
-
-    @Override
-    protected void onStopInternal() {
-        super.onStopInternal();
-        LocalBroadcastManager.getInstance(getContext()).unregisterReceiver(mReceiver);
+        int newSecurityType = mSharedPreferences.getInt(
+                WifiTetherSecurityPreferenceController.KEY_SECURITY_TYPE,
+                /* defaultValue= */ SHARED_SECURITY_TYPE_UNSET);
+        if (mSecurityType != newSecurityType && newSecurityType != SHARED_SECURITY_TYPE_UNSET) {
+            // Security type has been changed - update ap configuration
+            mSecurityType = newSecurityType;
+            syncPassword();
+            updateApSecurity(mPassword);
+        }
     }
 
     @Override
     protected boolean handlePreferenceChanged(ValidatedEditTextPreference preference,
             Object newValue) {
-        mPassword = newValue.toString();
-        updatePassword(mPassword);
-        refreshUi();
+        if (!newValue.toString().equals(mPassword)) {
+            mPassword = newValue.toString();
+            updateApSecurity(mPassword);
+            refreshUi();
+        }
         return true;
     }
 
@@ -135,17 +126,17 @@ public class WifiTetherPasswordPreferenceController extends
 
     private void syncPassword() {
         mPassword = getSyncedPassword();
-        updatePassword(mPassword);
         refreshUi();
     }
 
     private String getSyncedPassword() {
-        if (getCarWifiApConfig().getAuthType() == WifiConfiguration.KeyMgmt.NONE) {
+        if (mSecurityType == SoftApConfiguration.SECURITY_TYPE_OPEN) {
             return null;
         }
 
-        if (!TextUtils.isEmpty(getCarWifiApConfig().preSharedKey)) {
-            return getCarWifiApConfig().preSharedKey;
+        String passphrase = getCarSoftApConfig().getPassphrase();
+        if (!TextUtils.isEmpty(passphrase)) {
+            return passphrase;
         }
 
         if (!TextUtils.isEmpty(
@@ -162,10 +153,21 @@ public class WifiTetherPasswordPreferenceController extends
         return randomUUID.substring(0, 8) + randomUUID.substring(9, 13);
     }
 
-    private void updatePassword(String password) {
-        WifiConfiguration config = getCarWifiApConfig();
-        config.preSharedKey = password;
-        setCarWifiApConfig(config);
+    /**
+     * If the password and/or security type has changed, update the ap configuration
+     */
+    private void updateApSecurity(String password) {
+        String passwordOrNullIfOpen;
+        if (mSecurityType == SoftApConfiguration.SECURITY_TYPE_OPEN) {
+            passwordOrNullIfOpen = null;
+            Log.w(TAG, "Setting password on an open network!");
+        } else {
+            passwordOrNullIfOpen = password;
+        }
+        SoftApConfiguration config = new SoftApConfiguration.Builder(getCarSoftApConfig())
+                .setPassphrase(passwordOrNullIfOpen, mSecurityType)
+                .build();
+        setCarSoftApConfig(config);
 
         if (!TextUtils.isEmpty(password)) {
             mSharedPreferences.edit().putString(KEY_SAVED_PASSWORD, password).commit();
@@ -174,7 +176,7 @@ public class WifiTetherPasswordPreferenceController extends
 
     private void updatePasswordDisplay() {
         getPreference().setText(mPassword);
-        getPreference().setVisible(mSecurityType != WifiConfiguration.KeyMgmt.NONE);
+        getPreference().setVisible(mSecurityType != SoftApConfiguration.SECURITY_TYPE_OPEN);
         getPreference().setSummary(getSummary());
     }
 

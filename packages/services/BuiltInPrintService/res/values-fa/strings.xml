@@ -60,12 +60,18 @@
     <string name="forget" msgid="892068061425802502">"فراموش کردن"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"‏ازطریق Wi-Fi بی‌واسطه متصل می‌شود"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"ازطریق شبکه فعلی به نشانی <xliff:g id="IP_ADDRESS">%1$s</xliff:g> متصل می‌شود"</string>
+    <string name="recommendation_summary" msgid="2979700524954307566">"«سرویس چاپ پیش‌فرض» گزینه‌های اصلی را ارائه می‌کند. ممکن است سایر گزینه‌ها برای این چاپگر از سرویس چاپ دیگری دردسترس باشد."</string>
+    <string name="recommendations_heading" msgid="5086762263560605249">"خدمات توصیه‌شده"</string>
+    <string name="recommendation_install_summary" msgid="374785283809791669">"برای نصب انتخاب کنید"</string>
+    <string name="recommendation_enable_summary" msgid="3500907868251326224">"برای فعال کردن، انتخاب کنید"</string>
+    <string name="recommendation_manage" msgid="4683640588502866284">"مدیریت سرویس‌ها"</string>
     <string name="security" msgid="2279008326210305401">"امنیت"</string>
     <string name="certificate_update_request" msgid="1314796413107139475">"این چاپگر گواهینامه امنیتی جدیدی ارائه کرده است، یا دستگاه دیگری درحال جعل کردن هویت آن است. گواهینامه جدید پذیرفته شود؟"</string>
     <string name="not_encrypted_request" msgid="4871472176807381642">"این چاپگر دیگر کارهای رمزگذاری‌شده را نمی‌پذیرد. به چاپ کردن ادامه می‌دهید؟"</string>
     <string name="accept" msgid="4426153292469698134">"پذیرفتن"</string>
     <string name="reject" msgid="24751635160440693">"رد کردن"</string>
     <string name="connections" msgid="8895413761760117180">"اتصال‌ها"</string>
-    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"«سرویس چاپ پیش‌فرض» برای پیدا کردن دستگاه‌های نزدیک به مجوز مکان نیاز دارد."</string>
+    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"«سرویس چاپ پیش‌فرض» برای پیدا کردن دستگاه‌های نزدیک به اجازه مکان نیاز دارد."</string>
     <string name="fix" msgid="7784394272611365393">"مرور مجوز"</string>
+    <string name="print" msgid="7851318072404916362">"چاپ"</string>
 </resources>

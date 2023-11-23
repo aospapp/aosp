@@ -23,8 +23,10 @@
 package com.android.se;
 
 import android.app.Service;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.os.Binder;
 import android.os.Build;
@@ -38,6 +40,7 @@ import android.se.omapi.ISecureElementReader;
 import android.se.omapi.ISecureElementService;
 import android.se.omapi.ISecureElementSession;
 import android.se.omapi.SEService;
+import android.telephony.TelephonyManager;
 import android.util.Log;
 
 import com.android.se.Terminal.SecureElementReader;
@@ -63,6 +66,7 @@ public final class SecureElementService extends Service {
     private static final boolean DEBUG = Build.IS_DEBUGGABLE;
     // LinkedHashMap will maintain the order of insertion
     private LinkedHashMap<String, Terminal> mTerminals = new LinkedHashMap<String, Terminal>();
+    private int mActiveSimCount = 0;
     private final ISecureElementService.Stub mSecureElementServiceBinder =
             new ISecureElementService.Stub() {
 
@@ -108,6 +112,13 @@ public final class SecureElementService extends Service {
         super();
     }
 
+    private void initialize() {
+        // listen for events
+        IntentFilter intentFilter = new IntentFilter();
+        intentFilter.addAction(TelephonyManager.ACTION_MULTI_SIM_CONFIG_CHANGED);
+        this.registerReceiver(mMultiSimConfigChangedReceiver, intentFilter);
+    }
+
     /** Returns the terminal from the Reader name. */
     private Terminal getTerminal(String reader) {
         if (reader == null) {
@@ -135,6 +146,7 @@ public final class SecureElementService extends Service {
     @Override
     public void onCreate() {
         Log.i(mTag, Thread.currentThread().getName() + " onCreate");
+        initialize();
         createTerminals();
         ServiceManager.addService(Context.SECURE_ELEMENT_SERVICE, mSecureElementServiceBinder);
     }
@@ -149,17 +161,29 @@ public final class SecureElementService extends Service {
             terminal.closeChannels();
             terminal.close();
         }
+        if (mMultiSimConfigChangedReceiver != null) {
+            this.unregisterReceiver(mMultiSimConfigChangedReceiver);
+        }
     }
 
     private void addTerminals(String terminalName) {
         int index = 1;
         String name = null;
+        if (terminalName.startsWith(SecureElementService.UICC_TERMINAL)) {
+            index = mActiveSimCount + 1;
+        }
         try {
             do {
                 name = terminalName + Integer.toString(index);
                 Terminal terminal = new Terminal(name, this);
-                terminal.initialize();
+
+                Log.i(mTag, "Check if terminal " + name + " is available.");
+                // Only retry on fail for the first terminal of each type.
+                terminal.initialize(index == 1);
                 mTerminals.put(name, terminal);
+                if (terminalName.equals(UICC_TERMINAL)) {
+                    mActiveSimCount = index;
+                }
             } while (++index > 0);
         } catch (NoSuchElementException e) {
             Log.i(mTag, "No HAL implementation for " + name);
@@ -172,6 +196,29 @@ public final class SecureElementService extends Service {
         // Check for all SE HAL implementations
         addTerminals(ESE_TERMINAL);
         addTerminals(UICC_TERMINAL);
+    }
+
+    private void refreshUiccTerminals(int activeSimCount) {
+        String name = null;
+        synchronized (this) {
+            if (activeSimCount < mActiveSimCount) {
+                // Remove non-supported UICC terminals
+                for (int i = activeSimCount + 1; i <= mActiveSimCount; i++) {
+                    name = UICC_TERMINAL + Integer.toString(i);
+                    Terminal terminal = mTerminals.get(name);
+                    if (terminal != null) {
+                        terminal.closeChannels();
+                        terminal.close();
+                    }
+                    mTerminals.remove(name);
+                    Log.i(mTag, name + " is removed from available Terminals");
+                }
+                mActiveSimCount = activeSimCount;
+            } else if (activeSimCount > mActiveSimCount) {
+                // Try to initialize new UICC terminals
+                addTerminals(UICC_TERMINAL);
+            }
+        }
     }
 
     private String getPackageNameFromCallingUid(int uid) {
@@ -261,9 +308,6 @@ public final class SecureElementService extends Service {
                 throw new IllegalStateException("Session is closed");
             } else if (listener == null) {
                 throw new NullPointerException("listener must not be null");
-            } else if (mReader.getTerminal().getName().startsWith(
-                    SecureElementService.UICC_TERMINAL)) {
-                return null;
             } else if ((p2 != 0x00) && (p2 != 0x04) && (p2 != 0x08)
                     && (p2 != (byte) 0x0C)) {
                 throw new UnsupportedOperationException("p2 not supported: "
@@ -304,9 +348,6 @@ public final class SecureElementService extends Service {
                 throw new IllegalStateException("Session is closed");
             } else if (listener == null) {
                 throw new NullPointerException("listener must not be null");
-            } else if (((aid == null) || (aid.length == 0)) && mReader.getTerminal().getName()
-                    .startsWith(SecureElementService.UICC_TERMINAL)) {
-                return null;
             } else if ((p2 != 0x00) && (p2 != 0x04) && (p2 != 0x08)
                     && (p2 != (byte) 0x0C)) {
                 throw new UnsupportedOperationException("p2 not supported: "
@@ -336,4 +377,21 @@ public final class SecureElementService extends Service {
             return channel.new SecureElementChannel();
         }
     }
+
+    private final BroadcastReceiver mMultiSimConfigChangedReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+            if (action.equals(TelephonyManager.ACTION_MULTI_SIM_CONFIG_CHANGED)) {
+                int activeSimCount =
+                        intent.getIntExtra(TelephonyManager.EXTRA_ACTIVE_SIM_SUPPORTED_COUNT, 1);
+                Log.i(mTag, "received action MultiSimConfigChanged. Refresh UICC terminals");
+                Log.i(mTag, "Current ActiveSimCount:" + activeSimCount
+                        + ". Previous ActiveSimCount:" + mActiveSimCount);
+
+                // Check for any change to UICC SE HAL implementations
+                refreshUiccTerminals(activeSimCount);
+            }
+        }
+    };
 }

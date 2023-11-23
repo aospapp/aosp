@@ -21,5 +21,5 @@
     <dimen name="car_tab_width">-2px</dimen>
 
     <!-- Control Bar - typically at the bottom of the application's space. -->
-    <dimen name="control_bar_margin_x">@*android:dimen/car_padding_5</dimen>
+    <dimen name="control_bar_margin_x">@dimen/car_ui_padding_5</dimen>
 </resources>

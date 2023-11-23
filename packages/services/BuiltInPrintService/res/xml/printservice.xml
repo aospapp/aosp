@@ -17,4 +17,5 @@
 <print-service
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:addPrintersActivity="com.android.bips.ui.AddPrintersActivity"
+    android:advancedPrintOptionsActivity="com.android.bips.ui.MoreOptionsActivity"
 />

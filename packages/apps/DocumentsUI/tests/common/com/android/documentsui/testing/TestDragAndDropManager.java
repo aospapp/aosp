@@ -16,16 +16,16 @@
 
 package com.android.documentsui.testing;
 
-import androidx.annotation.Nullable;
 import android.content.ClipData;
 import android.net.Uri;
 import android.util.Pair;
 import android.view.KeyEvent;
 import android.view.View;
 
+import androidx.annotation.Nullable;
+
 import com.android.documentsui.ActionHandler;
 import com.android.documentsui.DragAndDropManager;
-import com.android.documentsui.MenuManager;
 import com.android.documentsui.MenuManager.SelectionDetails;
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.DocumentStack;
@@ -67,6 +67,11 @@ public class TestDragAndDropManager implements DragAndDropManager {
 
     @Override
     public void resetState(View v) {}
+
+    @Override
+    public boolean isDragFromSameApp() {
+        return true;
+    }
 
     @Override
     public boolean drop(ClipData clipData, Object localState, RootInfo root, ActionHandler actions,

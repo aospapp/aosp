@@ -16,6 +16,9 @@
 
 package com.android.tv.settings.device.apps;
 
+import static com.android.tv.settings.util.InstrumentationUtils.logEntrySelected;
+
+import android.app.tvsettings.TvSettingsEnums;
 import android.content.Context;
 import android.os.Bundle;
 import android.text.format.Formatter;
@@ -41,7 +44,11 @@ public class ClearDataPreference extends AppActionPreference {
         final Context context = getContext();
         setSummary(mClearingData ? context.getString(R.string.computing_size) :
                 Formatter.formatFileSize(context, mEntry.dataSize + mEntry.externalDataSize));
-
+        this.setOnPreferenceClickListener(
+                preference -> {
+                    logEntrySelected(TvSettingsEnums.APPS_ALL_APPS_APP_ENTRY_CLEAR_DATA);
+                    return false;
+                });
     }
 
     public void setClearingData(boolean clearingData) {

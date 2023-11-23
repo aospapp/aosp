@@ -18,9 +18,8 @@ package com.android.car.arch.common;
 
 import static java.util.Objects.requireNonNull;
 
-import android.annotation.NonNull;
-import android.annotation.Nullable;
-
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.arch.core.util.Function;
 import androidx.core.util.Pair;
 import androidx.lifecycle.LiveData;

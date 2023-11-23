@@ -22,6 +22,7 @@ import com.android.server.telecom.Call;
 import com.android.server.telecom.DtmfLocalTonePlayer;
 import com.android.server.telecom.R;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -42,12 +43,19 @@ public class DtmfLocalTonePlayerTest extends TelecomTestCase {
 
     DtmfLocalTonePlayer mPlayer;
 
+    @Override
     @Before
     public void setUp() throws Exception {
         super.setUp();
         mContext = mComponentContextFixture.getTestDouble().getApplicationContext();
         mPlayer = new DtmfLocalTonePlayer(mToneProxy);
         when(mCall.getContext()).thenReturn(mContext);
+    }
+
+    @Override
+    @After
+    public void tearDown() throws Exception {
+        super.tearDown();
     }
 
     @SmallTest

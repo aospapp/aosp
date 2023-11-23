@@ -22,7 +22,6 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import androidx.recyclerview.selection.Selection;
-import androidx.recyclerview.selection.SelectionTracker;
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
 
@@ -51,15 +50,7 @@ public class DocsSelectionHelperTest {
     @Before
     public void setup() {
         mCreated = new ArrayList<>();
-        mFactory = new DelegateFactory() {
-
-            @Override
-            TestSelectionManager create(SelectionTracker<String> selectionTracker) {
-                TestSelectionManager mgr = new TestSelectionManager();
-                mCreated.add(mgr);
-                return mgr;
-            }
-        };
+        mFactory = new DelegateFactory();
 
         mSelectionMgr = new DocsSelectionHelper(mFactory);
     }
@@ -105,7 +96,10 @@ public class DocsSelectionHelperTest {
     }
 
     private void resetSelectionHelper() {
-        mSelectionMgr.reset(null); // nulls are passed to factory. We ignore.
+        TestSelectionManager mgr = new TestSelectionManager();
+        mCreated.add(mgr);
+
+        mSelectionMgr.reset(mgr);
     }
 
     private static final class TestSelectionManager extends DummySelectionTracker<String> {

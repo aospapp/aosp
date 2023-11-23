@@ -60,6 +60,11 @@
     <string name="forget" msgid="892068061425802502">"Избриши го"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"Се поврзува преку Wi-Fi Direct"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"Се поврзува преку моменталната мрежа на <xliff:g id="IP_ADDRESS">%1$s</xliff:g>"</string>
+    <string name="recommendation_summary" msgid="2979700524954307566">"Услугата за стандардно печатење обезбедува основни опции. Други опции за печатачов можеби се достапни од друга услуга за печатење."</string>
+    <string name="recommendations_heading" msgid="5086762263560605249">"Препорачани услуги"</string>
+    <string name="recommendation_install_summary" msgid="374785283809791669">"Изберете за да инсталирате"</string>
+    <string name="recommendation_enable_summary" msgid="3500907868251326224">"Изберете за да овозможите"</string>
+    <string name="recommendation_manage" msgid="4683640588502866284">"Управувајте со услугите"</string>
     <string name="security" msgid="2279008326210305401">"Безбедност"</string>
     <string name="certificate_update_request" msgid="1314796413107139475">"Овој печатач обезбедил нов безбедносен сертификат или друг уред лажно се претставува како него. Да се прифати новиот сертификат?"</string>
     <string name="not_encrypted_request" msgid="4871472176807381642">"Овој печатач веќе не прифаќа шифрирани задачи. Да се продолжи со печатење?"</string>
@@ -68,4 +73,5 @@
     <string name="connections" msgid="8895413761760117180">"Поврзувања"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Услугата за стандардно печатење има потреба од дозвола за локација за да најде уреди во близина."</string>
     <string name="fix" msgid="7784394272611365393">"Прикажи ја дозволата"</string>
+    <string name="print" msgid="7851318072404916362">"Печати"</string>
 </resources>

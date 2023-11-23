@@ -16,6 +16,8 @@
 
 package com.android.car.settings.wifi;
 
+import static android.net.wifi.WifiConfiguration.NetworkSelectionStatus.NETWORK_SELECTION_ENABLED;
+
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -28,13 +30,13 @@ import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.net.wifi.WifiConfiguration;
+import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.util.Pair;
 
 import androidx.lifecycle.Lifecycle;
 import androidx.preference.PreferenceGroup;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.LogicalPreferenceGroup;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
@@ -49,6 +51,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.Shadows;
 import org.robolectric.annotation.Config;
@@ -58,7 +61,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 @Config(shadows = {ShadowCarWifiManager.class, ShadowWifiManager.class})
 public class AccessPointListPreferenceControllerTest {
     private static final int SIGNAL_LEVEL = 1;
@@ -128,6 +131,18 @@ public class AccessPointListPreferenceControllerTest {
     }
 
     @Test
+    public void refreshUi_notSavedAccessPoint_noForgetButton() {
+        when(mMockAccessPoint1.isSaved()).thenReturn(false);
+        List<AccessPoint> accessPointList = Arrays.asList(mMockAccessPoint1);
+        when(mMockCarWifiManager.getAllAccessPoints()).thenReturn(accessPointList);
+        mController.refreshUi();
+
+        ButtonPasswordEditTextPreference preference =
+                (ButtonPasswordEditTextPreference) mPreferenceGroup.getPreference(0);
+        assertThat(preference.isButtonShown()).isFalse();
+    }
+
+    @Test
     public void onUxRestrictionsChanged_switchToSavedApOnly() {
         List<AccessPoint> allAccessPointList = Arrays.asList(mMockAccessPoint1, mMockAccessPoint2);
         when(mMockCarWifiManager.getAllAccessPoints()).thenReturn(allAccessPointList);
@@ -146,6 +161,19 @@ public class AccessPointListPreferenceControllerTest {
     @Test
     public void performClick_noSecurityNotConnectedAccessPoint_connect() {
         when(mMockAccessPoint1.getSecurity()).thenReturn(AccessPoint.SECURITY_NONE);
+        when(mMockAccessPoint1.isSaved()).thenReturn(false);
+        when(mMockAccessPoint1.isActive()).thenReturn(false);
+        List<AccessPoint> accessPointList = Arrays.asList(mMockAccessPoint1);
+        when(mMockCarWifiManager.getAllAccessPoints()).thenReturn(accessPointList);
+        mController.refreshUi();
+
+        mPreferenceGroup.getPreference(0).performClick();
+        verify(mMockCarWifiManager).connectToPublicWifi(eq(mMockAccessPoint1), any());
+    }
+
+    @Test
+    public void performClick_oweSecurityNotConnectedAccessPoint_connect() {
+        when(mMockAccessPoint1.getSecurity()).thenReturn(AccessPoint.SECURITY_OWE);
         when(mMockAccessPoint1.isSaved()).thenReturn(false);
         when(mMockAccessPoint1.isActive()).thenReturn(false);
         List<AccessPoint> accessPointList = Arrays.asList(mMockAccessPoint1);
@@ -180,7 +208,7 @@ public class AccessPointListPreferenceControllerTest {
     }
 
     @Test
-    public void performButtonClick_savedAccessPoint_wrongPassword_forgetsNetwork() {
+    public void performButtonClick_savedAccessPoint_forgetsNetwork() {
         int netId = 1;
 
         WifiConfiguration config = mock(WifiConfiguration.class);
@@ -191,9 +219,7 @@ public class AccessPointListPreferenceControllerTest {
         when(mMockAccessPoint1.isSaved()).thenReturn(true);
         when(mMockAccessPoint1.getConfig()).thenReturn(config);
         when(config.getNetworkSelectionStatus()).thenReturn(status);
-        when(status.isNetworkEnabled()).thenReturn(false);
-        when(status.getNetworkSelectionDisableReason()).thenReturn(
-                WifiConfiguration.NetworkSelectionStatus.DISABLED_BY_WRONG_PASSWORD);
+        when(status.getNetworkSelectionStatus()).thenReturn(NETWORK_SELECTION_ENABLED);
 
         List<AccessPoint> accessPointList = Arrays.asList(mMockAccessPoint1);
         when(mMockCarWifiManager.getAllAccessPoints()).thenReturn(accessPointList);
@@ -242,9 +268,28 @@ public class AccessPointListPreferenceControllerTest {
         Pair<Integer, Boolean> lastEnabled = getShadowWifiManager().getLastEnabledNetwork();
 
         // Enable should be called on the most recently added network id.
-        assertThat(lastEnabled.first).isEqualTo(getShadowWifiManager().getLastAddedNetworkId());
+        int lastNetworkId = getShadowWifiManager().getLastAddedNetworkConfiguration().networkId;
+        assertThat(lastEnabled.first).isEqualTo(lastNetworkId);
         // WifiUtil will try to enable the network right away.
         assertThat(lastEnabled.second).isTrue();
+    }
+
+    @Test
+    public void callChangeListener_newSecureAccessPoint_wifiConnected() {
+        String ssid = "test_ssid";
+        String password = "test_password";
+        when(mMockAccessPoint1.getSsid()).thenReturn(ssid);
+        when(mMockAccessPoint1.getSecurity()).thenReturn(AccessPoint.SECURITY_PSK);
+        when(mMockAccessPoint1.isSaved()).thenReturn(false);
+        when(mMockAccessPoint1.isActive()).thenReturn(false);
+        List<AccessPoint> accessPointList = Arrays.asList(mMockAccessPoint1);
+        when(mMockCarWifiManager.getAllAccessPoints()).thenReturn(accessPointList);
+        mController.refreshUi();
+
+        mPreferenceGroup.getPreference(0).callChangeListener(password);
+        WifiInfo lastConnected = getShadowWifiManager().getActiveWifiInfo();
+
+        assertThat(lastConnected.getSSID()).contains(ssid);
     }
 
     private ShadowWifiManager getShadowWifiManager() {

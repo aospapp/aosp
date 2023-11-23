@@ -24,8 +24,6 @@ import android.content.Intent;
  * refactoring.
  */
 public interface PhoneNumberUtilsAdapter {
-    boolean isLocalEmergencyNumber(Context context, String number);
-    boolean isPotentialLocalEmergencyNumber(Context context, String number);
     boolean isUriNumber(String number);
     boolean isSamePhoneNumber(String number1, String number2);
     String getNumberFromIntent(Intent intent, Context context);

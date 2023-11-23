@@ -25,23 +25,21 @@ import java.lang.annotation.RetentionPolicy;
         NotificationViewType.GROUP_EXPANDED,
         NotificationViewType.GROUP_SUMMARY,
         NotificationViewType.BASIC,
-        NotificationViewType.BASIC_HEADSUP,
         NotificationViewType.BASIC_IN_GROUP,
         NotificationViewType.MESSAGE,
-        NotificationViewType.MESSAGE_HEADSUP,
         NotificationViewType.MESSAGE_IN_GROUP,
         NotificationViewType.PROGRESS,
         NotificationViewType.PROGRESS_IN_GROUP,
         NotificationViewType.INBOX,
-        NotificationViewType.INBOX_HEADSUP,
         NotificationViewType.INBOX_IN_GROUP,
         NotificationViewType.CAR_EMERGENCY,
-        NotificationViewType.CAR_EMERGENCY_HEADSUP,
         NotificationViewType.CAR_WARNING,
-        NotificationViewType.CAR_WARNING_HEADSUP,
         NotificationViewType.CAR_INFORMATION,
-        NotificationViewType.CAR_INFORMATION_HEADSUP,
         NotificationViewType.CAR_INFORMATION_IN_GROUP,
+        NotificationViewType.NAVIGATION,
+        NotificationViewType.CALL,
+        NotificationViewType.HEADER,
+        NotificationViewType.FOOTER,
 })
 @Retention(RetentionPolicy.SOURCE)
 @interface NotificationViewType {
@@ -51,33 +49,27 @@ import java.lang.annotation.RetentionPolicy;
     int GROUP_SUMMARY = 3;
 
     int BASIC = 4;
-    int BASIC_HEADSUP = 5;
-    int BASIC_IN_GROUP = 6;
+    int BASIC_IN_GROUP = 5;
 
-    int MESSAGE = 7;
-    int MESSAGE_HEADSUP = 8;
-    int MESSAGE_IN_GROUP = 9;
+    int MESSAGE = 6;
+    int MESSAGE_IN_GROUP = 7;
 
-    int PROGRESS = 10;
-    int PROGRESS_IN_GROUP = 11;
+    int PROGRESS = 8;
+    int PROGRESS_IN_GROUP = 9;
 
-    int INBOX = 12;
-    int INBOX_HEADSUP = 13;
-    int INBOX_IN_GROUP = 14;
+    int INBOX = 10;
+    int INBOX_IN_GROUP = 11;
 
-    int CAR_EMERGENCY = 15;
-    int CAR_EMERGENCY_HEADSUP = 16;
+    int CAR_EMERGENCY = 12;
 
-    int CAR_WARNING = 17;
-    int CAR_WARNING_HEADSUP = 18;
+    int CAR_WARNING = 13;
 
-    int CAR_INFORMATION = 19;
-    int CAR_INFORMATION_HEADSUP = 20;
-    int CAR_INFORMATION_IN_GROUP = 21;
+    int CAR_INFORMATION = 14;
+    int CAR_INFORMATION_IN_GROUP = 15;
 
-    int NAVIGATION = 22;
-    int CALL = 23;
+    int NAVIGATION = 16;
+    int CALL = 17;
 
-    int HEADER = 24;
-    int FOOTER = 25;
+    int HEADER = 18;
+    int FOOTER = 19;
 }

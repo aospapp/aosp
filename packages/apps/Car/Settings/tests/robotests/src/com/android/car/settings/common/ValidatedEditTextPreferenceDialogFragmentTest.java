@@ -28,13 +28,15 @@ import android.widget.EditText;
 import androidx.preference.EditTextPreference;
 import androidx.preference.PreferenceFragmentCompat;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.R;
 import com.android.car.settings.testutils.BaseTestActivity;
+import com.android.car.ui.preference.EditTextPreferenceDialogFragment;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.Robolectric;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.android.controller.ActivityController;
 import org.robolectric.shadow.api.Shadow;
@@ -42,7 +44,7 @@ import org.robolectric.shadows.ShadowAlertDialog;
 import org.robolectric.shadows.ShadowWindow;
 
 /** Unit test for {@link EditTextPreferenceDialogFragment}. */
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 public class ValidatedEditTextPreferenceDialogFragmentTest {
 
     private Context mContext;
@@ -54,24 +56,27 @@ public class ValidatedEditTextPreferenceDialogFragmentTest {
     @Before
     public void setUp() {
         mContext = RuntimeEnvironment.application;
+        Robolectric.getForegroundThreadScheduler().pause();
         mTestActivityController = ActivityController.of(new BaseTestActivity());
         mTestActivity = mTestActivityController.get();
         mTestActivityController.setup();
+
         TestTargetFragment targetFragment = new TestTargetFragment();
         mTestActivity.launchFragment(targetFragment);
         mPreference = new ValidatedEditTextPreference(mContext);
         mPreference.setDialogLayoutResource(R.layout.preference_dialog_edittext);
         mPreference.setKey("key");
+        Robolectric.getForegroundThreadScheduler().unPause();
         targetFragment.getPreferenceScreen().addPreference(mPreference);
+
         mFragment = ValidatedEditTextPreferenceDialogFragment
                 .newInstance(mPreference.getKey());
-
         mFragment.setTargetFragment(targetFragment, /* requestCode= */ 0);
     }
 
     @Test
     public void noValidatorSet_shouldEnablePositiveButton_and_allowEnterToSubmit() {
-        mTestActivity.showDialog(mFragment, /* tag= */ null);
+        mFragment.show(mTestActivity.getSupportFragmentManager(), /* tag= */ null);
 
         Button positiveButton = ShadowAlertDialog.getLatestAlertDialog().getButton(
                 DialogInterface.BUTTON_POSITIVE);
@@ -95,7 +100,7 @@ public class ValidatedEditTextPreferenceDialogFragmentTest {
                         return value.length() > 100;
                     }
                 });
-        mTestActivity.showDialog(mFragment, /* tag= */ null);
+        mFragment.show(mTestActivity.getSupportFragmentManager(), /* tag= */ null);
 
         Button positiveButton = ShadowAlertDialog.getLatestAlertDialog().getButton(
                 DialogInterface.BUTTON_POSITIVE);
@@ -116,7 +121,7 @@ public class ValidatedEditTextPreferenceDialogFragmentTest {
                         return value.length() > 1;
                     }
                 });
-        mTestActivity.showDialog(mFragment, /* tag= */ null);
+        mFragment.show(mTestActivity.getSupportFragmentManager(), /* tag= */ null);
 
         Button positiveButton = ShadowAlertDialog.getLatestAlertDialog().getButton(
                 DialogInterface.BUTTON_POSITIVE);

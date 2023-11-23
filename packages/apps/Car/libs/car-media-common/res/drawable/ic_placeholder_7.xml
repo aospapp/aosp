@@ -19,7 +19,7 @@
     android:width="48dp"
     android:viewportHeight="103"
     android:viewportWidth="103">
-    <path android:fillColor="#FCC933" android:pathData="M0 0h103v103H0z"/>
+    <path android:fillColor="@color/placeholder_color_7" android:pathData="M0 0h103v103H0z"/>
     <path android:fillColor="#000000" android:fillType="evenOdd"
         android:pathData="M52,34.5L52,53.842C50.918,53.218 49.672,52.833 48.333,52.833C44.282,52.833 41,56.115 41,60.167C41,64.218 44.282,67.5 48.333,67.5C52.385,67.5 55.667,64.218 55.667,60.167L55.667,41.833L63,41.833L63,34.5L52,34.5Z"
         android:strokeColor="#000000" android:strokeWidth="1"/>

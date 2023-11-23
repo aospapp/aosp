@@ -22,6 +22,8 @@
     <string name="car_permission_desc_camera" msgid="917024932164501426">"I-access ang (mga) camera ng iyong sasakyan."</string>
     <string name="car_permission_label_energy" msgid="7409144323527821558">"i-access ang impormasyon ng enerhiya ng sasakyan"</string>
     <string name="car_permission_desc_energy" msgid="3392963810053235407">"I-access ang impormasyon sa enerhiya ng iyong sasakyan."</string>
+    <string name="car_permission_label_adjust_range_remaining" msgid="839033553999920138">"isaayos ang natitirang range ng sasakyan"</string>
+    <string name="car_permission_desc_adjust_range_remaining" msgid="2369321650437370673">"Isaayos ang value ng natitirang range ng sasakyan."</string>
     <string name="car_permission_label_hvac" msgid="1499454192558727843">"i-access ang hvac ng sasakyan"</string>
     <string name="car_permission_desc_hvac" msgid="3754229695589774195">"I-access ang hvac ng iyong sasakyan."</string>
     <string name="car_permission_label_mileage" msgid="4661317074631150551">"i-access ang impormasyon ng mileage ng sasakyan"</string>
@@ -62,13 +64,19 @@
     <string name="car_permission_desc_car_ux_restrictions_configuration" msgid="5711926927484813777">"I-configure ang Mga Paghihigpit sa UX"</string>
     <string name="car_permission_label_car_handle_usb_aoap_device" msgid="72783989504378036">"Makipag-ugnayan sa pamamagitan ng USB device sa AOAP mode"</string>
     <string name="car_permission_desc_car_handle_usb_aoap_device" msgid="273505990971317034">"Binibigyang-daan ang isang app na makipag-ugnayan sa isang device sa AOAP mode"</string>
+    <string name="car_permission_label_read_car_occupant_awareness_state" msgid="125517953575032758">"Access sa Pagbasa sa Occupant Awareness System"</string>
+    <string name="car_permission_desc_read_car_occupant_awareness_state" msgid="188865882598414986">"Pinapayagan ang pagbasa sa status at data ng pag-detect para sa Occupant Awareness System"</string>
+    <string name="car_permission_label_control_car_occupant_awareness_system" msgid="7163330266691094542">"Kontrolin ang Graph ng Occupant Awareness System"</string>
+    <string name="car_permission_desc_control_car_occupant_awareness_system" msgid="7123482622084531911">"Pinapayagan ang pagkontrol sa pagsimula at paghinto sa detection graph ng Occupant Awareness System"</string>
     <string name="car_permission_label_bind_input_service" msgid="6698489034024273750">"Serbisyo sa Input ng Sasakyan"</string>
     <string name="car_permission_desc_bind_input_service" msgid="1670323419931890170">"Pangasiwaan ang mga event ng input"</string>
     <string name="car_can_bus_failure" msgid="2334035748788283914">"Hindi gumana ang CAN bus"</string>
     <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"Hindi tumugon ang CAN bus. Hugutin at muling isaksak ang headunit box at i-restart ang sasakyan"</string>
-    <string name="activity_blocked_text" msgid="5342114426610711378">"Para sa seguridad, hindi available ang aktibidad habang nagmamaneho.\nPara magpatuloy, maghintay hanggang sa makaparada."</string>
+    <string name="activity_blocked_text" msgid="8088902789540147995">"Hindi mo puwedeng gamitin ang feature na ito habang nagmamaneho"</string>
     <string name="exit_button_message" msgid="8554690915924055685">"Para magsimula sa mga ligtas na feature ng app, piliin ang <xliff:g id="EXIT_BUTTON">%s</xliff:g>."</string>
     <string name="exit_button" msgid="5829638404777671253">"Bumalik"</string>
+    <string name="exit_button_close_application" msgid="8824289547809332460">"Isara ang app"</string>
+    <string name="exit_button_go_back" msgid="3469083862100560326">"Bumalik"</string>
     <string name="car_permission_label_diag_read" msgid="7248894224877702604">"basahin ang data ng mga diagnostic"</string>
     <string name="car_permission_desc_diag_read" msgid="1121426363040966178">"Basahin ang data ng mga diagnostic mula sa sasakyan."</string>
     <string name="car_permission_label_diag_clear" msgid="4783070510879698157">"i-clear ang data ng mga diagnostic"</string>
@@ -87,6 +95,8 @@
     <string name="car_permission_desc_car_engine_detailed" msgid="1746863362811347700">"I-access ang detalyadong impormasyon sa makina ng iyong sasakyan."</string>
     <string name="car_permission_label_car_energy_ports" msgid="8548990315169219454">"i-access ang takip ng gasolina at charge port ng sasakyan"</string>
     <string name="car_permission_desc_car_energy_ports" msgid="7771185999828794949">"I-access ang takip ng gasolina at charge port ng sasakyan."</string>
+    <string name="car_permission_label_control_car_energy_ports" msgid="4375137311026313475">"kontrolin ang takip ng gasolina at charge port ng sasakyan"</string>
+    <string name="car_permission_desc_control_car_energy_ports" msgid="7364633710492525387">"Kontrolin ang takip ng gasolina at charge port ng sasakyan."</string>
     <string name="car_permission_label_car_identification" msgid="5896712510164020478">"basahin ang pagkakakilanlan ng sasakyan"</string>
     <string name="car_permission_desc_car_identification" msgid="4132040867171275059">"I-access ang pagkakakilanlan ng sasakyan."</string>
     <string name="car_permission_label_control_car_doors" msgid="3032058819250195700">"kontrolin ang mga pintuan ng sasakyan"</string>
@@ -99,6 +109,8 @@
     <string name="car_permission_desc_control_car_seats" msgid="2407536601226470563">"Kontrolin ang mga upuan ng sasakyan."</string>
     <string name="car_permission_label_car_info" msgid="4707513570676492315">"i-access ang pangunahing impormasyon ng sasakyan"</string>
     <string name="car_permission_desc_car_info" msgid="2118081474543537653">"I-access ang pangunahing impormasyon ng sasakyan."</string>
+    <string name="car_permission_label_vendor_permission_info" msgid="4471260460536888654">"i-access ang impormasyon ng pahintulot ng vendor ng sasakyan"</string>
+    <string name="car_permission_desc_vendor_permission_info" msgid="8152113853528488398">"I-access ang impormasyon ng pahintulot ng vendor ng sasakyan."</string>
     <string name="car_permission_label_car_exterior_lights" msgid="541304469604902110">"basahin ang status ng mga ilaw sa labas ng sasakyan"</string>
     <string name="car_permission_desc_car_exterior_lights" msgid="4038037584100849318">"I-access ang status ng mga ilaw sa labas ng sasakyan."</string>
     <string name="car_permission_label_control_car_exterior_lights" msgid="101357531386232141">"basahin ang mga ilaw sa labas ng sasakyan"</string>
@@ -123,5 +135,12 @@
     <string name="car_permission_desc_car_power" msgid="9202079903668652864">"I-access ang status ng power ng sasakyan."</string>
     <string name="car_permission_label_enroll_trust" msgid="3512907900486690218">"Mag-enroll ng Pinagkakatiwalaang Device"</string>
     <string name="car_permission_desc_enroll_trust" msgid="4148649994602185130">"Payagan ang Pag-enroll ng Pinagkakatiwalaang Device"</string>
+    <string name="car_permission_label_car_test_service" msgid="9159328930558208708">"Kontrolin ang test mode ng kotse"</string>
+    <string name="car_permission_desc_car_test_service" msgid="7426844534110145843">"Kontrolin ang test mode ng kotse"</string>
+    <string name="car_permission_label_control_car_features" msgid="3905791560378888286">"I-enable o i-disable ang mga feature ng kotse."</string>
+    <string name="car_permission_desc_control_car_features" msgid="7646711104530599901">"I-enable o i-disable ang mga feature ng kotse."</string>
+    <string name="car_permission_label_use_car_watchdog" msgid="6973938293170413475">"gamitin ang watchdog ng sasakyan"</string>
+    <string name="car_permission_desc_use_car_watchdog" msgid="8244592601805516086">"Gamitin ang watchdog ng sasakyan."</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"Aking Device"</string>
+    <string name="default_guest_name" msgid="2912812799433131476">"Bisita"</string>
 </resources>

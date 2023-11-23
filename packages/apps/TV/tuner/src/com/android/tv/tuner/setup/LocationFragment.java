@@ -23,16 +23,14 @@ import android.location.Address;
 import android.os.Bundle;
 import android.os.Handler;
 import android.support.annotation.NonNull;
-import android.support.v17.leanback.widget.GuidanceStylist.Guidance;
-import android.support.v17.leanback.widget.GuidedAction;
 import android.util.Log;
-
+import androidx.leanback.widget.GuidanceStylist.Guidance;
+import androidx.leanback.widget.GuidedAction;
 import com.android.tv.common.ui.setup.SetupActionHelper;
 import com.android.tv.common.ui.setup.SetupGuidedStepFragment;
 import com.android.tv.common.ui.setup.SetupMultiPaneFragment;
 import com.android.tv.common.util.LocationUtils;
 import com.android.tv.tuner.R;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -40,7 +38,7 @@ import java.util.List;
 /** A fragment shows the rationale of location permission */
 public class LocationFragment extends SetupMultiPaneFragment {
     private static final String TAG = "com.android.tv.tuner.setup.LocationFragment";
-    private static final boolean DEBUG = true;
+    private static final boolean DEBUG = false;
 
     public static final String ACTION_CATEGORY = "com.android.tv.tuner.setup.LocationFragment";
     public static final String KEY_POSTAL_CODE = "key_postal_code";
@@ -79,8 +77,7 @@ public class LocationFragment extends SetupMultiPaneFragment {
                 () -> {
                     synchronized (mPostalCodeLock) {
                         if (DEBUG) {
-                            Log.d(TAG,
-                                    "get location timeout. mPostalCode=" + mPostalCode);
+                            Log.d(TAG, "get location timeout. mPostalCode=" + mPostalCode);
                         }
                         if (mPostalCode == null) {
                             // timeout. setup activity will get null postal code
@@ -121,8 +118,7 @@ public class LocationFragment extends SetupMultiPaneFragment {
                             .id(ACTION_GETTING_LOCATION)
                             .title(getString(R.string.location_choices_getting_location))
                             .focusable(false)
-                            .build()
-            );
+                            .build());
         }
 
         @Override
@@ -147,8 +143,8 @@ public class LocationFragment extends SetupMultiPaneFragment {
         }
 
         @Override
-        public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
-                @NonNull int[] grantResults) {
+        public void onRequestPermissionsResult(
+                int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
             if (requestCode == PERMISSIONS_REQUEST_ACCESS_COARSE_LOCATION) {
                 if (grantResults.length > 0
                         && grantResults[0] == PackageManager.PERMISSION_GRANTED) {

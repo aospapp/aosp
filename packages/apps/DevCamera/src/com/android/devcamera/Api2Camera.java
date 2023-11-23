@@ -770,8 +770,9 @@ public class Api2Camera implements CameraInterface, SurfaceTexture.OnFrameAvaila
     private void publishFrameData(TotalCaptureResult result) {
         // Faces.
         final Face[] faces = result.get(CaptureResult.STATISTICS_FACES);
-        NormalizedFace[] newFaces = new NormalizedFace[faces.length];
-        if (faces.length > 0) {
+        NormalizedFace[] newFaces = new NormalizedFace[0];
+        if (faces != null && faces.length > 0) {
+            newFaces = new NormalizedFace[faces.length];
             int offX = mCameraInfoCache.faceOffsetX();
             int offY = mCameraInfoCache.faceOffsetY();
             int dX = mCameraInfoCache.activeAreaWidth() - 2 * offX;
@@ -800,22 +801,33 @@ public class Api2Camera implements CameraInterface, SurfaceTexture.OnFrameAvaila
         }
 
         // Normalized lens and exposure coordinates.
-        double rm = Math.log10(result.get(CaptureResult.SENSOR_EXPOSURE_TIME));
-        float normExposure = (float) ((rm - SHORT_LOG_EXPOSURE) / (LONG_LOG_EXPOSURE - SHORT_LOG_EXPOSURE));
-        float normLensPos = (mCameraInfoCache.getDiopterHi() - result.get(CaptureResult.LENS_FOCUS_DISTANCE)) / (mCameraInfoCache.getDiopterHi() - mCameraInfoCache.getDiopterLow());
+        Long exposureTime = result.get(CaptureResult.SENSOR_EXPOSURE_TIME);
+        float normExposure = 0.0f;
+        if (exposureTime != null) {
+            normExposure = (float) ((Math.log10(exposureTime) - SHORT_LOG_EXPOSURE) / (LONG_LOG_EXPOSURE - SHORT_LOG_EXPOSURE));
+        }
+        Float focusDistance = result.get(CaptureResult.LENS_FOCUS_DISTANCE);
+        float normLensPos = 0.0f;
+        if (focusDistance != null) {
+            normLensPos = (mCameraInfoCache.getDiopterHi() - focusDistance) / (mCameraInfoCache.getDiopterHi() - mCameraInfoCache.getDiopterLow());
+        }
         mLastIso = result.get(CaptureResult.SENSOR_SENSITIVITY);
 
         // Update frame arrival history.
-        mFrameTimes.add(result.get(CaptureResult.SENSOR_TIMESTAMP));
-        if (mFrameTimes.size() > FPS_CALC_LOOKBACK) {
-            mFrameTimes.removeFirst();
+        Long sensorTimestamp = result.get(CaptureResult.SENSOR_TIMESTAMP);
+        if (sensorTimestamp != null) {
+            mFrameTimes.add(sensorTimestamp);
+            if (mFrameTimes.size() > FPS_CALC_LOOKBACK) {
+              mFrameTimes.removeFirst();
+            }
         }
 
         // Frame drop detector
         {
-            float frameDuration = result.get(CaptureResult.SENSOR_FRAME_DURATION);
-            if (mFrameTimes.size() > 1) {
-                long dt = result.get(CaptureResult.SENSOR_TIMESTAMP) - mFrameTimes.get(mFrameTimes.size()-2);
+            Long frameDurationLong = result.get(CaptureResult.SENSOR_FRAME_DURATION);
+            if (frameDurationLong != null && sensorTimestamp != null && mFrameTimes.size() > 1) {
+                float frameDuration = frameDurationLong;
+                long dt = sensorTimestamp - mFrameTimes.get(mFrameTimes.size()-2);
                 if (dt > 3 * frameDuration / 2 && LOG_DROPPED_FRAMES) {
                     float drops = (dt * 1f / frameDuration) - 1f;
                     Log.e(TAG, String.format("dropped %.2f frames", drops));

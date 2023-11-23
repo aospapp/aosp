@@ -16,7 +16,6 @@
 
 package com.android.documentsui.sidebar;
 
-import androidx.annotation.LayoutRes;
 import android.view.DragEvent;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -24,8 +23,12 @@ import android.view.MenuInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
+import androidx.annotation.LayoutRes;
+import androidx.annotation.Nullable;
+
 import com.android.documentsui.MenuManager;
 import com.android.documentsui.R;
+import com.android.documentsui.base.UserId;
 
 /**
  * Describes a root navigation point of documents. Each one of them is presented as an item in the
@@ -35,12 +38,14 @@ public abstract class Item {
     private final @LayoutRes int mLayoutId;
 
     public final String title;
+    public final UserId userId;
     final String stringId;
 
-    public Item(@LayoutRes int layoutId, String title, String stringId) {
+    public Item(@LayoutRes int layoutId, String title, String stringId, UserId userId) {
         mLayoutId = layoutId;
         this.title = title;
         this.stringId = stringId;
+        this.userId = userId;
     }
 
     public View getView(View convertView, ViewGroup parent) {
@@ -60,8 +65,18 @@ public abstract class Item {
 
     abstract void open();
 
-    String getPackageName() {
+    /**
+     * Get the package name string.
+     */
+    public String getPackageName() {
         return "";
+    }
+
+    /**
+     * Get the root or app summary such as account information.
+     */
+    public @Nullable String getSummary() {
+        return null;
     }
 
     boolean isDropTarget() {

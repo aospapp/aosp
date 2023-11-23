@@ -20,6 +20,7 @@ import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
+import android.graphics.Insets;
 import android.graphics.Point;
 import android.graphics.PorterDuff.Mode;
 import android.graphics.drawable.Drawable;
@@ -32,6 +33,7 @@ import android.provider.Settings;
 import android.util.Log;
 import android.view.View;
 import android.view.View.OnClickListener;
+import android.view.WindowInsets;
 import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
@@ -47,6 +49,7 @@ import androidx.fragment.app.FragmentManager;
 
 import com.android.wallpaper.R;
 import com.android.wallpaper.asset.Asset;
+import com.android.wallpaper.compat.BuildCompat;
 import com.android.wallpaper.compat.ButtonDrawableSetterCompat;
 import com.android.wallpaper.config.Flags;
 import com.android.wallpaper.model.Category;
@@ -165,7 +168,7 @@ public class TopLevelPickerActivity extends BaseActivity implements WallpapersUi
 
         @WallpaperSupportLevel int wallpaperSupportLevel = mDelegate.getWallpaperSupportLevel();
         if (wallpaperSupportLevel != WallpaperDisabledFragment.SUPPORTED_CAN_SET) {
-            setContentView(R.layout.activity_single_fragment);
+            setContentView(R.layout.activity_top_level_picker);
 
             FragmentManager fm = getSupportFragmentManager();
             WallpaperDisabledFragment wallpaperDisabledFragment =
@@ -223,6 +226,15 @@ public class TopLevelPickerActivity extends BaseActivity implements WallpapersUi
     }
 
     @Override
+    public void onBackPressed() {
+        CategoryFragment categoryFragment = getCategoryFragment();
+        if (categoryFragment != null && categoryFragment.popChildFragment()) {
+            return;
+        }
+        super.onBackPressed();
+    }
+
+    @Override
     public void requestCustomPhotoPicker(PermissionChangedListener listener) {
         mDelegate.requestCustomPhotoPicker(listener);
     }
@@ -240,7 +252,30 @@ public class TopLevelPickerActivity extends BaseActivity implements WallpapersUi
     }
 
     private void initializeMobile(boolean shouldForceRefresh) {
-        setContentView(R.layout.activity_single_fragment);
+        setContentView(R.layout.activity_top_level_picker);
+        getWindow().getDecorView().setSystemUiVisibility(
+                getWindow().getDecorView().getSystemUiVisibility()
+                        | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                        | View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
+        findViewById(R.id.fragment_container)
+                .setOnApplyWindowInsetsListener((view, windowInsets) -> {
+            view.setPadding(view.getPaddingLeft(), windowInsets.getSystemWindowInsetTop(),
+                    view.getPaddingRight(), view.getPaddingBottom());
+            // Consume only the top inset (status bar), to let other content in the Activity consume
+            // the nav bar (ie, by using "fitSystemWindows")
+            if (BuildCompat.isAtLeastQ()) {
+                WindowInsets.Builder builder = new WindowInsets.Builder(windowInsets);
+                builder.setSystemWindowInsets(Insets.of(windowInsets.getSystemWindowInsetLeft(),
+                        0, windowInsets.getStableInsetRight(),
+                        windowInsets.getSystemWindowInsetBottom()));
+                return builder.build();
+            } else {
+                return windowInsets.replaceSystemWindowInsets(
+                        windowInsets.getSystemWindowInsetLeft(),
+                        0, windowInsets.getStableInsetRight(),
+                        windowInsets.getSystemWindowInsetBottom());
+            }
+        });
 
         // Set toolbar as the action bar.
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
@@ -752,14 +787,6 @@ public class TopLevelPickerActivity extends BaseActivity implements WallpapersUi
         mDelegate.onRequestPermissionsResult(requestCode, permissions, grantResults);
     }
 
-    /**
-     * Shows the picker activity for the given category.
-     */
-    @Override
-    public void show(String collectionId) {
-        mDelegate.show(collectionId);
-    }
-
     private void reselectLastTab() {
         TabLayout tabLayout = (TabLayout) findViewById(R.id.tab_layout);
 
@@ -859,7 +886,7 @@ public class TopLevelPickerActivity extends BaseActivity implements WallpapersUi
         mWallpaperPersister.setIndividualWallpaperWithPosition(this, wallpaper,
                 WallpaperPersister.WALLPAPER_POSITION_CENTER_CROP, new SetWallpaperCallback() {
                     @Override
-                    public void onSuccess() {
+                    public void onSuccess(WallpaperInfo wallpaperInfo) {
                         dismissSettingWallpaperProgressDialog();
                         refreshCurrentWallpapers(null /* refreshListener */);
 
@@ -920,7 +947,7 @@ public class TopLevelPickerActivity extends BaseActivity implements WallpapersUi
                         wallpaperInfo, WallpaperPersister.WALLPAPER_POSITION_CENTER_CROP,
                         new SetWallpaperCallback() {
                             @Override
-                            public void onSuccess() {
+                            public void onSuccess(WallpaperInfo wallpaperInfo) {
                                 // The user may have closed the activity before the set wallpaper operation
                                 // completed.
                                 if (isDestroyed()) {
@@ -954,7 +981,7 @@ public class TopLevelPickerActivity extends BaseActivity implements WallpapersUi
                         wallpaperInfo, WallpaperPersister.WALLPAPER_POSITION_STRETCH,
                         new SetWallpaperCallback() {
                             @Override
-                            public void onSuccess() {
+                            public void onSuccess(WallpaperInfo wallpaperInfo) {
                                 // The user may have closed the activity before the set wallpaper operation
                                 // completed.
                                 if (isDestroyed()) {
@@ -988,7 +1015,7 @@ public class TopLevelPickerActivity extends BaseActivity implements WallpapersUi
                         wallpaperInfo, WallpaperPersister.WALLPAPER_POSITION_CENTER,
                         new SetWallpaperCallback() {
                             @Override
-                            public void onSuccess() {
+                            public void onSuccess(WallpaperInfo wallpaperInfo) {
                                 // The user may have closed the activity before the set wallpaper operation
                                 // completed.
                                 if (isDestroyed()) {

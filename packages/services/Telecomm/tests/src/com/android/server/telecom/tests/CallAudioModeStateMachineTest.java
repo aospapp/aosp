@@ -17,13 +17,16 @@
 package com.android.server.telecom.tests;
 
 import android.media.AudioManager;
+import android.os.HandlerThread;
 import android.test.suitebuilder.annotation.SmallTest;
 
 import com.android.server.telecom.CallAudioManager;
 import com.android.server.telecom.CallAudioModeStateMachine;
 import com.android.server.telecom.CallAudioRouteStateMachine;
+import com.android.server.telecom.CallAudioModeStateMachine.MessageArgs.Builder;
 import com.android.server.telecom.SystemStateHelper;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -47,17 +50,29 @@ public class CallAudioModeStateMachineTest extends TelecomTestCase {
     @Mock private AudioManager mAudioManager;
     @Mock private CallAudioManager mCallAudioManager;
 
+    private HandlerThread mTestThread;
+
     @Override
     @Before
     public void setUp() throws Exception {
+        mTestThread = new HandlerThread("CallAudioModeStateMachineTest");
+        mTestThread.start();
         super.setUp();
+    }
+
+    @Override
+    @After
+    public void tearDown() throws Exception {
+        mTestThread.quit();
+        mTestThread.join();
+        super.tearDown();
     }
 
     @SmallTest
     @Test
     public void testNoFocusWhenRingerSilenced() throws Throwable {
         CallAudioModeStateMachine sm = new CallAudioModeStateMachine(mSystemStateHelper,
-                mAudioManager);
+                mAudioManager, mTestThread.getLooper());
         sm.setCallAudioManager(mCallAudioManager);
         sm.sendMessage(CallAudioModeStateMachine.ABANDON_FOCUS_FOR_TESTING);
         waitForHandlerAction(sm.getHandler(), TEST_TIMEOUT);
@@ -65,15 +80,14 @@ public class CallAudioModeStateMachineTest extends TelecomTestCase {
         resetMocks();
         when(mCallAudioManager.startRinging()).thenReturn(false);
 
-        sm.sendMessage(CallAudioModeStateMachine.NEW_RINGING_CALL,
-                new CallAudioModeStateMachine.MessageArgs(
-                        false, // hasActiveOrDialingCalls
-                        true, // hasRingingCalls
-                        false, // hasHoldingCalls
-                        false, // isTonePlaying
-                        false, // foregroundCallIsVoip
-                        null // session
-                ));
+        sm.sendMessage(CallAudioModeStateMachine.NEW_RINGING_CALL, new Builder()
+                .setHasActiveOrDialingCalls(false)
+                .setHasRingingCalls(true)
+                .setHasHoldingCalls(false)
+                .setIsTonePlaying(false)
+                .setForegroundCallIsVoip(false)
+                .setSession(null)
+                .build());
         waitForHandlerAction(sm.getHandler(), TEST_TIMEOUT);
 
         assertEquals(CallAudioModeStateMachine.RING_STATE_NAME, sm.getCurrentStateName());
@@ -90,32 +104,30 @@ public class CallAudioModeStateMachineTest extends TelecomTestCase {
     @Test
     public void testNoRingWhenDeviceIsAtEar() {
         CallAudioModeStateMachine sm = new CallAudioModeStateMachine(mSystemStateHelper,
-                mAudioManager);
+                mAudioManager, mTestThread.getLooper());
         sm.setCallAudioManager(mCallAudioManager);
         sm.sendMessage(CallAudioModeStateMachine.ABANDON_FOCUS_FOR_TESTING);
-        sm.sendMessage(CallAudioModeStateMachine.NEW_HOLDING_CALL,
-                new CallAudioModeStateMachine.MessageArgs(
-                        false, // hasActiveOrDialingCalls
-                        false, // hasRingingCalls
-                        true, // hasHoldingCalls
-                        false, // isTonePlaying
-                        false, // foregroundCallIsVoip
-                        null // session
-                ));
+        sm.sendMessage(CallAudioModeStateMachine.NEW_HOLDING_CALL, new Builder()
+                .setHasActiveOrDialingCalls(false)
+                .setHasRingingCalls(false)
+                .setHasHoldingCalls(true)
+                .setIsTonePlaying(false)
+                .setForegroundCallIsVoip(false)
+                .setSession(null)
+                .build());
         waitForHandlerAction(sm.getHandler(), TEST_TIMEOUT);
         assertEquals(CallAudioModeStateMachine.TONE_HOLD_STATE_NAME, sm.getCurrentStateName());
         when(mSystemStateHelper.isDeviceAtEar()).thenReturn(true);
 
         resetMocks();
-        sm.sendMessage(CallAudioModeStateMachine.NEW_RINGING_CALL,
-                new CallAudioModeStateMachine.MessageArgs(
-                        false, // hasActiveOrDialingCalls
-                        true, // hasRingingCalls
-                        true, // hasHoldingCalls
-                        false, // isTonePlaying
-                        false, // foregroundCallIsVoip
-                        null // session
-                ));
+        sm.sendMessage(CallAudioModeStateMachine.NEW_RINGING_CALL, new Builder()
+                .setHasActiveOrDialingCalls(false)
+                .setHasRingingCalls(true)
+                .setHasHoldingCalls(true)
+                .setIsTonePlaying(false)
+                .setForegroundCallIsVoip(false)
+                .setSession(null)
+                .build());
         waitForHandlerAction(sm.getHandler(), TEST_TIMEOUT);
 
         verify(mAudioManager, never()).requestAudioFocusForCall(anyInt(), anyInt());
@@ -128,7 +140,7 @@ public class CallAudioModeStateMachineTest extends TelecomTestCase {
     @Test
     public void testRegainFocusWhenHfpIsConnectedSilenced() throws Throwable {
         CallAudioModeStateMachine sm = new CallAudioModeStateMachine(mSystemStateHelper,
-                mAudioManager);
+                mAudioManager, mTestThread.getLooper());
         sm.setCallAudioManager(mCallAudioManager);
         sm.sendMessage(CallAudioModeStateMachine.ABANDON_FOCUS_FOR_TESTING);
         waitForHandlerAction(sm.getHandler(), TEST_TIMEOUT);
@@ -136,15 +148,14 @@ public class CallAudioModeStateMachineTest extends TelecomTestCase {
         resetMocks();
         when(mCallAudioManager.startRinging()).thenReturn(false);
 
-        sm.sendMessage(CallAudioModeStateMachine.NEW_RINGING_CALL,
-                new CallAudioModeStateMachine.MessageArgs(
-                        false, // hasActiveOrDialingCalls
-                        true, // hasRingingCalls
-                        false, // hasHoldingCalls
-                        false, // isTonePlaying
-                        false, // foregroundCallIsVoip
-                        null // session
-                ));
+        sm.sendMessage(CallAudioModeStateMachine.NEW_RINGING_CALL, new Builder()
+                .setHasActiveOrDialingCalls(false)
+                .setHasRingingCalls(true)
+                .setHasHoldingCalls(false)
+                .setIsTonePlaying(false)
+                .setForegroundCallIsVoip(false)
+                .setSession(null)
+                .build());
         waitForHandlerAction(sm.getHandler(), TEST_TIMEOUT);
 
         assertEquals(CallAudioModeStateMachine.RING_STATE_NAME, sm.getCurrentStateName());
@@ -169,6 +180,81 @@ public class CallAudioModeStateMachineTest extends TelecomTestCase {
                 CallAudioRouteStateMachine.RINGING_FOCUS);
     }
 
+    @SmallTest
+    @Test
+    public void testDoNotRingTwiceWhenHfpConnected() {
+        CallAudioModeStateMachine sm = new CallAudioModeStateMachine(mSystemStateHelper,
+                mAudioManager, mTestThread.getLooper());
+        sm.setCallAudioManager(mCallAudioManager);
+        sm.sendMessage(CallAudioModeStateMachine.ABANDON_FOCUS_FOR_TESTING);
+        waitForHandlerAction(sm.getHandler(), TEST_TIMEOUT);
+
+        resetMocks();
+        when(mCallAudioManager.startRinging()).thenReturn(true);
+
+        sm.sendMessage(CallAudioModeStateMachine.NEW_RINGING_CALL, new Builder()
+                .setHasActiveOrDialingCalls(false)
+                .setHasRingingCalls(true)
+                .setHasHoldingCalls(false)
+                .setIsTonePlaying(false)
+                .setForegroundCallIsVoip(false)
+                .setSession(null)
+                .build());
+        waitForHandlerAction(sm.getHandler(), TEST_TIMEOUT);
+
+        assertEquals(CallAudioModeStateMachine.RING_STATE_NAME, sm.getCurrentStateName());
+
+        verify(mAudioManager).requestAudioFocusForCall(AudioManager.STREAM_RING,
+                AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
+        verify(mAudioManager).setMode(AudioManager.MODE_RINGTONE);
+        verify(mCallAudioManager).setCallAudioRouteFocusState(
+                CallAudioRouteStateMachine.RINGING_FOCUS);
+
+        when(mCallAudioManager.isRingtonePlaying()).thenReturn(true);
+        sm.sendMessage(CallAudioModeStateMachine.RINGER_MODE_CHANGE);
+        waitForHandlerAction(sm.getHandler(), TEST_TIMEOUT);
+
+        // Make sure we don't try and start ringing again.
+        verify(mCallAudioManager, times(1)).startRinging();
+    }
+
+    @SmallTest
+    @Test
+    public void testStartRingingAfterHfpConnectedIfNotAlreadyPlaying() {
+        CallAudioModeStateMachine sm = new CallAudioModeStateMachine(mSystemStateHelper,
+                mAudioManager, mTestThread.getLooper());
+        sm.setCallAudioManager(mCallAudioManager);
+        sm.sendMessage(CallAudioModeStateMachine.ABANDON_FOCUS_FOR_TESTING);
+        waitForHandlerAction(sm.getHandler(), TEST_TIMEOUT);
+
+        resetMocks();
+        when(mCallAudioManager.startRinging()).thenReturn(true);
+
+        sm.sendMessage(CallAudioModeStateMachine.NEW_RINGING_CALL, new Builder()
+                .setHasActiveOrDialingCalls(false)
+                .setHasRingingCalls(true)
+                .setHasHoldingCalls(false)
+                .setIsTonePlaying(false)
+                .setForegroundCallIsVoip(false)
+                .setSession(null)
+                .build());
+        waitForHandlerAction(sm.getHandler(), TEST_TIMEOUT);
+
+        assertEquals(CallAudioModeStateMachine.RING_STATE_NAME, sm.getCurrentStateName());
+
+        verify(mAudioManager).requestAudioFocusForCall(AudioManager.STREAM_RING,
+                AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
+        verify(mAudioManager).setMode(AudioManager.MODE_RINGTONE);
+        verify(mCallAudioManager).setCallAudioRouteFocusState(
+                CallAudioRouteStateMachine.RINGING_FOCUS);
+
+        when(mCallAudioManager.isRingtonePlaying()).thenReturn(false);
+        sm.sendMessage(CallAudioModeStateMachine.RINGER_MODE_CHANGE);
+        waitForHandlerAction(sm.getHandler(), TEST_TIMEOUT);
+
+        // Make sure we do try and start ringing again, since the ringtone wasn't already playing.
+        verify(mCallAudioManager, times(2)).startRinging();
+    }
 
     private void resetMocks() {
         clearInvocations(mCallAudioManager, mAudioManager);

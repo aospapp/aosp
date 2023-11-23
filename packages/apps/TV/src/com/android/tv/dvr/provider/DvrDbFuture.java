@@ -16,21 +16,26 @@
 
 package com.android.tv.dvr.provider;
 
-import android.content.Context;
 import android.database.Cursor;
 import android.support.annotation.Nullable;
 import android.util.Log;
+
 import com.android.tv.common.concurrent.NamedThreadFactory;
+import com.android.tv.common.flags.DvrFlags;
 import com.android.tv.dvr.data.ScheduledRecording;
 import com.android.tv.dvr.data.SeriesRecording;
 import com.android.tv.dvr.provider.DvrContract.Schedules;
 import com.android.tv.dvr.provider.DvrContract.SeriesRecordings;
 import com.android.tv.util.MainThreadExecutor;
+
+import com.google.auto.factory.AutoFactory;
+import com.google.auto.factory.Provided;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executors;
@@ -38,29 +43,24 @@ import java.util.concurrent.Executors;
 /** {@link DvrDbFuture} that defaults to executing on its own single threaded Executor Service. */
 public abstract class DvrDbFuture<ParamsT, ResultT> {
     private static final NamedThreadFactory THREAD_FACTORY =
-        new NamedThreadFactory(DvrDbFuture.class.getSimpleName());
+            new NamedThreadFactory(DvrDbFuture.class.getSimpleName());
     private static final ListeningExecutorService DB_EXECUTOR =
-        MoreExecutors.listeningDecorator(Executors.newSingleThreadExecutor(THREAD_FACTORY));
+            MoreExecutors.listeningDecorator(Executors.newSingleThreadExecutor(THREAD_FACTORY));
 
-    private static DvrDatabaseHelper sDbHelper;
+    final DvrDatabaseHelper mDbHelper;
     private ListenableFuture<ResultT> mFuture;
 
-    final Context mContext;
-
-    private DvrDbFuture(Context context) {
-        mContext = context;
+    private DvrDbFuture(DvrDatabaseHelper mDbHelper) {
+        this.mDbHelper = mDbHelper;
     }
 
-    /** Execute the task on the {@link #DB_EXECUTOR} thread and return Future*/
+    /** Execute the task on the {@link #DB_EXECUTOR} thread and return Future */
     @SafeVarargs
     public final ListenableFuture<ResultT> executeOnDbThread(
-        FutureCallback<ResultT> callback, ParamsT... params) {
-            if (sDbHelper == null) {
-                sDbHelper = new DvrDatabaseHelper(mContext.getApplicationContext());
-            }
-            mFuture = DB_EXECUTOR.submit(() -> dbHelperInBackground(params));
-            Futures.addCallback(mFuture, callback, MainThreadExecutor.getInstance());
-            return mFuture;
+            FutureCallback<ResultT> callback, ParamsT... params) {
+        mFuture = DB_EXECUTOR.submit(() -> dbHelperInBackground(params));
+        Futures.addCallback(mFuture, callback, MainThreadExecutor.getInstance());
+        return mFuture;
     }
 
     /** Executes in the background after initializing DbHelper} */
@@ -72,52 +72,63 @@ public abstract class DvrDbFuture<ParamsT, ResultT> {
     }
 
     /** Inserts schedules. */
-    public static class AddScheduleFuture
-            extends DvrDbFuture<ScheduledRecording, Void> {
-        public AddScheduleFuture(Context context) {
-            super(context);
+    public static class AddScheduleFuture extends DvrDbFuture<ScheduledRecording, Void> {
+        public AddScheduleFuture(DvrDatabaseHelper dbHelper) {
+            super(dbHelper);
         }
 
         @Override
         protected final Void dbHelperInBackground(ScheduledRecording... params) {
-            sDbHelper.insertSchedules(params);
+            mDbHelper.insertSchedules(params);
             return null;
         }
     }
 
     /** Update schedules. */
-    public static class UpdateScheduleFuture
-            extends DvrDbFuture<ScheduledRecording, Void> {
-        public UpdateScheduleFuture(Context context) {
-            super(context);
+    public static class UpdateScheduleFuture extends DvrDbFuture<ScheduledRecording, Void> {
+        public UpdateScheduleFuture(DvrDatabaseHelper dbHelper) {
+            super(dbHelper);
         }
 
         @Override
         protected final Void dbHelperInBackground(ScheduledRecording... params) {
-            sDbHelper.updateSchedules(params);
+            mDbHelper.updateSchedules(params);
             return null;
         }
     }
 
     /** Delete schedules. */
-    public static class DeleteScheduleFuture
-            extends DvrDbFuture<ScheduledRecording, Void> {
-        public DeleteScheduleFuture(Context context) {
-            super(context);
+    public static class DeleteScheduleFuture extends DvrDbFuture<ScheduledRecording, Void> {
+        public DeleteScheduleFuture(DvrDatabaseHelper dbHelper) {
+            super(dbHelper);
         }
 
         @Override
         protected final Void dbHelperInBackground(ScheduledRecording... params) {
-            sDbHelper.deleteSchedules(params);
+            mDbHelper.deleteSchedules(params);
             return null;
         }
     }
 
     /** Returns all {@link ScheduledRecording}s. */
-    public static class DvrQueryScheduleFuture
-            extends DvrDbFuture<Void, List<ScheduledRecording>> {
-        public DvrQueryScheduleFuture(Context context) {
-            super(context);
+    public static class DvrQueryScheduleFuture extends DvrDbFuture<Void, List<ScheduledRecording>> {
+
+        private final DvrFlags mDvrFlags;
+
+        /**
+         * Factory for {@link DvrQueryScheduleFuture}.
+         *
+         * <p>This wrapper class keeps other classes from needing to reference the
+         * {@link AutoFactory} generated class.
+         */
+        public interface Factory {
+            public DvrQueryScheduleFuture create(DvrDatabaseHelper dbHelper);
+        }
+
+        @AutoFactory(implementing = Factory.class, className = "DvrQueryScheduleFutureFactory")
+        public DvrQueryScheduleFuture(DvrDatabaseHelper dbHelper, @Provided DvrFlags dvrFlags) {
+            super(dbHelper);
+            mDvrFlags = dvrFlags;
         }
 
         @Override
@@ -127,9 +138,19 @@ public abstract class DvrDbFuture<ParamsT, ResultT> {
                 return null;
             }
             List<ScheduledRecording> scheduledRecordings = new ArrayList<>();
-            try (Cursor c = sDbHelper.query(Schedules.TABLE_NAME, ScheduledRecording.PROJECTION)) {
-                while (c.moveToNext() && !isCancelled()) {
-                    scheduledRecordings.add(ScheduledRecording.fromCursor(c));
+            if (mDvrFlags.startEarlyEndLateEnabled()) {
+                try (Cursor c = mDbHelper.query(Schedules.TABLE_NAME,
+                        ScheduledRecording.PROJECTION_WITH_TIME_OFFSET)) {
+                    while (c.moveToNext() && !isCancelled()) {
+                        scheduledRecordings.add(ScheduledRecording.fromCursorWithTimeOffset(c));
+                    }
+                }
+            } else {
+                try (Cursor c = mDbHelper.query(Schedules.TABLE_NAME,
+                        ScheduledRecording.PROJECTION)) {
+                    while (c.moveToNext() && !isCancelled()) {
+                        scheduledRecordings.add(ScheduledRecording.fromCursor(c));
+                    }
                 }
             }
             return scheduledRecordings;
@@ -137,43 +158,40 @@ public abstract class DvrDbFuture<ParamsT, ResultT> {
     }
 
     /** Inserts series recordings. */
-    public static class AddSeriesRecordingFuture
-            extends DvrDbFuture<SeriesRecording, Void> {
-        public AddSeriesRecordingFuture(Context context) {
-            super(context);
+    public static class AddSeriesRecordingFuture extends DvrDbFuture<SeriesRecording, Void> {
+        public AddSeriesRecordingFuture(DvrDatabaseHelper dbHelper) {
+            super(dbHelper);
         }
 
         @Override
         protected final Void dbHelperInBackground(SeriesRecording... params) {
-            sDbHelper.insertSeriesRecordings(params);
+            mDbHelper.insertSeriesRecordings(params);
             return null;
         }
     }
 
     /** Update series recordings. */
-    public static class UpdateSeriesRecordingFuture
-            extends DvrDbFuture<SeriesRecording, Void> {
-        public UpdateSeriesRecordingFuture(Context context) {
-            super(context);
+    public static class UpdateSeriesRecordingFuture extends DvrDbFuture<SeriesRecording, Void> {
+        public UpdateSeriesRecordingFuture(DvrDatabaseHelper dbHelper) {
+            super(dbHelper);
         }
 
         @Override
         protected final Void dbHelperInBackground(SeriesRecording... params) {
-            sDbHelper.updateSeriesRecordings(params);
+            mDbHelper.updateSeriesRecordings(params);
             return null;
         }
     }
 
     /** Delete series recordings. */
-    public static class DeleteSeriesRecordingFuture
-            extends DvrDbFuture<SeriesRecording, Void> {
-        public DeleteSeriesRecordingFuture(Context context) {
-            super(context);
+    public static class DeleteSeriesRecordingFuture extends DvrDbFuture<SeriesRecording, Void> {
+        public DeleteSeriesRecordingFuture(DvrDatabaseHelper dbHelper) {
+            super(dbHelper);
         }
 
         @Override
         protected final Void dbHelperInBackground(SeriesRecording... params) {
-            sDbHelper.deleteSeriesRecordings(params);
+            mDbHelper.deleteSeriesRecordings(params);
             return null;
         }
     }
@@ -183,8 +201,8 @@ public abstract class DvrDbFuture<ParamsT, ResultT> {
             extends DvrDbFuture<Void, List<SeriesRecording>> {
         private static final String TAG = "DvrQuerySeriesRecording";
 
-        public DvrQuerySeriesRecordingFuture(Context context) {
-            super(context);
+        public DvrQuerySeriesRecordingFuture(DvrDatabaseHelper dbHelper) {
+            super(dbHelper);
         }
 
         @Override
@@ -195,7 +213,7 @@ public abstract class DvrDbFuture<ParamsT, ResultT> {
             }
             List<SeriesRecording> scheduledRecordings = new ArrayList<>();
             try (Cursor c =
-                    sDbHelper.query(SeriesRecordings.TABLE_NAME, SeriesRecording.PROJECTION)) {
+                    mDbHelper.query(SeriesRecordings.TABLE_NAME, SeriesRecording.PROJECTION)) {
                 while (c.moveToNext() && !isCancelled()) {
                     scheduledRecordings.add(SeriesRecording.fromCursor(c));
                 }

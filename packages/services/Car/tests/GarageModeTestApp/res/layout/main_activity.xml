@@ -62,13 +62,6 @@ limitations under the License.
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/off_car_testing"/>
-
-        <Button
-            style="@style/Button"
-            android:id="@+id/incar_test_btn"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/in_car_testing"/>
     </LinearLayout>
 
     <FrameLayout

@@ -18,63 +18,15 @@ package com.android.car.dialer.ui.settings;
 
 import android.os.Bundle;
 
-import androidx.annotation.Nullable;
-import androidx.fragment.app.DialogFragment;
-import androidx.fragment.app.Fragment;
-import androidx.preference.ListPreference;
-import androidx.preference.Preference;
-import androidx.preference.PreferenceFragmentCompat;
-
 import com.android.car.dialer.R;
-import com.android.car.dialer.ui.settings.common.SettingsListPreferenceDialogFragment;
+import com.android.car.ui.preference.PreferenceFragment;
 
 /**
  * A fragment that displays the settings page
  */
-public class DialerSettingsFragment extends PreferenceFragmentCompat {
-    private static final String TAG = "CD.SettingsFragment";
-    private static final String DIALOG_FRAGMENT_TAG = "DIALOG";
-
+public class DialerSettingsFragment extends PreferenceFragment {
     @Override
     public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
         setPreferencesFromResource(R.xml.settings_page, rootKey);
-    }
-
-    /**
-     * Settings needs to launch custom dialog types in order to extend the Device Default theme.
-     *
-     * @param preference The Preference object requesting the dialog.
-     */
-    @Override
-    public void onDisplayPreferenceDialog(Preference preference) {
-        // check if dialog is already showing
-        if (findDialogByTag(DIALOG_FRAGMENT_TAG) != null) {
-            return;
-        }
-
-        DialogFragment dialogFragment;
-        if (preference instanceof ListPreference) {
-            dialogFragment = SettingsListPreferenceDialogFragment.newInstance(preference.getKey());
-        } else {
-            throw new IllegalArgumentException(
-                    "Tried to display dialog for unknown preference type. Did you forget to "
-                            + "override onDisplayPreferenceDialog()?");
-        }
-
-        dialogFragment.setTargetFragment(/* fragment= */ this, /* requestCode= */ 0);
-        showDialog(dialogFragment, DIALOG_FRAGMENT_TAG);
-    }
-
-    @Nullable
-    private DialogFragment findDialogByTag(String tag) {
-        Fragment fragment = getFragmentManager().findFragmentByTag(tag);
-        if (fragment instanceof DialogFragment) {
-            return (DialogFragment) fragment;
-        }
-        return null;
-    }
-
-    private void showDialog(DialogFragment dialogFragment, @Nullable String tag) {
-        dialogFragment.show(getFragmentManager(), tag);
     }
 }

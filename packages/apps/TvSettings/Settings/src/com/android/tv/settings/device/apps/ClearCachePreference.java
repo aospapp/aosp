@@ -16,6 +16,9 @@
 
 package com.android.tv.settings.device.apps;
 
+import static com.android.tv.settings.util.InstrumentationUtils.logEntrySelected;
+
+import android.app.tvsettings.TvSettingsEnums;
 import android.content.Context;
 import android.os.Bundle;
 import android.text.format.Formatter;
@@ -42,6 +45,11 @@ public class ClearCachePreference extends AppActionPreference {
         setSummary(mClearingCache ? context.getString(R.string.computing_size)
                 : Formatter.formatFileSize(context, mEntry.cacheSize + mEntry.externalCacheSize));
         setEnabled(!mClearingCache && mEntry.cacheSize > 0);
+        this.setOnPreferenceClickListener(
+                preference -> {
+                    logEntrySelected(TvSettingsEnums.APPS_ALL_APPS_APP_ENTRY_CLEAR_CACHE);
+                    return false;
+                });
     }
 
     public void setClearingCache(boolean clearingCache) {

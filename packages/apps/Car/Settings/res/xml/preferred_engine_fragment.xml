@@ -16,7 +16,8 @@
 
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
                   xmlns:settings="http://schemas.android.com/apk/res-auto"
-                  android:title="@string/text_to_speech_preferred_engine_settings">
+                  android:title="@string/text_to_speech_preferred_engine_settings"
+                  android:key="@string/psk_preferred_engine">
     <com.android.car.settings.common.LogicalPreferenceGroup
         android:key="pk_tts_preferred_engine_options"
         settings:controller="com.android.car.settings.tts.PreferredEngineOptionsPreferenceController"/>

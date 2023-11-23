@@ -16,7 +16,6 @@
 
 package com.android.tv.dvr.ui.playback;
 
-import android.app.Activity;
 import android.content.ContentUris;
 import android.content.Intent;
 import android.content.res.Configuration;
@@ -28,9 +27,12 @@ import com.android.tv.Starter;
 import com.android.tv.dialog.PinDialogFragment.OnPinCheckedListener;
 import com.android.tv.dvr.data.RecordedProgram;
 import com.android.tv.util.Utils;
+import dagger.android.AndroidInjection;
+import dagger.android.ContributesAndroidInjector;
+import dagger.android.DaggerActivity;
 
 /** Activity to play a {@link RecordedProgram}. */
-public class DvrPlaybackActivity extends Activity implements OnPinCheckedListener {
+public class DvrPlaybackActivity extends DaggerActivity implements OnPinCheckedListener {
     private static final String TAG = "DvrPlaybackActivity";
     private static final boolean DEBUG = false;
 
@@ -39,6 +41,7 @@ public class DvrPlaybackActivity extends Activity implements OnPinCheckedListene
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        AndroidInjection.inject(this);
         Starter.start(this);
         if (DEBUG) Log.d(TAG, "onCreate");
         super.onCreate(savedInstanceState);
@@ -91,5 +94,17 @@ public class DvrPlaybackActivity extends Activity implements OnPinCheckedListene
 
     void setOnPinCheckListener(OnPinCheckedListener listener) {
         mOnPinCheckedListener = listener;
+    }
+
+    /**
+     * Exports {@link DvrPlaybackActivity} for Dagger codegen to create the appropriate injector.
+     */
+    @dagger.Module
+    public abstract static class Module {
+        @ContributesAndroidInjector
+        abstract DvrPlaybackActivity contributesDvrPlaybackActivity();
+
+        @ContributesAndroidInjector
+        abstract DvrPlaybackOverlayFragment contributesDvrPlaybackOverlayFragment();
     }
 }

@@ -43,4 +43,5 @@
     <color name="teal2">#FF26A599</color>
     <color name="term_status_bar">#E8EAED</color>
     <color name="header_text_color">#000000</color>
+    <color name="grey_text">#5F6368</color>
 </resources>

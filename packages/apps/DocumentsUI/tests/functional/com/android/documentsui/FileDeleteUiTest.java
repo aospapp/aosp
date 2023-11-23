@@ -66,7 +66,9 @@ public class FileDeleteUiTest extends ActivityTest<FilesActivity> {
                     mErrorReason = intent.getStringExtra(
                             TestNotificationService.EXTRA_ERROR_REASON);
                 }
-                mCountDownLatch.countDown();
+                if (mCountDownLatch != null) {
+                    mCountDownLatch.countDown();
+                }
             }
         }
     };
@@ -111,10 +113,8 @@ public class FileDeleteUiTest extends ActivityTest<FilesActivity> {
 
     @Override
     public void tearDown() throws Exception {
-        mCountDownLatch.countDown();
-        mCountDownLatch = null;
-
         context.unregisterReceiver(mReceiver);
+        mCountDownLatch = null;
         try {
             bots.notifications.setNotificationAccess(getActivity(), false);
         } catch (Exception e) {

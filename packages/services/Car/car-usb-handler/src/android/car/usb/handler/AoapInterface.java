@@ -22,6 +22,10 @@ import android.util.Log;
 import android.util.Pair;
 
 import java.io.IOException;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -97,7 +101,7 @@ final class AoapInterface {
     /**
      * Accessory write timeout.
      */
-    public static final int AOAP_TIMEOUT_MS = 2000;
+    public static final int AOAP_TIMEOUT_MS = 50;
 
     /**
      * Set of VID:PID pairs blacklisted through config_AoapIncompatibleDeviceIds. Only
@@ -107,13 +111,29 @@ final class AoapInterface {
 
     private static final String TAG = AoapInterface.class.getSimpleName();
 
+    @Retention(RetentionPolicy.SOURCE)
+    @Target({ ElementType.FIELD, ElementType.PARAMETER })
+    public @interface Direction {}
+
+    @Direction
+    public static final int WRITE = 1;
+    @Direction
+    public static final int READ = 2;
+
+
     public static int getProtocol(UsbDeviceConnection conn) {
         byte[] buffer = new byte[2];
-        int len = conn.controlTransfer(
-                UsbConstants.USB_DIR_IN | UsbConstants.USB_TYPE_VENDOR,
-                ACCESSORY_GET_PROTOCOL, 0, 0, buffer, 2, AOAP_TIMEOUT_MS);
-        if (len != 2) {
+
+        int len = transfer(conn, READ, ACCESSORY_GET_PROTOCOL, 0, buffer, buffer.length);
+        if (len == 0) {
             return -1;
+        }
+        if (len < 0) {
+            Log.w(TAG, "getProtocol() failed. Retrying...");
+            len = transfer(conn, READ, ACCESSORY_GET_PROTOCOL, 0, buffer, buffer.length);
+            if (len != buffer.length) {
+                return -1;
+            }
         }
         return (buffer[1] << 8) | buffer[0];
     }
@@ -125,21 +145,22 @@ final class AoapInterface {
     public static void sendString(UsbDeviceConnection conn, int index, String string)
             throws IOException {
         byte[] buffer = (string + "\0").getBytes();
-        int len = conn.controlTransfer(
-                UsbConstants.USB_DIR_OUT | UsbConstants.USB_TYPE_VENDOR,
-                ACCESSORY_SEND_STRING, 0, index,
-                buffer, buffer.length, AOAP_TIMEOUT_MS);
+        int len = transfer(conn, WRITE, ACCESSORY_SEND_STRING, index, buffer,
+                buffer.length);
         if (len != buffer.length) {
-            throw new IOException("Failed to send string " + index + ": \"" + string + "\"");
+            Log.w(TAG, "sendString for " + index + ":" + string + " failed. Retrying...");
+            len = transfer(conn, WRITE, ACCESSORY_SEND_STRING, index, buffer,
+                buffer.length);
+            if (len != buffer.length) {
+                throw new IOException("Failed to send string " + index + ": \"" + string + "\"");
+            }
         } else {
             Log.i(TAG, "Sent string " + index + ": \"" + string + "\"");
         }
     }
 
     public static void sendAoapStart(UsbDeviceConnection conn) throws IOException {
-        int len = conn.controlTransfer(
-                UsbConstants.USB_DIR_OUT | UsbConstants.USB_TYPE_VENDOR,
-                ACCESSORY_START, 0, 0, null, 0, AOAP_TIMEOUT_MS);
+        int len = transfer(conn, WRITE, ACCESSORY_START, 0, null, 0);
         if (len < 0) {
             throw new IOException("Control transfer for accessory start failed: " + len);
         }
@@ -180,5 +201,23 @@ final class AoapInterface {
         final int pid = device.getProductId();
         return vid == USB_ACCESSORY_VENDOR_ID
                 && USB_ACCESSORY_MODE_PRODUCT_ID.contains(pid);
+    }
+
+    private static int transfer(UsbDeviceConnection conn, @Direction int direction, int string,
+            int index, byte[] buffer, int length) {
+        int directionConstant;
+        switch (direction) {
+            case READ:
+                directionConstant = UsbConstants.USB_DIR_IN;
+                break;
+            case WRITE:
+                directionConstant = UsbConstants.USB_DIR_OUT;
+                break;
+            default:
+                Log.w(TAG, "Unknown direction for transfer: " + direction);
+                return -1;
+        }
+        return conn.controlTransfer(directionConstant | UsbConstants.USB_TYPE_VENDOR, string, 0,
+            index, buffer, length, AOAP_TIMEOUT_MS);
     }
 }

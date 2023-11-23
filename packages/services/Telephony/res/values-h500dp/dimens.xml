@@ -16,5 +16,5 @@
   -->
 
 <resources>
-    <dimen name="dialpad_bottom_padding">36dp</dimen>
+    <dimen name="dialpad_bottom_padding">16dp</dimen>
 </resources>

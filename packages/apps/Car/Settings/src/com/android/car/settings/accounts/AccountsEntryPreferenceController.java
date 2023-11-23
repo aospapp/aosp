@@ -17,13 +17,13 @@
 package com.android.car.settings.accounts;
 
 import android.car.drivingstate.CarUxRestrictions;
-import android.car.userlib.CarUserManagerHelper;
 import android.content.Context;
 
 import androidx.preference.Preference;
 
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceController;
+import com.android.car.settings.users.UserHelper;
 
 /**
  * Controller which determines if the top level entry into Account settings should be displayed
@@ -31,12 +31,9 @@ import com.android.car.settings.common.PreferenceController;
  */
 public class AccountsEntryPreferenceController extends PreferenceController<Preference> {
 
-    private final CarUserManagerHelper mCarUserManagerHelper;
-
     public AccountsEntryPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
-        mCarUserManagerHelper = new CarUserManagerHelper(context);
     }
 
     @Override
@@ -46,7 +43,8 @@ public class AccountsEntryPreferenceController extends PreferenceController<Pref
 
     @Override
     public int getAvailabilityStatus() {
-        return mCarUserManagerHelper.canCurrentProcessModifyAccounts() ? AVAILABLE
-                : DISABLED_FOR_USER;
+        boolean canModifyAccounts = UserHelper.getInstance(getContext())
+                .canCurrentProcessModifyAccounts();
+        return canModifyAccounts ? AVAILABLE : DISABLED_FOR_USER;
     }
 }

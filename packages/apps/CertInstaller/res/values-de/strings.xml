@@ -21,8 +21,8 @@
     <string name="pkcs12_password_dialog_title" msgid="5997624645207427161">"Zertifikat extrahieren"</string>
     <string name="extracting_pkcs12" msgid="1881267738821799771">"Zertifikate werden extrahiert..."</string>
     <string name="pkcs12_file_password_dialog_title" msgid="8102721384767269510">"Zertifikate aus %s extrahieren"</string>
-    <string name="name_credential_dialog_title" msgid="277729846491554437">"Zertifikat benennen"</string>
-    <string name="credential_name" msgid="1974979771369744378">"Zertifikatname:"</string>
+    <string name="name_credential_dialog_title" msgid="1481964824549786927">"Name für Zertifikat eingeben"</string>
+    <string name="certificate_name" msgid="8415893401368824792">"Zertifikatname"</string>
     <string name="credential_password" msgid="3520176519550993326">"Gib das Passwort zum Extrahieren der Zertifikate ein."</string>
     <string name="credential_info" msgid="2436768402308470397">"Das Paket enthält Folgendes:"</string>
     <string name="p12_description" msgid="4128352087331630024">"Zertifikate im PKCS12-Keystore"</string>
@@ -41,10 +41,24 @@
     <string name="invalid_cert" msgid="7704228670980743590">"Das Zertifikat ist ungültig."</string>
     <string name="action_missing_private_key" msgid="7543470057312920042">"Für die Installation von Zertifikaten ist ein privater Schlüssel erforderlich"</string>
     <string name="action_missing_user_cert" msgid="3727411730202316771">"Für die Installation von privaten Schlüsseln ist ein Zertifikat erforderlich"</string>
-    <string name="cert_is_added" msgid="6996557598167000500">"<xliff:g id="CREDENTIAL">%s</xliff:g> ist installiert."</string>
+    <string name="select_certificate_usage_title" msgid="8853023485944920851">"Zertifikat-Typ auswählen"</string>
+    <string name="redirect_ca_certificate_title" msgid="3457516863949244510">"CA-Zertifikate in Einstellungen installieren"</string>
+    <string name="redirect_ca_certificate_with_app_info_message" msgid="934477720755323579">"Dieses Zertifikat von <xliff:g id="REQUESTING_APP">%1$s</xliff:g> muss in den Einstellungen installiert werden. Du solltest nur CA-Zertifikate von Organisationen installieren, denen du vertraust."</string>
+    <string name="redirect_ca_certificate_close_button" msgid="4291301659747279488">"Schließen"</string>
+    <string name="invalid_certificate_title" msgid="6500315398016809635">"Datei kann nicht verwendet werden"</string>
+    <string name="invalid_certificate_close_button" msgid="350986774973653102">"Schließen"</string>
+    <string name="invalid_certificate_message" msgid="3508065546083182733">"Diese Datei kann nicht als <xliff:g id="CERTIFICATE_USAGE">%1$s</xliff:g> verwendet werden"</string>
+    <string name="certificate" msgid="8790577925509962529">"Zertifikat"</string>
+    <string name="ca_certificate" msgid="7397198551290322945">"CA-Zertifikat"</string>
+    <string name="user_certificate" msgid="514888069820553128">"VPN- &amp; App-Nutzerzertifikat"</string>
+    <string name="wifi_certificate" msgid="5356595832360140989">"WLAN-Zertifikat"</string>
+    <string name="ca_cert_is_added" msgid="2847081843756291802">"CA-Zertifikat installiert"</string>
+    <string name="user_cert_is_added" msgid="3088794616560630823">"Nutzerzertifikat installiert"</string>
+    <string name="wifi_cert_is_added" msgid="333220613655140428">"WLAN-Zertifikat installiert"</string>
     <string name="cert_too_large_error" msgid="8715414972725646285">"Installation nicht möglich, weil das Zertifikat zu groß ist"</string>
     <string name="cert_missing_error" msgid="7040527352278728220">"Installation nicht möglich, weil die Zertifikatdatei nicht gefunden wurde"</string>
     <string name="cert_read_error" msgid="7353463360652419796">"Installation nicht möglich, weil die Zertifikatdatei nicht gelesen werden konnte"</string>
+    <string name="cert_temp_error" msgid="617276803992714550">"Temporärer Fehler. Versuch es bitte später noch einmal."</string>
     <string name="only_primary_user_allowed" msgid="4005084935023047716">"Nur der Eigentümer dieses Geräts kann Zertifikate installieren."</string>
     <string name="credential_usage_label" msgid="1513892208033156805">"Verwendung der Anmeldedaten:"</string>
   <string-array name="credential_usage">

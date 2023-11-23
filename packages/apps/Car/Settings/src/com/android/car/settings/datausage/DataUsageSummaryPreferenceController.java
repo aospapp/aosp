@@ -19,7 +19,10 @@ package com.android.car.settings.datausage;
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.net.INetworkPolicyManager;
 import android.net.NetworkTemplate;
+import android.os.ServiceManager;
 import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
 import android.telephony.SubscriptionPlan;
@@ -36,6 +39,7 @@ import androidx.annotation.VisibleForTesting;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.FragmentController;
+import com.android.car.settings.common.Logger;
 import com.android.car.settings.common.PreferenceController;
 import com.android.car.settings.network.NetworkUtils;
 import com.android.settingslib.net.DataUsageController;
@@ -50,6 +54,7 @@ import java.util.concurrent.TimeUnit;
  */
 public class DataUsageSummaryPreferenceController extends
         PreferenceController<DataUsageSummaryPreference> {
+    private static final Logger LOG = new Logger(DataUsageSummaryPreferenceController.class);
 
     private static final long MILLIS_IN_A_DAY = TimeUnit.DAYS.toMillis(1);
     private static final long MILLIS_IN_AN_HOUR = TimeUnit.HOURS.toMillis(1);
@@ -253,8 +258,47 @@ public class DataUsageSummaryPreferenceController extends
                 mSnapshotTime = primaryPlan.getDataUsageTime();
             }
         }
-        mManageSubscriptionIntent = mSubscriptionManager.createManageSubscriptionIntent(
-                defaultSubId);
+        mManageSubscriptionIntent = createManageSubscriptionIntent(defaultSubId);
+    }
+
+    /**
+     * Create an {@link Intent} that can be launched towards the carrier app
+     * that is currently defining the billing relationship plan through
+     * {@link INetworkPolicyManager#setSubscriptionPlans(int, SubscriptionPlan [], String)}.
+     *
+     * @return ready to launch Intent targeted towards the carrier app, or
+     *         {@code null} if no carrier app is defined, or if the defined
+     *         carrier app provides no management activity.
+     */
+    private Intent createManageSubscriptionIntent(int subId) {
+        INetworkPolicyManager networkPolicyManager = INetworkPolicyManager.Stub.asInterface(
+                ServiceManager.getService(Context.NETWORK_POLICY_SERVICE));
+        String owner = "";
+        try {
+            owner = networkPolicyManager.getSubscriptionPlansOwner(subId);
+        } catch (Exception ex) {
+            LOG.w("Fail to get subscription plan owner for subId " + subId, ex);
+        }
+
+        if (TextUtils.isEmpty(owner)) {
+            return null;
+        }
+
+        List<SubscriptionPlan> plans = mSubscriptionManager.getSubscriptionPlans(subId);
+        if (plans.isEmpty()) {
+            return null;
+        }
+
+        Intent intent = new Intent(SubscriptionManager.ACTION_MANAGE_SUBSCRIPTION_PLANS);
+        intent.setPackage(owner);
+        intent.putExtra(SubscriptionManager.EXTRA_SUBSCRIPTION_INDEX, subId);
+
+        if (getContext().getPackageManager().queryIntentActivities(intent,
+                PackageManager.MATCH_DEFAULT_ONLY).isEmpty()) {
+            return null;
+        }
+
+        return intent;
     }
 
     /** Scales the current usage to be an integer between 0 and {@link #MAX_PROGRESS_BAR_VALUE}. */

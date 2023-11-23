@@ -21,7 +21,11 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.net.wifi.WifiManager;
+import android.os.Handler;
+import android.os.Looper;
 import android.text.TextUtils;
+import android.widget.Toast;
 
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
@@ -56,6 +60,23 @@ public class NetworkPasswordPreferenceController extends
         }
     };
 
+    private final Handler mUiHandler = new Handler(Looper.getMainLooper());
+    private final WifiManager.ActionListener mConnectionListener =
+            new WifiManager.ActionListener() {
+                @Override
+                public void onSuccess() {
+                    LOG.d("connected to network");
+                    mUiHandler.post(() -> getFragmentController().goBack());
+                }
+
+                @Override
+                public void onFailure(int reason) {
+                    LOG.d("Failed to connect to network. Failure code: " + reason);
+                    Toast.makeText(getContext(), R.string.wifi_failed_connect_message,
+                            Toast.LENGTH_SHORT).show();
+                }
+            };
+
     private String mNetworkName;
     private int mSecurityType = AccessPoint.SECURITY_NONE;
 
@@ -70,7 +91,7 @@ public class NetworkPasswordPreferenceController extends
     }
 
     @Override
-    protected void onStartInternal() {
+    protected void onCreateInternal() {
         LocalBroadcastManager.getInstance(getContext()).registerReceiver(mNameChangeReceiver,
                 new IntentFilter(NetworkNamePreferenceController.ACTION_NAME_CHANGE));
         LocalBroadcastManager.getInstance(getContext()).registerReceiver(mSecurityChangeReceiver,
@@ -78,7 +99,7 @@ public class NetworkPasswordPreferenceController extends
     }
 
     @Override
-    protected void onStopInternal() {
+    protected void onDestroyInternal() {
         LocalBroadcastManager.getInstance(getContext()).unregisterReceiver(mNameChangeReceiver);
         LocalBroadcastManager.getInstance(getContext()).unregisterReceiver(mSecurityChangeReceiver);
     }
@@ -90,21 +111,15 @@ public class NetworkPasswordPreferenceController extends
         } else {
             getPreference().setDialogTitle(mNetworkName);
         }
-        preference.setVisible(mSecurityType != AccessPoint.SECURITY_NONE);
+        preference.setVisible(!WifiUtil.isOpenNetwork(mSecurityType));
     }
 
     @Override
     protected boolean handlePreferenceChanged(
             NetworkNameRestrictedPasswordEditTextPreference preference, Object newValue) {
         String password = newValue.toString();
-        int netId = WifiUtil.connectToAccessPoint(getContext(), mNetworkName, mSecurityType,
-                password, /* hidden= */ true);
-
-        LOG.d("connected to netId: " + netId);
-        if (netId != WifiUtil.INVALID_NET_ID) {
-            getFragmentController().goBack();
-        }
-
+        WifiUtil.connectToAccessPoint(getContext(), mNetworkName, mSecurityType,
+                password, /* hidden= */ true, mConnectionListener);
         return true;
     }
 }

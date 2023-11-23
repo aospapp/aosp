@@ -26,6 +26,7 @@ import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiManager;
 import android.os.UserHandle;
 import android.os.UserManager;
+import android.util.Log;
 
 import com.android.car.developeroptions.R;
 import com.android.car.developeroptions.TetherSettings;
@@ -37,6 +38,7 @@ import com.android.settingslib.RestrictedLockUtilsInternal;
 import java.util.Objects;
 
 public class HotspotConditionController implements ConditionalCardController {
+    static final String TAG = "HotspotConditionController";
     static final int ID = Objects.hash("HotspotConditionController");
 
     private static final IntentFilter WIFI_AP_STATE_FILTER =
@@ -116,8 +118,9 @@ public class HotspotConditionController implements ConditionalCardController {
     private CharSequence getSsid() {
         WifiConfiguration wifiConfig = mWifiManager.getWifiApConfiguration();
         if (wifiConfig == null) {
-            return mAppContext.getText(
-                    com.android.internal.R.string.wifi_tether_configure_ssid_default);
+            Log.e(TAG, "Ap config null unexpectedly");
+            // should never happen.
+            return "";
         } else {
             return wifiConfig.SSID;
         }

@@ -16,11 +16,9 @@
 
 package com.android.server.connectivity.ipmemorystore;
 
-import static android.net.shared.Inet4AddressUtils.inet4AddressToIntHTH;
-import static android.net.shared.Inet4AddressUtils.intToInet4AddressHTH;
+import static com.android.net.module.util.Inet4AddressUtils.inet4AddressToIntHTH;
+import static com.android.net.module.util.Inet4AddressUtils.intToInet4AddressHTH;
 
-import android.annotation.NonNull;
-import android.annotation.Nullable;
 import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
@@ -33,6 +31,9 @@ import android.database.sqlite.SQLiteQuery;
 import android.net.ipmemorystore.NetworkAttributes;
 import android.net.ipmemorystore.Status;
 import android.util.Log;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -73,14 +74,21 @@ public class IpMemoryStoreDatabase {
         public static final String COLTYPE_ASSIGNEDV4ADDRESS = "INTEGER";
 
         public static final String COLNAME_ASSIGNEDV4ADDRESSEXPIRY = "assignedV4AddressExpiry";
-        // The lease expiry timestamp in uint of milliseconds
+        // The lease expiry timestamp in uint of milliseconds since the Epoch. Long.MAX_VALUE
+        // is used to represent "infinite lease".
         public static final String COLTYPE_ASSIGNEDV4ADDRESSEXPIRY = "BIGINT";
 
-        // Please note that the group hint is only a *hint*, hence its name. The client can offer
-        // this information to nudge the grouping in the decision it thinks is right, but it can't
-        // decide for the memory store what is the same L3 network.
-        public static final String COLNAME_GROUPHINT = "groupHint";
-        public static final String COLTYPE_GROUPHINT = "TEXT";
+        // An optional cluster representing a notion of group owned by the client. The memory
+        // store uses this as a hint for grouping, but not as an overriding factor. The client
+        // can then use this to find networks belonging to a cluster. An example of this could
+        // be the SSID for WiFi, where same SSID-networks may not be the same L3 networks but
+        // it's still useful for managing networks.
+        // Note that "groupHint" is the legacy name of the column. The column should be renamed
+        // in the database – ALTER TABLE ${NetworkAttributesContract.TABLENAME RENAME} COLUMN
+        // groupHint TO cluster – but this has been postponed to reduce risk as the Mainline
+        // release winter imposes a lot of changes be pushed at the same time in the next release.
+        public static final String COLNAME_CLUSTER = "groupHint";
+        public static final String COLTYPE_CLUSTER = "TEXT";
 
         public static final String COLNAME_DNSADDRESSES = "dnsAddresses";
         // Stored in marshalled form as is
@@ -95,7 +103,7 @@ public class IpMemoryStoreDatabase {
                 + COLNAME_EXPIRYDATE              + " " + COLTYPE_EXPIRYDATE              + ", "
                 + COLNAME_ASSIGNEDV4ADDRESS       + " " + COLTYPE_ASSIGNEDV4ADDRESS       + ", "
                 + COLNAME_ASSIGNEDV4ADDRESSEXPIRY + " " + COLTYPE_ASSIGNEDV4ADDRESSEXPIRY + ", "
-                + COLNAME_GROUPHINT               + " " + COLTYPE_GROUPHINT               + ", "
+                + COLNAME_CLUSTER                 + " " + COLTYPE_CLUSTER                 + ", "
                 + COLNAME_DNSADDRESSES            + " " + COLTYPE_DNSADDRESSES            + ", "
                 + COLNAME_MTU                     + " " + COLTYPE_MTU                     + ")";
         public static final String DROP_TABLE = "DROP TABLE IF EXISTS " + TABLENAME;
@@ -163,7 +171,7 @@ public class IpMemoryStoreDatabase {
             try {
                 if (oldVersion < 2) {
                     // upgrade from version 1 to version 2
-                    // since we starts from version 2, do nothing here
+                    // since we start from version 2, do nothing here
                 }
 
                 if (oldVersion < 3) {
@@ -248,8 +256,8 @@ public class IpMemoryStoreDatabase {
             values.put(NetworkAttributesContract.COLNAME_ASSIGNEDV4ADDRESSEXPIRY,
                     attributes.assignedV4AddressExpiry);
         }
-        if (null != attributes.groupHint) {
-            values.put(NetworkAttributesContract.COLNAME_GROUPHINT, attributes.groupHint);
+        if (null != attributes.cluster) {
+            values.put(NetworkAttributesContract.COLNAME_CLUSTER, attributes.cluster);
         }
         if (null != attributes.dnsAddresses) {
             values.put(NetworkAttributesContract.COLNAME_DNSADDRESSES,
@@ -297,7 +305,7 @@ public class IpMemoryStoreDatabase {
                 NetworkAttributesContract.COLNAME_ASSIGNEDV4ADDRESS, 0);
         final long assignedV4AddressExpiry = getLong(cursor,
                 NetworkAttributesContract.COLNAME_ASSIGNEDV4ADDRESSEXPIRY, 0);
-        final String groupHint = getString(cursor, NetworkAttributesContract.COLNAME_GROUPHINT);
+        final String cluster = getString(cursor, NetworkAttributesContract.COLNAME_CLUSTER);
         final byte[] dnsAddressesBlob =
                 getBlob(cursor, NetworkAttributesContract.COLNAME_DNSADDRESSES);
         final int mtu = getInt(cursor, NetworkAttributesContract.COLNAME_MTU, -1);
@@ -307,7 +315,7 @@ public class IpMemoryStoreDatabase {
         if (0 != assignedV4AddressExpiry) {
             builder.setAssignedV4AddressExpiry(assignedV4AddressExpiry);
         }
-        builder.setGroupHint(groupHint);
+        builder.setCluster(cluster);
         if (null != dnsAddressesBlob) {
             builder.setDnsAddresses(decodeAddressList(dnsAddressesBlob));
         }
@@ -327,21 +335,19 @@ public class IpMemoryStoreDatabase {
     // Returns the expiry date of the specified row, or one of the error codes above if the
     // row is not found or some other error
     static long getExpiry(@NonNull final SQLiteDatabase db, @NonNull final String key) {
-        final Cursor cursor = db.query(NetworkAttributesContract.TABLENAME,
+        try (Cursor cursor = db.query(NetworkAttributesContract.TABLENAME,
                 EXPIRY_COLUMN, // columns
                 SELECT_L2KEY, // selection
                 new String[] { key }, // selectionArgs
                 null, // groupBy
                 null, // having
-                null // orderBy
-        );
-        // L2KEY is the primary key ; it should not be possible to get more than one
-        // result here. 0 results means the key was not found.
-        if (cursor.getCount() != 1) return EXPIRY_ERROR;
-        cursor.moveToFirst();
-        final long result = cursor.getLong(0); // index in the EXPIRY_COLUMN array
-        cursor.close();
-        return result;
+                null)) { // orderBy
+            // L2KEY is the primary key ; it should not be possible to get more than one
+            // result here. 0 results means the key was not found.
+            if (cursor.getCount() != 1) return EXPIRY_ERROR;
+            cursor.moveToFirst();
+            return cursor.getLong(0); // index in the EXPIRY_COLUMN array
+        }
     }
 
     static final int RELEVANCE_ERROR = -1; // Legal values for relevance are positive
@@ -391,20 +397,19 @@ public class IpMemoryStoreDatabase {
     @Nullable
     static NetworkAttributes retrieveNetworkAttributes(@NonNull final SQLiteDatabase db,
             @NonNull final String key) {
-        final Cursor cursor = db.query(NetworkAttributesContract.TABLENAME,
+        try (Cursor cursor = db.query(NetworkAttributesContract.TABLENAME,
                 null, // columns, null means everything
                 NetworkAttributesContract.COLNAME_L2KEY + " = ?", // selection
                 new String[] { key }, // selectionArgs
                 null, // groupBy
                 null, // having
-                null); // orderBy
-        // L2KEY is the primary key ; it should not be possible to get more than one
-        // result here. 0 results means the key was not found.
-        if (cursor.getCount() != 1) return null;
-        cursor.moveToFirst();
-        final NetworkAttributes attributes = readNetworkAttributesLine(cursor);
-        cursor.close();
-        return attributes;
+                null)) { // orderBy
+            // L2KEY is the primary key ; it should not be possible to get more than one
+            // result here. 0 results means the key was not found.
+            if (cursor.getCount() != 1) return null;
+            cursor.moveToFirst();
+            return readNetworkAttributesLine(cursor);
+        }
     }
 
     private static final String[] DATA_COLUMN = new String[] {
@@ -414,7 +419,7 @@ public class IpMemoryStoreDatabase {
     @Nullable
     static byte[] retrieveBlob(@NonNull final SQLiteDatabase db, @NonNull final String key,
             @NonNull final String clientId, @NonNull final String name) {
-        final Cursor cursor = db.query(PrivateDataContract.TABLENAME,
+        try (Cursor cursor = db.query(PrivateDataContract.TABLENAME,
                 DATA_COLUMN, // columns
                 PrivateDataContract.COLNAME_L2KEY + " = ? AND " // selection
                 + PrivateDataContract.COLNAME_CLIENT + " = ? AND "
@@ -422,14 +427,13 @@ public class IpMemoryStoreDatabase {
                 new String[] { key, clientId, name }, // selectionArgs
                 null, // groupBy
                 null, // having
-                null); // orderBy
-        // The query above is querying by (composite) primary key, so it should not be possible to
-        // get more than one result here. 0 results means the key was not found.
-        if (cursor.getCount() != 1) return null;
-        cursor.moveToFirst();
-        final byte[] result = cursor.getBlob(0); // index in the DATA_COLUMN array
-        cursor.close();
-        return result;
+                null)) { // orderBy
+            // The query above is querying by (composite) primary key, so it should not be possible
+            // to get more than one result here. 0 results means the key was not found.
+            if (cursor.getCount() != 1) return null;
+            cursor.moveToFirst();
+            return cursor.getBlob(0); // index in the DATA_COLUMN array
+        }
     }
 
     /**
@@ -441,7 +445,7 @@ public class IpMemoryStoreDatabase {
             try {
                 db.delete(NetworkAttributesContract.TABLENAME, null, null);
                 db.delete(PrivateDataContract.TABLENAME, null, null);
-                final Cursor cursorNetworkAttributes = db.query(
+                try (Cursor cursorNetworkAttributes = db.query(
                         // table name
                         NetworkAttributesContract.TABLENAME,
                         // column name
@@ -451,13 +455,10 @@ public class IpMemoryStoreDatabase {
                         null, // groupBy
                         null, // having
                         null, // orderBy
-                        "1"); // limit
-                if (0 != cursorNetworkAttributes.getCount()) {
-                    cursorNetworkAttributes.close();
-                    continue;
+                        "1")) { // limit
+                    if (0 != cursorNetworkAttributes.getCount()) continue;
                 }
-                cursorNetworkAttributes.close();
-                final Cursor cursorPrivateData = db.query(
+                try (Cursor cursorPrivateData = db.query(
                         // table name
                         PrivateDataContract.TABLENAME,
                         // column name
@@ -467,14 +468,10 @@ public class IpMemoryStoreDatabase {
                         null, // groupBy
                         null, // having
                         null, // orderBy
-                        "1"); // limit
-                if (0 != cursorPrivateData.getCount()) {
-                    cursorPrivateData.close();
-                    continue;
+                        "1")) { // limit
+                    if (0 != cursorPrivateData.getCount()) continue;
                 }
-                cursorPrivateData.close();
                 db.setTransactionSuccessful();
-                return;
             } catch (SQLiteException e) {
                 Log.e(TAG, "Could not wipe the data in database", e);
             } finally {
@@ -567,7 +564,7 @@ public class IpMemoryStoreDatabase {
 
         final String selection = NetworkAttributesContract.COLNAME_EXPIRYDATE + " > ? AND ("
                 + sj.toString() + ")";
-        final Cursor cursor = db.queryWithFactory(new CustomCursorFactory(args),
+        try (Cursor cursor = db.queryWithFactory(new CustomCursorFactory(args),
                 false, // distinct
                 NetworkAttributesContract.TABLENAME,
                 null, // columns, null means everything
@@ -576,22 +573,81 @@ public class IpMemoryStoreDatabase {
                 null, // groupBy
                 null, // having
                 null, // orderBy
-                null); // limit
-        if (cursor.getCount() <= 0) return null;
-        cursor.moveToFirst();
-        String bestKey = null;
-        float bestMatchConfidence = GROUPCLOSE_CONFIDENCE; // Never return a match worse than this.
-        while (!cursor.isAfterLast()) {
-            final NetworkAttributes read = readNetworkAttributesLine(cursor);
-            final float confidence = read.getNetworkGroupSamenessConfidence(attr);
-            if (confidence > bestMatchConfidence) {
-                bestKey = getString(cursor, NetworkAttributesContract.COLNAME_L2KEY);
-                bestMatchConfidence = confidence;
+                null)) { // limit
+            if (cursor.getCount() <= 0) return null;
+            cursor.moveToFirst();
+            String bestKey = null;
+            float bestMatchConfidence =
+                    GROUPCLOSE_CONFIDENCE; // Never return a match worse than this.
+            while (!cursor.isAfterLast()) {
+                final NetworkAttributes read = readNetworkAttributesLine(cursor);
+                final float confidence = read.getNetworkGroupSamenessConfidence(attr);
+                if (confidence > bestMatchConfidence) {
+                    bestKey = getString(cursor, NetworkAttributesContract.COLNAME_L2KEY);
+                    bestMatchConfidence = confidence;
+                }
+                cursor.moveToNext();
             }
-            cursor.moveToNext();
+            return bestKey;
         }
-        cursor.close();
-        return bestKey;
+    }
+
+    /**
+     * Delete a single entry by key.
+     *
+     * If |needWipe| is true, the data will be wiped from disk immediately. Otherwise, it will
+     * only be marked deleted, and overwritten by subsequent writes or reclaimed during the next
+     * maintenance window.
+     * Note that wiping data is a very expensive operation. This is meant for clients that need
+     * this data gone from disk immediately for security reasons. Functionally it makes no
+     * difference at all.
+     */
+    static StatusAndCount delete(@NonNull final SQLiteDatabase db, @NonNull final String l2key,
+            final boolean needWipe) {
+        return deleteEntriesWithColumn(db,
+                NetworkAttributesContract.COLNAME_L2KEY, l2key, needWipe);
+    }
+
+    /**
+     * Delete all entries that have a particular cluster value.
+     *
+     * If |needWipe| is true, the data will be wiped from disk immediately. Otherwise, it will
+     * only be marked deleted, and overwritten by subsequent writes or reclaimed during the next
+     * maintenance window.
+     * Note that wiping data is a very expensive operation. This is meant for clients that need
+     * this data gone from disk immediately for security reasons. Functionally it makes no
+     * difference at all.
+     */
+    static StatusAndCount deleteCluster(@NonNull final SQLiteDatabase db,
+            @NonNull final String cluster, final boolean needWipe) {
+        return deleteEntriesWithColumn(db,
+                NetworkAttributesContract.COLNAME_CLUSTER, cluster, needWipe);
+    }
+
+    // Delete all entries where the given column has the given value.
+    private static StatusAndCount deleteEntriesWithColumn(@NonNull final SQLiteDatabase db,
+            @NonNull final String column, @NonNull final String value, final boolean needWipe) {
+        db.beginTransaction();
+        int deleted = 0;
+        try {
+            deleted = db.delete(NetworkAttributesContract.TABLENAME,
+                    column + "= ?", new String[] { value });
+            db.setTransactionSuccessful();
+        } catch (SQLiteException e) {
+            Log.e(TAG, "Could not delete from the memory store", e);
+            // Unclear what might have happened ; deleting records is not supposed to be able
+            // to fail barring a syntax error in the SQL query.
+            return new StatusAndCount(Status.ERROR_UNKNOWN, 0);
+        } finally {
+            db.endTransaction();
+        }
+
+        if (needWipe) {
+            final int vacuumStatus = vacuum(db);
+            // This is a problem for the client : return the failure
+            if (Status.SUCCESS != vacuumStatus) return new StatusAndCount(vacuumStatus, deleted);
+        }
+        return new StatusAndCount(Status.SUCCESS, deleted);
     }
 
     // Drops all records that are expired. Relevance has decayed to zero of these records. Returns
@@ -629,20 +685,21 @@ public class IpMemoryStoreDatabase {
         }
 
         // Queries number of NetworkAttributes that start from the lowest expiryDate.
-        final Cursor cursor = db.query(NetworkAttributesContract.TABLENAME,
+        final long expiryDate;
+        try (Cursor cursor = db.query(NetworkAttributesContract.TABLENAME,
                 new String[] {NetworkAttributesContract.COLNAME_EXPIRYDATE}, // columns
                 null, // selection
                 null, // selectionArgs
                 null, // groupBy
                 null, // having
                 NetworkAttributesContract.COLNAME_EXPIRYDATE, // orderBy
-                Integer.toString(number)); // limit
-        if (cursor == null || cursor.getCount() <= 0) return Status.ERROR_GENERIC;
-        cursor.moveToLast();
+                Integer.toString(number))) { // limit
+            if (cursor == null || cursor.getCount() <= 0) return Status.ERROR_GENERIC;
+            cursor.moveToLast();
 
-        //Get the expiryDate from last record.
-        final long expiryDate = getLong(cursor, NetworkAttributesContract.COLNAME_EXPIRYDATE, 0);
-        cursor.close();
+            // Get the expiryDate from last record.
+            expiryDate = getLong(cursor, NetworkAttributesContract.COLNAME_EXPIRYDATE, 0);
+        }
 
         db.beginTransaction();
         try {
@@ -670,15 +727,16 @@ public class IpMemoryStoreDatabase {
 
     static int getTotalRecordNumber(@NonNull final SQLiteDatabase db) {
         // Query the total number of NetworkAttributes
-        final Cursor cursor = db.query(NetworkAttributesContract.TABLENAME,
+        try (Cursor cursor = db.query(NetworkAttributesContract.TABLENAME,
                 new String[] {"COUNT(*)"}, // columns
                 null, // selection
                 null, // selectionArgs
                 null, // groupBy
                 null, // having
-                null); // orderBy
-        cursor.moveToFirst();
-        return cursor == null ? 0 : cursor.getInt(0);
+                null)) { // orderBy
+            cursor.moveToFirst();
+            return cursor == null ? 0 : cursor.getInt(0);
+        }
     }
 
     // Helper methods
@@ -699,5 +757,14 @@ public class IpMemoryStoreDatabase {
             final long defaultValue) {
         final int columnIndex = cursor.getColumnIndex(columnName);
         return (columnIndex >= 0) ? cursor.getLong(columnIndex) : defaultValue;
+    }
+    private static int vacuum(@NonNull final SQLiteDatabase db) {
+        try {
+            db.execSQL("VACUUM");
+            return Status.SUCCESS;
+        } catch (SQLiteException e) {
+            // Vacuuming may fail from lack of storage, because it makes a copy of the database.
+            return Status.ERROR_STORAGE;
+        }
     }
 }

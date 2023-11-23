@@ -23,11 +23,13 @@ import android.content.Intent;
 import android.content.ServiceConnection;
 import android.os.IBinder;
 import android.telecom.Call;
+import android.telecom.CallAudioState;
 
 import androidx.annotation.NonNull;
 import androidx.core.util.Pair;
 import androidx.lifecycle.AndroidViewModel;
 import androidx.lifecycle.LiveData;
+import androidx.lifecycle.MediatorLiveData;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.Transformations;
 
@@ -52,22 +54,29 @@ import java.util.List;
  * in call page should use a different ViewModel.
  */
 public class InCallViewModel extends AndroidViewModel implements
-        InCallServiceImpl.ActiveCallListChangedCallback {
+        InCallServiceImpl.ActiveCallListChangedCallback, InCallServiceImpl.CallAudioStateCallback {
     private static final String TAG = "CD.InCallViewModel";
 
     private final MutableLiveData<List<Call>> mCallListLiveData;
-    private final LiveData<List<Call>> mOngoingCallListLiveData;
+    private final MutableLiveData<List<Call>> mOngoingCallListLiveData;
+    private final MutableLiveData<List<Call>> mConferenceCallListLiveData;
+    private final LiveData<List<CallDetail>> mConferenceCallDetailListLiveData;
     private final Comparator<Call> mCallComparator;
 
-    private final LiveData<Call> mIncomingCallLiveData;
+    private final MutableLiveData<Call> mIncomingCallLiveData;
 
-    private final LiveData<CallDetail> mCallDetailLiveData;
+    private final CallDetailLiveData mCallDetailLiveData;
     private final LiveData<Integer> mCallStateLiveData;
     private final LiveData<Call> mPrimaryCallLiveData;
     private final LiveData<Call> mSecondaryCallLiveData;
-    private final LiveData<CallDetail> mSecondaryCallDetailLiveData;
+    private final CallDetailLiveData mSecondaryCallDetailLiveData;
+    private final LiveData<Pair<Call, Call>> mOngoingCallPairLiveData;
     private final LiveData<Integer> mAudioRouteLiveData;
+    private MutableLiveData<CallAudioState> mCallAudioStateLiveData;
+    private final MutableLiveData<Boolean> mDialpadIsOpen;
+    private final ShowOnholdCallLiveData mShowOnholdCall;
     private LiveData<Long> mCallConnectTimeLiveData;
+    private LiveData<Long> mSecondaryCallConnectTimeLiveData;
     private LiveData<Pair<Integer, Long>> mCallStateAndConnectTimeLiveData;
     private final Context mContext;
 
@@ -78,8 +87,12 @@ public class InCallViewModel extends AndroidViewModel implements
         public void onServiceConnected(ComponentName name, IBinder binder) {
             L.d(TAG, "onServiceConnected: %s, service: %s", name, binder);
             mInCallService = ((InCallServiceImpl.LocalBinder) binder).getService();
+            for (Call call : mInCallService.getCalls()) {
+                call.registerCallback(mCallStateChangedCallback);
+            }
             updateCallList();
             mInCallService.addActiveCallListChangedCallback(InCallViewModel.this);
+            mInCallService.addCallAudioStateChangedCallback(InCallViewModel.this);
         }
 
         @Override
@@ -93,8 +106,24 @@ public class InCallViewModel extends AndroidViewModel implements
     private final Call.Callback mCallStateChangedCallback = new Call.Callback() {
         @Override
         public void onStateChanged(Call call, int state) {
-            // Sets value to trigger the live data for incoming call and active call list to update.
+            // Don't show in call activity by declining a ringing call to avoid UI flashing.
+            if (call.equals(mIncomingCallLiveData.getValue()) && state == Call.STATE_DISCONNECTED) {
+                return;
+            }
+            // Sets value to trigger incoming call and active call list to update.
             mCallListLiveData.setValue(mCallListLiveData.getValue());
+        }
+
+        @Override
+        public void onParentChanged(Call call, Call parent) {
+            L.d(TAG, "onParentChanged %s", call);
+            updateCallList();
+        }
+
+        @Override
+        public void onChildrenChanged(Call call, List<Call> children) {
+            L.d(TAG, "onChildrenChanged %s", call);
+            updateCallList();
         }
     };
 
@@ -102,25 +131,49 @@ public class InCallViewModel extends AndroidViewModel implements
         super(application);
         mContext = application.getApplicationContext();
 
-        mCallListLiveData = new MutableLiveData<>();
+        mConferenceCallListLiveData = new MutableLiveData<>();
+        mIncomingCallLiveData = new MutableLiveData<>();
+        mOngoingCallListLiveData = new MutableLiveData<>();
+        mCallAudioStateLiveData = new MutableLiveData<>();
         mCallComparator = new CallComparator();
-
-        mIncomingCallLiveData = Transformations.map(mCallListLiveData,
-                callList -> firstMatch(callList,
+        mCallListLiveData = new MutableLiveData<List<Call>>() {
+            @Override
+            public void setValue(List<Call> callList) {
+                super.setValue(callList);
+                List<Call> activeCallList = filter(callList,
+                        call -> call != null && call.getState() != Call.STATE_RINGING);
+                activeCallList.sort(mCallComparator);
+                List<Call> conferenceList = filter(activeCallList,
+                        call -> call.getParent() != null);
+                List<Call> ongoingCallList = filter(activeCallList,
+                        call -> call.getParent() == null);
+                mConferenceCallListLiveData.setValue(conferenceList);
+                mOngoingCallListLiveData.setValue(ongoingCallList);
+                mIncomingCallLiveData.setValue(firstMatch(callList,
                         call -> call != null && call.getState() == Call.STATE_RINGING));
 
-        mOngoingCallListLiveData = Transformations.map(mCallListLiveData,
+                L.d(TAG, "size:" + activeCallList.size() + " activeList" + activeCallList);
+                L.d(TAG, "conf:%s" + conferenceList, conferenceList.size());
+                L.d(TAG, "ongoing:%s" + ongoingCallList, ongoingCallList.size());
+            }
+        };
+
+        mConferenceCallDetailListLiveData = Transformations.map(mConferenceCallListLiveData,
                 callList -> {
-                    List<Call> activeCallList = filter(callList,
-                            call -> call != null && call.getState() != Call.STATE_RINGING);
-                    activeCallList.sort(mCallComparator);
-                    return activeCallList;
+                    List<CallDetail> detailList = new ArrayList<>();
+                    for (Call call : callList) {
+                        detailList.add(CallDetail.fromTelecomCallDetail(call.getDetails()));
+                    }
+                    return detailList;
                 });
 
-        mPrimaryCallLiveData = Transformations.map(mOngoingCallListLiveData,
-                input -> input.isEmpty() ? null : input.get(0));
-        mCallDetailLiveData = Transformations.switchMap(mPrimaryCallLiveData,
-                input -> input != null ? new CallDetailLiveData(input) : null);
+        mCallDetailLiveData = new CallDetailLiveData();
+        mPrimaryCallLiveData = Transformations.map(mOngoingCallListLiveData, input -> {
+            Call call = input.isEmpty() ? null : input.get(0);
+            mCallDetailLiveData.setTelecomCall(call);
+            return call;
+        });
+
         mCallStateLiveData = Transformations.switchMap(mPrimaryCallLiveData,
                 input -> input != null ? new CallStateLiveData(input) : null);
         mCallConnectTimeLiveData = Transformations.map(mCallDetailLiveData, (details) -> {
@@ -132,17 +185,56 @@ public class InCallViewModel extends AndroidViewModel implements
         mCallStateAndConnectTimeLiveData =
                 LiveDataFunctions.pair(mCallStateLiveData, mCallConnectTimeLiveData);
 
-        mSecondaryCallLiveData = Transformations.map(mOngoingCallListLiveData,
-                callList -> (callList != null && callList.size() > 1) ? callList.get(1) : null);
+        mSecondaryCallDetailLiveData = new CallDetailLiveData();
+        mSecondaryCallLiveData = Transformations.map(mOngoingCallListLiveData, callList -> {
+            Call call = (callList != null && callList.size() > 1) ? callList.get(1) : null;
+            mSecondaryCallDetailLiveData.setTelecomCall(call);
+            return call;
+        });
 
-        mSecondaryCallDetailLiveData = Transformations.switchMap(mSecondaryCallLiveData,
-                input -> input != null ? new CallDetailLiveData(input) : null);
+        mSecondaryCallConnectTimeLiveData = Transformations.map(mSecondaryCallDetailLiveData,
+                details -> {
+                    if (details == null) {
+                        return 0L;
+                    }
+                    return details.getConnectTimeMillis();
+                });
+
+        mOngoingCallPairLiveData = LiveDataFunctions.pair(mPrimaryCallLiveData,
+                mSecondaryCallLiveData);
 
         mAudioRouteLiveData = new AudioRouteLiveData(mContext);
+
+        mDialpadIsOpen = new MutableLiveData<>();
+        // Set initial value to avoid NPE
+        mDialpadIsOpen.setValue(false);
+
+        mShowOnholdCall = new ShowOnholdCallLiveData(mSecondaryCallLiveData, mDialpadIsOpen);
 
         Intent intent = new Intent(mContext, InCallServiceImpl.class);
         intent.setAction(InCallServiceImpl.ACTION_LOCAL_BIND);
         mContext.bindService(intent, mInCallServiceConnection, Context.BIND_AUTO_CREATE);
+    }
+
+    /** Merge primary and secondary calls into a conference */
+    public void mergeConference() {
+        Call call = mPrimaryCallLiveData.getValue();
+        Call otherCall = mSecondaryCallLiveData.getValue();
+
+        if (call == null || otherCall == null) {
+            return;
+        }
+        call.conference(otherCall);
+    }
+
+    /** Returns the live data which monitors conference calls */
+    public LiveData<List<CallDetail>> getConferenceCallDetailList() {
+        return mConferenceCallDetailListLiveData;
+    }
+
+    /** Returns the live data which monitors all the calls. */
+    public LiveData<List<Call>> getAllCallList() {
+        return mCallListLiveData;
     }
 
     /** Returns the live data which monitors the current incoming call. */
@@ -203,10 +295,41 @@ public class InCallViewModel extends AndroidViewModel implements
     }
 
     /**
+     * Returns the live data which monitors the secondary call connect time.
+     */
+    public LiveData<Long> getSecondaryCallConnectTime() {
+        return mSecondaryCallConnectTimeLiveData;
+    }
+
+    /**
+     * Returns the live data that monitors the primary and secondary calls.
+     */
+    public LiveData<Pair<Call, Call>> getOngoingCallPair() {
+        return mOngoingCallPairLiveData;
+    }
+
+    /**
      * Returns current audio route.
      */
     public LiveData<Integer> getAudioRoute() {
         return mAudioRouteLiveData;
+    }
+
+    /**
+     * Returns current call audio state.
+     */
+    public MutableLiveData<CallAudioState> getCallAudioState() {
+        return mCallAudioStateLiveData;
+    }
+
+    /** Return the {@link MutableLiveData} for dialpad open state. */
+    public MutableLiveData<Boolean> getDialpadOpenState() {
+        return mDialpadIsOpen;
+    }
+
+    /** Return the livedata monitors onhold call status. */
+    public LiveData<Boolean> shouldShowOnholdCall() {
+        return mShowOnholdCall;
     }
 
     @Override
@@ -225,6 +348,12 @@ public class InCallViewModel extends AndroidViewModel implements
         return false;
     }
 
+    @Override
+    public void onCallAudioStateChanged(CallAudioState callAudioState) {
+        L.i(TAG, "onCallAudioStateChanged %s %s", callAudioState, this);
+        mCallAudioStateLiveData.setValue(callAudioState);
+    }
+
     private void updateCallList() {
         List<Call> callList = new ArrayList<>();
         callList.addAll(mInCallService.getCalls());
@@ -235,7 +364,11 @@ public class InCallViewModel extends AndroidViewModel implements
     protected void onCleared() {
         mContext.unbindService(mInCallServiceConnection);
         if (mInCallService != null) {
+            for (Call call : mInCallService.getCalls()) {
+                call.unregisterCallback(mCallStateChangedCallback);
+            }
             mInCallService.removeActiveCallListChangedCallback(this);
+            mInCallService.removeCallAudioStateChangedCallback(this);
         }
         mInCallService = null;
     }
@@ -290,5 +423,40 @@ public class InCallViewModel extends AndroidViewModel implements
             }
         }
         return filteredResults;
+    }
+
+    private static class ShowOnholdCallLiveData extends MediatorLiveData<Boolean> {
+
+        private final LiveData<Call> mSecondaryCallLiveData;
+        private final MutableLiveData<Boolean> mDialpadIsOpen;
+
+        private ShowOnholdCallLiveData(LiveData<Call> secondaryCallLiveData,
+                MutableLiveData<Boolean> dialpadState) {
+            mSecondaryCallLiveData = secondaryCallLiveData;
+            mDialpadIsOpen = dialpadState;
+            setValue(false);
+
+            addSource(mSecondaryCallLiveData, v -> update());
+            addSource(mDialpadIsOpen, v -> update());
+        }
+
+        private void update() {
+            Boolean shouldShowOnholdCall = !mDialpadIsOpen.getValue();
+            Call onholdCall = mSecondaryCallLiveData.getValue();
+            if (shouldShowOnholdCall && onholdCall != null
+                    && onholdCall.getState() == Call.STATE_HOLDING) {
+                setValue(true);
+            } else {
+                setValue(false);
+            }
+        }
+
+        @Override
+        public void setValue(Boolean newValue) {
+            // Only set value and notify observers when the value changes.
+            if (getValue() != newValue) {
+                super.setValue(newValue);
+            }
+        }
     }
 }

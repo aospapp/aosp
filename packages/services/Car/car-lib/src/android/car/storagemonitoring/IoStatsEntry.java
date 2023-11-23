@@ -38,15 +38,16 @@ import java.util.Objects;
 public final class IoStatsEntry implements Parcelable {
 
     public static final Parcelable.Creator<IoStatsEntry> CREATOR =
-        new Parcelable.Creator<IoStatsEntry>() {
-            public IoStatsEntry createFromParcel(Parcel in) {
-                return new IoStatsEntry(in);
-            }
+            new Parcelable.Creator<IoStatsEntry>() {
 
-            public IoStatsEntry[] newArray(int size) {
-                return new IoStatsEntry[size];
-            }
-        };
+        public IoStatsEntry createFromParcel(Parcel in) {
+            return new IoStatsEntry(in);
+        }
+
+        public IoStatsEntry[] newArray(int size) {
+            return new IoStatsEntry[size];
+        }
+    };
 
     /**
      * The user id that this object contains metrics for.
@@ -161,14 +162,13 @@ public final class IoStatsEntry implements Parcelable {
     @Override
     public boolean equals(Object other) {
         if (other instanceof IoStatsEntry) {
-            IoStatsEntry uidIoStatEntry = (IoStatsEntry)other;
+            IoStatsEntry uidIoStatEntry = (IoStatsEntry) other;
 
-            return uid == uidIoStatEntry.uid &&
-                    runtimeMillis == uidIoStatEntry.runtimeMillis &&
-                    foreground.equals(uidIoStatEntry.foreground) &&
-                    background.equals(uidIoStatEntry.background);
+            return uid == uidIoStatEntry.uid
+                    && runtimeMillis == uidIoStatEntry.runtimeMillis
+                    && foreground.equals(uidIoStatEntry.foreground)
+                    && background.equals(uidIoStatEntry.background);
         }
-
         return false;
     }
 
@@ -190,17 +190,17 @@ public final class IoStatsEntry implements Parcelable {
      * @hide
      */
     public boolean representsSameMetrics(UidIoRecord record) {
-        return record.uid == uid &&
-               record.foreground_rchar == foreground.bytesRead &&
-               record.foreground_wchar == foreground.bytesWritten &&
-               record.foreground_read_bytes == foreground.bytesReadFromStorage &&
-               record.foreground_write_bytes == foreground.bytesWrittenToStorage &&
-               record.foreground_fsync == foreground.fsyncCalls &&
-               record.background_rchar == background.bytesRead &&
-               record.background_wchar == background.bytesWritten &&
-               record.background_read_bytes == background.bytesReadFromStorage &&
-               record.background_write_bytes == background.bytesWrittenToStorage &&
-               record.background_fsync == background.fsyncCalls;
+        return record.uid == uid
+                && record.foreground_rchar == foreground.bytesRead
+                && record.foreground_wchar == foreground.bytesWritten
+                && record.foreground_read_bytes == foreground.bytesReadFromStorage
+                && record.foreground_write_bytes == foreground.bytesWrittenToStorage
+                && record.foreground_fsync == foreground.fsyncCalls
+                && record.background_rchar == background.bytesRead
+                && record.background_wchar == background.bytesWritten
+                && record.background_read_bytes == background.bytesReadFromStorage
+                && record.background_write_bytes == background.bytesWrittenToStorage
+                && record.background_fsync == background.fsyncCalls;
     }
 
     /**
@@ -209,15 +209,15 @@ public final class IoStatsEntry implements Parcelable {
     public static final class Metrics implements Parcelable {
 
         public static final Parcelable.Creator<IoStatsEntry.Metrics> CREATOR =
-            new Parcelable.Creator<IoStatsEntry.Metrics>() {
-                public IoStatsEntry.Metrics createFromParcel(Parcel in) {
-                    return new IoStatsEntry.Metrics(in);
-                }
+                new Parcelable.Creator<IoStatsEntry.Metrics>() {
+            public IoStatsEntry.Metrics createFromParcel(Parcel in) {
+                return new IoStatsEntry.Metrics(in);
+            }
 
-                public IoStatsEntry.Metrics[] newArray(int size) {
-                    return new IoStatsEntry.Metrics[size];
-                }
-            };
+            public IoStatsEntry.Metrics[] newArray(int size) {
+                return new IoStatsEntry.Metrics[size];
+            }
+        };
 
         /**
          * Total bytes that processes running on behalf of this user obtained
@@ -249,7 +249,7 @@ public final class IoStatsEntry implements Parcelable {
         public final long fsyncCalls;
 
         public Metrics(long bytesRead, long bytesWritten, long bytesReadFromStorage,
-            long bytesWrittenToStorage, long fsyncCalls) {
+                long bytesWrittenToStorage, long fsyncCalls) {
             this.bytesRead = bytesRead;
             this.bytesWritten = bytesWritten;
             this.bytesReadFromStorage = bytesReadFromStorage;
@@ -313,23 +313,23 @@ public final class IoStatsEntry implements Parcelable {
          * @hide
          */
         public Metrics delta(Metrics other) {
-            return new Metrics(bytesRead-other.bytesRead,
-                bytesWritten-other.bytesWritten,
-                bytesReadFromStorage-other.bytesReadFromStorage,
-                bytesWrittenToStorage-other.bytesWrittenToStorage,
-                fsyncCalls-other.fsyncCalls);
+            return new Metrics(bytesRead - other.bytesRead,
+                bytesWritten - other.bytesWritten,
+                bytesReadFromStorage - other.bytesReadFromStorage,
+                bytesWrittenToStorage - other.bytesWrittenToStorage,
+                fsyncCalls - other.fsyncCalls);
         }
 
         @Override
         public boolean equals(Object other) {
             if (other instanceof Metrics) {
-                Metrics metrics = (Metrics)other;
+                Metrics metrics = (Metrics) other;
 
-                return (bytesRead == metrics.bytesRead) &&
-                    (bytesWritten == metrics.bytesWritten) &&
-                    (bytesReadFromStorage == metrics.bytesReadFromStorage) &&
-                    (bytesWrittenToStorage == metrics.bytesWrittenToStorage) &&
-                    (fsyncCalls == metrics.fsyncCalls);
+                return (bytesRead == metrics.bytesRead)
+                    && (bytesWritten == metrics.bytesWritten)
+                    && (bytesReadFromStorage == metrics.bytesReadFromStorage)
+                    && (bytesWrittenToStorage == metrics.bytesWrittenToStorage)
+                    && (fsyncCalls == metrics.fsyncCalls);
             }
             return false;
         }
@@ -342,8 +342,9 @@ public final class IoStatsEntry implements Parcelable {
 
         @Override
         public String toString() {
-            return String.format("bytesRead=%d, bytesWritten=%d, bytesReadFromStorage=%d, bytesWrittenToStorage=%d, fsyncCalls=%d",
-                bytesRead, bytesWritten, bytesReadFromStorage, bytesWrittenToStorage, fsyncCalls);
+            return String.format("bytesRead=%d, bytesWritten=%d, bytesReadFromStorage=%d, "
+                    + "bytesWrittenToStorage=%d, fsyncCalls=%d", bytesRead, bytesWritten,
+                    bytesReadFromStorage, bytesWrittenToStorage, fsyncCalls);
         }
     }
 }

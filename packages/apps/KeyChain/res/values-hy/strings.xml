@@ -17,13 +17,11 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_name" msgid="170210454004696382">"Բանալու հանգույց"</string>
-    <string name="title_no_certs" msgid="8350009443064722873">"Վկայականներ չեն գտնվել"</string>
     <string name="title_select_cert" msgid="3588447616418041699">"Ընտրել վկայականը"</string>
     <string name="requesting_application" msgid="1589142627467598421">"%s հավելվածը վկայագիր է պահանջում: Վկայագրի ընտրությունը հնարավորություն կընձեռի հավելվածին սերվերների հետ կիրառել այս ինքնությունն այժմ և ապագայում:"</string>
     <string name="requesting_server" msgid="5832565605998634370">"Հավելվածը հայցող սերվերը որակել է որպես %s, բայց վկայագիրն ընդունելու թույլտվություն տվեք միայն այն դեպքում, երբ հավելվածը վստահելի է:"</string>
-    <!-- String.format failed for translation -->
-    <!-- no translation found for install_new_cert_message (4451971501142085495) -->
-    <skip />
+    <string name="install_new_cert_message" msgid="4451971501142085495">"Կարող եք հավաստագրեր տեղադրել  %1$s կամ  %2$s  ընդլայնումով PKCS#12 ֆայլից, որը գտնվում է արտաքին կրիչի վրա։"</string>
     <string name="allow_button" msgid="3030990695030371561">"Ընտրել"</string>
     <string name="deny_button" msgid="3766539809121892584">"Մերժել"</string>
+    <string name="loading_certs_message" msgid="814752048905775439">"Հավաստագրերի բեռնում..."</string>
 </resources>

@@ -26,16 +26,15 @@ import android.telephony.SubscriptionManager;
 import android.telephony.SubscriptionPlan;
 import android.util.RecurrenceRule;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
-
 import com.google.android.collect.Lists;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestRunner;
 
 import java.util.Collections;
 
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 public class DataUsageUtilsTest {
 
     private static final int SUBSCRIPTION_ID = 1;

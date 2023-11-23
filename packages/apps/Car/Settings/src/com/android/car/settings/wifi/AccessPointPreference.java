@@ -74,7 +74,7 @@ public class AccessPointPreference extends ButtonPasswordEditTextPreference {
      * 2. AP that has been saved, but not enabled due to wrong password.
      */
     private boolean shouldShowPasswordDialog() {
-        return mAccessPoint.getSecurity() != AccessPoint.SECURITY_NONE && (!mAccessPoint.isSaved()
+        return !WifiUtil.isOpenNetwork(mAccessPoint.getSecurity()) && (!mAccessPoint.isSaved()
                 || WifiUtil.isAccessPointDisabledByWrongPassword(mAccessPoint));
     }
 
@@ -84,9 +84,9 @@ public class AccessPointPreference extends ButtonPasswordEditTextPreference {
             return null;
         }
         mWifiSld.setState(
-                (mAccessPoint.getSecurity() != AccessPoint.SECURITY_NONE)
-                        ? STATE_SECURED
-                        : STATE_NONE);
+                WifiUtil.isOpenNetwork(mAccessPoint.getSecurity())
+                        ? STATE_NONE
+                        : STATE_SECURED);
         Drawable drawable = mWifiSld.getCurrent();
         drawable.setLevel(mAccessPoint.getLevel());
         return drawable;

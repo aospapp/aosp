@@ -17,12 +17,13 @@
 package com.android.car.settings.applications;
 
 import android.os.Bundle;
-import android.widget.Button;
-
-import androidx.annotation.XmlRes;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.SettingsFragment;
+import com.android.car.ui.toolbar.MenuItem;
+
+import java.util.Collections;
+import java.util.List;
 
 /**
  * Fragment base class for use in cases where a list of applications is displayed with the option to
@@ -33,12 +34,7 @@ public abstract class AppListFragment extends SettingsFragment {
     private static final String KEY_SHOW_SYSTEM = "showSystem";
 
     private boolean mShowSystem;
-
-    @Override
-    @XmlRes
-    protected int getActionBarLayoutId() {
-        return R.layout.action_bar_with_button;
-    }
+    private MenuItem mSystemButton;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -46,18 +42,20 @@ public abstract class AppListFragment extends SettingsFragment {
         if (savedInstanceState != null) {
             mShowSystem = savedInstanceState.getBoolean(KEY_SHOW_SYSTEM, false);
         }
+
+        mSystemButton = new MenuItem.Builder(getContext())
+                .setOnClickListener(i -> {
+                    mShowSystem = !mShowSystem;
+                    onToggleShowSystemApps(mShowSystem);
+                    i.setTitle(mShowSystem ? R.string.hide_system : R.string.show_system);
+                })
+                .setTitle(mShowSystem ? R.string.hide_system : R.string.show_system)
+                .build();
     }
 
     @Override
-    public void onActivityCreated(Bundle savedInstanceState) {
-        super.onActivityCreated(savedInstanceState);
-        Button toggleShowSystem = requireActivity().findViewById(R.id.action_button1);
-        setButtonText(toggleShowSystem);
-        toggleShowSystem.setOnClickListener(v -> {
-            mShowSystem = !mShowSystem;
-            onToggleShowSystemApps(mShowSystem);
-            setButtonText(toggleShowSystem);
-        });
+    public List<MenuItem> getToolbarMenuItems() {
+        return Collections.singletonList(mSystemButton);
     }
 
     @Override
@@ -72,11 +70,6 @@ public abstract class AppListFragment extends SettingsFragment {
     /** Returns {@code true} if system applications should be shown in the list. */
     protected final boolean shouldShowSystemApps() {
         return mShowSystem;
-    }
-
-    private void setButtonText(Button button) {
-        // Show text to reverse the current state.
-        button.setText(mShowSystem ? R.string.hide_system : R.string.show_system);
     }
 
     @Override

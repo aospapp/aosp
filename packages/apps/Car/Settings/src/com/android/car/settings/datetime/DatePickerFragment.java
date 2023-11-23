@@ -15,11 +15,10 @@
  */
 package com.android.car.settings.datetime;
 
-import android.app.AlarmManager;
-import android.content.Context;
+import android.app.timedetector.ManualTimeSuggestion;
+import android.app.timedetector.TimeDetector;
 import android.content.Intent;
 import android.os.Bundle;
-import android.widget.Button;
 import android.widget.DatePicker;
 
 import androidx.annotation.LayoutRes;
@@ -27,8 +26,11 @@ import androidx.annotation.StringRes;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.BaseFragment;
+import com.android.car.ui.toolbar.MenuItem;
 
 import java.util.Calendar;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * Sets the system date.
@@ -37,11 +39,36 @@ public class DatePickerFragment extends BaseFragment {
     private static final int MILLIS_IN_SECOND = 1000;
 
     private DatePicker mDatePicker;
+    private MenuItem mOkButton;
 
     @Override
-    @LayoutRes
-    protected int getActionBarLayoutId() {
-        return R.layout.action_bar_with_button;
+    public List<MenuItem> getToolbarMenuItems() {
+        return Collections.singletonList(mOkButton);
+    }
+
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        mOkButton = new MenuItem.Builder(getContext())
+                .setTitle(android.R.string.ok)
+                .setOnClickListener(i -> {
+                    Calendar c = Calendar.getInstance();
+                    c.set(Calendar.YEAR, mDatePicker.getYear());
+                    c.set(Calendar.MONTH, mDatePicker.getMonth());
+                    c.set(Calendar.DAY_OF_MONTH, mDatePicker.getDayOfMonth());
+                    long when = Math.max(c.getTimeInMillis(), DatetimeSettingsFragment.MIN_DATE);
+                    if (when / MILLIS_IN_SECOND < Integer.MAX_VALUE) {
+                        TimeDetector timeDetector =
+                                getContext().getSystemService(TimeDetector.class);
+                        ManualTimeSuggestion manualTimeSuggestion =
+                                TimeDetector.createManualTimeSuggestion(when, "Settings: Set date");
+                        timeDetector.suggestManualTime(manualTimeSuggestion);
+                        getContext().sendBroadcast(new Intent(Intent.ACTION_TIME_CHANGED));
+                    }
+                    getFragmentHost().goBack();
+                })
+                .build();
     }
 
     @Override
@@ -60,22 +87,6 @@ public class DatePickerFragment extends BaseFragment {
     public void onActivityCreated(Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
 
-        mDatePicker = (DatePicker) getView().findViewById(R.id.date_picker);
-
-        Button button = (Button) getActivity().findViewById(R.id.action_button1);
-        button.setText(android.R.string.ok);
-        button.setOnClickListener(v -> {
-            Calendar c = Calendar.getInstance();
-
-            c.set(Calendar.YEAR, mDatePicker.getYear());
-            c.set(Calendar.MONTH, mDatePicker.getMonth());
-            c.set(Calendar.DAY_OF_MONTH, mDatePicker.getDayOfMonth());
-            long when = Math.max(c.getTimeInMillis(), DatetimeSettingsFragment.MIN_DATE);
-            if (when / MILLIS_IN_SECOND < Integer.MAX_VALUE) {
-                ((AlarmManager) getContext().getSystemService(Context.ALARM_SERVICE)).setTime(when);
-                getContext().sendBroadcast(new Intent(Intent.ACTION_TIME_CHANGED));
-            }
-            getFragmentController().goBack();
-        });
+        mDatePicker = getView().findViewById(R.id.date_picker);
     }
 }

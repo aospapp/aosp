@@ -17,7 +17,6 @@
 package com.android.car.settings.storage;
 
 import android.car.drivingstate.CarUxRestrictions;
-import android.car.userlib.CarUserManagerHelper;
 import android.content.Context;
 import android.content.res.Resources;
 import android.os.storage.VolumeInfo;
@@ -39,13 +38,11 @@ public abstract class StorageUsageBasePreferenceController extends
     private static final int PROGRESS_MAX = 100;
 
     private VolumeInfo mVolumeInfo;
-    private CarUserManagerHelper mCarUserManagerHelper;
 
     public StorageUsageBasePreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController,
             CarUxRestrictions uxRestrictions) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
-        mCarUserManagerHelper = new CarUserManagerHelper(context);
     }
 
     @Override
@@ -71,10 +68,6 @@ public abstract class StorageUsageBasePreferenceController extends
     public void onDataLoaded(SparseArray<StorageAsyncLoader.AppsStorageResult> result,
             long usedSizeBytes, long totalSizeBytes) {
         setStorageSize(calculateCategoryUsage(result, usedSizeBytes), totalSizeBytes);
-    }
-
-    CarUserManagerHelper getCarUserManagerHelper() {
-        return mCarUserManagerHelper;
     }
 
     public VolumeInfo getVolumeInfo() {

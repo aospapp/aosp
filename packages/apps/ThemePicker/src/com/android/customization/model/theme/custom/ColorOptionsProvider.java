@@ -24,8 +24,6 @@ import static com.android.customization.model.ResourceConstants.OVERLAY_CATEGORY
 import static com.android.customization.model.ResourceConstants.OVERLAY_CATEGORY_ICON_ANDROID;
 import static com.android.customization.model.ResourceConstants.OVERLAY_CATEGORY_SHAPE;
 import static com.android.customization.model.ResourceConstants.PATH_SIZE;
-import static com.android.customization.model.ResourceConstants.SYSUI_PACKAGE;
-import static com.android.customization.model.theme.custom.ThemeComponentOption.ColorOption.COLOR_TILES_ICON_IDS;
 
 import android.content.Context;
 import android.content.pm.PackageManager;

@@ -20,9 +20,13 @@ import android.app.usage.CacheQuotaHint;
 import android.app.usage.CacheQuotaService;
 import android.os.Environment;
 import android.os.storage.StorageManager;
-import android.os.storage.VolumeInfo;
+import android.os.storage.StorageVolume;
+import android.text.TextUtils;
 import android.util.ArrayMap;
 
+import androidx.core.util.Preconditions;
+
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -38,48 +42,48 @@ public class CacheQuotaServiceImpl extends CacheQuotaService {
 
     @Override
     public List<CacheQuotaHint> onComputeCacheQuotaHints(List<CacheQuotaHint> requests) {
-        ArrayMap<String, List<CacheQuotaHint>> byUuid = new ArrayMap<>();
+        ArrayMap<String, List<CacheQuotaHintExtend>> byUuid = new ArrayMap<>();
         final int requestCount = requests.size();
         for (int i = 0; i < requestCount; i++) {
             CacheQuotaHint request = requests.get(i);
             String uuid = request.getVolumeUuid();
-            List<CacheQuotaHint> listForUuid = byUuid.get(uuid);
+            List<CacheQuotaHintExtend> listForUuid = byUuid.get(uuid);
             if (listForUuid == null) {
                 listForUuid = new ArrayList<>();
                 byUuid.put(uuid, listForUuid);
             }
-            listForUuid.add(request);
+            listForUuid.add(convertToCacheQuotaHintExtend(request));
         }
 
         List<CacheQuotaHint> processed = new ArrayList<>();
         byUuid.entrySet().forEach(
                 requestListEntry -> {
                     // Collapse all usage stats to the same uid.
-                    Map<Integer, List<CacheQuotaHint>> byUid = requestListEntry.getValue()
+                    Map<Integer, List<CacheQuotaHintExtend>> byUid = requestListEntry.getValue()
                             .stream()
-                            .collect(Collectors.groupingBy(CacheQuotaHint::getUid));
+                            .collect(Collectors.groupingBy(CacheQuotaHintExtend::getUid));
                     byUid.values().forEach(uidGroupedList -> {
                         int size = uidGroupedList.size();
                         if (size < 2) {
                             return;
                         }
-                        CacheQuotaHint first = uidGroupedList.get(0);
+                        CacheQuotaHintExtend first = uidGroupedList.get(0);
                         for (int i = 1; i < size; i++) {
                             /* Note: We can't use the UsageStats built-in addition function because
                                      UIDs may span multiple packages and usage stats adding has
                                      matching package names as a precondition. */
-                            first.getUsageStats().mTotalTimeInForeground +=
-                                    uidGroupedList.get(i).getUsageStats().mTotalTimeInForeground;
+                            first.mTotalTimeInForeground +=
+                                    uidGroupedList.get(i).mTotalTimeInForeground;
                         }
                     });
 
                     // Because the foreground stats have been added to the first element, we need
                     // a list of only the first values (which contain the merged foreground time).
-                    List<CacheQuotaHint> flattenedRequests =
+                    List<CacheQuotaHintExtend> flattenedRequests =
                             byUid.values()
                                  .stream()
                                  .map(entryList -> entryList.get(0))
-                                 .filter(entry -> entry.getUsageStats().mTotalTimeInForeground != 0)
+                                 .filter(entry -> entry.mTotalTimeInForeground != 0)
                                  .sorted(sCacheQuotaRequestComparator)
                                  .collect(Collectors.toList());
 
@@ -90,7 +94,7 @@ public class CacheQuotaServiceImpl extends CacheQuotaService {
                     long reservedSize = getReservedCacheSize(uuid);
                     for (int count = 0; count < flattenedRequests.size(); count++) {
                         double share = getFairShareForPosition(count) / sum;
-                        CacheQuotaHint entry = flattenedRequests.get(count);
+                        CacheQuotaHint entry = flattenedRequests.get(count).mCacheQuotaHint;
                         CacheQuotaHint.Builder builder = new CacheQuotaHint.Builder(entry);
                         builder.setQuota(Math.round(share * reservedSize));
                         processed.add(builder.build());
@@ -119,25 +123,52 @@ public class CacheQuotaServiceImpl extends CacheQuotaService {
         // TODO: Revisit the cache size after running more storage tests.
         // TODO: Figure out how to ensure ExtServices has the permissions to call
         //       StorageStatsManager, because this is ignoring the cache...
-        StorageManager storageManager = getSystemService(StorageManager.class);
         long freeBytes = 0;
-        if (uuid == StorageManager.UUID_PRIVATE_INTERNAL) { // regular equals because of null
+        if (TextUtils.isEmpty(uuid)) { // regular equals because of null
             freeBytes = Environment.getDataDirectory().getUsableSpace();
         } else {
-            final VolumeInfo vol = storageManager.findVolumeByUuid(uuid);
-            freeBytes = vol.getPath().getUsableSpace();
+            final StorageManager storageManager = getSystemService(StorageManager.class);
+            final List<StorageVolume> storageVolumes = storageManager.getStorageVolumes();
+            final int volumeCount = storageVolumes.size();
+            for (int i = 0; i < volumeCount; i++) {
+                final StorageVolume volume = storageVolumes.get(i);
+                if (TextUtils.equals(volume.getUuid(), uuid)) {
+                    final File directory = volume.getDirectory();
+                    freeBytes = (directory != null) ? directory.getUsableSpace() : 0;
+                    break;
+                }
+            }
         }
         return Math.round(freeBytes * CACHE_RESERVE_RATIO);
     }
 
     // Compares based upon foreground time.
-    private static Comparator<CacheQuotaHint> sCacheQuotaRequestComparator =
-            new Comparator<CacheQuotaHint>() {
+    private static Comparator<CacheQuotaHintExtend> sCacheQuotaRequestComparator =
+            new Comparator<CacheQuotaHintExtend>() {
         @Override
-        public int compare(CacheQuotaHint o, CacheQuotaHint t1) {
-            long x = t1.getUsageStats().getTotalTimeInForeground();
-            long y = o.getUsageStats().getTotalTimeInForeground();
-            return (x < y) ? -1 : ((x == y) ? 0 : 1);
+        public int compare(CacheQuotaHintExtend o, CacheQuotaHintExtend t1) {
+            return (t1.mTotalTimeInForeground < o.mTotalTimeInForeground) ?
+                    -1 : ((t1.mTotalTimeInForeground == o.mTotalTimeInForeground) ? 0 : 1);
         }
     };
+
+    private CacheQuotaHintExtend convertToCacheQuotaHintExtend(CacheQuotaHint cacheQuotaHint) {
+        Preconditions.checkNotNull(cacheQuotaHint);
+        return new CacheQuotaHintExtend(cacheQuotaHint);
+    }
+
+    private final class CacheQuotaHintExtend {
+        public final CacheQuotaHint mCacheQuotaHint;
+        public long mTotalTimeInForeground;
+
+        public CacheQuotaHintExtend (CacheQuotaHint cacheQuotaHint) {
+            mCacheQuotaHint = cacheQuotaHint;
+            mTotalTimeInForeground = (cacheQuotaHint.getUsageStats() != null) ?
+                    cacheQuotaHint.getUsageStats().getTotalTimeInForeground() : 0;
+        }
+
+        public int getUid() {
+            return mCacheQuotaHint.getUid();
+        }
+    }
 }

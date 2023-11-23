@@ -16,20 +16,25 @@
 
 package android.car.settings;
 
+import android.car.Car;
 import android.car.CarManagerBase;
 import android.os.IBinder;
 import android.os.RemoteException;
 
 /**
  * Manager that exposes car configuration values that are stored on the system.
+ *
+ * @deprecated The {@code CarConfigurationManager} is no longer supported and will be removed.
  */
-public class CarConfigurationManager implements CarManagerBase {
+@Deprecated
+public class CarConfigurationManager extends CarManagerBase {
     private static final String TAG = "CarConfigurationManager";
 
     private final ICarConfigurationManager mConfigurationService;
 
     /** @hide */
-    public CarConfigurationManager(IBinder service) {
+    public CarConfigurationManager(Car car, IBinder service) {
+        super(car);
         mConfigurationService = ICarConfigurationManager.Stub.asInterface(service);
     }
 
@@ -42,7 +47,7 @@ public class CarConfigurationManager implements CarManagerBase {
         try {
             return mConfigurationService.getSpeedBumpConfiguration();
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            return handleRemoteExceptionFromCarService(e, null);
         }
     }
 

@@ -18,4 +18,17 @@ package com.android.tv.tuner.singletons;
 import com.android.tv.common.singletons.HasTvInputId;
 
 /** Singletons used in tuner applications */
-public interface TunerSingletons extends HasTvInputId {}
+public interface TunerSingletons extends HasTvInputId {
+
+    /*
+     * Do not add any new methods here.
+     *
+     * To move a getter to Injection.
+     *  1. Make a type injectable @Singleton.
+     *  2. Mark the getter here as deprecated.
+     *  3. Lazily inject the object in TvApplication.
+     *  4. Move easy usages of getters to injection instead.
+     *  5. Delete the method when all usages are migrated.
+     */
+
+}

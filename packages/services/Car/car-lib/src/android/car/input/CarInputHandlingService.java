@@ -19,6 +19,7 @@ import android.annotation.CallSuper;
 import android.annotation.MainThread;
 import android.annotation.SystemApi;
 import android.app.Service;
+import android.car.Car;
 import android.car.CarLibLog;
 import android.content.Intent;
 import android.os.Bundle;
@@ -101,7 +102,7 @@ public abstract class CarInputHandlingService extends Service {
         try {
             callbackBinder.transact(INPUT_CALLBACK_BINDER_CODE, dataIn, null, IBinder.FLAG_ONEWAY);
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            Car.handleRemoteExceptionFromCarService(this, e);
         }
     }
 

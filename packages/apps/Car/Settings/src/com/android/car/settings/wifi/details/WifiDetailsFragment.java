@@ -25,12 +25,8 @@ import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.os.Bundle;
-import android.view.View;
-import android.widget.Button;
-import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.annotation.LayoutRes;
 import androidx.annotation.StringRes;
 import androidx.annotation.XmlRes;
 
@@ -38,9 +34,11 @@ import com.android.car.settings.R;
 import com.android.car.settings.common.Logger;
 import com.android.car.settings.common.SettingsFragment;
 import com.android.car.settings.wifi.WifiUtil;
+import com.android.car.ui.toolbar.MenuItem;
 import com.android.settingslib.wifi.AccessPoint;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -55,8 +53,8 @@ public class WifiDetailsFragment extends SettingsFragment
 
     private WifiManager mWifiManager;
     private AccessPoint mAccessPoint;
-    private Button mForgetButton;
-    private Button mConnectButton;
+    private MenuItem mForgetButton;
+    private MenuItem mConnectButton;
     private List<WifiDetailsBasePreferenceController> mControllers = new ArrayList<>();
 
     private WifiInfoProvider mWifiInfoProvider;
@@ -93,9 +91,29 @@ public class WifiDetailsFragment extends SettingsFragment
     }
 
     @Override
-    @LayoutRes
-    protected int getActionBarLayoutId() {
-        return R.layout.action_bar_with_button;
+    public List<MenuItem> getToolbarMenuItems() {
+        return Arrays.asList(mForgetButton, mConnectButton);
+    }
+
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        mForgetButton = new MenuItem.Builder(getContext())
+                .setTitle(R.string.forget)
+                .setOnClickListener(i -> {
+                    WifiUtil.forget(getContext(), mAccessPoint);
+                    goBack();
+                })
+                .build();
+        mConnectButton = new MenuItem.Builder(getContext())
+                .setTitle(R.string.wifi_setup_connect)
+                .setOnClickListener(i -> {
+                    mWifiManager.connect(mAccessPoint.getConfig(),
+                            new ActionFailListener(R.string.wifi_failed_connect_message));
+                    goBack();
+                })
+                .build();
     }
 
     @Override
@@ -111,7 +129,7 @@ public class WifiDetailsFragment extends SettingsFragment
         mWifiManager = context.getSystemService(WifiManager.class);
         LOG.d("Creating WifiInfoProvider for " + mAccessPoint);
         if (mWifiInfoProvider == null) {
-            mWifiInfoProvider = new WifiInfoProviderImpl(getContext(), mAccessPoint);
+            mWifiInfoProvider = new WifiInfoProvider(getContext(), mAccessPoint);
         }
         getLifecycle().addObserver(mWifiInfoProvider);
 
@@ -143,22 +161,7 @@ public class WifiDetailsFragment extends SettingsFragment
     @Override
     public void onActivityCreated(Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
-        ((TextView) getActivity().findViewById(R.id.title)).setText(mAccessPoint.getSsid());
-
-        mConnectButton = getActivity().findViewById(R.id.action_button2);
-        mConnectButton.setVisibility(View.VISIBLE);
-        mConnectButton.setText(R.string.wifi_setup_connect);
-        mConnectButton.setOnClickListener(v -> {
-            mWifiManager.connect(mAccessPoint.getConfig(),
-                    new ActionFailListener(R.string.wifi_failed_connect_message));
-            goBack();
-        });
-        mForgetButton = getActivity().findViewById(R.id.action_button1);
-        mForgetButton.setText(R.string.forget);
-        mForgetButton.setOnClickListener(v -> {
-            WifiUtil.forget(getContext(), mAccessPoint);
-            goBack();
-        });
+        getToolbar().setTitle(mAccessPoint.getSsid());
     }
 
     @Override
@@ -208,17 +211,21 @@ public class WifiDetailsFragment extends SettingsFragment
 
     private void updateUi() {
         LOG.d("updating.");
+
         // No need to fetch LinkProperties and NetworkCapabilities, they are updated by the
         // callbacks. mNetwork doesn't change except in onResume.
         if (mWifiInfoProvider.getNetwork() == null
                 || mWifiInfoProvider.getNetworkInfo() == null
                 || mWifiInfoProvider.getWifiInfo() == null) {
             LOG.d("WIFI not available.");
+            mForgetButton.setVisible(false);
+            mConnectButton.setVisible(false);
             return;
         }
 
-        mConnectButton.setVisibility(needConnect() ? View.VISIBLE : View.INVISIBLE);
-        mForgetButton.setVisibility(canForgetNetwork() ? View.VISIBLE : View.INVISIBLE);
+        mForgetButton.setVisible(canForgetNetwork());
+        mConnectButton.setVisible(needConnect());
+
         LOG.d("updated.");
     }
 

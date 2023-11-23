@@ -16,23 +16,17 @@
 
 package com.android.car.developeroptions.password;
 
-import android.app.Activity;
 import android.app.settings.SettingsEnums;
 import android.content.DialogInterface;
 import android.hardware.biometrics.BiometricConstants;
 import android.hardware.biometrics.BiometricPrompt;
 import android.hardware.biometrics.BiometricPrompt.AuthenticationCallback;
 import android.hardware.biometrics.BiometricPrompt.AuthenticationResult;
-import android.hardware.biometrics.IBiometricConfirmDeviceCredentialCallback;
 import android.os.Bundle;
 import android.os.CancellationSignal;
-import android.os.Handler;
-import android.os.Looper;
-import android.util.Log;
 
 import androidx.annotation.NonNull;
 
-import com.android.car.developeroptions.R;
 import com.android.car.developeroptions.core.InstrumentedFragment;
 
 import java.util.concurrent.Executor;
@@ -85,20 +79,6 @@ public class BiometricFragment extends InstrumentedFragment {
         }
     };
 
-    // TODO(b/123378871): Remove when moved.
-    private final IBiometricConfirmDeviceCredentialCallback mCancelCallback
-        = new IBiometricConfirmDeviceCredentialCallback.Stub() {
-        @Override
-        public void cancel() {
-            final Activity activity = getActivity();
-            if (activity != null) {
-                activity.finish();
-            } else {
-                Log.e(TAG, "Activity null!");
-            }
-        }
-    };
-
     /**
      * @param bundle Bundle passed from {@link BiometricPrompt.Builder#buildIntent()}
      * @return
@@ -140,20 +120,17 @@ public class BiometricFragment extends InstrumentedFragment {
         mBiometricPrompt = new BiometricPrompt.Builder(getContext())
             .setTitle(mBundle.getString(BiometricPrompt.KEY_TITLE))
             .setUseDefaultTitle() // use default title if title is null/empty
-            .setFromConfirmDeviceCredential()
+            .setDeviceCredentialAllowed(true)
             .setSubtitle(mBundle.getString(BiometricPrompt.KEY_SUBTITLE))
             .setDescription(mBundle.getString(BiometricPrompt.KEY_DESCRIPTION))
             .setConfirmationRequired(
                     mBundle.getBoolean(BiometricPrompt.KEY_REQUIRE_CONFIRMATION, true))
-            .setNegativeButton(getResources().getString(
-                    R.string.confirm_device_credential_use_alternate_method),
-                    mClientExecutor, mNegativeButtonListener)
             .build();
         mCancellationSignal = new CancellationSignal();
 
         // TODO: CC doesn't use crypto for now
         mBiometricPrompt.authenticateUser(mCancellationSignal, mClientExecutor,
-                mAuthenticationCallback, mUserId, mCancelCallback);
+                mAuthenticationCallback, mUserId);
     }
 
     @Override

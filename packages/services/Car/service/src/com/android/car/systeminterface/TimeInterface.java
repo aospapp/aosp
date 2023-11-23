@@ -19,6 +19,9 @@ package com.android.car.systeminterface;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 
 import android.os.SystemClock;
+
+import com.android.internal.annotations.GuardedBy;
+
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
@@ -42,16 +45,34 @@ public interface TimeInterface {
     void cancelAllActions();
 
     class DefaultImpl implements TimeInterface {
-        private final ScheduledExecutorService mExecutor = newSingleThreadScheduledExecutor();
+        private final Object mLock = new Object();
+
+        @GuardedBy("mLock")
+        private ScheduledExecutorService mExecutor;
 
         @Override
         public void scheduleAction(Runnable r, long delayMs) {
-            mExecutor.scheduleAtFixedRate(r, delayMs, delayMs, TimeUnit.MILLISECONDS);
+            ScheduledExecutorService executor;
+            synchronized (mLock) {
+                executor = mExecutor;
+                if (executor == null) {
+                    executor = newSingleThreadScheduledExecutor();
+                    mExecutor = executor;
+                }
+            }
+            executor.scheduleAtFixedRate(r, delayMs, delayMs, TimeUnit.MILLISECONDS);
         }
 
         @Override
         public void cancelAllActions() {
-            mExecutor.shutdownNow();
+            ScheduledExecutorService executor;
+            synchronized (mLock) {
+                executor = mExecutor;
+                mExecutor = null;
+            }
+            if (executor != null) {
+                executor.shutdownNow();
+            }
         }
     }
 }

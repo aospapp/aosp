@@ -24,7 +24,7 @@
     <string name="pairing_peripheral" msgid="6983626861540899365">"<xliff:g id="DEVICE_NAME">%1$s</xliff:g> ଚିହ୍ନାଇ ଦିଆଯାଉଛି"</string>
     <string name="pairing_peripheral_failed" msgid="6087643307743264679">"<xliff:g id="DEVICE_NAME">%1$s</xliff:g> ଚିହ୍ନାଇ ହେଲା ନାହିଁ"</string>
     <string name="failed_to_enable_bt" msgid="7229153323594758077">"ବ୍ଲୁଟୂଥ୍‌ ସକ୍ଷମ କରିହେଲା ନାହିଁ"</string>
-    <string name="confirm_pairing" msgid="4112568077038265363">"ଆପଣ କ’ଣ ପ୍ରକୃତରେ ନିଜର <xliff:g id="DEVICE_NAME">%1$s</xliff:g> ବ୍ଲୁଟୂଥ୍‌ ଡିଭାଇସ୍‌କୁ ଚିହ୍ନାଇବାକୁ ଚାହୁଁଛନ୍ତି?"</string>
+    <string name="confirm_pairing" msgid="4112568077038265363">"ଆପଣ କ’ଣ ପ୍ରକୃତରେ ନିଜର <xliff:g id="DEVICE_NAME">%1$s</xliff:g> ବ୍ଲୁଟୁଥ୍‌ ଡିଭାଇସ୍‌କୁ ପେୟାର୍ କରିବାକୁ ଚାହୁଁଛନ୍ତି?"</string>
     <string name="pair_yes" msgid="3525614878559994448">"ହଁ"</string>
     <string name="pair_no" msgid="5022308368904055020">"ନା"</string>
     <string name="tap_again_to_pay" msgid="5754988005412859897">"<xliff:g id="APP">%1$s</xliff:g> ସହ ପେମେଣ୍ଟ କରିବା ପାଇଁ ପୁଣି ଟାପ୍‌ କରନ୍ତୁ"</string>
@@ -49,4 +49,6 @@
     <string name="action_confirm_url_open" msgid="3458322738812921189">"ଲିଙ୍କ ଖୋଲନ୍ତୁ"</string>
     <string name="tag_read_error" msgid="2485274498885877547">"NFC ରିଡ୍‌ କରିବା ବେଳେ ତ୍ରୁଟି। ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ।"</string>
     <string name="tag_dispatch_failed" msgid="3562984995049738400">"ଏହି NFC ଟ୍ୟାଗ୍‌ ପାଇଁ କୌଣସି ସାମର୍ଥିତ ଆପ୍ଲିକେସନ୍‌ ନାହିଁ"</string>
+    <string name="nfc_blocking_alert_title" msgid="1086172436984457085">"NFCକୁ ବ୍ଲକ୍ କରାଯାଇପାରେ"</string>
+    <string name="nfc_blocking_alert_message" msgid="7003156052570107490">"କିପରି ସମାଧାନ କରିବେ ସେ ବିଷୟରେ ଜାଣିବା ପାଇଁ ଟାପ୍ କରନ୍ତୁ।"</string>
 </resources>

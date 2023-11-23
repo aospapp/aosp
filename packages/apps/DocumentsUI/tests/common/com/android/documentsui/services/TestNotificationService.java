@@ -80,8 +80,10 @@ public class TestNotificationService extends NotificationListenerService {
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
             if (ACTION_CHANGE_CANCEL_MODE.equals(action)) {
+                Log.i(TAG, "Received cancel mode");
                 mCurrentMode = MODE.CANCEL_MODE;
             } else if (ACTION_CHANGE_EXECUTION_MODE.equals(action)) {
+                Log.i(TAG, "Received execution mode");
                 mCurrentMode = MODE.EXECUTION_MODE;
             }
         }
@@ -113,6 +115,9 @@ public class TestNotificationService extends NotificationListenerService {
     @Override
     public void onNotificationPosted(StatusBarNotification sbn) {
         String pkgName = sbn.getPackageName();
+        Log.i(TAG, "Entering notification posted cancelMode = " + MODE.CANCEL_MODE
+                .equals(mCurrentMode) + " targetPackageName " + mTargetPackageName + " packageName "
+                + pkgName);
         if (mTargetPackageName.equals(pkgName)) {
             if (MODE.CANCEL_MODE.equals(mCurrentMode)) {
                 try {
@@ -126,6 +131,8 @@ public class TestNotificationService extends NotificationListenerService {
 
     @Override
     public void onNotificationRemoved(StatusBarNotification sbn) {
+        Log.i(TAG, "Entering notification removed cancelMode = " + MODE.CANCEL_MODE
+                .equals(mCurrentMode));
         String pkgName = sbn.getPackageName();
         if (!mTargetPackageName.equals(pkgName)) {
             return;

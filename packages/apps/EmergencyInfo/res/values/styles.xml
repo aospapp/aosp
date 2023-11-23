@@ -16,7 +16,6 @@
 <resources>
     <style name="AppTheme" parent="@android:style/Theme.DeviceDefault.Settings">
         <item name="colorPrimaryDark">@color/primary_dark_color</item>
-        <item name="android:windowLightStatusBar">true</item>
         <item name="tabIndicatorColor">@color/accent_color_dark</item>
         <item name="textColorActionBar">?android:attr/textColorPrimary</item>
         <item name="preferenceTheme">@style/PreferenceTheme</item>

@@ -30,6 +30,8 @@ import android.provider.DocumentsContract;
 import android.provider.DocumentsContract.Path;
 import android.provider.DocumentsProvider;
 import android.util.Log;
+import android.util.StatsEvent;
+import android.util.StatsLog;
 
 import androidx.annotation.Nullable;
 
@@ -37,11 +39,13 @@ import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.Providers;
 import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.base.State;
+import com.android.documentsui.base.UserId;
 import com.android.documentsui.files.LauncherActivity;
 import com.android.documentsui.picker.PickResult;
 import com.android.documentsui.roots.ProvidersAccess;
 import com.android.documentsui.services.FileOperationService;
 import com.android.documentsui.services.FileOperationService.OpType;
+import com.android.documentsui.util.VersionUtils;
 
 import java.io.FileNotFoundException;
 import java.util.List;
@@ -86,6 +90,24 @@ public final class Metrics {
      */
     public static void logRootVisited(@MetricConsts.ContextScope int scope, RootInfo info) {
         DocumentsStatsLog.write(DocumentsStatsLog.DOCS_UI_ROOT_VISITED, scope, sanitizeRoot(info));
+    }
+
+    public static void logLaunchOtherApp(boolean acrossProfile) {
+        DevicePolicyEventLogger.write(DevicePolicyMetricConsts.EVENT_ID_DOCSUI_LAUNCH_OTHER_APP,
+                acrossProfile);
+    }
+
+    public static void logCrossProfileEmptyState(CrossProfileException e) {
+        int eventId;
+        if (e instanceof CrossProfileQuietModeException) {
+            eventId = DevicePolicyMetricConsts.EVENT_ID_DOCSUI_EMPTY_STATE_QUIET_MODE;
+        } else if (e instanceof CrossProfileNoPermissionException) {
+            eventId = DevicePolicyMetricConsts.EVENT_ID_DOCSUI_EMPTY_STATE_NO_PERMISSION;
+        } else {
+            Log.d(TAG, "logCrossProfileEmptyState: Unexpected exception " + e);
+            return;
+        }
+        DevicePolicyEventLogger.write(eventId, /* booleanValue= */ true);
     }
 
     /**
@@ -320,6 +342,14 @@ public final class Metrics {
                 getSearchMode(isKeywordSearch, isChipsSearch));
     }
 
+    /**
+     * Logs drag initiated from which app, documentsUI or another app.
+     */
+    public static void logDragInitiated(boolean isDragInitatedFromDocsUI) {
+        DocumentsStatsLog.write(DocumentsStatsLog.DOCS_UI_DRAG_AND_DROP_REPORTED,
+                isDragInitatedFromDocsUI);
+    }
+
     public static void logPickResult(PickResult result) {
         DocumentsStatsLog.write(
                 DocumentsStatsLog.DOCS_UI_PICK_RESULT_REPORTED,
@@ -330,6 +360,9 @@ public final class Metrics {
                 result.getRoot(),
                 result.getMimeType(),
                 result.getRepeatedPickTimes());
+
+        DevicePolicyEventLogger.write(DevicePolicyMetricConsts.EVENT_ID_DOCSUI_PICK_RESULT,
+                result.hasCrossProfileUri());
     }
 
     private static void logStorageFileOperationFailure(
@@ -340,7 +373,7 @@ public final class Metrics {
                 context.getContentResolver(), Providers.AUTHORITY_STORAGE)) {
             final Path path = DocumentsContract.findDocumentPath(wrap(client), docUri);
             final ProvidersAccess providers = DocumentsApplication.getProvidersCache(context);
-            final RootInfo root = providers.getRootOneshot(
+            final RootInfo root = providers.getRootOneshot(UserId.DEFAULT_USER,
                     Providers.AUTHORITY_STORAGE, path.getRootId());
             isInternal = !root.supportsEject();
         } catch (FileNotFoundException | RemoteException | RuntimeException e) {
@@ -375,6 +408,8 @@ public final class Metrics {
                         return MetricConsts.ROOT_IMAGES;
                     case Providers.ROOT_ID_VIDEOS:
                         return MetricConsts.ROOT_VIDEOS;
+                    case Providers.ROOT_ID_DOCUMENTS:
+                        return MetricConsts.ROOT_DOCUMENTS;
                     default:
                         return MetricConsts.ROOT_OTHER_DOCS_PROVIDER;
                 }
@@ -608,5 +643,29 @@ public final class Metrics {
             Log.w(TAG, "Invalid root Uri " + uri.toSafeString());
         }
         return null;
+    }
+
+    /**
+     * The implementation is copied from StatsLogInternal for the DEVICE_POLICY_EVENT. This is a
+     * no-op pre-R.
+     */
+    private static class DevicePolicyEventLogger {
+        public static void write(@DevicePolicyMetricConsts.EventId int eventId,
+                boolean booleanValue) {
+            if (!VersionUtils.isAtLeastR()) {
+                return;
+            }
+            final StatsEvent.Builder builder = StatsEvent.newBuilder();
+            builder.setAtomId(DevicePolicyMetricConsts.ATOM_DEVICE_POLICY_EVENT);
+            builder.writeInt(eventId); // eventId
+            builder.writeString(null); // adminPackageName
+            builder.writeInt(0); // intValue
+            builder.writeBoolean(booleanValue); // booleanValue
+            builder.writeLong(0); // timePeriodMs
+            builder.writeByteArray(new byte[0]); // bytes
+
+            builder.usePooledBuffer();
+            StatsLog.write(builder.build());
+        }
     }
 }

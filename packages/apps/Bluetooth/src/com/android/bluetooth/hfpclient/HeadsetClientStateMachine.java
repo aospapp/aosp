@@ -51,18 +51,19 @@ import android.os.ParcelUuid;
 import android.os.SystemClock;
 import android.util.Log;
 import android.util.Pair;
-import android.util.StatsLog;
 
 import com.android.bluetooth.BluetoothMetricsProto;
+import com.android.bluetooth.BluetoothStatsLog;
 import com.android.bluetooth.R;
 import com.android.bluetooth.Utils;
 import com.android.bluetooth.btservice.AdapterService;
 import com.android.bluetooth.btservice.MetricsLogger;
 import com.android.bluetooth.btservice.ProfileService;
+import com.android.bluetooth.statemachine.IState;
+import com.android.bluetooth.statemachine.State;
+import com.android.bluetooth.statemachine.StateMachine;
 import com.android.internal.annotations.VisibleForTesting;
-import com.android.internal.util.IState;
-import com.android.internal.util.State;
-import com.android.internal.util.StateMachine;
+import com.android.internal.util.ArrayUtils;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -75,7 +76,7 @@ import java.util.Set;
 
 public class HeadsetClientStateMachine extends StateMachine {
     private static final String TAG = "HeadsetClientStateMachine";
-    private static final boolean DBG = false;
+    private static final boolean DBG = Log.isLoggable(TAG, Log.DEBUG);
 
     static final int NO_ACTION = 0;
     static final int IN_BAND_RING_ENABLED = 1;
@@ -99,6 +100,7 @@ public class HeadsetClientStateMachine extends StateMachine {
     public static final int SEND_DTMF = 17;
     public static final int EXPLICIT_CALL_TRANSFER = 18;
     public static final int DISABLE_NREC = 20;
+    public static final int SEND_VENDOR_AT_COMMAND = 21;
 
     // internal actions
     private static final int QUERY_CURRENT_CALLS = 50;
@@ -174,7 +176,9 @@ public class HeadsetClientStateMachine extends StateMachine {
     // This is returned when requesting focus from AudioManager
     private AudioFocusRequest mAudioFocusRequest;
 
-    private AudioManager mAudioManager;
+    private final AudioManager mAudioManager;
+    private final NativeInterface mNativeInterface;
+    private final VendorCommandResponseProcessor mVendorProcessor;
 
     // Accessor for the states, useful for reusing the state machines
     public IState getDisconnectedState() {
@@ -231,9 +235,7 @@ public class HeadsetClientStateMachine extends StateMachine {
     }
 
     private BluetoothHeadsetClientCall getCall(int... states) {
-        if (DBG) {
-            Log.d(TAG, "getFromCallsWithStates states:" + Arrays.toString(states));
-        }
+        logD("getFromCallsWithStates states:" + Arrays.toString(states));
         for (BluetoothHeadsetClientCall c : mCalls.values()) {
             for (int s : states) {
                 if (c.getState() == s) {
@@ -256,9 +258,7 @@ public class HeadsetClientStateMachine extends StateMachine {
     }
 
     private void sendCallChangedIntent(BluetoothHeadsetClientCall c) {
-        if (DBG) {
-            Log.d(TAG, "sendCallChangedIntent " + c);
-        }
+        logD("sendCallChangedIntent " + c);
         Intent intent = new Intent(BluetoothHeadsetClient.ACTION_CALL_CHANGED);
         intent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
         intent.putExtra(BluetoothHeadsetClient.EXTRA_CALL, c);
@@ -266,19 +266,15 @@ public class HeadsetClientStateMachine extends StateMachine {
     }
 
     private boolean queryCallsStart() {
-        if (DBG) {
-            Log.d(TAG, "queryCallsStart");
-        }
+        logD("queryCallsStart");
         clearPendingAction();
-        NativeInterface.queryCurrentCallsNative(getByteAddress(mCurrentDevice));
+        mNativeInterface.queryCurrentCalls(getByteAddress(mCurrentDevice));
         addQueuedAction(QUERY_CURRENT_CALLS, 0);
         return true;
     }
 
     private void queryCallsDone() {
-        if (DBG) {
-            Log.d(TAG, "queryCallsDone");
-        }
+        logD("queryCallsDone");
         // mCalls has two types of calls:
         // (a) Calls that are received from AG of a previous iteration of queryCallsStart()
         // (b) Calls that are outgoing initiated from HF
@@ -325,11 +321,9 @@ public class HeadsetClientStateMachine extends StateMachine {
         callRetainedIds.addAll(currCallIdSet);
         callRetainedIds.retainAll(newCallIdSet);
 
-        if (DBG) {
-            Log.d(TAG, "currCallIdSet " + mCalls.keySet() + " newCallIdSet " + newCallIdSet
-                    + " callAddedIds " + callAddedIds + " callRemovedIds " + callRemovedIds
-                    + " callRetainedIds " + callRetainedIds);
-        }
+        logD("currCallIdSet " + mCalls.keySet() + " newCallIdSet " + newCallIdSet
+                + " callAddedIds " + callAddedIds + " callRemovedIds " + callRemovedIds
+                + " callRetainedIds " + callRetainedIds);
 
         // First thing is to try to associate the outgoing HF with a valid call.
         Integer hfOriginatedAssoc = -1;
@@ -337,9 +331,7 @@ public class HeadsetClientStateMachine extends StateMachine {
             BluetoothHeadsetClientCall c = mCalls.get(HF_ORIGINATED_CALL_ID);
             long cCreationElapsed = c.getCreationElapsedMilli();
             if (callAddedIds.size() > 0) {
-                if (DBG) {
-                    Log.d(TAG, "Associating the first call with HF originated call");
-                }
+                logD("Associating the first call with HF originated call");
                 hfOriginatedAssoc = (Integer) callAddedIds.toArray()[0];
                 mCalls.put(hfOriginatedAssoc, mCalls.get(HF_ORIGINATED_CALL_ID));
                 mCalls.remove(HF_ORIGINATED_CALL_ID);
@@ -367,11 +359,9 @@ public class HeadsetClientStateMachine extends StateMachine {
             }
         }
 
-        if (DBG) {
-            Log.d(TAG, "ADJUST: currCallIdSet " + mCalls.keySet() + " newCallIdSet " + newCallIdSet
-                    + " callAddedIds " + callAddedIds + " callRemovedIds " + callRemovedIds
-                    + " callRetainedIds " + callRetainedIds);
-        }
+        logD("ADJUST: currCallIdSet " + mCalls.keySet() + " newCallIdSet " + newCallIdSet
+                + " callAddedIds " + callAddedIds + " callRemovedIds " + callRemovedIds
+                + " callRetainedIds " + callRetainedIds);
 
         // Terminate & remove the calls that are done.
         for (Integer idx : callRemovedIds) {
@@ -406,7 +396,7 @@ public class HeadsetClientStateMachine extends StateMachine {
                 sendMessageDelayed(QUERY_CURRENT_CALLS, QUERY_CURRENT_CALLS_WAIT_MILLIS);
             } else {
                 if (getCall(BluetoothHeadsetClientCall.CALL_STATE_INCOMING) != null) {
-                    Log.d(TAG, "Still have incoming call; polling");
+                    logD("Still have incoming call; polling");
                     sendMessageDelayed(QUERY_CURRENT_CALLS, QUERY_CURRENT_CALLS_WAIT_MILLIS);
                 } else {
                     removeMessages(QUERY_CURRENT_CALLS);
@@ -419,9 +409,7 @@ public class HeadsetClientStateMachine extends StateMachine {
 
     private void queryCallsUpdate(int id, int state, String number, boolean multiParty,
             boolean outgoing) {
-        if (DBG) {
-            Log.d(TAG, "queryCallsUpdate: " + id);
-        }
+        logD("queryCallsUpdate: " + id);
         mCallsUpdate.put(id,
                 new BluetoothHeadsetClientCall(mCurrentDevice, id, state, number, multiParty,
                         outgoing, mInBandRing));
@@ -430,9 +418,7 @@ public class HeadsetClientStateMachine extends StateMachine {
     private void acceptCall(int flag) {
         int action = -1;
 
-        if (DBG) {
-            Log.d(TAG, "acceptCall: (" + flag + ")");
-        }
+        logD("acceptCall: (" + flag + ")");
 
         BluetoothHeadsetClientCall c = getCall(BluetoothHeadsetClientCall.CALL_STATE_INCOMING,
                 BluetoothHeadsetClientCall.CALL_STATE_WAITING);
@@ -445,9 +431,7 @@ public class HeadsetClientStateMachine extends StateMachine {
             }
         }
 
-        if (DBG) {
-            Log.d(TAG, "Call to accept: " + c);
-        }
+        logD("Call to accept: " + c);
         switch (c.getState()) {
             case BluetoothHeadsetClientCall.CALL_STATE_INCOMING:
                 if (flag != BluetoothHeadsetClient.CALL_ACCEPT_NONE) {
@@ -469,14 +453,10 @@ public class HeadsetClientStateMachine extends StateMachine {
                 // existing call or hold the existing call. We hold the other call by default.
                 if (flag == BluetoothHeadsetClient.CALL_ACCEPT_HOLD
                         || flag == BluetoothHeadsetClient.CALL_ACCEPT_NONE) {
-                    if (DBG) {
-                        Log.d(TAG, "Accepting call with accept and hold");
-                    }
+                    logD("Accepting call with accept and hold");
                     action = HeadsetClientHalConstants.CALL_ACTION_CHLD_2;
                 } else if (flag == BluetoothHeadsetClient.CALL_ACCEPT_TERMINATE) {
-                    if (DBG) {
-                        Log.d(TAG, "Accepting call with accept and reject");
-                    }
+                    logD("Accepting call with accept and reject");
                     action = HeadsetClientHalConstants.CALL_ACTION_CHLD_1;
                 } else {
                     Log.e(TAG, "Aceept call with invalid flag: " + flag);
@@ -511,7 +491,7 @@ public class HeadsetClientStateMachine extends StateMachine {
             routeHfpAudio(true);
         }
 
-        if (NativeInterface.handleCallActionNative(getByteAddress(mCurrentDevice), action, 0)) {
+        if (mNativeInterface.handleCallAction(getByteAddress(mCurrentDevice), action, 0)) {
             addQueuedAction(ACCEPT_CALL, action);
         } else {
             Log.e(TAG, "ERROR: Couldn't accept a call, action:" + action);
@@ -521,18 +501,14 @@ public class HeadsetClientStateMachine extends StateMachine {
     private void rejectCall() {
         int action;
 
-        if (DBG) {
-            Log.d(TAG, "rejectCall");
-        }
+        logD("rejectCall");
 
         BluetoothHeadsetClientCall c = getCall(BluetoothHeadsetClientCall.CALL_STATE_INCOMING,
                 BluetoothHeadsetClientCall.CALL_STATE_WAITING,
                 BluetoothHeadsetClientCall.CALL_STATE_HELD_BY_RESPONSE_AND_HOLD,
                 BluetoothHeadsetClientCall.CALL_STATE_HELD);
         if (c == null) {
-            if (DBG) {
-                Log.d(TAG, "No call to reject, returning.");
-            }
+            logD("No call to reject, returning.");
             return;
         }
 
@@ -554,10 +530,8 @@ public class HeadsetClientStateMachine extends StateMachine {
                 return;
         }
 
-        if (DBG) {
-            Log.d(TAG, "Reject call action " + action);
-        }
-        if (NativeInterface.handleCallActionNative(getByteAddress(mCurrentDevice), action, 0)) {
+        if (mNativeInterface.handleCallAction(getByteAddress(mCurrentDevice), action, 0)) {
+            logD("Reject call action " + action);
             addQueuedAction(REJECT_CALL, action);
         } else {
             Log.e(TAG, "ERROR: Couldn't reject a call, action:" + action);
@@ -567,9 +541,7 @@ public class HeadsetClientStateMachine extends StateMachine {
     private void holdCall() {
         int action;
 
-        if (DBG) {
-            Log.d(TAG, "holdCall");
-        }
+        logD("holdCall");
 
         BluetoothHeadsetClientCall c = getCall(BluetoothHeadsetClientCall.CALL_STATE_INCOMING);
         if (c != null) {
@@ -583,7 +555,7 @@ public class HeadsetClientStateMachine extends StateMachine {
             action = HeadsetClientHalConstants.CALL_ACTION_CHLD_2;
         }
 
-        if (NativeInterface.handleCallActionNative(getByteAddress(mCurrentDevice), action, 0)) {
+        if (mNativeInterface.handleCallAction(getByteAddress(mCurrentDevice), action, 0)) {
             addQueuedAction(HOLD_CALL, action);
         } else {
             Log.e(TAG, "ERROR: Couldn't hold a call, action:" + action);
@@ -591,9 +563,7 @@ public class HeadsetClientStateMachine extends StateMachine {
     }
 
     private void terminateCall() {
-        if (DBG) {
-            Log.d(TAG, "terminateCall");
-        }
+        logD("terminateCall");
 
         int action = HeadsetClientHalConstants.CALL_ACTION_CHUP;
 
@@ -606,7 +576,7 @@ public class HeadsetClientStateMachine extends StateMachine {
             action = HeadsetClientHalConstants.CALL_ACTION_CHLD_0;
         }
         if (c != null) {
-            if (NativeInterface.handleCallActionNative(getByteAddress(mCurrentDevice), action, 0)) {
+            if (mNativeInterface.handleCallAction(getByteAddress(mCurrentDevice), action, 0)) {
                 addQueuedAction(TERMINATE_CALL, action);
             } else {
                 Log.e(TAG, "ERROR: Couldn't terminate outgoing call");
@@ -615,9 +585,7 @@ public class HeadsetClientStateMachine extends StateMachine {
     }
 
     private void enterPrivateMode(int idx) {
-        if (DBG) {
-            Log.d(TAG, "enterPrivateMode: " + idx);
-        }
+        logD("enterPrivateMode: " + idx);
 
         BluetoothHeadsetClientCall c = mCalls.get(idx);
 
@@ -626,7 +594,7 @@ public class HeadsetClientStateMachine extends StateMachine {
             return;
         }
 
-        if (NativeInterface.handleCallActionNative(getByteAddress(mCurrentDevice),
+        if (mNativeInterface.handleCallAction(getByteAddress(mCurrentDevice),
                 HeadsetClientHalConstants.CALL_ACTION_CHLD_2X, idx)) {
             addQueuedAction(ENTER_PRIVATE_MODE, c);
         } else {
@@ -635,16 +603,14 @@ public class HeadsetClientStateMachine extends StateMachine {
     }
 
     private void explicitCallTransfer() {
-        if (DBG) {
-            Log.d(TAG, "explicitCallTransfer");
-        }
+        logD("explicitCallTransfer");
 
         // can't transfer call if there is not enough call parties
         if (mCalls.size() < 2) {
             return;
         }
 
-        if (NativeInterface.handleCallActionNative(getByteAddress(mCurrentDevice),
+        if (mNativeInterface.handleCallAction(getByteAddress(mCurrentDevice),
                 HeadsetClientHalConstants.CALL_ACTION_CHLD_4, -1)) {
             addQueuedAction(EXPLICIT_CALL_TRANSFER);
         } else {
@@ -697,10 +663,14 @@ public class HeadsetClientStateMachine extends StateMachine {
         return b;
     }
 
-    HeadsetClientStateMachine(HeadsetClientService context, Looper looper) {
+    HeadsetClientStateMachine(HeadsetClientService context, Looper looper,
+                              NativeInterface nativeInterface) {
         super(TAG, looper);
         mService = context;
+        mNativeInterface = nativeInterface;
         mAudioManager = mService.getAudioManager();
+
+        mVendorProcessor = new VendorCommandResponseProcessor(mService, mNativeInterface);
 
         mAdapter = BluetoothAdapter.getDefaultAdapter();
         mAudioState = BluetoothHeadsetClient.STATE_AUDIO_DISCONNECTED;
@@ -737,11 +707,11 @@ public class HeadsetClientStateMachine extends StateMachine {
         setInitialState(mDisconnected);
     }
 
-    static HeadsetClientStateMachine make(HeadsetClientService context, Looper l) {
-        if (DBG) {
-            Log.d(TAG, "make");
-        }
-        HeadsetClientStateMachine hfcsm = new HeadsetClientStateMachine(context, l);
+    static HeadsetClientStateMachine make(HeadsetClientService context, Looper looper,
+                                          NativeInterface nativeInterface) {
+        logD("make");
+        HeadsetClientStateMachine hfcsm = new HeadsetClientStateMachine(context, looper,
+                                                                        nativeInterface);
         hfcsm.start();
         return hfcsm;
     }
@@ -751,9 +721,7 @@ public class HeadsetClientStateMachine extends StateMachine {
             Log.e(TAG, "AudioManager is null!");
             return;
         }
-        if (DBG) {
-            Log.d(TAG, "hfp_enable=" + enable);
-        }
+        logD("hfp_enable=" + enable);
         if (enable && !sAudioIsRouted) {
             mAudioManager.setParameters("hfp_enable=true");
         } else if (!enable) {
@@ -772,18 +740,16 @@ public class HeadsetClientStateMachine extends StateMachine {
                         .setAudioAttributes(streamAttributes)
                         .build();
         int focusRequestStatus = mAudioManager.requestAudioFocus(focusRequest);
-        if (DBG) {
-            String s = (focusRequestStatus == AudioManager.AUDIOFOCUS_REQUEST_GRANTED)
-                    ? "AudioFocus granted" : "AudioFocus NOT granted";
-            Log.d(TAG, "AudioManager requestAudioFocus returned: " + s);
-        }
+        String s = (focusRequestStatus == AudioManager.AUDIOFOCUS_REQUEST_GRANTED)
+                ? "AudioFocus granted" : "AudioFocus NOT granted";
+        logD("AudioManager requestAudioFocus returned: " + s);
         return focusRequest;
     }
 
     public void doQuit() {
-        Log.d(TAG, "doQuit");
+        logD("doQuit");
         if (mCurrentDevice != null) {
-            NativeInterface.disconnectNative(getByteAddress(mCurrentDevice));
+            mNativeInterface.disconnect(getByteAddress(mCurrentDevice));
         }
         routeHfpAudio(false);
         returnAudioFocusIfNecessary();
@@ -801,7 +767,7 @@ public class HeadsetClientStateMachine extends StateMachine {
         int hfRange = MAX_HFP_SCO_VOICE_CALL_VOLUME - MIN_HFP_SCO_VOICE_CALL_VOLUME;
         int amOffset = (amRange * (hfVol - MIN_HFP_SCO_VOICE_CALL_VOLUME)) / hfRange;
         int amVol = sMinAmVcVol + amOffset;
-        Log.d(TAG, "HF -> AM " + hfVol + " " + amVol);
+        logD("HF -> AM " + hfVol + " " + amVol);
         return amVol;
     }
 
@@ -810,14 +776,14 @@ public class HeadsetClientStateMachine extends StateMachine {
         int hfRange = MAX_HFP_SCO_VOICE_CALL_VOLUME - MIN_HFP_SCO_VOICE_CALL_VOLUME;
         int hfOffset = (hfRange * (amVol - sMinAmVcVol)) / amRange;
         int hfVol = MIN_HFP_SCO_VOICE_CALL_VOLUME + hfOffset;
-        Log.d(TAG, "AM -> HF " + amVol + " " + hfVol);
+        logD("AM -> HF " + amVol + " " + hfVol);
         return hfVol;
     }
 
     class Disconnected extends State {
         @Override
         public void enter() {
-            Log.d(TAG, "Enter Disconnected: " + getCurrentMessage().what);
+            logD("Enter Disconnected: " + getCurrentMessage().what);
 
             // cleanup
             mIndicatorNetworkState = HeadsetClientHalConstants.NETWORK_STATE_NOT_AVAILABLE;
@@ -859,7 +825,7 @@ public class HeadsetClientStateMachine extends StateMachine {
 
         @Override
         public synchronized boolean processMessage(Message message) {
-            Log.d(TAG, "Disconnected process message: " + message.what);
+            logD("Disconnected process message: " + message.what);
 
             if (mCurrentDevice != null) {
                 Log.e(TAG, "ERROR: current device not null in Disconnected");
@@ -869,7 +835,7 @@ public class HeadsetClientStateMachine extends StateMachine {
             switch (message.what) {
                 case CONNECT:
                     BluetoothDevice device = (BluetoothDevice) message.obj;
-                    if (!NativeInterface.connectNative(getByteAddress(device))) {
+                    if (!mNativeInterface.connect(getByteAddress(device))) {
                         // No state transition is involved, fire broadcast immediately
                         broadcastConnectionState(device, BluetoothProfile.STATE_DISCONNECTED,
                                 BluetoothProfile.STATE_DISCONNECTED);
@@ -883,15 +849,11 @@ public class HeadsetClientStateMachine extends StateMachine {
                     break;
                 case StackEvent.STACK_EVENT:
                     StackEvent event = (StackEvent) message.obj;
-                    if (DBG) {
-                        Log.d(TAG, "Stack event type: " + event.type);
-                    }
+                    logD("Stack event type: " + event.type);
                     switch (event.type) {
                         case StackEvent.EVENT_TYPE_CONNECTION_STATE_CHANGED:
-                            if (DBG) {
-                                Log.d(TAG, "Disconnected: Connection " + event.device
-                                        + " state changed:" + event.valueInt);
-                            }
+                            logD("Disconnected: Connection " + event.device
+                                    + " state changed:" + event.valueInt);
                             processConnectionEvent(event.valueInt, event.device);
                             break;
                         default:
@@ -915,11 +877,12 @@ public class HeadsetClientStateMachine extends StateMachine {
                         mCurrentDevice = device;
                         transitionTo(mConnecting);
                     } else {
-                        Log.i(TAG, "Incoming AG rejected. priority=" + mService.getPriority(device)
-                                + " bondState=" + device.getBondState());
+                        Log.i(TAG, "Incoming AG rejected. connectionPolicy="
+                                + mService.getConnectionPolicy(device) + " bondState="
+                                + device.getBondState());
                         // reject the connection and stay in Disconnected state
                         // itself
-                        NativeInterface.disconnectNative(getByteAddress(device));
+                        mNativeInterface.disconnect(getByteAddress(device));
                         // the other profile connection should be initiated
                         AdapterService adapterService = AdapterService.getAdapterService();
                         // No state transition is involved, fire broadcast immediately
@@ -938,9 +901,7 @@ public class HeadsetClientStateMachine extends StateMachine {
 
         @Override
         public void exit() {
-            if (DBG) {
-                Log.d(TAG, "Exit Disconnected: " + getCurrentMessage().what);
-            }
+            logD("Exit Disconnected: " + getCurrentMessage().what);
             mPrevState = this;
         }
     }
@@ -948,9 +909,7 @@ public class HeadsetClientStateMachine extends StateMachine {
     class Connecting extends State {
         @Override
         public void enter() {
-            if (DBG) {
-                Log.d(TAG, "Enter Connecting: " + getCurrentMessage().what);
-            }
+            logD("Enter Connecting: " + getCurrentMessage().what);
             // This message is either consumed in processMessage or
             // removed in exit. It is safe to send a CONNECTING_TIMEOUT here since
             // the only transition is when connection attempt is initiated.
@@ -967,9 +926,7 @@ public class HeadsetClientStateMachine extends StateMachine {
 
         @Override
         public synchronized boolean processMessage(Message message) {
-            if (DBG) {
-                Log.d(TAG, "Connecting process message: " + message.what);
-            }
+            logD("Connecting process message: " + message.what);
 
             switch (message.what) {
                 case CONNECT:
@@ -979,16 +936,11 @@ public class HeadsetClientStateMachine extends StateMachine {
                     break;
                 case StackEvent.STACK_EVENT:
                     StackEvent event = (StackEvent) message.obj;
-                    if (DBG) {
-                        Log.d(TAG, "Connecting: event type: " + event.type);
-                    }
+                    logD("Connecting: event type: " + event.type);
                     switch (event.type) {
                         case StackEvent.EVENT_TYPE_CONNECTION_STATE_CHANGED:
-                            if (DBG) {
-                                Log.d(TAG,
-                                        "Connecting: Connection " + event.device + " state changed:"
-                                                + event.valueInt);
-                            }
+                            logD("Connecting: Connection " + event.device + " state changed:"
+                                    + event.valueInt);
                             processConnectionEvent(event.valueInt, event.valueInt2, event.valueInt3,
                                     event.device);
                             break;
@@ -1037,14 +989,14 @@ public class HeadsetClientStateMachine extends StateMachine {
                     break;
 
                 case HeadsetClientHalConstants.CONNECTION_STATE_SLC_CONNECTED:
-                    Log.d(TAG, "HFPClient Connected from Connecting state");
+                    logD("HFPClient Connected from Connecting state");
 
                     mPeerFeatures = peerFeat;
                     mChldFeatures = chldFeat;
 
                     // We do not support devices which do not support enhanced call status (ECS).
                     if ((mPeerFeatures & HeadsetClientHalConstants.PEER_FEAT_ECS) == 0) {
-                        NativeInterface.disconnectNative(getByteAddress(device));
+                        mNativeInterface.disconnect(getByteAddress(device));
                         return;
                     }
 
@@ -1052,7 +1004,7 @@ public class HeadsetClientStateMachine extends StateMachine {
                     if (HeadsetClientHalConstants.HANDSFREECLIENT_NREC_SUPPORTED && (
                             (mPeerFeatures & HeadsetClientHalConstants.PEER_FEAT_ECNR)
                                     == HeadsetClientHalConstants.PEER_FEAT_ECNR)) {
-                        if (NativeInterface.sendATCmdNative(getByteAddress(mCurrentDevice),
+                        if (mNativeInterface.sendATCmd(getByteAddress(mCurrentDevice),
                                 HeadsetClientHalConstants.HANDSFREECLIENT_AT_CMD_NREC, 1, 0,
                                 null)) {
                             addQueuedAction(DISABLE_NREC);
@@ -1088,9 +1040,7 @@ public class HeadsetClientStateMachine extends StateMachine {
                     break;
                 case HeadsetClientHalConstants.CONNECTION_STATE_CONNECTING:
                     /* outgoing connecting started */
-                    if (DBG) {
-                        Log.d(TAG, "outgoing connection started, ignore");
-                    }
+                    logD("outgoing connection started, ignore");
                     break;
                 case HeadsetClientHalConstants.CONNECTION_STATE_DISCONNECTING:
                 default:
@@ -1101,9 +1051,7 @@ public class HeadsetClientStateMachine extends StateMachine {
 
         @Override
         public void exit() {
-            if (DBG) {
-                Log.d(TAG, "Exit Connecting: " + getCurrentMessage().what);
-            }
+            logD("Exit Connecting: " + getCurrentMessage().what);
             removeMessages(CONNECTING_TIMEOUT);
             mPrevState = this;
         }
@@ -1114,9 +1062,7 @@ public class HeadsetClientStateMachine extends StateMachine {
 
         @Override
         public void enter() {
-            if (DBG) {
-                Log.d(TAG, "Enter Connected: " + getCurrentMessage().what);
-            }
+            logD("Enter Connected: " + getCurrentMessage().what);
             mAudioWbs = false;
             mCommandedSpeakerVolume = -1;
             if (mPrevState == mConnecting) {
@@ -1133,9 +1079,7 @@ public class HeadsetClientStateMachine extends StateMachine {
 
         @Override
         public synchronized boolean processMessage(Message message) {
-            if (DBG) {
-                Log.d(TAG, "Connected process message: " + message.what);
-            }
+            logD("Connected process message: " + message.what);
             if (DBG) {
                 if (mCurrentDevice == null) {
                     Log.e(TAG, "ERROR: mCurrentDevice is null in Connected");
@@ -1150,20 +1094,20 @@ public class HeadsetClientStateMachine extends StateMachine {
                         // already connected to this device, do nothing
                         break;
                     }
-                    NativeInterface.connectNative(getByteAddress(device));
+                    mNativeInterface.connect(getByteAddress(device));
                     break;
                 case DISCONNECT:
                     BluetoothDevice dev = (BluetoothDevice) message.obj;
                     if (!mCurrentDevice.equals(dev)) {
                         break;
                     }
-                    if (!NativeInterface.disconnectNative(getByteAddress(dev))) {
+                    if (!mNativeInterface.disconnect(getByteAddress(dev))) {
                         Log.e(TAG, "disconnectNative failed for " + dev);
                     }
                     break;
 
                 case CONNECT_AUDIO:
-                    if (!NativeInterface.connectAudioNative(getByteAddress(mCurrentDevice))) {
+                    if (!mNativeInterface.connectAudio(getByteAddress(mCurrentDevice))) {
                         Log.e(TAG, "ERROR: Couldn't connect Audio for device " + mCurrentDevice);
                         // No state transition is involved, fire broadcast immediately
                         broadcastAudioState(mCurrentDevice,
@@ -1175,14 +1119,14 @@ public class HeadsetClientStateMachine extends StateMachine {
                     break;
 
                 case DISCONNECT_AUDIO:
-                    if (!NativeInterface.disconnectAudioNative(getByteAddress(mCurrentDevice))) {
+                    if (!mNativeInterface.disconnectAudio(getByteAddress(mCurrentDevice))) {
                         Log.e(TAG, "ERROR: Couldn't disconnect Audio for device " + mCurrentDevice);
                     }
                     break;
 
                 case VOICE_RECOGNITION_START:
                     if (mVoiceRecognitionActive == HeadsetClientHalConstants.VR_STATE_STOPPED) {
-                        if (NativeInterface.startVoiceRecognitionNative(
+                        if (mNativeInterface.startVoiceRecognition(
                                     getByteAddress(mCurrentDevice))) {
                             addQueuedAction(VOICE_RECOGNITION_START);
                         } else {
@@ -1193,7 +1137,7 @@ public class HeadsetClientStateMachine extends StateMachine {
 
                 case VOICE_RECOGNITION_STOP:
                     if (mVoiceRecognitionActive == HeadsetClientHalConstants.VR_STATE_STARTED) {
-                        if (NativeInterface.stopVoiceRecognitionNative(
+                        if (mNativeInterface.stopVoiceRecognition(
                                     getByteAddress(mCurrentDevice))) {
                             addQueuedAction(VOICE_RECOGNITION_STOP);
                         } else {
@@ -1201,6 +1145,13 @@ public class HeadsetClientStateMachine extends StateMachine {
                         }
                     }
                     break;
+
+                case SEND_VENDOR_AT_COMMAND: {
+                    int vendorId = message.arg1;
+                    String atCommand = (String) (message.obj);
+                    mVendorProcessor.sendCommand(vendorId, atCommand, mCurrentDevice);
+                    break;
+                }
 
                 // Called only for Mute/Un-mute - Mic volume change is not allowed.
                 case SET_MIC_VOLUME:
@@ -1210,10 +1161,10 @@ public class HeadsetClientStateMachine extends StateMachine {
                     int amVol = message.arg1;
                     int hfVol = amToHfVol(amVol);
                     if (amVol != mCommandedSpeakerVolume) {
-                        Log.d(TAG, "Volume" + amVol + ":" + mCommandedSpeakerVolume);
+                        logD("Volume" + amVol + ":" + mCommandedSpeakerVolume);
                         // Volume was changed by a 3rd party
                         mCommandedSpeakerVolume = -1;
-                        if (NativeInterface.setVolumeNative(getByteAddress(mCurrentDevice),
+                        if (mNativeInterface.setVolume(getByteAddress(mCurrentDevice),
                                 HeadsetClientHalConstants.VOLUME_TYPE_SPK, hfVol)) {
                             addQueuedAction(SET_SPEAKER_VOLUME);
                         }
@@ -1224,7 +1175,7 @@ public class HeadsetClientStateMachine extends StateMachine {
                     BluetoothHeadsetClientCall c = (BluetoothHeadsetClientCall) message.obj;
                     mCalls.put(HF_ORIGINATED_CALL_ID, c);
 
-                    if (NativeInterface.dialNative(getByteAddress(mCurrentDevice), c.getNumber())) {
+                    if (mNativeInterface.dial(getByteAddress(mCurrentDevice), c.getNumber())) {
                         addQueuedAction(DIAL_NUMBER, c.getNumber());
                         // Start looping on calling current calls.
                         sendMessage(QUERY_CURRENT_CALLS);
@@ -1256,7 +1207,7 @@ public class HeadsetClientStateMachine extends StateMachine {
                     explicitCallTransfer();
                     break;
                 case SEND_DTMF:
-                    if (NativeInterface.sendDtmfNative(getByteAddress(mCurrentDevice),
+                    if (mNativeInterface.sendDtmf(getByteAddress(mCurrentDevice),
                             (byte) message.arg1)) {
                         addQueuedAction(SEND_DTMF);
                     } else {
@@ -1264,7 +1215,7 @@ public class HeadsetClientStateMachine extends StateMachine {
                     }
                     break;
                 case SUBSCRIBER_INFO:
-                    if (NativeInterface.retrieveSubscriberInfoNative(
+                    if (mNativeInterface.retrieveSubscriberInfo(
                             getByteAddress(mCurrentDevice))) {
                         addQueuedAction(SUBSCRIBER_INFO);
                     } else {
@@ -1282,29 +1233,21 @@ public class HeadsetClientStateMachine extends StateMachine {
                 case StackEvent.STACK_EVENT:
                     Intent intent = null;
                     StackEvent event = (StackEvent) message.obj;
-                    if (DBG) {
-                        Log.d(TAG, "Connected: event type: " + event.type);
-                    }
+                    logD("Connected: event type: " + event.type);
 
                     switch (event.type) {
                         case StackEvent.EVENT_TYPE_CONNECTION_STATE_CHANGED:
-                            if (DBG) {
-                                Log.d(TAG, "Connected: Connection state changed: " + event.device
-                                        + ": " + event.valueInt);
-                            }
+                            logD("Connected: Connection state changed: " + event.device
+                                    + ": " + event.valueInt);
                             processConnectionEvent(event.valueInt, event.device);
                             break;
                         case StackEvent.EVENT_TYPE_AUDIO_STATE_CHANGED:
-                            if (DBG) {
-                                Log.d(TAG, "Connected: Audio state changed: " + event.device + ": "
-                                        + event.valueInt);
-                            }
+                            logD("Connected: Audio state changed: " + event.device + ": "
+                                    + event.valueInt);
                             processAudioEvent(event.valueInt, event.device);
                             break;
                         case StackEvent.EVENT_TYPE_NETWORK_STATE:
-                            if (DBG) {
-                                Log.d(TAG, "Connected: Network state: " + event.valueInt);
-                            }
+                            logD("Connected: Network state: " + event.valueInt);
                             mIndicatorNetworkState = event.valueInt;
 
                             intent = new Intent(BluetoothHeadsetClient.ACTION_AG_EVENT);
@@ -1323,7 +1266,7 @@ public class HeadsetClientStateMachine extends StateMachine {
 
                             if (mIndicatorNetworkState
                                     == HeadsetClientHalConstants.NETWORK_STATE_AVAILABLE) {
-                                if (NativeInterface.queryCurrentOperatorNameNative(
+                                if (mNativeInterface.queryCurrentOperatorName(
                                         getByteAddress(mCurrentDevice))) {
                                     addQueuedAction(QUERY_OPERATOR_NAME);
                                 } else {
@@ -1368,15 +1311,10 @@ public class HeadsetClientStateMachine extends StateMachine {
                             mService.sendBroadcast(intent, ProfileService.BLUETOOTH_PERM);
                             break;
                         case StackEvent.EVENT_TYPE_VR_STATE_CHANGED:
-                            if (mVoiceRecognitionActive != event.valueInt) {
-                                mVoiceRecognitionActive = event.valueInt;
-
-                                intent = new Intent(BluetoothHeadsetClient.ACTION_AG_EVENT);
-                                intent.putExtra(BluetoothHeadsetClient.EXTRA_VOICE_RECOGNITION,
-                                        mVoiceRecognitionActive);
-                                intent.putExtra(BluetoothDevice.EXTRA_DEVICE, event.device);
-                                mService.sendBroadcast(intent, ProfileService.BLUETOOTH_PERM);
-                            }
+                            int oldState = mVoiceRecognitionActive;
+                            mVoiceRecognitionActive = event.valueInt;
+                            broadcastVoiceRecognitionStateChanged(event.device, oldState,
+                                    mVoiceRecognitionActive);
                             break;
                         case StackEvent.EVENT_TYPE_CALL:
                         case StackEvent.EVENT_TYPE_CALLSETUP:
@@ -1396,7 +1334,7 @@ public class HeadsetClientStateMachine extends StateMachine {
                         case StackEvent.EVENT_TYPE_VOLUME_CHANGED:
                             if (event.valueInt == HeadsetClientHalConstants.VOLUME_TYPE_SPK) {
                                 mCommandedSpeakerVolume = hfToAmVol(event.valueInt2);
-                                Log.d(TAG, "AM volume set to " + mCommandedSpeakerVolume);
+                                logD("AM volume set to " + mCommandedSpeakerVolume);
                                 mAudioManager.setStreamVolume(AudioManager.STREAM_VOICE_CALL,
                                         +mCommandedSpeakerVolume, AudioManager.FLAG_SHOW_UI);
                             } else if (event.valueInt
@@ -1413,10 +1351,8 @@ public class HeadsetClientStateMachine extends StateMachine {
                                 break;
                             }
 
-                            if (DBG) {
-                                Log.d(TAG, "Connected: command result: " + event.valueInt
-                                        + " queuedAction: " + queuedAction.first);
-                            }
+                            logD("Connected: command result: " + event.valueInt
+                                    + " queuedAction: " + queuedAction.first);
 
                             switch (queuedAction.first) {
                                 case QUERY_CURRENT_CALLS:
@@ -1424,14 +1360,20 @@ public class HeadsetClientStateMachine extends StateMachine {
                                     break;
                                 case VOICE_RECOGNITION_START:
                                     if (event.valueInt == AT_OK) {
+                                        oldState = mVoiceRecognitionActive;
                                         mVoiceRecognitionActive =
                                                 HeadsetClientHalConstants.VR_STATE_STARTED;
+                                        broadcastVoiceRecognitionStateChanged(event.device,
+                                                oldState, mVoiceRecognitionActive);
                                     }
                                     break;
                                 case VOICE_RECOGNITION_STOP:
                                     if (event.valueInt == AT_OK) {
+                                        oldState = mVoiceRecognitionActive;
                                         mVoiceRecognitionActive =
                                                 HeadsetClientHalConstants.VR_STATE_STOPPED;
+                                        broadcastVoiceRecognitionStateChanged(event.device,
+                                                oldState, mVoiceRecognitionActive);
                                     }
                                     break;
                                 default:
@@ -1455,15 +1397,18 @@ public class HeadsetClientStateMachine extends StateMachine {
                                     event.valueInt);
                             intent.putExtra(BluetoothDevice.EXTRA_DEVICE, event.device);
                             mService.sendBroadcast(intent, ProfileService.BLUETOOTH_PERM);
-                            if (DBG) {
-                                Log.d(TAG,
-                                        event.device.toString() + "onInBandRing" + event.valueInt);
-                            }
+                            logD(event.device.toString() + "onInBandRing" + event.valueInt);
                             break;
                         case StackEvent.EVENT_TYPE_RING_INDICATION:
                             // Ringing is not handled at this indication and rather should be
                             // implemented (by the client of this service). Use the
                             // CALL_STATE_INCOMING (and similar) handle ringing.
+                            break;
+                        case StackEvent.EVENT_TYPE_UNKNOWN_EVENT:
+                            if (!mVendorProcessor.processEvent(event.valueString, event.device)) {
+                                Log.e(TAG, "Unknown event :" + event.valueString
+                                        + " for device " + event.device);
+                            }
                             break;
                         default:
                             Log.e(TAG, "Unknown stack event: " + event.type);
@@ -1477,13 +1422,22 @@ public class HeadsetClientStateMachine extends StateMachine {
             return HANDLED;
         }
 
+        private void broadcastVoiceRecognitionStateChanged(BluetoothDevice device, int oldState,
+                int newState) {
+            if (oldState == newState) {
+                return;
+            }
+            Intent intent = new Intent(BluetoothHeadsetClient.ACTION_AG_EVENT);
+            intent.putExtra(BluetoothHeadsetClient.EXTRA_VOICE_RECOGNITION, newState);
+            intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
+            mService.sendBroadcast(intent, ProfileService.BLUETOOTH_PERM);
+        }
+
         // in Connected state
         private void processConnectionEvent(int state, BluetoothDevice device) {
             switch (state) {
                 case HeadsetClientHalConstants.CONNECTION_STATE_DISCONNECTED:
-                    if (DBG) {
-                        Log.d(TAG, "Connected disconnects.");
-                    }
+                    logD("Connected disconnects.");
                     // AG disconnects
                     if (mCurrentDevice.equals(device)) {
                         transitionTo(mDisconnected);
@@ -1534,23 +1488,15 @@ public class HeadsetClientStateMachine extends StateMachine {
                     final int amVol = mAudioManager.getStreamVolume(AudioManager.STREAM_VOICE_CALL);
                     final int hfVol = amToHfVol(amVol);
 
-                    if (DBG) {
-                        Log.d(TAG, "hfp_enable=true mAudioWbs is " + mAudioWbs);
-                    }
+                    logD("hfp_enable=true mAudioWbs is " + mAudioWbs);
                     if (mAudioWbs) {
-                        if (DBG) {
-                            Log.d(TAG, "Setting sampling rate as 16000");
-                        }
+                        logD("Setting sampling rate as 16000");
                         mAudioManager.setParameters("hfp_set_sampling_rate=16000");
                     } else {
-                        if (DBG) {
-                            Log.d(TAG, "Setting sampling rate as 8000");
-                        }
+                        logD("Setting sampling rate as 8000");
                         mAudioManager.setParameters("hfp_set_sampling_rate=8000");
                     }
-                    if (DBG) {
-                        Log.d(TAG, "hf_volume " + hfVol);
-                    }
+                    logD("hf_volume " + hfVol);
                     routeHfpAudio(true);
                     mAudioFocusRequest = requestAudioFocus();
                     mAudioManager.setParameters("hfp_volume=" + hfVol);
@@ -1579,9 +1525,7 @@ public class HeadsetClientStateMachine extends StateMachine {
 
         @Override
         public void exit() {
-            if (DBG) {
-                Log.d(TAG, "Exit Connected: " + getCurrentMessage().what);
-            }
+            logD("Exit Connected: " + getCurrentMessage().what);
             mPrevState = this;
         }
     }
@@ -1589,18 +1533,14 @@ public class HeadsetClientStateMachine extends StateMachine {
     class AudioOn extends State {
         @Override
         public void enter() {
-            if (DBG) {
-                Log.d(TAG, "Enter AudioOn: " + getCurrentMessage().what);
-            }
+            logD("Enter AudioOn: " + getCurrentMessage().what);
             broadcastAudioState(mCurrentDevice, BluetoothHeadsetClient.STATE_AUDIO_CONNECTED,
                     BluetoothHeadsetClient.STATE_AUDIO_CONNECTING);
         }
 
         @Override
         public synchronized boolean processMessage(Message message) {
-            if (DBG) {
-                Log.d(TAG, "AudioOn process message: " + message.what);
-            }
+            logD("AudioOn process message: " + message.what);
             if (DBG) {
                 if (mCurrentDevice == null) {
                     Log.e(TAG, "ERROR: mCurrentDevice is null in Connected");
@@ -1625,7 +1565,7 @@ public class HeadsetClientStateMachine extends StateMachine {
                      * StackEvent.EVENT_TYPE_AUDIO_STATE_CHANGED, that triggers State
                      * Machines state changing
                      */
-                    if (NativeInterface.disconnectAudioNative(getByteAddress(mCurrentDevice))) {
+                    if (mNativeInterface.disconnectAudio(getByteAddress(mCurrentDevice))) {
                         routeHfpAudio(false);
                         returnAudioFocusIfNecessary();
                     }
@@ -1637,22 +1577,16 @@ public class HeadsetClientStateMachine extends StateMachine {
 
                 case StackEvent.STACK_EVENT:
                     StackEvent event = (StackEvent) message.obj;
-                    if (DBG) {
-                        Log.d(TAG, "AudioOn: event type: " + event.type);
-                    }
+                    logD("AudioOn: event type: " + event.type);
                     switch (event.type) {
                         case StackEvent.EVENT_TYPE_CONNECTION_STATE_CHANGED:
-                            if (DBG) {
-                                Log.d(TAG, "AudioOn connection state changed" + event.device + ": "
-                                        + event.valueInt);
-                            }
+                            logD("AudioOn connection state changed" + event.device + ": "
+                                    + event.valueInt);
                             processConnectionEvent(event.valueInt, event.device);
                             break;
                         case StackEvent.EVENT_TYPE_AUDIO_STATE_CHANGED:
-                            if (DBG) {
-                                Log.d(TAG, "AudioOn audio state changed" + event.device + ": "
-                                        + event.valueInt);
-                            }
+                            logD("AudioOn audio state changed" + event.device + ": "
+                                    + event.valueInt);
                             processAudioEvent(event.valueInt, event.device);
                             break;
                         default:
@@ -1711,9 +1645,7 @@ public class HeadsetClientStateMachine extends StateMachine {
 
         @Override
         public void exit() {
-            if (DBG) {
-                Log.d(TAG, "Exit AudioOn: " + getCurrentMessage().what);
-            }
+            logD("Exit AudioOn: " + getCurrentMessage().what);
             mPrevState = this;
             broadcastAudioState(mCurrentDevice, BluetoothHeadsetClient.STATE_AUDIO_DISCONNECTED,
                     BluetoothHeadsetClient.STATE_AUDIO_CONNECTED);
@@ -1746,11 +1678,12 @@ public class HeadsetClientStateMachine extends StateMachine {
     }
 
     private void broadcastAudioState(BluetoothDevice device, int newState, int prevState) {
-        StatsLog.write(StatsLog.BLUETOOTH_SCO_CONNECTION_STATE_CHANGED,
+        BluetoothStatsLog.write(BluetoothStatsLog.BLUETOOTH_SCO_CONNECTION_STATE_CHANGED,
                 AdapterService.getAdapterService().obfuscateAddress(device),
                 getConnectionStateFromAudioState(newState), mAudioWbs
                         ? BluetoothHfpProtoEnums.SCO_CODEC_MSBC
-                        : BluetoothHfpProtoEnums.SCO_CODEC_CVSD);
+                        : BluetoothHfpProtoEnums.SCO_CODEC_CVSD,
+                AdapterService.getAdapterService().getMetricId(device));
         Intent intent = new Intent(BluetoothHeadsetClient.ACTION_AUDIO_STATE_CHANGED);
         intent.putExtra(BluetoothProfile.EXTRA_PREVIOUS_STATE, prevState);
         intent.putExtra(BluetoothProfile.EXTRA_STATE, newState);
@@ -1759,16 +1692,12 @@ public class HeadsetClientStateMachine extends StateMachine {
         }
         intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
         mService.sendBroadcast(intent, ProfileService.BLUETOOTH_PERM);
-        if (DBG) {
-            Log.d(TAG, "Audio state " + device + ": " + prevState + "->" + newState);
-        }
+        logD("Audio state " + device + ": " + prevState + "->" + newState);
     }
 
     // This method does not check for error condition (newState == prevState)
     private void broadcastConnectionState(BluetoothDevice device, int newState, int prevState) {
-        if (DBG) {
-            Log.d(TAG, "Connection state " + device + ": " + prevState + "->" + newState);
-        }
+        logD("Connection state " + device + ": " + prevState + "->" + newState);
         /*
          * Notifying the connection state change of the profile before sending
          * the intent for connection state change, as it was causing a race
@@ -1838,7 +1767,7 @@ public class HeadsetClientStateMachine extends StateMachine {
         synchronized (this) {
             for (BluetoothDevice device : bondedDevices) {
                 ParcelUuid[] featureUuids = device.getUuids();
-                if (!BluetoothUuid.isUuidPresent(featureUuids, BluetoothUuid.Handsfree_AG)) {
+                if (!ArrayUtils.contains(featureUuids, BluetoothUuid.HFP_AG)) {
                     continue;
                 }
                 connectionState = getConnectionState(device);
@@ -1853,16 +1782,16 @@ public class HeadsetClientStateMachine extends StateMachine {
     }
 
     boolean okToConnect(BluetoothDevice device) {
-        int priority = mService.getPriority(device);
+        int connectionPolicy = mService.getConnectionPolicy(device);
         boolean ret = false;
-        // check priority and accept or reject the connection. if priority is
+        // check connection policy and accept or reject the connection. if connection policy is
         // undefined
         // it is likely that our SDP has not completed and peer is initiating
         // the
         // connection. Allow this connection, provided the device is bonded
-        if ((BluetoothProfile.PRIORITY_OFF < priority) || (
-                (BluetoothProfile.PRIORITY_UNDEFINED == priority) && (device.getBondState()
-                        != BluetoothDevice.BOND_NONE))) {
+        if ((BluetoothProfile.CONNECTION_POLICY_FORBIDDEN < connectionPolicy) || (
+                (BluetoothProfile.CONNECTION_POLICY_UNKNOWN == connectionPolicy)
+                        && (device.getBondState() != BluetoothDevice.BOND_NONE))) {
             ret = true;
         }
         return ret;
@@ -1918,5 +1847,11 @@ public class HeadsetClientStateMachine extends StateMachine {
                 return BluetoothAdapter.STATE_DISCONNECTED;
         }
         return BluetoothAdapter.STATE_DISCONNECTED;
+    }
+
+    private static void logD(String message) {
+        if (DBG) {
+            Log.d(TAG, message);
+        }
     }
 }

@@ -25,7 +25,7 @@ import android.animation.AnimatorSet;
 import android.content.Context;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
-import android.support.v17.leanback.app.OnboardingFragment;
+import androidx.leanback.app.OnboardingFragment;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.Gravity;
@@ -621,9 +621,9 @@ public class WelcomeFragment extends OnboardingFragment {
             LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View view = super.onCreateView(inflater, container, savedInstanceState);
         setLogoResourceId(R.drawable.splash_logo);
-        mTitleView = view.findViewById(android.support.v17.leanback.R.id.title);
-        mPagingIndicator = view.findViewById(android.support.v17.leanback.R.id.page_indicator);
-        mStartButton = view.findViewById(android.support.v17.leanback.R.id.button_start);
+        mTitleView = view.findViewById(androidx.leanback.R.id.title);
+        mPagingIndicator = view.findViewById(androidx.leanback.R.id.page_indicator);
+        mStartButton = view.findViewById(androidx.leanback.R.id.button_start);
 
         mStartButton.setAccessibilityDelegate(
                 new AccessibilityDelegate() {

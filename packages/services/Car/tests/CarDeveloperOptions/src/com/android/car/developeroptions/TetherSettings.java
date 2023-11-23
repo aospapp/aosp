@@ -28,7 +28,6 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.pm.PackageManager;
 import android.hardware.usb.UsbManager;
 import android.net.ConnectivityManager;
 import android.os.Bundle;
@@ -43,9 +42,9 @@ import androidx.preference.SwitchPreference;
 
 import com.android.car.developeroptions.datausage.DataSaverBackend;
 import com.android.car.developeroptions.search.BaseSearchIndexProvider;
-import com.android.car.developeroptions.search.Indexable;
 import com.android.car.developeroptions.wifi.tether.WifiTetherPreferenceController;
 import com.android.settingslib.TetherUtil;
+import com.android.settingslib.search.Indexable;
 import com.android.settingslib.search.SearchIndexable;
 
 import java.lang.ref.WeakReference;
@@ -120,9 +119,6 @@ public class TetherSettings extends RestrictedSettingsFragment
         super.onCreate(icicle);
 
         addPreferencesFromResource(R.xml.tether_prefs);
-        mFooterPreferenceMixin.createFooterPreference()
-            .setTitle(R.string.tethering_footer_info);
-
         mDataSaverBackend = new DataSaverBackend(getContext());
         mDataSaverEnabled = mDataSaverBackend.isDataSaverEnabled();
         mDataSaverFooter = findPreference(KEY_DATA_SAVER_FOOTER);
@@ -374,25 +370,6 @@ public class TetherSettings extends RestrictedSettingsFragment
                 mBluetoothTether.setChecked(false);
             }
         }
-    }
-
-    public static boolean isProvisioningNeededButUnavailable(Context context) {
-        return (TetherUtil.isProvisioningNeeded(context)
-                && !isIntentAvailable(context));
-    }
-
-    private static boolean isIntentAvailable(Context context) {
-        String[] provisionApp = context.getResources().getStringArray(
-                com.android.internal.R.array.config_mobile_hotspot_provision_app);
-        if (provisionApp.length < 2) {
-            return false;
-        }
-        final PackageManager packageManager = context.getPackageManager();
-        Intent intent = new Intent(Intent.ACTION_MAIN);
-        intent.setClassName(provisionApp[0], provisionApp[1]);
-
-        return (packageManager.queryIntentActivities(intent,
-                PackageManager.MATCH_DEFAULT_ONLY).size() > 0);
     }
 
     private void startTethering(int choice) {

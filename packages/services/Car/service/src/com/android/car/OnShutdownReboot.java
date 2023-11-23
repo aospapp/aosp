@@ -20,6 +20,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.BiConsumer;
 
@@ -52,10 +53,10 @@ class OnShutdownReboot {
 
     OnShutdownReboot(Context context) {
         mContext = context;
-        IntentFilter shutdownFilter = new IntentFilter(Intent.ACTION_SHUTDOWN);
-        IntentFilter rebootFilter = new IntentFilter(Intent.ACTION_REBOOT);
-        mContext.registerReceiver(mReceiver, shutdownFilter);
-        mContext.registerReceiver(mReceiver, rebootFilter);
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(Intent.ACTION_SHUTDOWN);
+        filter.addAction(Intent.ACTION_REBOOT);
+        mContext.registerReceiver(mReceiver, filter);
     }
 
     OnShutdownReboot addAction(BiConsumer<Context, Intent> action) {

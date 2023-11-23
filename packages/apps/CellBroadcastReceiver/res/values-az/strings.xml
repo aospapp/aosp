@@ -16,9 +16,9 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_label" msgid="6006277287245076524">"Həyəcan siqnalları"</string>
-    <string name="sms_cb_settings" msgid="3795852619005211509">"Həyəcan siqnalları"</string>
-    <string name="cell_broadcast_settings_not_available" msgid="2612364350745967915">"Şəbəkə Yayım ayarları bu istifadəçi üçün əlçatımlı deyil"</string>
+    <string name="app_label" msgid="2008319089248760277">"Simsiz həyəcan siqnalları"</string>
+    <string name="sms_cb_settings" msgid="9021266457863671070">"Simsiz həyəcan siqnalları"</string>
+    <string name="cell_broadcast_settings_not_available" msgid="3908142962162375221">"Simsiz həyəcan siqnalı ayarları bu istifadəçi üçün əlçatan deyil"</string>
     <string name="button_dismiss" msgid="1234221657930516287">"OK"</string>
     <string name="no_cell_broadcasts" msgid="7554779730107421769">"Keçmiş siqnal yoxdur"</string>
     <string name="menu_delete_all" msgid="3940997343921149800">"Yayımı silin"</string>
@@ -26,6 +26,7 @@
     <string name="menu_view_details" msgid="1040989019045280975">"Detallara baxın"</string>
     <string name="menu_delete" msgid="128380070910799366">"Yayımı silin"</string>
     <string name="view_details_title" msgid="1780427629491781473">"Siqnal detalları"</string>
+    <string name="view_details_debugging_title" msgid="5699927030805114173">"Sazlama üçün bildiriş detalları"</string>
     <string name="confirm_delete_broadcast" msgid="2540199303730232322">"Bu yayım silinsin?"</string>
     <string name="confirm_delete_all_broadcasts" msgid="2924444089047280871">"Qəbul olunmuş bütün yayım mesajları silinsin?"</string>
     <string name="button_delete" msgid="4672451757925194350">"Sil"</string>
@@ -51,11 +52,11 @@
     <string name="emergency_alerts_title" msgid="6605036374197485429">"Siqnallar"</string>
     <string name="notification_channel_broadcast_messages" msgid="880704362482824524">"Yayım mesajları"</string>
     <string name="notification_channel_emergency_alerts" msgid="5008287980979183617">"Həyəcan siqnalı"</string>
+    <string name="notification_channel_broadcast_messages_in_voicecall" msgid="3291001780110813190">"Səsli zəngdə fövqəladə siqnallar"</string>
     <string name="enable_alerts_master_toggle_title" msgid="1457904343636699446">"Siqnallara icazə verin"</string>
-    <string name="enable_alerts_master_toggle_summary" msgid="699552922381916044">"Mühüm bildirişlər əldə edin"</string>
-    <string name="alert_reminder_interval_title" msgid="7466642011937564868">"Siqnal xatırlatma səsi"</string>
-    <string name="enable_alert_speech_title" msgid="8052104771053526941">"Siqnal mesajını səsləndirin"</string>
-    <string name="enable_alert_speech_summary" msgid="356086178962268831">"Həyəcan siqnalı mesajlarını danışmaq üçün mətnin səsləndirilməsini istifadə edin"</string>
+    <string name="enable_alerts_master_toggle_summary" msgid="5583168548073938617">"Simsiz həyəcan siqnalı bildirişlərini əldə edin"</string>
+    <string name="alert_reminder_interval_title" msgid="3283595202268218149">"Siqnal xatırladıcısı"</string>
+    <string name="alert_reminder_dialog_title" msgid="2299010977651377315">"Müntəzəm səs səviyyəsində xatırlatma səsi veriləcək"</string>
     <string name="emergency_alert_history_title" msgid="8310173569237268431">"Təcili siqnal tarixçəsi"</string>
     <string name="alert_preferences_title" msgid="6001469026393248468">"Siqnal tərcihləri"</string>
     <string name="enable_etws_test_alerts_title" msgid="3593533226735441539">"ZSXS test yayımları"</string>
@@ -74,14 +75,13 @@
     <string name="enable_state_local_test_alerts_summary" msgid="780298327377950187">"Dövlət və yerli orqanlardan mətn mesajları alın"</string>
     <string name="enable_emergency_alerts_message_title" msgid="661894007489847468">"Həyəcan siqnalı"</string>
     <string name="enable_emergency_alerts_message_summary" msgid="7574617515441602546">"Həyati təhlükəsi olan hadisələrlə bağlı xəbərdarlıq edin"</string>
-    <string name="enable_cmas_test_alerts_title" msgid="1319231576046146463">"Tələb olunan aylıq test"</string>
-    <string name="enable_cmas_test_alerts_summary" msgid="588517403520088484">"Təhlükəsizlik xəbərdarlığı sistemi üçün test mesajları alın"</string>
+    <string name="enable_cmas_test_alerts_title" msgid="7194966927004755266">"Sınaq siqnalları"</string>
+    <string name="enable_cmas_test_alerts_summary" msgid="2083089933271720217">"Təhlükəsizlik xəbərdarlığı sistemindən operator sınaqları və aylıq sınaq bildirişləri alın"</string>
     <string name="enable_alert_vibrate_title" msgid="5421032189422312508">"Vibrasiya"</string>
-    <string name="use_full_volume_title" msgid="8581439612945182255">"Tam səs istifadəsi"</string>
-    <string name="use_full_volume_summary" msgid="3560764277281704697">"Digər səsi və \"Narahat etməyin\" tərcihlərini iqnor edin"</string>
+    <string name="override_dnd_title" msgid="5120805993144214421">"Həmişə tam səs ilə siqnal səslənsin"</string>
+    <string name="override_dnd_summary" msgid="9026675822792800258">"\"Narahat Etməyin\" və digər səs ayarlarını nəzərə almayın"</string>
     <string name="enable_area_update_info_alerts_title" msgid="3442042268424617226">"Ərazi yeniləmə yayımı"</string>
     <string name="enable_area_update_info_alerts_summary" msgid="6437816607144264910">"SIM statusunda güncəlləmə məlumatını göstərin"</string>
-    <string name="category_dev_settings_title" msgid="6194393458398329994">"Gəlişdirici seçimləri"</string>
     <string name="cmas_category_heading" msgid="3923503130776640717">"Siqnal Kateqoriyası:"</string>
     <string name="cmas_category_geo" msgid="4979494217069688527">"Geofiziki"</string>
     <string name="cmas_category_met" msgid="7563732573851773537">"Meteoroloji"</string>
@@ -118,7 +118,7 @@
     <string name="notification_multiple_title" msgid="1523638925739947855">"Yeni siqnallar"</string>
     <string name="show_cmas_opt_out_summary" msgid="6926059266585295440">"İlk siqnaldan (Prezident Xəbərdarlığından başqa) sonra imtina dialoqunu göstərin."</string>
     <string name="show_cmas_opt_out_title" msgid="9182104842820171132">"Dövrədən kənar dialoqu göstər"</string>
-    <string name="cmas_opt_out_dialog_text" msgid="7529010670998259128">"Hazırda Həyəcan Siqnalı qəbul edirsiniz. Həyəcan Siqnalını qəbul etməyə davam etmək istəyirsiniz?"</string>
+    <string name="cmas_opt_out_dialog_text" msgid="4820577535626084938">"Hazırda simsiz həyəcan siqnalları əldə edirsiniz. Simsiz həyəcan siqnalları əldə etməyə davam etmək istəyirsiniz?"</string>
     <string name="cmas_opt_out_button_yes" msgid="7248930667195432936">"Bəli"</string>
     <string name="cmas_opt_out_button_no" msgid="3110484064328538553">"Xeyr"</string>
     <string name="cb_list_activity_title" msgid="1433502151877791724">"Təcili siqnal tarixçəsi"</string>
@@ -127,7 +127,26 @@
     <item msgid="9097229303902157183">"Hər 2 dəqiqə"</item>
     <item msgid="5718214950343391480">"5 dəqiqədən bir"</item>
     <item msgid="3863339891188103437">"Hər 15 dəqiqə"</item>
-    <item msgid="6868848414437854609">"Deaktiv"</item>
+    <item msgid="7388573183644474611">"Heç vaxt"</item>
   </string-array>
     <string name="emergency_alert_settings_title_watches" msgid="4477073412799894883">"Simsiz təcili siqnallar"</string>
+    <string name="enable_cmas_presidential_alerts_title" msgid="7293800023375154256">"Prezident xəbərdarlıqları"</string>
+    <string name="enable_cmas_presidential_alerts_summary" msgid="7900094335808247024">"Prezidentin çatdırdığı milli xəbərdarlıq mesajları Deaktiv edilə bilməz."</string>
+    <string name="receive_cmas_in_second_language_title" msgid="1223260365527361964"></string>
+    <string name="receive_cmas_in_second_language_summary" msgid="7704105502782770718"></string>
+    <string name="alerts_header_summary" msgid="4700985191868591788"></string>
+    <string name="testing_mode_enabled" msgid="8296556666392297467">"Şəbəkə yayımı sınaq rejimi aktivdir."</string>
+    <string name="testing_mode_disabled" msgid="8381408377958182661">"Şəbəkə yayımı sınaq rejimi deaktivdir."</string>
+    <string name="show_all_messages" msgid="3780970968167139836">"Bütün mesajları göstərin"</string>
+    <string name="show_regular_messages" msgid="7376885150513522515">"Adi mesajları göstəril"</string>
+    <string name="message_identifier" msgid="5558338496219327850">"İdentifikator:"</string>
+    <string name="message_serial_number" msgid="3386553658712978964">"Seriya nömrəsi:"</string>
+    <string name="data_coding_scheme" msgid="4628901196730870577">"Data kodlaşdırma sxemi:"</string>
+    <string name="message_content" msgid="6204502929879474632">"Mesaj məzmunu:"</string>
+    <string name="location_check_time" msgid="4105326161240531207">"Məkan yoxlama vaxtı:"</string>
+    <string name="message_displayed" msgid="5091678195925617971">"Mesaj göstərilib:"</string>
+    <string name="message_coordinates" msgid="356333576818059052">"Koordinatlar:"</string>
+    <string name="maximum_waiting_time" msgid="3504809124079381356">"Maksimum gözləmə vaxtı:"</string>
+    <string name="seconds" msgid="141450721520515025">"saniyə"</string>
+    <string name="message_copied" msgid="6922953753733166675">"Mesaj kopyalandı"</string>
 </resources>

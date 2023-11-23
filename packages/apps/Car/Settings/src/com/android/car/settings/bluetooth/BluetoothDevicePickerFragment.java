@@ -18,8 +18,6 @@ package com.android.car.settings.bluetooth;
 
 import android.content.Context;
 import android.os.Bundle;
-import android.view.View;
-import android.widget.ProgressBar;
 
 import androidx.annotation.XmlRes;
 
@@ -35,7 +33,6 @@ import com.android.settingslib.bluetooth.LocalBluetoothManager;
 public class BluetoothDevicePickerFragment extends SettingsFragment {
 
     private LocalBluetoothManager mManager;
-    private ProgressBar mProgressBar;
 
     @Override
     @XmlRes
@@ -59,20 +56,19 @@ public class BluetoothDevicePickerFragment extends SettingsFragment {
     @Override
     public void onActivityCreated(Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
-        mProgressBar = requireActivity().findViewById(R.id.progress_bar);
     }
 
     @Override
     public void onStart() {
         super.onStart();
         mManager.setForegroundActivity(requireActivity());
-        mProgressBar.setVisibility(View.VISIBLE);
+        getToolbar().getProgressBar().setVisible(true);
     }
 
     @Override
     public void onStop() {
         super.onStop();
         mManager.setForegroundActivity(null);
-        mProgressBar.setVisibility(View.GONE);
+        getToolbar().getProgressBar().setVisible(false);
     }
 }

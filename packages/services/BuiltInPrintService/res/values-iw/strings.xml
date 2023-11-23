@@ -60,6 +60,11 @@
     <string name="forget" msgid="892068061425802502">"מחיקה"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"‏מתחבר דרך Wi-Fi ישיר"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"מתחבר דרך הרשת הנוכחית בכתובת <xliff:g id="IP_ADDRESS">%1$s</xliff:g>"</string>
+    <string name="recommendation_summary" msgid="2979700524954307566">"שירות ההדפסה המוגדר כברירת מחדל מספק אפשרויות בסיסיות. ייתכן שאפשרויות נוספות למדפסת הזו יהיו זמינות משירות הדפסה אחר."</string>
+    <string name="recommendations_heading" msgid="5086762263560605249">"שירותים מומלצים"</string>
+    <string name="recommendation_install_summary" msgid="374785283809791669">"יש לבחור כדי להתקין"</string>
+    <string name="recommendation_enable_summary" msgid="3500907868251326224">"יש לבחור כדי להפעיל"</string>
+    <string name="recommendation_manage" msgid="4683640588502866284">"ניהול שירותים"</string>
     <string name="security" msgid="2279008326210305401">"אבטחה"</string>
     <string name="certificate_update_request" msgid="1314796413107139475">"המדפסת הזו סיפקה אישור אבטחה חדש, או שמכשיר אחר מתחזה לה. האם לקבל את האישור החדש?"</string>
     <string name="not_encrypted_request" msgid="4871472176807381642">"מדפסת זו כבר לא מקבלת משימות מוצפנות. האם להמשיך בהדפסה?"</string>
@@ -68,4 +73,5 @@
     <string name="connections" msgid="8895413761760117180">"חיבורים"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"לשירות ההדפסה המוגדר כברירת מחדל נדרשת הרשאת מיקום כדי למצוא מכשירים בקרבת מקום."</string>
     <string name="fix" msgid="7784394272611365393">"בדיקת ההרשאות"</string>
+    <string name="print" msgid="7851318072404916362">"הדפסה"</string>
 </resources>

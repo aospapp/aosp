@@ -49,12 +49,18 @@ public class RadioOnHelper implements RadioOnStateListener.Callback {
     }
 
     private void setupListeners() {
-        if (mListeners != null) {
-            return;
+        if (mListeners == null) {
+            mListeners = new ArrayList<>(2);
         }
-        mListeners = new ArrayList<>(2);
-        for (int i = 0; i < TelephonyManager.getDefault().getPhoneCount(); i++) {
+        int activeModems = TelephonyManager.from(mContext).getActiveModemCount();
+        // Add new listeners if active modem count increased.
+        while (mListeners.size() < activeModems) {
             mListeners.add(new RadioOnStateListener());
+        }
+        // Clean up listeners if active modem count decreased.
+        while (mListeners.size() > activeModems) {
+            mListeners.get(mListeners.size() - 1).cleanup();
+            mListeners.remove(mListeners.size() - 1);
         }
     }
     /**
@@ -71,28 +77,30 @@ public class RadioOnHelper implements RadioOnStateListener.Callback {
      * RadioOnHelper's handler (thus ensuring that the rest of the sequence is entirely
      * serialized, and runs on the main looper.)
      */
-    public void triggerRadioOnAndListen(RadioOnStateListener.Callback callback) {
+    public void triggerRadioOnAndListen(RadioOnStateListener.Callback callback,
+            boolean forEmergencyCall, Phone phoneForEmergencyCall) {
         setupListeners();
         mCallback = callback;
         mInProgressListeners.clear();
         mIsRadioOnCallingEnabled = false;
-        for (int i = 0; i < TelephonyManager.getDefault().getPhoneCount(); i++) {
+        for (int i = 0; i < TelephonyManager.from(mContext).getActiveModemCount(); i++) {
             Phone phone = PhoneFactory.getPhone(i);
             if (phone == null) {
                 continue;
             }
 
             mInProgressListeners.add(mListeners.get(i));
-            mListeners.get(i).waitForRadioOn(phone, this);
+            mListeners.get(i).waitForRadioOn(phone, this, forEmergencyCall,
+                    forEmergencyCall && phone == phoneForEmergencyCall);
         }
 
-        powerOnRadio();
+        powerOnRadio(forEmergencyCall, phoneForEmergencyCall);
     }
     /**
      * Attempt to power on the radio (i.e. take the device out of airplane mode). We'll eventually
      * get an onServiceStateChanged() callback when the radio successfully comes up.
      */
-    private void powerOnRadio() {
+    private void powerOnRadio(boolean forEmergencyCall, Phone phoneForEmergencyCall) {
 
         // If airplane mode is on, we turn it off the same way that the Settings activity turns it
         // off.
@@ -103,6 +111,11 @@ public class RadioOnHelper implements RadioOnStateListener.Callback {
             // Change the system setting
             Settings.Global.putInt(mContext.getContentResolver(),
                     Settings.Global.AIRPLANE_MODE_ON, 0);
+
+            for (Phone phone : PhoneFactory.getPhones()) {
+                Log.d(this, "powerOnRadio, enabling Radio");
+                phone.setRadioPower(true, forEmergencyCall, phone == phoneForEmergencyCall, false);
+            }
 
             // Post the broadcast intend for change in airplane mode
             // TODO: We really should not be in charge of sending this broadcast.

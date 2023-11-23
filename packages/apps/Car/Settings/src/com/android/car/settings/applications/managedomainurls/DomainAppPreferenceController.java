@@ -18,10 +18,9 @@ package com.android.car.settings.applications.managedomainurls;
 
 import android.app.Application;
 import android.car.drivingstate.CarUxRestrictions;
-import android.car.userlib.CarUserManagerHelper;
 import android.content.Context;
 import android.content.pm.PackageManager;
-import android.util.ArrayMap;
+import android.os.UserHandle;
 import android.util.IconDrawableFactory;
 
 import androidx.annotation.VisibleForTesting;
@@ -31,6 +30,7 @@ import androidx.preference.PreferenceGroup;
 
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceController;
+import com.android.car.ui.preference.CarUiPreference;
 import com.android.settingslib.applications.ApplicationsState;
 
 import java.util.ArrayList;
@@ -40,7 +40,6 @@ public class DomainAppPreferenceController extends PreferenceController<Preferen
 
     private final ApplicationsState mApplicationsState;
     private final PackageManager mPm;
-    private final CarUserManagerHelper mCarUserManagerHelper;
 
     @VisibleForTesting
     final ApplicationsState.Callbacks mApplicationStateCallbacks =
@@ -82,7 +81,6 @@ public class DomainAppPreferenceController extends PreferenceController<Preferen
             };
 
     private ApplicationsState.Session mSession;
-    private ArrayMap<String, Preference> mPreferenceCache;
 
     public DomainAppPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
@@ -90,7 +88,6 @@ public class DomainAppPreferenceController extends PreferenceController<Preferen
         mApplicationsState = ApplicationsState.getInstance(
                 (Application) context.getApplicationContext());
         mPm = context.getPackageManager();
-        mCarUserManagerHelper = new CarUserManagerHelper(context);
     }
 
     @Override
@@ -135,12 +132,12 @@ public class DomainAppPreferenceController extends PreferenceController<Preferen
     private Preference createPreference(ApplicationsState.AppEntry entry) {
         String key = entry.info.packageName + "|" + entry.info.uid;
         IconDrawableFactory iconDrawableFactory = IconDrawableFactory.newInstance(getContext());
-        Preference preference = new Preference(getContext());
+        CarUiPreference preference = new CarUiPreference(getContext());
         preference.setKey(key);
         preference.setTitle(entry.label);
         preference.setSummary(
                 DomainUrlsUtils.getDomainsSummary(getContext(), entry.info.packageName,
-                        mCarUserManagerHelper.getCurrentProcessUserId(),
+                        UserHandle.myUserId(),
                         DomainUrlsUtils.getHandledDomains(mPm, entry.info.packageName)));
         preference.setIcon(iconDrawableFactory.getBadgedIcon(entry.info));
         preference.setOnPreferenceClickListener(pref -> {

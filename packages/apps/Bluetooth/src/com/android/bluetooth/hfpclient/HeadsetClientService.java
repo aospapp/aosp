@@ -80,8 +80,8 @@ public class HeadsetClientService extends ProfileService {
         }
 
         // Setup the JNI service
-        mNativeInterface = new NativeInterface();
-        mNativeInterface.initializeNative();
+        mNativeInterface = NativeInterface.getInstance();
+        mNativeInterface.initialize();
 
         mAudioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
         if (mAudioManager == null) {
@@ -137,7 +137,7 @@ public class HeadsetClientService extends ProfileService {
         mSmThread.quit();
         mSmThread = null;
 
-        mNativeInterface.cleanupNative();
+        mNativeInterface.cleanup();
         mNativeInterface = null;
 
         return true;
@@ -257,21 +257,21 @@ public class HeadsetClientService extends ProfileService {
         }
 
         @Override
-        public boolean setPriority(BluetoothDevice device, int priority) {
+        public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy) {
             HeadsetClientService service = getService();
             if (service == null) {
                 return false;
             }
-            return service.setPriority(device, priority);
+            return service.setConnectionPolicy(device, connectionPolicy);
         }
 
         @Override
-        public int getPriority(BluetoothDevice device) {
+        public int getConnectionPolicy(BluetoothDevice device) {
             HeadsetClientService service = getService();
             if (service == null) {
-                return BluetoothProfile.PRIORITY_UNDEFINED;
+                return BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
             }
-            return service.getPriority(device);
+            return service.getConnectionPolicy(device);
         }
 
         @Override
@@ -431,6 +431,15 @@ public class HeadsetClientService extends ProfileService {
         }
 
         @Override
+        public boolean sendVendorAtCommand(BluetoothDevice device, int vendorId, String atCommand) {
+            HeadsetClientService service = getService();
+            if (service == null) {
+                return false;
+            }
+            return service.sendVendorAtCommand(device, vendorId, atCommand);
+        }
+
+        @Override
         public Bundle getCurrentAgFeatures(BluetoothDevice device) {
             HeadsetClientService service = getService();
             if (service == null) {
@@ -463,7 +472,7 @@ public class HeadsetClientService extends ProfileService {
     }
 
     public boolean connect(BluetoothDevice device) {
-        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH ADMIN permission");
+        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
         if (DBG) {
             Log.d(TAG, "connect " + device);
         }
@@ -473,8 +482,9 @@ public class HeadsetClientService extends ProfileService {
             return false;
         }
 
-        if (getPriority(device) == BluetoothProfile.PRIORITY_OFF) {
-            Log.w(TAG, "Connection not allowed: <" + device.getAddress() + "> is PRIORITY_OFF");
+        if (getConnectionPolicy(device) == BluetoothProfile.CONNECTION_POLICY_FORBIDDEN) {
+            Log.w(TAG, "Connection not allowed: <" + device.getAddress()
+                    + "> is CONNECTION_POLICY_FORBIDDEN");
             return false;
         }
 
@@ -482,8 +492,14 @@ public class HeadsetClientService extends ProfileService {
         return true;
     }
 
-    boolean disconnect(BluetoothDevice device) {
-        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH ADMIN permission");
+    /**
+     * Disconnects hfp client for the remote bluetooth device
+     *
+     * @param device is the device with which we are attempting to disconnect the profile
+     * @return true if hfp client profile successfully disconnected, false otherwise
+     */
+    public boolean disconnect(BluetoothDevice device) {
+        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
         HeadsetClientStateMachine sm = getStateMachine(device);
         if (sm == null) {
             Log.e(TAG, "Cannot allocate SM for device " + device);
@@ -527,7 +543,16 @@ public class HeadsetClientService extends ProfileService {
         return devices;
     }
 
-    private synchronized int getConnectionState(BluetoothDevice device) {
+    /**
+     * Get the current connection state of the profile
+     *
+     * @param device is the remote bluetooth device
+     * @return {@link BluetoothProfile#STATE_DISCONNECTED} if this profile is disconnected,
+     * {@link BluetoothProfile#STATE_CONNECTING} if this profile is being connected,
+     * {@link BluetoothProfile#STATE_CONNECTED} if this profile is connected, or
+     * {@link BluetoothProfile#STATE_DISCONNECTING} if this profile is being disconnected
+     */
+    public synchronized int getConnectionState(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
         HeadsetClientStateMachine sm = mStateMachineMap.get(device);
         if (sm != null) {
@@ -536,20 +561,52 @@ public class HeadsetClientService extends ProfileService {
         return BluetoothProfile.STATE_DISCONNECTED;
     }
 
-    public boolean setPriority(BluetoothDevice device, int priority) {
+    /**
+     * Set connection policy of the profile and connects it if connectionPolicy is
+     * {@link BluetoothProfile#CONNECTION_POLICY_ALLOWED} or disconnects if connectionPolicy is
+     * {@link BluetoothProfile#CONNECTION_POLICY_FORBIDDEN}
+     *
+     * <p> The device should already be paired.
+     * Connection policy can be one of:
+     * {@link BluetoothProfile#CONNECTION_POLICY_ALLOWED},
+     * {@link BluetoothProfile#CONNECTION_POLICY_FORBIDDEN},
+     * {@link BluetoothProfile#CONNECTION_POLICY_UNKNOWN}
+     *
+     * @param device Paired bluetooth device
+     * @param connectionPolicy is the connection policy to set to for this profile
+     * @return true if connectionPolicy is set, false on error
+     */
+    public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy) {
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
         if (DBG) {
-            Log.d(TAG, "Saved priority " + device + " = " + priority);
+            Log.d(TAG, "Saved connectionPolicy " + device + " = " + connectionPolicy);
         }
-        AdapterService.getAdapterService().getDatabase()
-                .setProfilePriority(device, BluetoothProfile.HEADSET_CLIENT, priority);
+        AdapterService.getAdapterService().getDatabase().setProfileConnectionPolicy(
+                device, BluetoothProfile.HEADSET_CLIENT, connectionPolicy);
+        if (connectionPolicy == BluetoothProfile.CONNECTION_POLICY_ALLOWED) {
+            connect(device);
+        } else if (connectionPolicy == BluetoothProfile.CONNECTION_POLICY_FORBIDDEN) {
+            disconnect(device);
+        }
         return true;
     }
 
-    public int getPriority(BluetoothDevice device) {
+    /**
+     * Get the connection policy of the profile.
+     *
+     * <p> The connection policy can be any of:
+     * {@link BluetoothProfile#CONNECTION_POLICY_ALLOWED},
+     * {@link BluetoothProfile#CONNECTION_POLICY_FORBIDDEN},
+     * {@link BluetoothProfile#CONNECTION_POLICY_UNKNOWN}
+     *
+     * @param device Bluetooth device
+     * @return connection policy of the device
+     * @hide
+     */
+    public int getConnectionPolicy(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
         return AdapterService.getAdapterService().getDatabase()
-                .getProfilePriority(device, BluetoothProfile.HEADSET_CLIENT);
+                .getProfileConnectionPolicy(device, BluetoothProfile.HEADSET_CLIENT);
     }
 
     boolean startVoiceRecognition(BluetoothDevice device) {
@@ -820,6 +877,26 @@ public class HeadsetClientService extends ProfileService {
         return true;
     }
 
+    /** Send vendor AT command. */
+    public boolean sendVendorAtCommand(BluetoothDevice device, int vendorId, String atCommand) {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        HeadsetClientStateMachine sm = getStateMachine(device);
+        if (sm == null) {
+            Log.e(TAG, "Cannot allocate SM for device " + device);
+            return false;
+        }
+
+        int connectionState = sm.getConnectionState(device);
+        if (connectionState != BluetoothProfile.STATE_CONNECTED) {
+            return false;
+        }
+
+        Message msg = sm.obtainMessage(HeadsetClientStateMachine.SEND_VENDOR_AT_COMMAND,
+                                       vendorId, 0, atCommand);
+        sm.sendMessage(msg);
+        return true;
+    }
+
     public Bundle getCurrentAgEvents(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
         HeadsetClientStateMachine sm = getStateMachine(device);
@@ -885,7 +962,7 @@ public class HeadsetClientService extends ProfileService {
 
         // Allocate a new SM
         Log.d(TAG, "Creating a new state machine");
-        sm = mSmFactory.make(this, mSmThread);
+        sm = mSmFactory.make(this, mSmThread, mNativeInterface);
         mStateMachineMap.put(device, sm);
         return sm;
     }

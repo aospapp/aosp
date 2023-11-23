@@ -26,7 +26,7 @@ import android.content.IntentFilter;
 import android.ext.services.notification.NotificationCategorizer.Category;
 import android.net.Uri;
 import android.util.ArraySet;
-import android.util.Slog;
+import android.util.Log;
 
 import java.util.Set;
 
@@ -110,7 +110,7 @@ public class AgingHelper {
         }
         final PendingIntent pi = createPendingIntent(key, category);
         long time = System.currentTimeMillis() + duration;
-        if (DEBUG) Slog.d(TAG, "Scheduling evaluate for " + key + " in ms: " + duration);
+        if (DEBUG) Log.d(TAG, "Scheduling evaluate for " + key + " in ms: " + duration);
         mAm.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, time, pi);
     }
 
@@ -161,7 +161,7 @@ public class AgingHelper {
         @Override
         public void onReceive(Context context, Intent intent) {
             if (DEBUG) {
-                Slog.d(TAG, "Reposting notification");
+                Log.d(TAG, "Reposting notification");
             }
             if (AGING_ACTION.equals(intent.getAction())) {
                 demote(intent.getStringExtra(EXTRA_KEY), intent.getIntExtra(EXTRA_CATEGORY,

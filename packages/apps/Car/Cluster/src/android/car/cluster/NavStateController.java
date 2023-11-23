@@ -15,6 +15,10 @@
  */
 package android.car.cluster;
 
+import static android.car.cluster.navigation.NavigationState.NavigationStateProto.ServiceStatus.NORMAL;
+import static android.car.cluster.navigation.NavigationState.NavigationStateProto.ServiceStatus.REROUTING;
+import static android.car.cluster.navigation.NavigationState.NavigationStateProto.ServiceStatus.SERVICE_STATUS_UNSPECIFIED;
+
 import android.annotation.Nullable;
 import android.car.cluster.navigation.NavigationState.Destination;
 import android.car.cluster.navigation.NavigationState.Destination.Traffic;
@@ -31,6 +35,7 @@ import android.os.Handler;
 import android.util.Log;
 import android.view.View;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import java.time.Instant;
@@ -42,6 +47,11 @@ public class NavStateController {
     private static final String TAG = "Cluster.NavController";
 
     private Handler mHandler = new Handler();
+
+    private View mNavigationState;
+    private LinearLayout mSectionManeuver;
+    private LinearLayout mSectionNavigation;
+    private LinearLayout mSectionServiceStatus;
 
     private ImageView mManeuver;
     private ImageView mProvidedManeuver;
@@ -61,6 +71,11 @@ public class NavStateController {
      * @param container {@link View} containing the navigation state views
      */
     public NavStateController(View container) {
+        mNavigationState = container;
+        mSectionManeuver = container.findViewById(R.id.section_maneuver);
+        mSectionNavigation = container.findViewById(R.id.section_navigation);
+        mSectionServiceStatus = container.findViewById(R.id.section_service_status);
+
         mManeuver = container.findViewById(R.id.maneuver);
         mProvidedManeuver = container.findViewById(R.id.provided_maneuver);
         mLane = container.findViewById(R.id.lane);
@@ -71,6 +86,14 @@ public class NavStateController {
         mCue = container.findViewById(R.id.cue);
 
         mContext = container.getContext();
+    }
+
+    public void hideNavigationStateInfo() {
+        mNavigationState.setVisibility(View.INVISIBLE);
+    }
+
+    public void showNavigationStateInfo() {
+        mNavigationState.setVisibility(View.VISIBLE);
     }
 
     public void setImageResolver(@Nullable ImageResolver imageResolver) {
@@ -84,14 +107,36 @@ public class NavStateController {
         if (Log.isLoggable(TAG, Log.DEBUG)) {
             Log.d(TAG, "Updating nav state: " + state);
         }
-        Step step = state != null && state.getStepsCount() > 0 ? state.getSteps(0) : null;
-        Destination destination = state != null && state.getDestinationsCount() > 0
+
+        if (state == null) {
+            return;
+        }
+
+        NavigationStateProto.ServiceStatus serviceStatus = state.getServiceStatus();
+        if (serviceStatus == SERVICE_STATUS_UNSPECIFIED) {
+            mSectionManeuver.setVisibility(View.INVISIBLE);
+            mSectionNavigation.setVisibility(View.INVISIBLE);
+            mSectionServiceStatus.setVisibility(View.INVISIBLE);
+            return;
+        } else if (serviceStatus == REROUTING) {
+            mSectionManeuver.setVisibility(View.INVISIBLE);
+            mSectionNavigation.setVisibility(View.INVISIBLE);
+            mSectionServiceStatus.setVisibility(View.VISIBLE);
+            return;
+        } else {
+            mSectionManeuver.setVisibility(View.VISIBLE);
+            mSectionNavigation.setVisibility(View.VISIBLE);
+            mSectionServiceStatus.setVisibility(View.GONE);
+        }
+
+        Step step = state.getStepsCount() > 0 ? state.getSteps(0) : null;
+        Destination destination = state.getDestinationsCount() > 0
                 ? state.getDestinations(0) : null;
         Traffic traffic = destination != null ? destination.getTraffic() : null;
         String eta = destination != null
                 ? destination.getFormattedDurationUntilArrival().isEmpty()
-                    ? formatEta(destination.getEstimatedTimeAtArrival())
-                    : destination.getFormattedDurationUntilArrival()
+                ? formatEta(destination.getEstimatedTimeAtArrival())
+                : destination.getFormattedDurationUntilArrival()
                 : null;
         mEta.setText(eta);
         mEta.setTextColor(getTrafficColor(traffic));
@@ -100,7 +145,7 @@ public class NavStateController {
                 ? step.getManeuver().hasIcon() ? step.getManeuver().getIcon() : null
                 : null);
         mDistance.setText(formatDistance(step != null ? step.getDistance() : null));
-        mSegment.setText(state != null ? getSegmentString(state.getCurrentRoad()) : null);
+        mSegment.setText(getSegmentString(state.getCurrentRoad()));
         mCue.setCue(step != null ? step.getCue() : null, mImageResolver);
 
         if (step != null && step.getLanesCount() > 0) {
@@ -240,6 +285,8 @@ public class NavStateController {
                 return mContext.getDrawable(R.drawable.direction_merge_left);
             case MERGE_RIGHT:
                 return mContext.getDrawable(R.drawable.direction_merge_right);
+            case MERGE_SIDE_UNSPECIFIED:
+                return mContext.getDrawable(R.drawable.direction_merge_unspecified);
             case ROUNDABOUT_ENTER:
                 return mContext.getDrawable(R.drawable.direction_roundabout);
             case ROUNDABOUT_EXIT:

@@ -20,9 +20,9 @@ import static android.os.UserManager.DISALLOW_BLUETOOTH;
 
 import android.bluetooth.BluetoothAdapter;
 import android.car.drivingstate.CarUxRestrictions;
-import android.car.userlib.CarUserManagerHelper;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.os.UserManager;
 
 import androidx.annotation.CallSuper;
 import androidx.preference.Preference;
@@ -46,19 +46,19 @@ import com.android.settingslib.bluetooth.LocalBluetoothManager;
 public abstract class BluetoothPreferenceController<V extends Preference> extends
         PreferenceController<V> implements BluetoothCallback {
 
-    private final CarUserManagerHelper mCarUserManagerHelper;
     private final LocalBluetoothManager mBluetoothManager;
+    private final UserManager mUserManager;
 
     public BluetoothPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
-        mCarUserManagerHelper = new CarUserManagerHelper(context);
         mBluetoothManager = BluetoothUtils.getLocalBtManager(context);
+        mUserManager = UserManager.get(context);
     }
 
-    /** Returns a {@link CarUserManagerHelper} constructed from the controller context. */
-    protected final CarUserManagerHelper getCarUserManagerHelper() {
-        return mCarUserManagerHelper;
+    /** Returns a {@link UserManager} retrieved with the controller context. **/
+    protected final UserManager getUserManager() {
+        return mUserManager;
     }
 
     /**
@@ -75,7 +75,7 @@ public abstract class BluetoothPreferenceController<V extends Preference> extend
         if (!getContext().getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH)) {
             return UNSUPPORTED_ON_DEVICE;
         }
-        if (mCarUserManagerHelper.isCurrentProcessUserHasRestriction(DISALLOW_BLUETOOTH)) {
+        if (mUserManager.hasUserRestriction(DISALLOW_BLUETOOTH)) {
             return DISABLED_FOR_USER;
         }
         return BluetoothAdapter.getDefaultAdapter().isEnabled() ? AVAILABLE

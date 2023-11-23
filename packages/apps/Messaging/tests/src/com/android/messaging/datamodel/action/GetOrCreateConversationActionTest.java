@@ -67,12 +67,6 @@ public class GetOrCreateConversationActionTest extends BugleTestCase {
         final long threadId = MmsUtils.getOrCreateThreadId(mContext, recipients);
         assertEquals(TestDataFactory.SMS_MMS_THREAD_ID_CURSOR_VALUE, threadId);
 
-        // TestDataFactory creates NUM_TEST_CONVERSATIONS conversations. blank
-        // conversation would be the next conversation.
-        final String blankId = BugleDatabaseOperations.getExistingConversation(db, threadId, false);
-        // TODO(rtenneti): Investigate why blankId is 4 more than NUM_TEST_CONVERSATIONS.
-        assertEquals(TestDataFactory.NUM_TEST_CONVERSATIONS+4, Integer.parseInt((String)blankId));
-
         ArrayList<StubActionServiceCallLog> calls = mService.getCalls();
 
         GetOrCreateConversationActionMonitor monitor =
@@ -91,8 +85,8 @@ public class GetOrCreateConversationActionTest extends BugleTestCase {
         assertTrue(result instanceof String);
 
         // Make sure that we created a new conversation
-        // TODO(rtenneti): Investigate why blankId is 4 more than NUM_TEST_CONVERSATIONS.
-        assertEquals(TestDataFactory.NUM_TEST_CONVERSATIONS+4, Integer.parseInt((String)result));
+        int expectedConversationId = TestDataFactory.NUM_TEST_CONVERSATIONS + 1;
+        assertEquals(expectedConversationId, Integer.parseInt((String) result));
 
         // Now get the conversation that we just created again
         monitor = GetOrCreateConversationAction.getOrCreateConversation(participants, null,
@@ -110,8 +104,7 @@ public class GetOrCreateConversationActionTest extends BugleTestCase {
         final String conversationId = (String) result;
 
         // Make sure that we found the same conversation id
-        // TODO(rtenneti): Investigate why blankId is 4 more than NUM_TEST_CONVERSATIONS.
-        assertEquals(TestDataFactory.NUM_TEST_CONVERSATIONS+4, Integer.parseInt((String)result));
+        assertEquals(expectedConversationId, Integer.parseInt((String) result));
 
         final ArrayList<ParticipantData> conversationParticipants =
                 BugleDatabaseOperations.getParticipantsForConversation(db, conversationId);

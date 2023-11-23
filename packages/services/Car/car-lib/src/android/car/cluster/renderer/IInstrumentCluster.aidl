@@ -28,6 +28,8 @@ interface IInstrumentCluster {
     /**
      * Returns {@link IInstrumentClusterNavigation} that will be passed to the navigation
      * application.
+     *
+     * TODO(b/141992448) : remove blocking call
      */
     IInstrumentClusterNavigation getNavigationService();
 

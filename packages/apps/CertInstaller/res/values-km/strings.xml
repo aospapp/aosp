@@ -21,8 +21,8 @@
     <string name="pkcs12_password_dialog_title" msgid="5997624645207427161">"ស្រង់​​ចេញ​វិញ្ញាបនបត្រ"</string>
     <string name="extracting_pkcs12" msgid="1881267738821799771">"កំពុង​ស្រង់​ចេញ..."</string>
     <string name="pkcs12_file_password_dialog_title" msgid="8102721384767269510">"ស្រង់​ចេញ​ពី %s"</string>
-    <string name="name_credential_dialog_title" msgid="277729846491554437">"ដាក់​ឈ្មោះ​វិញ្ញាបនបត្រ"</string>
-    <string name="credential_name" msgid="1974979771369744378">"ឈ្មោះ​វិញ្ញាបនបត្រ៖"</string>
+    <string name="name_credential_dialog_title" msgid="1481964824549786927">"ដាក់ឈ្មោះ​ឱ្យវិញ្ញាបនបត្រ​នេះ"</string>
+    <string name="certificate_name" msgid="8415893401368824792">"ឈ្មោះ​វិញ្ញាបនបត្រ"</string>
     <string name="credential_password" msgid="3520176519550993326">"បញ្ចូល​ពាក្យ​សម្ងាត់​ដើម្បី​ស្រង់​វិញ្ញាបនបត្រ​ចេញ។"</string>
     <string name="credential_info" msgid="2436768402308470397">"កញ្ចប់​មាន​៖"</string>
     <string name="p12_description" msgid="4128352087331630024">"វិញ្ញាបនបត្រ​នៅ​ក្នុង PKCS12 keystore ។"</string>
@@ -41,10 +41,24 @@
     <string name="invalid_cert" msgid="7704228670980743590">"វិញ្ញាបនបត្រ​មិន​ត្រឹមត្រូវ។"</string>
     <string name="action_missing_private_key" msgid="7543470057312920042">"តម្រូវឱ្យមានសោឯកជន ដើម្បី​ដំឡើង​វិញ្ញាបនបត្រ"</string>
     <string name="action_missing_user_cert" msgid="3727411730202316771">"តម្រូវឱ្យមានវិញ្ញាបនបត្រ ដើម្បី​ដំឡើង​សោឯកជន"</string>
-    <string name="cert_is_added" msgid="6996557598167000500">"បាន​ដំឡើង <xliff:g id="CREDENTIAL">%s</xliff:g> ។"</string>
+    <string name="select_certificate_usage_title" msgid="8853023485944920851">"ជ្រើសរើស​ប្រភេទ​វិញ្ញាបនបត្រ"</string>
+    <string name="redirect_ca_certificate_title" msgid="3457516863949244510">"ដំឡើង​វិញ្ញាបនបត្រ CA នៅក្នុង​ការកំណត់"</string>
+    <string name="redirect_ca_certificate_with_app_info_message" msgid="934477720755323579">"ត្រូវតែដំឡើង​វិញ្ញាបនបត្រពី <xliff:g id="REQUESTING_APP">%1$s</xliff:g> នេះ​នៅក្នុង​ការកំណត់។ ដំឡើង​តែវិញ្ញាបនបត្រ CA ពីស្ថាប័ន​ដែលអ្នក​ជឿទុកចិត្ត​ប៉ុណ្ណោះ។"</string>
+    <string name="redirect_ca_certificate_close_button" msgid="4291301659747279488">"បិទ"</string>
+    <string name="invalid_certificate_title" msgid="6500315398016809635">"មិនអាច​ប្រើ​ឯកសារ​នេះ​បានទេ"</string>
+    <string name="invalid_certificate_close_button" msgid="350986774973653102">"បិទ"</string>
+    <string name="invalid_certificate_message" msgid="3508065546083182733">"មិនអាច​ប្រើ​ឯកសារ​នេះ​ជា <xliff:g id="CERTIFICATE_USAGE">%1$s</xliff:g> បានទេ"</string>
+    <string name="certificate" msgid="8790577925509962529">"វិញ្ញាបនបត្រ"</string>
+    <string name="ca_certificate" msgid="7397198551290322945">"វិញ្ញាបនបត្រ CA"</string>
+    <string name="user_certificate" msgid="514888069820553128">"វិញ្ញាបនបត្រអ្នកប្រើប្រាស់កម្មវិធី និង VPN"</string>
+    <string name="wifi_certificate" msgid="5356595832360140989">"វិញ្ញាបនបត្រ Wi‑Fi"</string>
+    <string name="ca_cert_is_added" msgid="2847081843756291802">"បានដំឡើង​វិញ្ញាបនបត្រ CA ហើយ"</string>
+    <string name="user_cert_is_added" msgid="3088794616560630823">"បានដំឡើង​វិញ្ញាបនបត្រ​អ្នកប្រើប្រាស់​ហើយ"</string>
+    <string name="wifi_cert_is_added" msgid="333220613655140428">"បានដំឡើង​វិញ្ញាបនបត្រ Wi‑Fi ហើយ"</string>
     <string name="cert_too_large_error" msgid="8715414972725646285">"មិន​អាច​ដំឡើង​ព្រោះ​ទំហំ​វិញ្ញាបនបត្រ​ធំ​ពេក។"</string>
     <string name="cert_missing_error" msgid="7040527352278728220">"មិន​អាច​ដំឡើង​ ព្រោះ​មិន​​កំណត់​ទីតាំង​ឯកសារ​វិញ្ញាបនបត្រ។"</string>
     <string name="cert_read_error" msgid="7353463360652419796">"មិន​អាច​ដំឡើង​ព្រោះ​មិន​អាច​អាន​ឯកសារ​វិញ្ញាបនបត្រ។"</string>
+    <string name="cert_temp_error" msgid="617276803992714550">"ការមិន​ដំណើរការ​ជា​បណ្ដោះអាសន្ន​។ សូម​ព្យាយាម​ម្ដងទៀត​នៅពេលក្រោយ​។"</string>
     <string name="only_primary_user_allowed" msgid="4005084935023047716">"មាន​តែ​ម្ចាស់​ឧបករណ៍​នេះ​ប៉ុណ្ណោះ​អាច​ដំឡើង​វិញ្ញាបនបត្រ។"</string>
     <string name="credential_usage_label" msgid="1513892208033156805">"ការ​ប្រើ​ព័ត៌មាន​សម្ងាត់៖"</string>
   <string-array name="credential_usage">
@@ -58,7 +72,7 @@
     <string name="wifi_install_label" msgid="1449629407724323233">"ដំឡើង"</string>
     <string name="wifi_installing_label" msgid="8387393993627129025">"ដំឡើង"</string>
     <string name="wifi_cancel_label" msgid="1328748037608392134">"បោះបង់"</string>
-    <string name="wifi_dismiss_label" msgid="1916684434873972698">"បដិសេធ"</string>
+    <string name="wifi_dismiss_label" msgid="1916684434873972698">"ច្រានចោល"</string>
     <string name="wifi_no_config" msgid="1835743123288916755">"គ្មាន"</string>
     <string name="wifi_config_text" msgid="8259587306773310314">"ឈ្មោះ៖ %1$s\nFQDN: %2$s\nសមាគមរ៉ូមីង៖ %3$s\nដែន៖ %4$s\nវិធីផ្ទៀងផ្ទាត់ភាពត្រឹមត្រូវ៖  EAP-%5$s\n"</string>
     <string name="wifi_ttls_config_text" msgid="2002413183253872168">"ឈ្មោះអ្នកប្រើ៖ %s\n"</string>

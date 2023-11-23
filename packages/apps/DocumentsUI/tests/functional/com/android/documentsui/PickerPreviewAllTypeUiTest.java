@@ -16,22 +16,15 @@
 
 package com.android.documentsui;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-
 import android.content.Intent;
 import android.provider.DocumentsContract;
 
 import androidx.test.filters.LargeTest;
 
-import com.android.documentsui.base.Shared;
-import com.android.documentsui.bots.UiBot;
 import com.android.documentsui.picker.PickActivity;
 
 @LargeTest
 public class PickerPreviewAllTypeUiTest extends ActivityTest<PickActivity> {
-
-    private boolean mHasQuickViewer;
 
     public PickerPreviewAllTypeUiTest() {
         super(PickActivity.class);
@@ -41,14 +34,11 @@ public class PickerPreviewAllTypeUiTest extends ActivityTest<PickActivity> {
     public void setUp() throws Exception {
         super.setUp();
         initTestFiles();
-
-        mHasQuickViewer = Shared.hasQuickViewer(context);
     }
 
     @Override
     protected void launchActivity() {
-        final Intent intent = context.getPackageManager().getLaunchIntentForPackage(
-                UiBot.targetPackageName);
+        final Intent intent = new Intent(context, PickActivity.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK);
         intent.setAction(Intent.ACTION_GET_CONTENT);
         if (getInitialRoot() != null) {
@@ -59,51 +49,19 @@ public class PickerPreviewAllTypeUiTest extends ActivityTest<PickActivity> {
         getActivity();  // Launch the activity.
     }
 
-    public void testPreviewInvisible_noQuickViewer_gridMode() throws Exception {
-        if (mHasQuickViewer) {
-            return;
-        }
-
-        bots.main.switchToGridMode();
-        assertTrue(bots.directory.findDocument(fileName1).isEnabled());
-        assertFalse(bots.directory.hasDocumentPreview(fileName1));
-    }
-
-    public void testPreviewInvisible_noQuickViewer_listMode() throws Exception {
-        if (mHasQuickViewer) {
-            return;
-        }
-
-        bots.main.switchToListMode();
-        assertTrue(bots.directory.findDocument(fileName1).isEnabled());
-        assertFalse(bots.directory.hasDocumentPreview(fileName1));
-    }
-
     public void testPreviewInvisible_directory_gridMode() throws Exception {
-        if (!mHasQuickViewer) {
-            return;
-        }
-
         bots.main.switchToGridMode();
         assertTrue(bots.directory.findDocument(dirName1).isEnabled());
         assertFalse(bots.directory.hasDocumentPreview(dirName1));
     }
 
     public void testPreviewInvisible_directory_listMode() throws Exception {
-        if (!mHasQuickViewer) {
-            return;
-        }
-
         bots.main.switchToListMode();
         assertTrue(bots.directory.findDocument(dirName1).isEnabled());
         assertFalse(bots.directory.hasDocumentPreview(dirName1));
     }
 
     public void testPreviewVisible_allType_girdMode() throws Exception {
-        if (!mHasQuickViewer) {
-            return;
-        }
-
         bots.main.switchToGridMode();
         assertTrue(bots.directory.findDocument(fileName1).isEnabled());
         assertTrue(bots.directory.hasDocumentPreview(fileName1));
@@ -112,10 +70,6 @@ public class PickerPreviewAllTypeUiTest extends ActivityTest<PickActivity> {
     }
 
     public void testPreviewVisible_allType_listMode() throws Exception {
-        if (!mHasQuickViewer) {
-            return;
-        }
-
         bots.main.switchToListMode();
         assertTrue(bots.directory.findDocument(fileName1).isEnabled());
         assertTrue(bots.directory.hasDocumentPreview(fileName1));

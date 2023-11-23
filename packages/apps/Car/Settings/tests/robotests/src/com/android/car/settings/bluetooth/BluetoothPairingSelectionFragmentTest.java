@@ -16,24 +16,23 @@
 
 package com.android.car.settings.bluetooth;
 
+import static com.android.car.ui.core.CarUi.requireToolbar;
+
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
-import android.app.Activity;
 import android.bluetooth.BluetoothDevice;
 import android.content.Context;
-import android.view.View;
-import android.widget.ProgressBar;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
-import com.android.car.settings.R;
 import com.android.car.settings.testutils.BaseTestActivity;
 import com.android.car.settings.testutils.FragmentController;
 import com.android.car.settings.testutils.ShadowBluetoothAdapter;
 import com.android.car.settings.testutils.ShadowBluetoothPan;
+import com.android.car.ui.core.testsupport.CarUiInstallerRobolectric;
+import com.android.car.ui.toolbar.ToolbarController;
 import com.android.settingslib.bluetooth.BluetoothCallback;
 import com.android.settingslib.bluetooth.BluetoothEventManager;
 import com.android.settingslib.bluetooth.CachedBluetoothDevice;
@@ -46,12 +45,13 @@ import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 import org.robolectric.util.ReflectionHelpers;
 
 /** Unit test for {@link BluetoothPairingSelectionFragment}. */
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 @Config(shadows = {ShadowBluetoothAdapter.class, ShadowBluetoothPan.class})
 public class BluetoothPairingSelectionFragmentTest {
 
@@ -73,6 +73,9 @@ public class BluetoothPairingSelectionFragmentTest {
 
         mFragment = new BluetoothPairingSelectionFragment();
         mFragmentController = FragmentController.of(mFragment);
+
+        // Needed to install Install CarUiLib BaseLayouts Toolbar for test activity
+        CarUiInstallerRobolectric.install();
     }
 
     @After
@@ -98,13 +101,10 @@ public class BluetoothPairingSelectionFragmentTest {
 
     @Test
     public void onStart_showsProgressBar() {
-        mFragmentController.create();
-        ProgressBar progressBar = findProgressBar(mFragment.requireActivity());
-        progressBar.setVisibility(View.GONE);
+        mFragmentController.setup();
+        ToolbarController toolbar = requireToolbar(mFragment.requireActivity());
 
-        mFragmentController.start();
-
-        assertThat(progressBar.getVisibility()).isEqualTo(View.VISIBLE);
+        assertThat(toolbar.getProgressBar().isVisible()).isTrue();
     }
 
     @Test
@@ -127,12 +127,12 @@ public class BluetoothPairingSelectionFragmentTest {
     @Test
     public void onStop_hidesProgressBar() {
         mFragmentController.setup().onPause();
-        ProgressBar progressBar = findProgressBar(mFragment.requireActivity());
-        progressBar.setVisibility(View.VISIBLE);
+        ToolbarController toolbar = requireToolbar(mFragment.requireActivity());
+        toolbar.getProgressBar().setVisible(true);
 
         mFragmentController.stop();
 
-        assertThat(progressBar.getVisibility()).isEqualTo(View.GONE);
+        assertThat(toolbar.getProgressBar().isVisible()).isFalse();
     }
 
     @Test
@@ -147,9 +147,5 @@ public class BluetoothPairingSelectionFragmentTest {
 
         assertThat(
                 ((BaseTestActivity) mFragment.requireActivity()).getOnBackPressedFlag()).isTrue();
-    }
-
-    private ProgressBar findProgressBar(Activity activity) {
-        return activity.findViewById(R.id.progress_bar);
     }
 }
